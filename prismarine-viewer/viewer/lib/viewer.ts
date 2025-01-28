@@ -3,12 +3,14 @@ import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
+import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 import { Entities } from './entities'
 import { Primitives } from './primitives'
 import { WorldRendererThree } from './worldrendererThree'
 import { WorldRendererCommon, WorldRendererConfig, defaultWorldRendererConfig } from './worldrendererCommon'
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
 import { addNewStat } from './ui/newStats'
+import { getMyHand } from './hand'
 
 export class Viewer {
   scene: THREE.Scene
@@ -88,6 +90,7 @@ export class Viewer {
       return new THREE.TextureLoader().loadAsync(this.world.itemsAtlasParser!.latestImage)
     }).then((texture) => {
       this.entities.itemsTexture = texture
+      this.world.renderUpdateEmitter.emit('itemsTextureDownloaded')
     })
   }
 
@@ -104,7 +107,11 @@ export class Viewer {
       const sectionX = Math.floor(pos.x / 16) * 16
       const sectionZ = Math.floor(pos.z / 16) * 16
       if (this.world.queuedChunks.has(`${sectionX},${sectionZ}`)) {
-        await this.world.waitForChunkToLoad(pos)
+        await new Promise<void>(resolve => {
+          this.world.queuedFunctions.push(() => {
+            resolve()
+          })
+        })
       }
       if (!this.world.loadedChunks[`${sectionX},${sectionZ}`]) {
         console.debug('[should be unreachable] setBlockStateId called for unloaded chunk', pos)
@@ -114,18 +121,12 @@ export class Viewer {
     void set()
   }
 
-  demoModel () {
+  async demoModel () {
     //@ts-expect-error
     const pos = cursorBlockRel(0, 1, 0).position
     const blockProvider = worldBlockProvider(this.world.blockstatesModels, this.world.blocksAtlases, 'latest')
-    const models = blockProvider.getAllResolvedModels0_1({
-      name: 'item_frame',
-      properties: {
-        // map: false
-      }
-    }, true)
-    const { material } = this.world
-    const mesh = getThreeBlockModelGroup(material, models, undefined, 'plains', loadedData)
+
+    const mesh = await getMyHand()
     // mesh.rotation.y = THREE.MathUtils.degToRad(90)
     setBlockPosition(mesh, pos)
     const helper = new THREE.BoxHelper(mesh, 0xff_ff_00)
@@ -158,7 +159,7 @@ export class Viewer {
     }))
   }
 
-  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number, roll = 0) {
+  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
     const cam = this.cameraObjectOverride || this.camera
     let yOffset = this.getMineflayerBot()?.entity?.eyeHeight ?? this.playerHeight
     if (this.isSneaking) yOffset -= 0.3
@@ -225,6 +226,10 @@ export class Viewer {
               this.world.queuedChunks.delete(`${args[0]},${args[1]}`)
               this.addColumn(...args as Parameters<typeof this.addColumn>)
             }
+            for (const fn of this.world.queuedFunctions) {
+              fn()
+            }
+            this.world.queuedFunctions = []
             currentLoadChunkBatch = null
           }, this.addChunksBatchWaitTime)
         }

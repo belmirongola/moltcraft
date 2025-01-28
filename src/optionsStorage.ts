@@ -52,6 +52,7 @@ const defaultOptions = {
   modsSupport: false,
   modsAutoUpdate: 'check' as 'check' | 'never' | 'always',
   modsUpdatePeriodCheck: 24, // hours
+  packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
 
   // antiAliasing: false,
 
@@ -83,6 +84,7 @@ const defaultOptions = {
   autoParkour: false,
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
   renderDebug: (isDev ? 'advanced' : 'basic') as 'none' | 'advanced' | 'basic',
+  autoVersionSelect: '1.20.4',
 
   // advanced bot options
   autoRespawn: false,
@@ -95,7 +97,7 @@ const defaultOptions = {
   minimapOptimizations: true,
   displayBossBars: false, // boss bar overlay was removed for some reason, enable safely
   disabledUiParts: [] as string[],
-  neighborChunkUpdates: true
+  neighborChunkUpdates: true,
 }
 
 function getDefaultTouchControlsPositions () {

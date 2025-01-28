@@ -17,7 +17,7 @@ const addPositions = [
 
 test('Known blocks are not rendered', () => {
   const { mesherWorld, getGeometry, pos, mcData } = setup(lastVersion, addPositions as any)
-  const ignoreAsExpected = new Set([...INVISIBLE_BLOCKS, 'water', 'lava', 'moving_piston', 'light'])
+  const ignoreAsExpected = new Set([...INVISIBLE_BLOCKS, 'water', 'lava'])
 
   let time = 0
   let times = 0
@@ -43,11 +43,12 @@ test('Known blocks are not rendered', () => {
       }
     }
   }
+  console.log('Checking blocks of version', lastVersion)
   console.log('Average time', time / times)
   // should be fixed, but to avoid regressions & for visibility
+  // TODO resolve creaking_heart issue (1.21.3)
   expect(missingBlocks).toMatchInlineSnapshot(`
     {
-      "bubble_column": true,
       "end_gateway": true,
       "end_portal": true,
       "structure_void": true,

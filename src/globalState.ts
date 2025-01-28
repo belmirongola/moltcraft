@@ -114,6 +114,9 @@ export type AppConfig = {
   peerJsServerFallback?: string
   promoteServers?: Array<{ ip, description, version? }>
   mapsProvider?: string
+
+  defaultSettings?: Record<string, any>
+  allowAutoConnect?: boolean
 }
 
 export const miscUiState = proxy({
@@ -154,6 +157,7 @@ export const gameAdditionalState = proxy({
   isFlying: false,
   isSprinting: false,
   isSneaking: false,
+  isZooming: false,
   warps: [] as WorldWarp[]
 })
 
