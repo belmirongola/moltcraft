@@ -503,7 +503,6 @@ const Inner = (
     toggleFullMap?: ({ command }: { command?: string }) => void
   }
 ) => {
-
   const updateWarps = (newWarps: WorldWarp[] | Error) => {
     if (newWarps instanceof Error) {
       console.error('An error occurred:', newWarps.message)
@@ -511,6 +510,7 @@ const Inner = (
     }
 
     adapter.overwriteWarps(newWarps)
+    currentGameWarps.value = newWarps
   }
 
   const updateMap = () => {
@@ -523,9 +523,14 @@ const Inner = (
   useEffect(() => {
     bot.on('move', updateMap)
     localServer?.on('warpsUpdated' as keyof ServerEvents, updateWarps)
+    const syncWarps = () => {
+      currentGameWarps.value = adapter.warps
+    }
+    adapter.on('updateWarps', syncWarps)
 
     return () => {
       bot?.off('move', updateMap)
+      adapter.off('updateWarps', syncWarps)
       localServer?.off('warpsUpdated' as keyof ServerEvents, updateWarps)
     }
   }, [])
@@ -541,6 +546,10 @@ const Inner = (
       displayMode={displayMode}
     />
   </div>
+}
+
+export const currentGameWarps = {
+  value: [] as WorldWarp[]
 }
 
 export default ({ displayMode }: { displayMode?: DisplayMode }) => {

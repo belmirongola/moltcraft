@@ -6,6 +6,7 @@ import * as tweenJs from '@tweenjs/tween.js'
 import { BloomPass, RenderPass, UnrealBloomPass, EffectComposer, WaterPass, GlitchPass, LineSegmentsGeometry, Wireframe, LineMaterial } from 'three-stdlib'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
 import { renderSign } from '../sign-renderer'
+import { currentGameWarps } from '../../../src/react/MinimapProvider'
 import { chunkPos, sectionPos } from './simpleUtils'
 import { WorldRendererCommon, WorldRendererConfig } from './worldrendererCommon'
 import { disposeObject } from './threeJsUtils'
@@ -25,6 +26,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   holdingBlock: HoldingBlock
   holdingBlockLeft: HoldingBlock
   rendererDevice = '...'
+  warpMarkers = new Map<string, { label: THREE.Sprite; beam: THREE.Line }>()
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -50,6 +52,13 @@ export class WorldRendererThree extends WorldRendererCommon {
       if (this.holdingBlockLeft.toBeRenderedItem) {
         this.onHandItemSwitch(this.holdingBlock.toBeRenderedItem, true)
         this.holdingBlockLeft.toBeRenderedItem = undefined
+      }
+    })
+
+    // Listen for warp updates from the adapter
+    viewer.world?.renderUpdateEmitter.on('updateWarps', () => {
+      if (viewer.world instanceof WorldRendererThree) {
+        this.updateWarpMarkers(currentGameWarps.value)
       }
     })
 
@@ -326,6 +335,13 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   resetWorld () {
+    // Remove warp markers
+    for (const { label, beam } of this.warpMarkers.values()) {
+      this.scene.remove(label)
+      this.scene.remove(beam)
+    }
+    this.warpMarkers.clear()
+
     super.resetWorld()
 
     for (const mesh of Object.values(this.sectionObjects)) {
@@ -417,6 +433,76 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
     this.scene.add(group)
     this.interactionLines = { blockPos, mesh: group }
+  }
+
+  updateWarpMarkers (warps: Array<{ name: string; x: number; y: number; z: number; color?: string }>) {
+    // Remove old markers
+    for (const { label, beam } of this.warpMarkers.values()) {
+      this.scene.remove(label)
+      this.scene.remove(beam)
+    }
+    this.warpMarkers.clear()
+
+    // Add new markers
+    for (const warp of warps) {
+      // Create floating label
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) continue
+
+      // Set canvas size and font
+      canvas.width = 256
+      canvas.height = 64
+      ctx.font = '48px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      // Draw background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Draw text
+      ctx.fillStyle = warp.color || '#ffffff'
+      ctx.fillText(warp.name, canvas.width / 2, canvas.height / 2)
+
+      // Create sprite texture
+      const texture = new THREE.Texture(canvas)
+      texture.needsUpdate = true
+
+      // Create sprite material and mesh
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false
+      })
+      const sprite = new THREE.Sprite(spriteMaterial)
+      sprite.scale.set(2, 0.5, 1)
+      sprite.position.set(warp.x + 0.5, warp.y + 2.5, warp.z + 0.5)
+      sprite.renderOrder = 999_999
+
+      // Create beam geometry
+      const beamGeometry = new THREE.BufferGeometry()
+      const beamMaterial = new THREE.LineBasicMaterial({
+        color: warp.color || '#ffffff',
+        transparent: true,
+        opacity: 0.3,
+        depthTest: false
+      })
+
+      // Beam vertices from warp location up into sky
+      const vertices = new Float32Array([
+        warp.x + 0.5, warp.y + 0.5, warp.z + 0.5,
+        warp.x + 0.5, warp.y + 256, warp.z + 0.5
+      ])
+      beamGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+      const beam = new THREE.Line(beamGeometry, beamMaterial)
+      beam.renderOrder = 999_998
+
+      // Add to scene and store
+      this.scene.add(sprite)
+      this.scene.add(beam)
+      this.warpMarkers.set(warp.name, { label: sprite, beam })
+    }
   }
 
   static getRendererInfo (renderer: THREE.WebGLRenderer) {
