@@ -5,8 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@nxg-org/mineflayer-physics-util': latest
   buffer: ^6.0.3
-  '@nxg-org/mineflayer-physics-util': 1.5.8
   three: 0.154.0
   diamond-square: github:zardoy/diamond-square
   prismarine-block: github:zardoy/prismarine-block#next-era
@@ -352,8 +352,8 @@ importers:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
       mineflayer:
-        specifier: github:zardoy/mineflayer
-        version: https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5(encoding@0.1.13)
+        specifier: file:../mineflayer
+        version: file:../mineflayer(encoding@0.1.13)
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -1899,8 +1899,8 @@ packages:
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     resolution: {integrity: sha512-F5vX/lerlWx/5HVlkDNbvrtQ19PL6iG8i4ItPTIRtjGiFzusDefP7DI226zSFR8Wlaw45qHv0jn814p/4/qVdQ==}
 
-  '@nxg-org/mineflayer-physics-util@1.5.8':
-    resolution: {integrity: sha512-KmCkAqpUo8BbuRdIBs6+V2hWHehz++PRz3lRwIsb47CuG0u4sgLYh37RY3ifAznC6uWvmPK+q3B4ZXwJzPy1MQ==}
+  '@nxg-org/mineflayer-physics-util@1.7.8':
+    resolution: {integrity: sha512-4GoEUizqRict5myB4rjZJuEq8jctiqne1CqixfRfKD7SvSruOJLNo34aJBnz4wYs+VuwEMvPvOD6Jj8VrEW0mg==}
 
   '@nxg-org/mineflayer-tracker@1.2.1':
     resolution: {integrity: sha512-SI1ffF8zvg3/ZNE021Ja2W0FZPN+WbQDZf8yFqOcXtPRXAtM9W6HvoACdzXep8BZid7WYgYLIgjKpB+9RqvCNQ==}
@@ -6479,9 +6479,8 @@ packages:
     resolution: {integrity: sha512-q7cmpZFaSI6sodcMJxc2GkV8IO84HbsUP+xNipGKfGg+FMISKabzdJ838Axb60qRtZrp6ny7LluQE7lesHvvxQ==}
     engines: {node: '>=18'}
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5:
-    resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5}
-    version: 4.25.0
+  mineflayer@file:../mineflayer:
+    resolution: {directory: ../mineflayer, type: directory}
     engines: {node: '>=18'}
 
   minimalistic-assert@1.0.1:
@@ -7174,6 +7173,9 @@ packages:
 
   prismarine-entity@2.3.1:
     resolution: {integrity: sha512-HOv8l7IetHNf4hwZ7V/W4vM3GNl+e6VCtKDkH9h02TRq7jWngsggKtJV+VanCce/sNwtJUhJDjORGs728ep4MA==}
+
+  prismarine-entity@2.5.0:
+    resolution: {integrity: sha512-nRPCawUwf9r3iKqi4I7mZRlir1Ix+DffWYdWq6p/KNnmiXve+xHE5zv8XCdhZlUmOshugHv5ONl9o6ORAkCNIA==}
 
   prismarine-item@1.16.0:
     resolution: {integrity: sha512-88Tz+/6HquYIsDuseae5G3IbqLeMews2L+ba2gX+p6K6soU9nuFhCfbwN56QuB7d/jZFcWrCYAPE5+UhwWh67w==}
@@ -10926,10 +10928,10 @@ snapshots:
 
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.5.8
+      '@nxg-org/mineflayer-physics-util': 1.7.8
       strict-event-emitter-types: 2.0.0
 
-  '@nxg-org/mineflayer-physics-util@1.5.8':
+  '@nxg-org/mineflayer-physics-util@1.7.8':
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.3
 
@@ -17027,7 +17029,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5(encoding@0.1.13):
+  mineflayer@file:../mineflayer(encoding@0.1.13):
     dependencies:
       minecraft-data: 3.83.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=3wm2z233n46lqi64rbxem4nyv4)(encoding@0.1.13)
@@ -17035,7 +17037,7 @@ snapshots:
       prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
       prismarine-chat: 1.10.1
       prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
-      prismarine-entity: 2.3.1
+      prismarine-entity: 2.5.0
       prismarine-item: 1.16.0
       prismarine-nbt: 2.5.0
       prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
@@ -17837,6 +17839,13 @@ snapshots:
       - minecraft-data
 
   prismarine-entity@2.3.1:
+    dependencies:
+      prismarine-chat: 1.10.1
+      prismarine-item: 1.16.0
+      prismarine-registry: 1.11.0
+      vec3: 0.1.8
+
+  prismarine-entity@2.5.0:
     dependencies:
       prismarine-chat: 1.10.1
       prismarine-item: 1.16.0

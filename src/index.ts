@@ -750,9 +750,8 @@ async function connect (connectOptions: ConnectOptions) {
     const minPitch = -0.5 * Math.PI
     mouseMovePostHandle = ({ x, y }) => {
       viewer.world.lastCamUpdate = Date.now()
-      bot.entity.pitch -= y
-      bot.entity.pitch = Math.max(minPitch, Math.min(maxPitch, bot.entity.pitch))
-      bot.entity.yaw -= x
+      const pitch = bot.entity.pitch - y
+      void bot.look(bot.entity.yaw - x, Math.max(minPitch, Math.min(maxPitch, pitch)), true)
     }
 
     function changeCallback () {

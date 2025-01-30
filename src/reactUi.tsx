@@ -46,6 +46,7 @@ import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
 import DebugEdges from './react/DebugEdges'
+import LibraryVersions from './react/components/LibraryVersions'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -174,6 +175,7 @@ const App = () => {
         </div>
         <div />
       </RobustPortal>
+      <LibraryVersions />
       <EnterFullscreenButton />
       <InGameUi />
       <RobustPortal to={document.querySelector('#ui-root')}>
