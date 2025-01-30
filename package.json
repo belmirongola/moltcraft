@@ -145,7 +145,7 @@
     "https-browserify": "^1.0.0",
     "mc-assets": "^0.2.28",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
-    "mineflayer": "file:../mineflayer",
+    "mineflayer": "github:GenerelSchwerz/mineflayer",
     "mineflayer-pathfinder": "^2.4.4",
     "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
