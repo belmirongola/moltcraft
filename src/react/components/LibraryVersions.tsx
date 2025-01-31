@@ -2,11 +2,12 @@ import React from 'react'
 import physicsUtilPkg from '@nxg-org/mineflayer-physics-util/package.json'
 import mineflayerPkg from 'mineflayer/package.json'
 import mcProtocolPkg from 'minecraft-protocol/package.json'
+import packageJson from '../../../package.json'
 
 const LibraryVersions: React.FC = () => {
   const versions = {
-    'mineflayer-physics-util': physicsUtilPkg.version,
-    'mineflayer': mineflayerPkg.version,
+    '@nxg-org/mineflayer-physics-util': physicsUtilPkg.version,
+    'mineflayer': packageJson.devDependencies['mineflayer'],
     'minecraft-protocol': mcProtocolPkg.version
   }
 
@@ -26,7 +27,7 @@ const LibraryVersions: React.FC = () => {
     >
       <div>Library Versions:</div>
       {Object.entries(versions).map(([lib, version]) => (
-        <div key={lib}>
+        <div key={lib} style={{ marginTop: '5px' }}>
           {lib}: {version}
         </div>
       ))}
