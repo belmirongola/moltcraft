@@ -8,10 +8,12 @@ import PixelartIcon from './PixelartIcon'
 
 interface Props extends React.ComponentProps<'button'> {
   label?: string
+  postLabel?: React.ReactNode
   icon?: string
   children?: React.ReactNode
   inScreen?: boolean
   rootRef?: Ref<HTMLButtonElement>
+  overlayColor?: string
 }
 
 const ButtonContext = createContext({
@@ -22,7 +24,7 @@ export const ButtonProvider: FC<{ children, onClick }> = ({ children, onClick })
   return <ButtonContext.Provider value={{ onClick }}>{children}</ButtonContext.Provider>
 }
 
-export default (({ label, icon, children, inScreen, rootRef, type = 'button', ...args }) => {
+export default (({ label, icon, children, inScreen, rootRef, type = 'button', postLabel, overlayColor, ...args }) => {
   const ctx = useContext(ButtonContext)
 
   const onClick = (e) => {
@@ -42,7 +44,15 @@ export default (({ label, icon, children, inScreen, rootRef, type = 'button', ..
     <button ref={rootRef} {...args} className={classNames(buttonCss.button, args.className)} onClick={onClick} type={type}>
       {icon && <PixelartIcon className={buttonCss.icon} iconName={icon} />}
       {label}
+      {postLabel}
       {children}
+      {overlayColor && <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundColor: overlayColor,
+        opacity: 0.5,
+        pointerEvents: 'none'
+      }} />}
     </button>
   </SharedHudVars>
 }) satisfies FC<Props>

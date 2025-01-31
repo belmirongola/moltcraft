@@ -1,9 +1,9 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import Screen from './Screen'
 import Input from './Input'
 import Button from './Button'
 import SelectGameVersion from './SelectGameVersion'
-import { useIsSmallWidth } from './simpleHooks'
+import { useIsSmallWidth, usePassesWindowDimensions } from './simpleHooks'
 
 export interface BaseServerInfo {
   ip: string
@@ -22,15 +22,17 @@ interface Props {
   initialData?: BaseServerInfo
   parseQs?: boolean
   onQsConnect?: (server: BaseServerInfo) => void
-  defaults?: Pick<BaseServerInfo, 'proxyOverride' | 'usernameOverride'>
+  placeholders?: Pick<BaseServerInfo, 'proxyOverride' | 'usernameOverride'>
   accounts?: string[]
   authenticatedAccounts?: number
   versions?: string[]
+  allowAutoConnect?: boolean
 }
 
 const ELEMENTS_WIDTH = 190
 
-export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, defaults, accounts, versions, authenticatedAccounts }: Props) => {
+export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, placeholders, accounts, versions, allowAutoConnect }: Props) => {
+  const isSmallHeight = !usePassesWindowDimensions(null, 350)
   const qsParams = parseQs ? new URLSearchParams(window.location.search) : undefined
   const qsParamName = qsParams?.get('name')
   const qsParamIp = qsParams?.get('ip')
@@ -40,7 +42,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const qsParamLockConnect = qsParams?.get('lockConnect')
 
   const qsIpParts = qsParamIp?.split(':')
-  const ipParts = initialData?.ip.split(':')
+  const ipParts = initialData?.ip ? initialData?.ip.split(':') : undefined
 
   const [serverName, setServerName] = React.useState(initialData?.name ?? qsParamName ?? '')
   const [serverIp, setServerIp] = React.useState(ipParts?.[0] ?? qsIpParts?.[0] ?? '')
@@ -69,6 +71,12 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
     authenticatedAccountOverride,
   }
 
+  useEffect(() => {
+    if (qsParams?.get('autoConnect') === 'true' && qsParams?.get('ip') && allowAutoConnect) {
+      onQsConnect?.(commonUseOptions)
+    }
+  }, [])
+
   return <Screen title={qsParamIp ? 'Connect to Server' : title} backdrop>
     <form
       style={{
@@ -94,7 +102,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
         </>}
         <InputWithLabel required label="Server IP" value={serverIp} disabled={lockConnect && qsIpParts?.[0] !== null} onChange={({ target: { value } }) => setServerIp(value)} />
         <InputWithLabel label="Server Port" value={serverPort} disabled={lockConnect && qsIpParts?.[1] !== null} onChange={({ target: { value } }) => setServerPort(value)} placeholder='25565' />
-        <div style={{ gridColumn: smallWidth ? '' : 'span 2' }}>Overrides:</div>
+        {isSmallHeight ? <div style={{ gridColumn: 'span 2', marginTop: 10, }} /> : <div style={{ gridColumn: smallWidth ? '' : 'span 2' }}>Overrides:</div>}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -111,8 +119,8 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
           />
         </div>
 
-        <InputWithLabel label="Proxy Override" value={proxyOverride} disabled={lockConnect && qsParamProxy !== null} onChange={({ target: { value } }) => setProxyOverride(value)} placeholder={defaults?.proxyOverride} />
-        <InputWithLabel label="Username Override" value={usernameOverride} disabled={!noAccountSelected || lockConnect && qsParamUsername !== null} onChange={({ target: { value } }) => setUsernameOverride(value)} placeholder={defaults?.usernameOverride} />
+        <InputWithLabel label="Proxy Override" value={proxyOverride} disabled={lockConnect && qsParamProxy !== null} onChange={({ target: { value } }) => setProxyOverride(value)} placeholder={placeholders?.proxyOverride} />
+        <InputWithLabel label="Username Override" value={usernameOverride} disabled={!noAccountSelected || lockConnect && qsParamUsername !== null} onChange={({ target: { value } }) => setUsernameOverride(value)} placeholder={placeholders?.usernameOverride} />
         <label style={{
           display: 'flex',
           flexDirection: 'column',

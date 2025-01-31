@@ -1,6 +1,7 @@
 //@ts-check
 
 import { proxy, ref, subscribe } from 'valtio'
+import { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import { pointerLock } from './utils'
 import type { OptionsGroupType } from './optionsGuiScheme'
 
@@ -85,6 +86,13 @@ export const hideCurrentModal = (_data?, onHide?: () => void) => {
   }
 }
 
+export const hideAllModals = () => {
+  while (activeModalStack.length > 0) {
+    if (!hideModal()) break
+  }
+  return activeModalStack.length === 0
+}
+
 export const openOptionsMenu = (group: OptionsGroupType) => {
   showModal({ reactType: `options-${group}` })
 }
@@ -113,6 +121,9 @@ export type AppConfig = {
   peerJsServerFallback?: string
   promoteServers?: Array<{ ip, description, version? }>
   mapsProvider?: string
+
+  defaultSettings?: Record<string, any>
+  allowAutoConnect?: boolean
 }
 
 export const miscUiState = proxy({
@@ -153,6 +164,8 @@ export const gameAdditionalState = proxy({
   isFlying: false,
   isSprinting: false,
   isSneaking: false,
+  isZooming: false,
+  warps: [] as WorldWarp[]
 })
 
 window.gameAdditionalState = gameAdditionalState

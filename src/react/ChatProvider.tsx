@@ -21,6 +21,7 @@ export default () => {
 
   useEffect(() => {
     bot.addListener('message', (jsonMsg, position) => {
+      if (position === 'game_info') return // ignore action bar messages, they are handled by the TitleProvider
       const parts = formatMessage(jsonMsg)
 
       setMessages(m => {

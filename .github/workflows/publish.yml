@@ -20,6 +20,10 @@ jobs:
       - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - run: node scripts/replaceFavicon.mjs ${{ secrets.FAVICON_MAIN }}
       # will install + build to .vercel/output/static
+      - name: Get Release Info
+        run: pnpx zardoy-release empty --skip-github --output-file assets/release.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
       - run: pnpm build-storybook
       - name: Copy playground files

@@ -6,9 +6,13 @@ WORKDIR /app
 COPY . /app
 # install pnpm
 RUN npm i -g pnpm@9.0.4
+# Build arguments
+ARG DOWNLOAD_SOUNDS=false
 # TODO need flat --no-root-optional
 RUN node ./scripts/dockerPrepare.mjs
 RUN pnpm i
+# Download sounds if flag is enabled
+RUN if [ "$DOWNLOAD_SOUNDS" = "true" ] ; then node scripts/downloadSoundsMap.mjs ; fi
 
 # TODO for development
 # EXPOSE 9090
@@ -17,7 +21,7 @@ RUN pnpm i
 # ENTRYPOINT ["pnpm", "run", "run-all"]
 
 # only for prod
-RUN pnpm run build
+RUN GITHUB_REPOSITORY=zardoy/minecraft-web-client pnpm run build
 
 # ---- Run Stage ----
 FROM node:18-alpine
@@ -31,4 +35,5 @@ RUN npm i -g pnpm@9.0.4
 RUN npm init -yp
 RUN pnpm i express github:zardoy/prismarinejs-net-browserify compression cors
 EXPOSE 8080
+VOLUME /app/dist
 ENTRYPOINT ["node", "server.js", "--prod"]

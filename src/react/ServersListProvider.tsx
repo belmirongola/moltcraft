@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useUtilsEffect } from '@zardoy/react-util'
+import { useSnapshot } from 'valtio'
 import { ConnectOptions } from '../connect'
-import { hideCurrentModal, miscUiState, showModal } from '../globalState'
+import { activeModalStack, hideCurrentModal, miscUiState, showModal } from '../globalState'
 import supportedVersions from '../supportedVersions.mjs'
 import ServersList from './ServersList'
 import AddServerOrConnect, { BaseServerInfo } from './AddServerOrConnect'
 import { useDidUpdateEffect } from './utils'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
+import { useCopyKeybinding } from './simpleHooks'
 
 interface StoreServerItem extends BaseServerInfo {
   lastJoined?: number
@@ -45,6 +47,7 @@ type AdditionalDisplayData = {
   formattedText: string
   textNameRight: string
   icon?: string
+  offline?: boolean
 }
 
 export interface AuthenticatedAccount {
@@ -91,7 +94,11 @@ const getInitialServersList = () => {
   return servers
 }
 
-const setNewServersList = (serversList: StoreServerItem[]) => {
+const serversListQs = new URLSearchParams(window.location.search).get('serversList')
+const proxyQs = new URLSearchParams(window.location.search).get('proxy')
+
+const setNewServersList = (serversList: StoreServerItem[], force = false) => {
+  if (serversListQs && !force) return
   localStorage['serversList'] = JSON.stringify(serversList)
 
   // cleanup legacy
@@ -132,33 +139,56 @@ export const updateAuthenticatedAccountData = (callback: (data: AuthenticatedAcc
 // todo move to base
 const normalizeIp = (ip: string) => ip.replace(/https?:\/\//, '').replace(/\/(:|$)/, '')
 
-const Inner = () => {
+const FETCH_DELAY = 100 // ms between each request
+const MAX_CONCURRENT_REQUESTS = 10
+
+const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersList?: string[] }) => {
   const [proxies, setProxies] = useState<readonly string[]>(localStorage['proxies'] ? JSON.parse(localStorage['proxies']) : getInitialProxies())
-  const [selectedProxy, setSelectedProxy] = useState(localStorage.getItem('selectedProxy') ?? proxies?.[0] ?? '')
+  const [selectedProxy, setSelectedProxy] = useState(proxyQs ?? localStorage.getItem('selectedProxy') ?? proxies?.[0] ?? '')
   const [serverEditScreen, setServerEditScreen] = useState<StoreServerItem | true | null>(null) // true for add
-  const [defaultUsername, setDefaultUsername] = useState(localStorage['username'] ?? (`mcrafter${Math.floor(Math.random() * 1000)}`))
-  const [authenticatedAccounts, setAuthenticatedAccounts] = useState<AuthenticatedAccount[]>(JSON.parse(localStorage['authenticatedAccounts'] || '[]'))
+  const [defaultUsername, _setDefaultUsername] = useState(localStorage['username'] ?? (`mcrafter${Math.floor(Math.random() * 1000)}`))
+  const [authenticatedAccounts, _setAuthenticatedAccounts] = useState<AuthenticatedAccount[]>(JSON.parse(localStorage['authenticatedAccounts'] || '[]'))
+  const [quickConnectIp, setQuickConnectIp] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  const setAuthenticatedAccounts = (newState: typeof authenticatedAccounts) => {
+    _setAuthenticatedAccounts(newState)
+    localStorage.setItem('authenticatedAccounts', JSON.stringify(newState))
+  }
+
+  const setDefaultUsername = (newState: typeof defaultUsername) => {
+    _setDefaultUsername(newState)
+    localStorage.setItem('username', newState)
+  }
+
+  const saveNewProxy = () => {
+    if (!selectedProxy || proxyQs) return
+    localStorage.setItem('selectedProxy', selectedProxy)
+  }
 
   useEffect(() => {
-    localStorage.setItem('authenticatedAccounts', JSON.stringify(authenticatedAccounts))
-  }, [authenticatedAccounts])
-
-  useEffect(() => {
-    localStorage.setItem('username', defaultUsername)
-  }, [defaultUsername])
-
-  useEffect(() => {
-    // TODO! do not unmount on connecting screen
-    // if (proxies.length) {
-    //   localStorage.setItem('proxies', JSON.stringify(proxies))
-    // }
-    // if (selectedProxy) {
-    //   localStorage.setItem('selectedProxy', selectedProxy)
-    // }
+    if (proxies.length) {
+      localStorage.setItem('proxies', JSON.stringify(proxies))
+    }
+    saveNewProxy()
   }, [proxies])
 
-  const [serversList, setServersList] = useState<StoreServerItem[]>(() => getInitialServersList())
+  const [serversList, setServersList] = useState<StoreServerItem[]>(() => (customServersList ? [] : getInitialServersList()))
   const [additionalData, setAdditionalData] = useState<Record<string, AdditionalDisplayData>>({})
+
+  useEffect(() => {
+    if (customServersList) {
+      setServersList(customServersList.map(row => {
+        const [ip, name] = row.split(' ')
+        const [_ip, _port, version] = ip.split(':')
+        return {
+          ip,
+          versionOverride: version,
+          name,
+        }
+      }))
+    }
+  }, [customServersList])
 
   useDidUpdateEffect(() => {
     // save data only on user changes
@@ -172,29 +202,68 @@ const Inner = () => {
 
   useUtilsEffect(({ signal }) => {
     const update = async () => {
-      for (const server of serversListSorted) {
-        const isInLocalNetwork = server.ip.startsWith('192.168.') || server.ip.startsWith('10.') || server.ip.startsWith('172.') || server.ip.startsWith('127.') || server.ip.startsWith('localhost')
-        if (isInLocalNetwork || signal.aborted) continue
-        // eslint-disable-next-line no-await-in-loop
-        await fetch(`https://api.mcstatus.io/v2/status/java/${server.ip}`, {
-          // TODO: bounty for this who fix it
-          // signal
-        }).then(async r => r.json()).then((data: ServerResponse) => {
-          const versionClean = data.version?.name_raw.replace(/^[^\d.]+/, '')
-          if (!versionClean) return
-          setAdditionalData(old => {
-            return ({
-              ...old,
-              [server.ip]: {
-                formattedText: data.motd?.raw ?? '',
-                textNameRight: `${versionClean} ${data.players?.online ?? '??'}/${data.players?.max ?? '??'}`,
-                icon: data.icon,
-              }
-            })
-          })
+      const queue = serversListSorted
+        .map(server => {
+          const isInLocalNetwork = server.ip.startsWith('192.168.') ||
+            server.ip.startsWith('10.') ||
+            server.ip.startsWith('172.') ||
+            server.ip.startsWith('127.') ||
+            server.ip.startsWith('localhost') ||
+            server.ip.startsWith(':')
+
+          const VALID_IP_OR_DOMAIN = server.ip.includes('.')
+          if (isInLocalNetwork || signal.aborted || !VALID_IP_OR_DOMAIN) return null
+
+          return server
         })
+        .filter(x => x !== null)
+
+      const activeRequests = new Set<Promise<void>>()
+
+      let lastRequestStart = 0
+      for (const server of queue) {
+        // Wait if at concurrency limit
+        if (activeRequests.size >= MAX_CONCURRENT_REQUESTS) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.race(activeRequests)
+        }
+
+        // Create and track new request
+        // eslint-disable-next-line @typescript-eslint/no-loop-func
+        const request = new Promise<void>(resolve => {
+          setTimeout(async () => {
+            try {
+              lastRequestStart = Date.now()
+              if (signal.aborted) return
+              const response = await fetch(`https://api.mcstatus.io/v2/status/java/${server.ip}`, { signal })
+              const data: ServerResponse = await response.json()
+              const versionClean = data.version?.name_raw.replace(/^[^\d.]+/, '')
+
+              setAdditionalData(old => ({
+                ...old,
+                [server.ip]: {
+                  formattedText: data.motd?.raw ?? '',
+                  textNameRight: data.online ?
+                    `${versionClean} ${data.players?.online ?? '??'}/${data.players?.max ?? '??'}` :
+                    '',
+                  icon: data.icon,
+                  offline: !data.online
+                }
+              }))
+            } finally {
+              activeRequests.delete(request)
+              resolve()
+            }
+          }, lastRequestStart ? Math.max(0, FETCH_DELAY - (Date.now() - lastRequestStart)) : 0)
+        })
+
+        activeRequests.add(request)
       }
+
+      // Wait for remaining requests
+      await Promise.all(activeRequests)
     }
+
     void update()
   }, [serversListSorted])
 
@@ -215,46 +284,57 @@ const Inner = () => {
     }
   }, [isEditScreenModal])
 
-  if (isEditScreenModal) {
-    return <AddServerOrConnect
-      defaults={{
-        proxyOverride: selectedProxy,
-        usernameOverride: defaultUsername,
-      }}
-      parseQs={!serverEditScreen}
-      onBack={() => {
-        hideCurrentModal()
-      }}
-      onConfirm={(info) => {
-        if (!serverEditScreen) return
-        if (serverEditScreen === true) {
-          const server: StoreServerItem = { ...info, lastJoined: Date.now() } // so it appears first
-          setServersList(old => [...old, server])
-        } else {
-          const index = serversList.indexOf(serverEditScreen)
-          const { lastJoined } = serversList[index]
-          serversList[index] = { ...info, lastJoined }
-          setServersList([...serversList])
-        }
-        setServerEditScreen(null)
-      }}
-      accounts={authenticatedAccounts.map(a => a.username)}
-      initialData={!serverEditScreen || serverEditScreen === true ? undefined : serverEditScreen}
-      onQsConnect={(info) => {
-        const connectOptions: ConnectOptions = {
-          username: info.usernameOverride || defaultUsername,
-          server: normalizeIp(info.ip),
-          proxy: info.proxyOverride || selectedProxy,
-          botVersion: info.versionOverride,
-          ignoreQs: true,
-        }
-        dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
-      }}
-      versions={supportedVersions}
-    />
-  }
+  useCopyKeybinding(() => {
+    const item = serversList[selectedIndex]
+    if (!item) return
+    let str = `${item.ip}`
+    if (item.versionOverride) {
+      str += `:${item.versionOverride}`
+    }
+    return str
+  })
 
-  return <ServersList
+  const editModalJsx = isEditScreenModal ? <AddServerOrConnect
+    allowAutoConnect={miscUiState.appConfig?.allowAutoConnect}
+    placeholders={{
+      proxyOverride: selectedProxy,
+      usernameOverride: defaultUsername,
+    }}
+    parseQs={!serverEditScreen}
+    onBack={() => {
+      hideCurrentModal()
+    }}
+    onConfirm={(info) => {
+      if (!serverEditScreen) return
+      if (serverEditScreen === true) {
+        const server: StoreServerItem = { ...info, lastJoined: Date.now() } // so it appears first
+        setServersList(old => [...old, server])
+      } else {
+        const index = serversList.indexOf(serverEditScreen)
+        const { lastJoined } = serversList[index]
+        serversList[index] = { ...info, lastJoined }
+        setServersList([...serversList])
+      }
+      setServerEditScreen(null)
+    }}
+    accounts={authenticatedAccounts.map(a => a.username)}
+    initialData={!serverEditScreen || serverEditScreen === true ? {
+      ip: quickConnectIp
+    } : serverEditScreen}
+    onQsConnect={(info) => {
+      const connectOptions: ConnectOptions = {
+        username: info.usernameOverride || defaultUsername,
+        server: normalizeIp(info.ip),
+        proxy: info.proxyOverride || selectedProxy,
+        botVersion: info.versionOverride,
+        ignoreQs: true,
+      }
+      dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
+    }}
+    versions={supportedVersions}
+  /> : null
+
+  const serversListJsx = <ServersList
     joinServer={(overrides, { shouldSave }) => {
       const indexOrIp = overrides.ip
       let ip = indexOrIp
@@ -316,21 +396,21 @@ const Inner = () => {
             // setProxies([...proxies, selectedProxy])
             localStorage.setItem('proxies', JSON.stringify([...proxies, selectedProxy]))
           }
-          if (selectedProxy) {
-            localStorage.setItem('selectedProxy', selectedProxy)
-          }
+          saveNewProxy()
         },
         serverIndex: shouldSave ? serversList.length.toString() : indexOrIp // assume last
       } satisfies ConnectOptions
       dispatchEvent(new CustomEvent('connect', { detail: options }))
       // qsOptions
     }}
+    lockedEditing={!!customServersList}
     username={defaultUsername}
     setUsername={setDefaultUsername}
+    setQuickConnectIp={setQuickConnectIp}
     onProfileClick={async () => {
       const username = await showOptionsModal('Select authenticated account to remove', authenticatedAccounts.map(a => a.username))
       if (!username) return
-      setAuthenticatedAccounts(old => old.filter(a => a.username !== username))
+      setAuthenticatedAccounts(authenticatedAccounts.filter(a => a.username !== username))
     }}
     onWorldAction={(action, index) => {
       const server = serversList[index]
@@ -357,10 +437,10 @@ const Inner = () => {
         name: server.index.toString(),
         title: server.name || server.ip,
         detail: (server.versionOverride ?? '') + ' ' + (server.usernameOverride ?? ''),
-        // lastPlayed: server.lastJoined,
         formattedTextOverride: additional?.formattedText,
         worldNameRight: additional?.textNameRight ?? '',
         iconSrc: additional?.icon,
+        offline: additional?.offline
       }
     })}
     initialProxies={{
@@ -372,12 +452,43 @@ const Inner = () => {
       setProxies(proxies)
       setSelectedProxy(selected)
     }}
+    hidden={hidden}
+    onRowSelect={(_, i) => {
+      setSelectedIndex(i)
+    }}
+    selectedRow={selectedIndex}
   />
+  return <>
+    {serversListJsx}
+    {editModalJsx}
+  </>
 }
 
 export default () => {
+  const [customServersList, setCustomServersList] = useState<string[] | undefined>(serversListQs ? [] : undefined)
+
+  useEffect(() => {
+    if (serversListQs) {
+      if (serversListQs.startsWith('http')) {
+        void fetch(serversListQs).then(async r => r.text()).then((text) => {
+          const isJson = serversListQs.endsWith('.json') ? true : serversListQs.endsWith('.txt') ? false : text.startsWith('[')
+          setCustomServersList(isJson ? JSON.parse(text) : text.split('\n').map(x => x.trim()).filter(x => x.trim().length > 0))
+        }).catch((err) => {
+          console.error(err)
+          alert(`Failed to get servers list file: ${err}`)
+        })
+      } else {
+        setCustomServersList(serversListQs.split(','))
+      }
+    }
+  }, [])
+
+  const modalStack = useSnapshot(activeModalStack)
+  const hasServersListModal = modalStack.some(x => x.reactType === 'serversList')
   const editServerModalActive = useIsModalActive('editServer')
   const isServersListModalActive = useIsModalActive('serversList')
+
   const eitherModal = isServersListModalActive || editServerModalActive
-  return eitherModal ? <Inner /> : null
+  const render = eitherModal || hasServersListModal
+  return render ? <Inner hidden={!isServersListModalActive} customServersList={customServersList} /> : null
 }

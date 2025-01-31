@@ -4,8 +4,9 @@ import * as THREE from 'three'
 
 // wouldn't better to create atlas instead?
 import { Vec3 } from 'vec3'
-import { LineMaterial, Wireframe, LineSegmentsGeometry } from 'three-stdlib'
+import { LineMaterial } from 'three-stdlib'
 import { Entity } from 'prismarine-entity'
+import { subscribeKey } from 'valtio/utils'
 import destroyStage0 from '../assets/destroy_stage_0.png'
 import destroyStage1 from '../assets/destroy_stage_1.png'
 import destroyStage2 from '../assets/destroy_stage_2.png'
@@ -34,7 +35,6 @@ function getViewDirection (pitch, yaw) {
 
 class WorldInteraction {
   ready = false
-  interactionLines: null | { blockPos; mesh } = null
   prevBreakState
   currentDigTime
   prevOnGround
@@ -44,11 +44,9 @@ class WorldInteraction {
   lastButtons = [false, false, false]
   breakStartTime: number | undefined = 0
   lastDugBlock: Vec3 | null = null
-  cursorBlock: import('prismarine-block').Block | null = null
   blockBreakMesh: THREE.Mesh
   breakTextures: THREE.Texture[]
   lastDigged: number
-  lineMaterial: LineMaterial
   debugDigStatus: string
 
   oneTimeInit () {
@@ -109,10 +107,10 @@ class WorldInteraction {
     })
 
     beforeRenderFrame.push(() => {
-      if (this.lineMaterial) {
+      if (viewer.world.threejsCursorLineMaterial) {
         const { renderer } = viewer
-        this.lineMaterial.resolution.set(renderer.domElement.width, renderer.domElement.height)
-        this.lineMaterial.dashOffset = performance.now() / 750
+        viewer.world.threejsCursorLineMaterial.resolution.set(renderer.domElement.width, renderer.domElement.height)
+        viewer.world.threejsCursorLineMaterial.dashOffset = performance.now() / 750
       }
     })
   }
@@ -133,7 +131,7 @@ class WorldInteraction {
       this.debugDigStatus = 'done'
     })
     bot.on('diggingAborted', (block) => {
-      if (!this.cursorBlock?.position.equals(block.position)) return
+      if (!viewer.world.cursorBlock?.equals(block.position)) return
       this.debugDigStatus = 'aborted'
       // if (this.lastDugBlock)
       this.breakStartTime = undefined
@@ -151,8 +149,17 @@ class WorldInteraction {
     const upLineMaterial = () => {
       const inCreative = bot.game.gameMode === 'creative'
       const pixelRatio = viewer.renderer.getPixelRatio()
-      this.lineMaterial = new LineMaterial({
-        color: inCreative ? 0x40_80_ff : 0x00_00_00,
+      viewer.world.threejsCursorLineMaterial = new LineMaterial({
+        color: (() => {
+          switch (options.highlightBlockColor) {
+            case 'blue':
+              return 0x40_80_ff
+            case 'classic':
+              return 0x00_00_00
+            default:
+              return inCreative ? 0x40_80_ff : 0x00_00_00
+          }
+        })(),
         linewidth: Math.max(pixelRatio * 0.7, 1) * 2,
         // dashed: true,
         // dashSize: 5,
@@ -161,6 +168,8 @@ class WorldInteraction {
     upLineMaterial()
     // todo use gamemode update only
     bot.on('game', upLineMaterial)
+    // Update material when highlight color setting changes
+    subscribeKey(options, 'highlightBlockColor', upLineMaterial)
   }
 
   activateEntity (entity: Entity) {
@@ -192,37 +201,18 @@ class WorldInteraction {
     }
   }
 
-  updateBlockInteractionLines (blockPos: Vec3 | null, shapePositions?: Array<{ position; width; height; depth }>) {
-    assertDefined(viewer)
-    if (blockPos && this.interactionLines && blockPos.equals(this.interactionLines.blockPos)) {
-      return
+  beforeUpdateChecks () {
+    if (!document.hasFocus()) {
+      // deactive all buttson
+      this.buttons.fill(false)
     }
-    if (this.interactionLines !== null) {
-      viewer.scene.remove(this.interactionLines.mesh)
-      this.interactionLines = null
-    }
-    if (blockPos === null) {
-      return
-    }
-
-    const group = new THREE.Group()
-    for (const { position, width, height, depth } of shapePositions ?? []) {
-      const scale = [1.0001 * width, 1.0001 * height, 1.0001 * depth] as const
-      const geometry = new THREE.BoxGeometry(...scale)
-      const lines = new LineSegmentsGeometry().fromEdgesGeometry(new THREE.EdgesGeometry(geometry))
-      const wireframe = new Wireframe(lines, this.lineMaterial)
-      const pos = blockPos.plus(position)
-      wireframe.position.set(pos.x, pos.y, pos.z)
-      wireframe.computeLineDistances()
-      group.add(wireframe)
-    }
-    viewer.scene.add(group)
-    this.interactionLines = { blockPos, mesh: group }
   }
 
   // todo this shouldnt be done in the render loop, migrate the code to dom events to avoid delays on lags
   update () {
+    this.beforeUpdateChecks()
     const inSpectator = bot.game.gameMode === 'spectator'
+    const inAdventure = bot.game.gameMode === 'adventure'
     const entity = getEntityCursor()
     let cursorBlock = inSpectator && !options.showCursorBlockInSpectator ? null : bot.blockAtCursor(5)
     if (entity) {
@@ -230,12 +220,9 @@ class WorldInteraction {
     }
 
     let cursorBlockDiggable = cursorBlock
-    if (cursorBlock && !bot.canDigBlock(cursorBlock) && bot.game.gameMode !== 'creative') cursorBlockDiggable = null
+    if (cursorBlock && (!bot.canDigBlock(cursorBlock) || inAdventure) && bot.game.gameMode !== 'creative') cursorBlockDiggable = null
 
-    let cursorChanged = !cursorBlock !== !this.cursorBlock
-    if (cursorBlock && this.cursorBlock) {
-      cursorChanged = !cursorBlock.position.equals(this.cursorBlock.position)
-    }
+    const cursorChanged = cursorBlock && viewer.world.cursorBlock ? !viewer.world.cursorBlock.equals(cursorBlock.position) : viewer.world.cursorBlock !== cursorBlock
 
     // Place / interact / activate
     if (this.buttons[2] && this.lastBlockPlaced >= 4) {
@@ -291,8 +278,8 @@ class WorldInteraction {
             bot.lookAt = oldLookAt
           }).catch(console.warn)
         }
-        viewer.world.changeHandSwingingState(true)
-        viewer.world.changeHandSwingingState(false)
+        viewer.world.changeHandSwingingState(true, false)
+        viewer.world.changeHandSwingingState(false, false)
       } else if (!stop) {
         const offhand = activate ? false : activatableItems(bot.inventory.slots[45]?.name ?? '')
         bot.activateItem(offhand) // todo offhand
@@ -351,42 +338,36 @@ class WorldInteraction {
         })
         customEvents.emit('digStart')
         this.lastDigged = Date.now()
-        viewer.world.changeHandSwingingState(true)
+        viewer.world.changeHandSwingingState(true, false)
       } else if (performance.now() - this.lastSwing > 200) {
         bot.swingArm('right')
         this.lastSwing = performance.now()
       }
     }
     if (!this.buttons[0] && this.lastButtons[0]) {
-      viewer.world.changeHandSwingingState(false)
+      viewer.world.changeHandSwingingState(false, false)
     }
     this.prevOnGround = onGround
 
     // Show cursor
+    const allShapes = [...cursorBlock?.shapes ?? [], ...cursorBlock?.['interactionShapes'] ?? []]
     if (cursorBlock) {
-      const allShapes = [...cursorBlock.shapes, ...cursorBlock['interactionShapes'] ?? []]
-      this.updateBlockInteractionLines(cursorBlock.position, allShapes.map(shape => {
-        return getDataFromShape(shape)
-      }))
-      {
-        // union of all values
-        const breakShape = allShapes.reduce((acc, cur) => {
-          return [
-            Math.min(acc[0], cur[0]),
-            Math.min(acc[1], cur[1]),
-            Math.min(acc[2], cur[2]),
-            Math.max(acc[3], cur[3]),
-            Math.max(acc[4], cur[4]),
-            Math.max(acc[5], cur[5])
-          ]
-        })
-        const { position, width, height, depth } = getDataFromShape(breakShape)
-        this.blockBreakMesh.scale.set(width * 1.001, height * 1.001, depth * 1.001)
-        position.add(cursorBlock.position)
-        this.blockBreakMesh.position.set(position.x, position.y, position.z)
-      }
-    } else {
-      this.updateBlockInteractionLines(null)
+      // BREAK MESH
+      // union of all values
+      const breakShape = allShapes.reduce((acc, cur) => {
+        return [
+          Math.min(acc[0], cur[0]),
+          Math.min(acc[1], cur[1]),
+          Math.min(acc[2], cur[2]),
+          Math.max(acc[3], cur[3]),
+          Math.max(acc[4], cur[4]),
+          Math.max(acc[5], cur[5])
+        ]
+      })
+      const { position, width, height, depth } = getDataFromShape(breakShape)
+      this.blockBreakMesh.scale.set(width * 1.001, height * 1.001, depth * 1.001)
+      position.add(cursorBlock.position)
+      this.blockBreakMesh.position.set(position.x, position.y, position.z)
     }
 
     // Show break animation
@@ -411,7 +392,11 @@ class WorldInteraction {
     }
 
     // Update state
-    this.cursorBlock = cursorBlock
+    if (cursorChanged) {
+      viewer.world.setHighlightCursorBlock(cursorBlock?.position ?? null, allShapes.map(shape => {
+        return getDataFromShape(shape)
+      }))
+    }
     this.lastButtons[0] = this.buttons[0]
     this.lastButtons[1] = this.buttons[1]
     this.lastButtons[2] = this.buttons[2]
@@ -427,6 +412,43 @@ const getDataFromShape = (shape) => {
   const centerZ = (shape[5] + shape[2]) / 2
   const position = new Vec3(centerX, centerY, centerZ)
   return { position, width, height, depth }
+}
+
+// Blocks that can be interacted with in adventure mode
+const activatableBlockPatterns = [
+  // Containers
+  /^(chest|barrel|hopper|dispenser|dropper)$/,
+  /^.*shulker_box$/,
+  /^.*(furnace|smoker)$/,
+  /^(brewing_stand|beacon)$/,
+  // Crafting
+  /^.*table$/,
+  /^(grindstone|stonecutter|loom)$/,
+  /^.*anvil$/,
+  // Redstone
+  /^(lever|repeater|comparator|daylight_detector|observer|note_block|jukebox|bell)$/,
+  // Buttons
+  /^.*button$/,
+  // Doors and trapdoors
+  /^.*door$/,
+  /^.*trapdoor$/,
+  // Functional blocks
+  /^(enchanting_table|lectern|composter|respawn_anchor|lodestone|conduit)$/,
+  /^.*bee.*$/,
+  // Beds
+  /^.*bed$/,
+  // Misc
+  /^(cake|decorated_pot|crafter|trial_spawner|vault)$/
+]
+
+function isBlockActivatable (blockName: string) {
+  return activatableBlockPatterns.some(pattern => pattern.test(blockName))
+}
+
+function isLookingAtActivatableBlock () {
+  const cursorBlock = bot.blockAtCursor(5)
+  if (!cursorBlock) return false
+  return isBlockActivatable(cursorBlock.name)
 }
 
 export const getEntityCursor = () => {

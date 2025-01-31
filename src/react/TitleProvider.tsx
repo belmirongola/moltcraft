@@ -1,17 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
+import mojangson from 'mojangson'
+import nbt from 'prismarine-nbt'
 import type { ClientOnMap } from '../generatedServerPackets'
 import Title from './Title'
 import type { AnimationTimes } from './Title'
 
 
 const defaultText: Record<string, any> = { 'text': '' }
-const defaultTimings: AnimationTimes = { fadeIn: 400, stay: 3800, fadeOut: 800 }
+const defaultTimings: AnimationTimes = { fadeIn: 500, stay: 3500, fadeOut: 1000 }
 
 const ticksToMs = (ticks: AnimationTimes) => {
   ticks.fadeIn *= 50
   ticks.stay *= 50
   ticks.fadeOut *= 50
   return ticks
+}
+
+const getComponent = (input: string | any) => {
+  if (typeof input === 'string') {
+    // raw json is sent
+    return mojangson.simplify(mojangson.parse(input))
+  } else if (input.type === 'string') {
+    // this is used for simple chat components without any special properties
+    return { 'text': input.value }
+  } else if (input.type === 'compound') {
+    // this is used for complex chat components with special properties
+    return nbt.simplify(input)
+  }
+  return input
 }
 
 export default () => {
@@ -25,14 +41,14 @@ export default () => {
   useMemo(() => {
     // todo move to mineflayer
     bot._client.on('set_title_text', (packet) => {
-      setTitle(JSON.parse(packet.text))
+      setTitle(getComponent(packet.text))
       setOpenTitle(true)
     })
     bot._client.on('set_title_subtitle', (packet) => {
-      setSubtitle(JSON.parse(packet.text))
+      setSubtitle(getComponent(packet.text))
     })
     bot._client.on('action_bar', (packet) => {
-      setActionBar(JSON.parse(packet.text))
+      setActionBar(getComponent(packet.text))
       setOpenActionBar(true)
     })
     bot._client.on('set_title_time', (packet) => {
@@ -51,6 +67,7 @@ export default () => {
 
 
     bot.on('actionBar', (packet) => {
+      setAnimTimes({ fadeIn: 0, stay: 2000, fadeOut: 1000 })
       setActionBar(packet)
       setOpenActionBar(true)
     })

@@ -74,7 +74,7 @@ export const guiOptionsScheme: {
       },
       smoothLighting: {},
       newVersionsLighting: {
-        text: 'Lighting in newer versions',
+        text: 'Lighting in Newer Versions',
       },
       lowMemoryMode: {
         text: 'Low Memory Mode',
@@ -89,7 +89,6 @@ export const guiOptionsScheme: {
         tooltip: 'Additional distance to keep the chunks loading before unloading them by marking them as too far',
       },
       handDisplay: {},
-      neighborChunkUpdates: {},
       renderDebug: {
         values: [
           'advanced',
@@ -98,6 +97,19 @@ export const guiOptionsScheme: {
         ],
       },
     },
+    {
+      custom () {
+        return <Category>Resource Packs</Category>
+      },
+      serverResourcePacks: {
+        text: 'Download From Server',
+        values: [
+          'prompt',
+          'always',
+          'never'
+        ],
+      }
+    }
   ],
   main: [
     {
@@ -164,7 +176,7 @@ export const guiOptionsScheme: {
               }
               if (choice === 'Enable') {
                 options.enabledResourcepack = name
-                await completeTexturePackInstall(name, name)
+                await completeTexturePackInstall(name, name, false)
                 return
               }
               if (choice === 'Uninstall') {
@@ -223,6 +235,19 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        return <Category>World</Category>
+      },
+      highlightBlockColor: {
+        text: 'Block Highlight Color',
+        values: [
+          ['auto', 'Auto'],
+          ['blue', 'Blue'],
+          ['classic', 'Classic']
+        ],
+      },
+    },
+    {
+      custom () {
         return <Category>Sign Editor</Category>
       },
       autoSignEditor: {
@@ -233,6 +258,19 @@ export const guiOptionsScheme: {
         values: [
           'auto',
           'always',
+          'never'
+        ],
+      },
+    },
+    {
+      custom () {
+        return <Category>Map</Category>
+      },
+      showMinimap: {
+        text: 'Enable Minimap',
+        values: [
+          'always',
+          'singleplayer',
           'never'
         ],
       },
@@ -413,21 +451,30 @@ export const guiOptionsScheme: {
           onClick={() => {
             packetsReplaceSessionState.active = !active
           }}
-        >{active ? 'Disable' : 'Enable'} Packets Replay</Button>
+        >{active ? 'Stop' : 'Start'} Packets Replay Logging</Button>
       },
     },
     {
       custom () {
-        const { active } = useSnapshot(packetsReplaceSessionState)
+        const { active, hasRecordedPackets } = useSnapshot(packetsReplaceSessionState)
         return <Button
-          disabled={!active}
+          disabled={!hasRecordedPackets}
           inScreen
           onClick={() => {
             void downloadPacketsReplay()
           }}
         >Download Packets Replay</Button>
       },
-    }
+    },
+    {
+      packetsLoggerPreset: {
+        text: 'Packets Logger Preset',
+        values: [
+          ['all', 'All'],
+          ['no-buffers', 'No Buffers']
+        ],
+      },
+    },
   ],
 }
 export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR'

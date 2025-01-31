@@ -76,8 +76,10 @@ const handleMessage = data => {
   }
 
   if (data.config) {
-    if (data.type === 'mesherData' && allDataReady) {
-      world = undefined as any // reset models
+    if (data.type === 'mesherData' && world) {
+      // reset models
+      world.blockCache = {}
+      world.erroredBlockModel = undefined
     }
 
     world ??= new World(data.config.version)
@@ -157,7 +159,7 @@ setInterval(() => {
       const geometry = getSectionGeometry(x, y, z, world)
       const transferable = [geometry.positions?.buffer, geometry.normals?.buffer, geometry.colors?.buffer, geometry.uvs?.buffer].filter(Boolean)
       //@ts-expect-error
-      postMessage({ type: 'geometry', key, geometry }, transferable)
+      postMessage({ type: 'geometry', key, geometry, workerIndex }, transferable)
       processTime = performance.now() - start
     } else {
       // console.info('[mesher] Missing section', x, y, z)

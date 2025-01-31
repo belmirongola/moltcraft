@@ -25,6 +25,7 @@ const defaultOptions = {
   chatOpacityOpened: 100,
   messagesLimit: 200,
   volume: 50,
+  enableMusic: false,
   // fov: 70,
   fov: 75,
   guiScale: 3,
@@ -49,9 +50,13 @@ const defaultOptions = {
   useVersionsTextures: 'latest',
   serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
   handDisplay: false,
+  packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
 
   // antiAliasing: false,
 
+  clipWorldBelowY: undefined as undefined | number, // will be removed
+  disableSignsMapsSupport: false,
+  singleplayerAutoSave: false,
   showChunkBorders: false, // todo rename option
   frameLimit: false as number | false,
   alwaysBackupWorldBeforeLoading: undefined as boolean | undefined | null,
@@ -77,6 +82,7 @@ const defaultOptions = {
   autoParkour: false,
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
   renderDebug: (isDev ? 'advanced' : 'basic') as 'none' | 'advanced' | 'basic',
+  autoVersionSelect: '1.20.4',
 
   // advanced bot options
   autoRespawn: false,
@@ -85,9 +91,12 @@ const defaultOptions = {
   /** Wether to popup sign editor on server action */
   autoSignEditor: true,
   wysiwygSignEditor: 'auto' as 'auto' | 'always' | 'never',
+  showMinimap: 'never' as 'always' | 'singleplayer' | 'never',
+  minimapOptimizations: true,
   displayBossBars: false, // boss bar overlay was removed for some reason, enable safely
   disabledUiParts: [] as string[],
-  neighborChunkUpdates: true
+  neighborChunkUpdates: true,
+  highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
 }
 
 function getDefaultTouchControlsPositions () {
@@ -157,7 +166,7 @@ subscribe(options, () => {
   localStorage.options = JSON.stringify(saveOptions)
 })
 
-type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T) => void) => void
+type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T, isChanged: boolean) => void) => void
 
 export const watchValue: WatchValue = (proxy, callback) => {
   const watchedProps = new Set<string>()
@@ -166,10 +175,10 @@ export const watchValue: WatchValue = (proxy, callback) => {
       watchedProps.add(p.toString())
       return Reflect.get(target, p, receiver)
     },
-  }))
+  }), false)
   for (const prop of watchedProps) {
     subscribeKey(proxy, prop, () => {
-      callback(proxy)
+      callback(proxy, true)
     })
   }
 }

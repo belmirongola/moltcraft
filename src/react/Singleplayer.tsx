@@ -11,6 +11,8 @@ import Input from './Input'
 import Button from './Button'
 import Tabs from './Tabs'
 import MessageFormattedString from './MessageFormattedString'
+import { useIsSmallWidth } from './simpleHooks'
+import PixelartIcon from './PixelartIcon'
 
 export interface WorldProps {
   name: string
@@ -24,9 +26,11 @@ export interface WorldProps {
   worldNameRight?: string
   onFocus?: (name: string) => void
   onInteraction?(interaction: 'enter' | 'space')
+  elemRef?: React.Ref<HTMLDivElement>
+  offline?: boolean
 }
 
-const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight }: WorldProps) => {
+const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
   const timeRelativeFormatted = useMemo(() => {
     if (!lastPlayed) return ''
     const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -46,6 +50,7 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
   }, [size])
 
   return <div
+    ref={elemRef}
     className={classNames(styles.world_root, isFocused ? styles.world_focused : undefined)} tabIndex={0} onFocus={() => onFocus?.(name)} onKeyDown={(e) => {
       if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault()
@@ -57,7 +62,14 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
     <div className={styles.world_info}>
       <div className={styles.world_title}>
         <div>{title}</div>
-        <div className={styles.world_title_right}>{worldNameRight}</div>
+        <div className={styles.world_title_right}>
+          {offline ? (
+            <span style={{ color: 'red', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <PixelartIcon iconName="signal-off" width={12} />
+              Offline
+            </span>
+          ) : worldNameRight}
+        </div>
       </div>
       {formattedTextOverride ? <div className={styles.world_info_formatted}>
         <MessageFormattedString message={formattedTextOverride} />
@@ -85,9 +97,17 @@ interface Props {
   warning?: string
   warningAction?: () => void
   warningActionLabel?: string
+  hidden?: boolean
 
   onWorldAction (action: 'load' | 'export' | 'delete' | 'edit', worldName: string): void
   onGeneralAction (action: 'cancel' | 'create'): void
+  onRowSelect? (name: string, index: number): void
+  defaultSelectedRow?: number
+  selectedRow?: number
+  listStyle?: React.CSSProperties
+  setListHovered?: (hovered: boolean) => void
+  secondRowStyles?: React.CSSProperties
+  lockedEditing?: boolean
 }
 
 export default ({
@@ -104,13 +124,22 @@ export default ({
   disabledProviders,
   error,
   isReadonly,
-  warning, warningAction, warningActionLabel
+  warning, warningAction, warningActionLabel,
+  hidden,
+  onRowSelect,
+  defaultSelectedRow,
+  selectedRow,
+  listStyle,
+  setListHovered,
+  secondRowStyles,
+  lockedEditing
 }: Props) => {
   const containerRef = useRef<any>()
   const firstButton = useRef<HTMLButtonElement>(null)
+  const worldRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useTypedEventListener(window, 'keydown', (e) => {
-    if ((e.code === 'ArrowDown' || e.code === 'ArrowUp') && e.ctrlKey) {
+    if ((e.code === 'ArrowDown' || e.code === 'ArrowUp')) {
       e.preventDefault()
       const dir = e.code === 'ArrowDown' ? 1 : -1
       const elements = focusable(containerRef.current)
@@ -122,13 +151,28 @@ export default ({
   })
 
   const [search, setSearch] = useState('')
-  const [focusedWorld, setFocusedWorld] = useState('')
+  const [focusedWorld, setFocusedWorld] = useState(defaultSelectedRow === undefined ? '' : worldData?.[defaultSelectedRow]?.name ?? '')
 
   useEffect(() => {
     setFocusedWorld('')
   }, [activeProvider])
 
-  return <div ref={containerRef}>
+  useEffect(() => {
+    if (selectedRow === undefined) return
+    const worldName = worldData?.[selectedRow]?.name
+    setFocusedWorld(worldName ?? '')
+    if (worldName) {
+      worldRefs.current[worldName]?.focus()
+    }
+  }, [selectedRow, worldData?.[selectedRow as any]?.name])
+
+  const onRowSelectHandler = (name: string, index: number) => {
+    onRowSelect?.(name, index)
+    setFocusedWorld(name)
+  }
+  const isSmallWidth = useIsSmallWidth()
+
+  return <div ref={containerRef} hidden={hidden}>
     <div className="dirt-bg" />
     <div className={classNames('fullscreen', styles.root)}>
       <span className={classNames('screen-title', styles.title)}>{serversLayout ? 'Join Java Servers' : 'Select Saved World'}</span>
@@ -141,9 +185,13 @@ export default ({
             setActiveProvider?.(tab as any)
           }} fullSize
         />
-        <div style={{
-          marginTop: 3,
-        }}
+        <div
+          style={{
+            marginTop: 3,
+            ...listStyle
+          }}
+          onMouseEnter={() => setListHovered?.(true)}
+          onMouseLeave={() => setListHovered?.(false)}
         >
           {
             providerActions && <div style={{
@@ -159,9 +207,16 @@ export default ({
           }
           {
             worldData
-              ? worldData.filter(data => data.title.toLowerCase().includes(search.toLowerCase())).map(({ name, size, detail, ...rest }) => (
+              ? worldData.filter(data => data.title.toLowerCase().includes(search.toLowerCase())).map(({ name, size, detail, ...rest }, index) => (
                 <World
-                  {...rest} size={size} name={name} onFocus={setFocusedWorld} isFocused={focusedWorld === name} key={name} onInteraction={(interaction) => {
+                  {...rest}
+                  size={size}
+                  name={name}
+                  elemRef={el => { worldRefs.current[name] = el }}
+                  onFocus={row => onRowSelectHandler(row, index)}
+                  isFocused={focusedWorld === name}
+                  key={name}
+                  onInteraction={(interaction) => {
                     if (interaction === 'enter') onWorldAction('load', name)
                     else if (interaction === 'space') firstButton.current?.focus()
                   }}
@@ -187,16 +242,19 @@ export default ({
           }
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 400, paddingBottom: 3 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 400, paddingBottom: 3, alignItems: 'center', }}>
         {firstRowChildrenOverride || <div>
           <Button rootRef={firstButton} disabled={!focusedWorld} onClick={() => onWorldAction('load', focusedWorld)}>Load World</Button>
           <Button onClick={() => onGeneralAction('create')} disabled={isReadonly}>Create New World</Button>
         </div>}
-        <div>
-          {serversLayout ? <Button style={{ width: 100 }} disabled={!focusedWorld} onClick={() => onWorldAction('edit', focusedWorld)}>Edit</Button> : <Button style={{ width: 100 }} disabled={!focusedWorld} onClick={() => onWorldAction('export', focusedWorld)}>Export</Button>}
-          <Button style={{ width: 100 }} disabled={!focusedWorld} onClick={() => onWorldAction('delete', focusedWorld)}>Delete</Button>
+        <div style={{
+          ...secondRowStyles,
+          ...isSmallWidth ? { display: 'grid', gridTemplateColumns: '1fr 1fr' } : {}
+        }}>
+          {serversLayout ? <Button style={{ width: 100 }} disabled={!focusedWorld || lockedEditing} onClick={() => onWorldAction('edit', focusedWorld)}>Edit</Button> : <Button style={{ width: 100 }} disabled={!focusedWorld} onClick={() => onWorldAction('export', focusedWorld)}>Export</Button>}
+          <Button style={{ width: 100 }} disabled={!focusedWorld || lockedEditing} onClick={() => onWorldAction('delete', focusedWorld)}>Delete</Button>
           {serversLayout ?
-            <Button style={{ width: 100 }} onClick={() => onGeneralAction('create')}>Add</Button> :
+            <Button style={{ width: 100 }} onClick={() => onGeneralAction('create')} disabled={lockedEditing}>Add</Button> :
             <Button style={{ width: 100 }} onClick={() => onWorldAction('edit', focusedWorld)} disabled>Edit</Button>}
           <Button style={{ width: 100 }} onClick={() => onGeneralAction('cancel')}>Cancel</Button>
         </div>
