@@ -242,4 +242,4 @@ const initialMcData = {
   }
 }
 
-fs.writeFileSync('./generated/minecraft-initial-data.json', JSON.stringify(initialMcData), 'utf8')
+// fs.writeFileSync('./generated/minecraft-initial-data.json', JSON.stringify(initialMcData), 'utf8')

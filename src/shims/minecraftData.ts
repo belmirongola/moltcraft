@@ -1,6 +1,6 @@
 import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
 import JsonOptimizer from '../optimizeJson'
-import minecraftInitialDataJson from '../../generated/minecraft-initial-data.json'
+// import minecraftInitialDataJson from '../../generated/minecraft-initial-data.json'
 import { toMajorVersion } from '../utils'
 
 const customResolver = () => {
@@ -30,9 +30,9 @@ const cacheTtl = 30 * 1000
 const cache = new Map<string, any>()
 const cacheTime = new Map<string, number>()
 const possiblyGetFromCache = (version: string) => {
-  if (minecraftInitialDataJson[version] && !optimizedDataResolver.resolvedData) {
-    return minecraftInitialDataJson[version]
-  }
+  // if (minecraftInitialDataJson[version] && !optimizedDataResolver.resolvedData) {
+  //   return minecraftInitialDataJson[version]
+  // }
   if (cache.has(version)) {
     return cache.get(version)
   }

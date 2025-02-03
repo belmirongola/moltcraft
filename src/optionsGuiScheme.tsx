@@ -12,6 +12,8 @@ import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
 import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallTexturePack } from './resourcePack'
 import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay'
 import { showOptionsModal } from './react/SelectOption'
+import supportedVersions from './supportedVersions.mjs'
+import { getVersionAutoSelect } from './connect'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -478,6 +480,34 @@ export const guiOptionsScheme: {
           ['all', 'All'],
           ['no-buffers', 'No Buffers']
         ],
+      },
+    },
+    {
+      custom () {
+        const { serversAutoVersionSelect } = useSnapshot(options)
+        const allVersions = [...supportedVersions, 'latest', 'auto']
+        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
+
+        const getDisplayValue = (version: string) => {
+          const versionAutoSelect = getVersionAutoSelect(version)
+          if (version === 'latest') return `latest (${versionAutoSelect})`
+          if (version === 'auto') return `auto (${versionAutoSelect})`
+          return version
+        }
+
+        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Slider
+            style={{ width: 150 }}
+            label='Server Version'
+            value={currentIndex}
+            min={0}
+            max={allVersions.length - 1}
+            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
+            updateValue={(newVal) => {
+              options.serversAutoVersionSelect = allVersions[newVal]
+            }}
+          />
+        </div>
       },
     },
   ],

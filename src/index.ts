@@ -5,8 +5,10 @@ import './globals'
 import './devtools'
 import './entities'
 import './globalDomListeners'
+import './mineflayer/mc-protocol'
 import './mineflayer/maps'
 import './mineflayer/cameraShake'
+import './shims/patchShims'
 import { onGameLoad } from './inventoryWindows'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
@@ -86,7 +88,7 @@ import { saveToBrowserMemory } from './react/PauseScreen'
 import { ViewerWrapper } from 'prismarine-viewer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
-import { ConnectOptions, downloadNeededDataOnConnect } from './connect'
+import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData } from './react/ServersListProvider'
@@ -99,6 +101,7 @@ import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream } from './viewerConnector'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 import { updateCursor } from './cameraRotationControls'
+import { pingServerVersion } from './mineflayer/minecraft-protocol-extra'
 
 window.debug = debug
 window.THREE = THREE
@@ -270,10 +273,14 @@ export async function connect (connectOptions: ConnectOptions) {
   const proxy = cleanConnectIp(connectOptions.proxy, undefined)
   let { username } = connectOptions
 
-  console.log(`connecting to ${server.host}:${server.port} with ${username}`)
+  if (connectOptions.server) {
+    console.log(`connecting to ${server.host}:${server.port}`)
+  }
+  console.log('using player username', username)
 
   hideCurrentScreens()
-  setLoadingScreenStatus('Logging in')
+  const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
+  setLoadingScreenStatus(loggingInMsg)
 
   let ended = false
   let bot!: typeof __type_bot
@@ -357,14 +364,19 @@ export async function connect (connectOptions: ConnectOptions) {
   try {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
-    window._LOAD_MC_DATA() // start loading data (if not loaded yet)
+    setLoadingScreenStatus('Downloading minecraft data')
+    await Promise.all([
+      window._LOAD_MC_DATA(), // download mc data before we can use minecraft-data at all
+      downloadOtherGameData()
+    ])
+    setLoadingScreenStatus(loggingInMsg)
     const downloadMcData = async (version: string) => {
       if (connectOptions.authenticatedAccount && (versionToNumber(version) < versionToNumber('1.19.4') || versionToNumber(version) >= versionToNumber('1.21'))) {
         // todo support it (just need to fix .export crash)
         throw new Error('Microsoft authentication is only supported on 1.19.4 - 1.20.6 (at least for now)')
       }
 
-      await downloadNeededDataOnConnect(version)
+      await downloadMcDataOnConnect(version)
       try {
         await resourcepackReload(version)
       } catch (err) {
@@ -421,8 +433,14 @@ export async function connect (connectOptions: ConnectOptions) {
       initialLoadingText = 'Local server is still starting'
     } else if (p2pMultiplayer) {
       initialLoadingText = 'Connecting to peer'
+    } else if (connectOptions.server) {
+      const versionAutoSelect = getVersionAutoSelect()
+      setLoadingScreenStatus(`Fetching server version. Preffered: ${versionAutoSelect}`)
+      const autoVersionSelect = await pingServerVersion(server.host!, server.port ? Number(server.port) : undefined, versionAutoSelect)
+      initialLoadingText = `Connecting to server ${server.host} with version ${autoVersionSelect.version}`
+      connectOptions.botVersion = autoVersionSelect.version
     } else {
-      initialLoadingText = 'Connecting to server'
+      initialLoadingText = 'We have no idea what to do'
     }
     setLoadingScreenStatus(initialLoadingText)
 
@@ -452,6 +470,10 @@ export async function connect (connectOptions: ConnectOptions) {
       await downloadMcData(version)
       setLoadingScreenStatus(`Connecting to WebSocket server ${connectOptions.viewerWsConnect}`)
       clientDataStream = await getWsProtocolStream(connectOptions.viewerWsConnect)
+    }
+
+    if (connectOptions.botVersion) {
+      miscUiState.loadedDataVersion = connectOptions.botVersion
     }
 
     bot = mineflayer.createBot({
@@ -523,10 +545,6 @@ export async function connect (connectOptions: ConnectOptions) {
       closeTimeout: 240 * 1000,
       respawn: options.autoRespawn,
       maxCatchupTicks: 0,
-      async versionSelectedHook (client) {
-        await downloadMcData(client.version)
-        setLoadingScreenStatus(initialLoadingText)
-      },
       'mapDownloader-saveToFile': false,
       // "mapDownloader-saveInternal": false, // do not save into memory, todo must be implemeneted as we do really care of ram
     }) as unknown as typeof __type_bot
@@ -634,6 +652,9 @@ export async function connect (connectOptions: ConnectOptions) {
   bot.on('end', (endReason) => {
     if (ended) return
     console.log('disconnected for', endReason)
+    if (endReason === 'socketClosed') {
+      endReason = 'Connection with server lost'
+    }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason: ${endReason}`, true)
     onPossibleErrorDisconnect()
     destroyAll()

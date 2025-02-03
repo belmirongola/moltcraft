@@ -53,6 +53,7 @@ const defaultOptions = {
   serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
   handDisplay: false,
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
+  serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
 
   // antiAliasing: false,
 
@@ -84,7 +85,6 @@ const defaultOptions = {
   autoParkour: false,
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
   renderDebug: (isDev ? 'advanced' : 'basic') as 'none' | 'advanced' | 'basic',
-  autoVersionSelect: '1.20.4',
 
   // advanced bot options
   autoRespawn: false,

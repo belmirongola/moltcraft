@@ -1,4 +1,4 @@
-const qsParams = new URLSearchParams(window.location.search)
+const qsParams = new URLSearchParams(window.location?.search ?? '')
 
 export type AppQsParams = {
   // AddServerOrConnect.tsx params
@@ -37,7 +37,7 @@ export type AppQsParams = {
   command?: string
   // Misc params
   suggest_save?: string
-  scene?: string
+  noPacketsValidation?: string
 }
 
 export type AppQsParamsArray = {
