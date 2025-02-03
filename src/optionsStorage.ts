@@ -53,7 +53,7 @@ const defaultOptions = {
   serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
   handDisplay: false,
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
-  serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
+  serversAutoVersionSelect: '1.19.4' as 'auto' | 'latest' | '1.20.4' | string, // TODO! revert
 
   // antiAliasing: false,
 
