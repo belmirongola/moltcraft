@@ -2,7 +2,7 @@ import { versionsByMinecraftVersion } from 'minecraft-data'
 import minecraftInitialDataJson from '../generated/minecraft-initial-data.json'
 import { AuthenticatedAccount } from './react/ServersListProvider'
 import { setLoadingScreenStatus } from './utils'
-import { downloadSoundsIfNeeded } from './soundSystem'
+import { downloadSoundsIfNeeded } from './sounds/botSoundSystem'
 import { miscUiState } from './globalState'
 
 export type ConnectOptions = {

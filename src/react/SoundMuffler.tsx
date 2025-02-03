@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { hideCurrentModal } from '../globalState'
-import { lastPlayedSounds } from '../soundSystem'
+import { lastPlayedSounds } from '../sounds/botSoundSystem'
 import { options } from '../optionsStorage'
 import Button from './Button'
 import Screen from './Screen'

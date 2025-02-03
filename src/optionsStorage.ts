@@ -4,6 +4,7 @@ import { proxy, subscribe } from 'valtio/vanilla'
 // weird webpack configuration bug: it cant import valtio/utils in this file
 import { subscribeKey } from 'valtio/utils'
 import { omitObj } from '@zardoy/utils'
+import { appQueryParamsArray } from './appParams'
 
 const isDev = process.env.NODE_ENV === 'development'
 const defaultOptions = {
@@ -25,6 +26,7 @@ const defaultOptions = {
   chatOpacityOpened: 100,
   messagesLimit: 200,
   volume: 50,
+  enableMusic: false,
   // fov: 70,
   fov: 75,
   guiScale: 3,
@@ -33,7 +35,8 @@ const defaultOptions = {
   touchButtonsOpacity: 80,
   touchButtonsPosition: 12,
   touchControlsPositions: getDefaultTouchControlsPositions(),
-  touchControlsType: 'classic' as 'classic' | 'joystick-buttons',
+  touchMovementType: 'modern' as 'modern' | 'classic',
+  touchInteractionType: 'classic' as 'classic' | 'buttons',
   gpuPreference: 'default' as 'default' | 'high-performance' | 'low-power',
   backgroundRendering: '20fps' as 'full' | '20fps' | '5fps',
   /** @unstable */
@@ -95,6 +98,7 @@ const defaultOptions = {
   displayBossBars: false, // boss bar overlay was removed for some reason, enable safely
   disabledUiParts: [] as string[],
   neighborChunkUpdates: true,
+  highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
 }
 
 function getDefaultTouchControlsPositions () {
@@ -118,7 +122,8 @@ function getDefaultTouchControlsPositions () {
   } as Record<string, [number, number]>
 }
 
-const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')
+// const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')
+const qsOptionsRaw = appQueryParamsArray.setting ?? []
 export const qsOptions = Object.fromEntries(qsOptionsRaw.map(o => {
   const [key, value] = o.split(':')
   return [key, JSON.parse(value)]
@@ -134,6 +139,9 @@ const migrateOptions = (options: Partial<AppOptions & Record<string, any>>) => {
   }
   if (options.touchControlsPositions?.jump === undefined) {
     options.touchControlsPositions!.jump = defaultOptions.touchControlsPositions.jump
+  }
+  if (options.touchControlsType === 'joystick-buttons') {
+    options.touchInteractionType = 'buttons'
   }
 
   return options

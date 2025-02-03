@@ -1,15 +1,16 @@
 import { useSnapshot } from 'valtio'
 import { useState, useEffect, useMemo } from 'react'
-import { isGameActive, loadedGameState } from '../globalState'
+import { isGameActive } from '../globalState'
 import PlayerListOverlay from './PlayerListOverlay'
 import './PlayerListOverlay.css'
+import { lastConnectOptions } from './AppStatusProvider'
 
 const MAX_ROWS_PER_COL = 10
 
 type Players = typeof bot.players
 
 export default () => {
-  const { serverIp } = useSnapshot(loadedGameState)
+  const serverIp = lastConnectOptions.value?.server
   const [clientId, setClientId] = useState('')
   const [players, setPlayers] = useState<Players>({})
   const [isOpen, setIsOpen] = useState(false)

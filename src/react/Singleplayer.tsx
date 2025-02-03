@@ -12,6 +12,7 @@ import Button from './Button'
 import Tabs from './Tabs'
 import MessageFormattedString from './MessageFormattedString'
 import { useIsSmallWidth } from './simpleHooks'
+import PixelartIcon from './PixelartIcon'
 
 export interface WorldProps {
   name: string
@@ -26,9 +27,10 @@ export interface WorldProps {
   onFocus?: (name: string) => void
   onInteraction?(interaction: 'enter' | 'space')
   elemRef?: React.Ref<HTMLDivElement>
+  offline?: boolean
 }
 
-const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, elemRef }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
+const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
   const timeRelativeFormatted = useMemo(() => {
     if (!lastPlayed) return ''
     const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -60,7 +62,14 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
     <div className={styles.world_info}>
       <div className={styles.world_title}>
         <div>{title}</div>
-        <div className={styles.world_title_right}>{worldNameRight}</div>
+        <div className={styles.world_title_right}>
+          {offline ? (
+            <span style={{ color: 'red', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <PixelartIcon iconName="signal-off" width={12} />
+              Offline
+            </span>
+          ) : worldNameRight}
+        </div>
       </div>
       {formattedTextOverride ? <div className={styles.world_info_formatted}>
         <MessageFormattedString message={formattedTextOverride} />

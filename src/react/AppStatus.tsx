@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appQueryParams } from '../appParams'
 import styles from './appStatus.module.css'
 import Button from './Button'
 import Screen from './Screen'
@@ -15,6 +16,7 @@ export default ({
   children
 }) => {
   const [loadingDotIndex, setLoadingDotIndex] = useState(0)
+  const lockConnect = appQueryParams.lockConnect === 'true'
 
   useEffect(() => {
     const statusRunner = async () => {
@@ -65,7 +67,7 @@ export default ({
     >
       {isError && (
         <>
-          {backAction && <Button label="Back" onClick={backAction} />}
+          {!lockConnect && backAction && <Button label="Back" onClick={backAction} />}
           {actionsSlot}
           <Button onClick={() => window.location.reload()} label="Reset App (recommended)" />
         </>

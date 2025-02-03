@@ -2,6 +2,7 @@ import { isCypress } from './standaloneUtils'
 
 // might not resolve at all
 export const registerServiceWorker = async () => {
+  if (process.env.DISABLE_SERVICE_WORKER) return
   if (!('serviceWorker' in navigator)) return
   if (!isCypress() && process.env.NODE_ENV !== 'development') {
     return new Promise<void>(resolve => {

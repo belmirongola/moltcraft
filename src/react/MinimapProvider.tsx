@@ -15,11 +15,12 @@ import { useSnapshot } from 'valtio'
 import BlockData from '../../prismarine-viewer/viewer/lib/moreBlockDataGenerated.json'
 import preflatMap from '../preflatMap.json'
 import { contro } from '../controls'
-import { gameAdditionalState, showModal, hideModal, miscUiState, loadedGameState, activeModalStack } from '../globalState'
+import { gameAdditionalState, showModal, hideModal, miscUiState, activeModalStack } from '../globalState'
 import { options } from '../optionsStorage'
 import Minimap, { DisplayMode } from './Minimap'
 import { ChunkInfo, DrawerAdapter, MapUpdates, MinimapDrawer } from './MinimapDrawer'
 import { useIsModalActive } from './utilsApp'
+import { lastConnectOptions } from './AppStatusProvider'
 
 const getBlockKey = (x: number, z: number) => {
   return `${x},${z}`
@@ -167,9 +168,9 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
       // type suppressed until server is updated. It works fine
       void (localServer as any).setWarp(warp, remove)
     } else if (remove) {
-      localStorage.removeItem(`warps: ${loadedGameState.username} ${loadedGameState.serverIp}`)
+      localStorage.removeItem(`warps: ${bot.player.username} ${lastConnectOptions.value!.server}`)
     } else {
-      localStorage.setItem(`warps: ${loadedGameState.username} ${loadedGameState.serverIp}`, JSON.stringify(this.warps))
+      localStorage.setItem(`warps: ${bot.player.username} ${lastConnectOptions.value!.server}`, JSON.stringify(this.warps))
     }
     this.emit('updateWarps')
   }

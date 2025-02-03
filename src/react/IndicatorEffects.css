@@ -1,6 +1,6 @@
 .effectsScreen-container {
   position: fixed;
-  top: 6%;
+  top: max(6%, 30px);
   left: 0px;
   z-index: -2;
   pointer-events: none;

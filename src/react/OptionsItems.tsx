@@ -3,11 +3,12 @@ import { noCase } from 'change-case'
 import { titleCase } from 'title-case'
 import { useMemo } from 'react'
 import { options, qsOptions } from '../optionsStorage'
-import { miscUiState } from '../globalState'
+import { hideAllModals, miscUiState } from '../globalState'
 import Button from './Button'
 import Slider from './Slider'
 import Screen from './Screen'
 import { showOptionsModal } from './SelectOption'
+import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 
 type GeneralItem<T extends string | number | boolean> = {
   id?: string
@@ -188,10 +189,18 @@ interface Props {
 }
 
 export default ({ items, title, backButtonAction }: Props) => {
+  const { currentTouch } = useSnapshot(miscUiState)
+
   return <Screen
     title={title}
   >
     <div className='screen-items'>
+      {currentTouch && (
+        <div style={{ position: 'fixed', marginLeft: '-30px', display: 'flex', flexDirection: 'column', gap: 1, }}>
+          <Button icon={pixelartIcons['close']} onClick={hideAllModals} style={{ color: '#ff5d5d', }} />
+          <Button icon={pixelartIcons['chevron-left']} onClick={backButtonAction} style={{ color: 'yellow', }} />
+        </div>
+      )}
       {items.map((element, i) => {
         // make sure its unique!
         return <RenderOption key={element.id ?? `${title}-${i}`} item={element} />
