@@ -2,13 +2,31 @@ import { useEffect, useRef, useState } from 'react'
 import { Transition } from 'react-transition-group'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { allImagesLoadedState, getItemNameRaw, openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { allImagesLoadedState, getItemNameRaw, openItemsCanvas, openPlayerInventory, upInventoryItems, renderSlot } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
 import MessageFormattedString from './MessageFormattedString'
 import SharedHudVars from './SharedHudVars'
 
+const getItemDisplayInfo = (item: any) => {
+  if (!item) return { displayName: '', texture: null }
+
+  const renderInfo = renderSlot({
+    name: item.name,
+    displayName: item.displayName,
+    durabilityUsed: item.durabilityUsed,
+    maxDurability: item.maxDurability,
+    enchants: item.enchants,
+    nbt: item.nbt
+  })
+
+  return {
+    displayName: item.displayName,
+    texture: renderInfo?.citTexture,
+    model: renderInfo?.citModel
+  }
+}
 
 const ItemName = ({ itemKey }: { itemKey: string }) => {
   const nodeRef = useRef(null)
@@ -143,8 +161,10 @@ const Inner = () => {
         return
       }
       const item = bot.inventory.slots[bot.quickBarSlot + 36]!
+      const { displayName, texture, model } = getItemDisplayInfo(item)
+      const citInfo = texture ? '_cit' + (model || '') : ''
       const itemNbt = item.nbt ? JSON.stringify(item.nbt) : ''
-      setItemKey(`${item.displayName}_split_${item.type}_split_${item.metadata}_split_${itemNbt}`)
+      setItemKey(`${displayName}_split_${item.type}_split_${item.metadata}_split_${itemNbt}${citInfo}`)
     }
     heldItemChanged()
     bot.on('heldItemChanged' as any, heldItemChanged)

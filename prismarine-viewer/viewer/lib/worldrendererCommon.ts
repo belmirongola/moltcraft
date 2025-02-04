@@ -15,6 +15,8 @@ import { LineMaterial } from 'three-stdlib'
 import christmasPack from 'mc-assets/dist/textureReplacements/christmas'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
+import { CitRules, loadCitRules } from '../../../src/cit'
+import { getActiveResourcepackBasePath } from '../../../src/resourcePack'
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
@@ -138,6 +140,9 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   neighborChunkUpdates = true
   lastChunkDistance = 0
   debugStopGeometryUpdate = false
+
+  // Add new property for CIT rules
+  citRules: CitRules = []
 
   abstract outputFormat: 'threeJs' | 'webgpu'
 
@@ -323,6 +328,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     const date = new Date()
     if ((date.getMonth() === 11 && date.getDate() >= 24) || (date.getMonth() === 0 && date.getDate() <= 6)) {
       Object.assign(blockTexturesChanges, christmasPack)
+    }
+
+    // Load CIT rules if resourcepack is active
+    const basePath = await getActiveResourcepackBasePath()
+    if (basePath) {
+      this.citRules = await loadCitRules(basePath)
+    } else {
+      this.citRules = []
     }
 
     const customBlockTextures = Object.keys(this.customTextures.blocks?.textures ?? {})

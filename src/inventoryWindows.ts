@@ -13,6 +13,7 @@ import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
 import Generic95 from '../assets/generic_95.png'
+import { matchCitRule } from './cit'
 import { appReplacableResources } from './generated/resources'
 import { activeModalStack, hideCurrentModal, hideModal, miscUiState, showModal } from './globalState'
 import { options } from './optionsStorage'
@@ -178,15 +179,31 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-type RenderSlot = Pick<import('prismarine-item').Item, 'name' | 'displayName' | 'durabilityUsed' | 'maxDurability' | 'enchants'>
-const renderSlot = (slot: RenderSlot, skipBlock = false): {
+type RenderSlot = Pick<import('prismarine-item').Item, 'name' | 'displayName' | 'durabilityUsed' | 'maxDurability' | 'enchants' | 'nbt'>
+export const renderSlot = (slot: RenderSlot, skipBlock = false): {
   texture: string,
   blockData?: Record<string, { slice, path }>,
   scale?: number,
   slice?: number[]
+  citTexture?: HTMLImageElement
+  citModel?: string
 } | undefined => {
   let itemName = slot.name
   const isItem = loadedData.itemsByName[itemName]
+
+  // Check for CIT match first
+  const citRule = viewer.world.citRules ? matchCitRule({
+    name: slot.name,
+    nbt: slot.nbt,
+    durabilityUsed: slot.durabilityUsed
+  }, viewer.world.citRules) : undefined
+  if (citRule?.textureContent) {
+    return {
+      texture: 'cit',
+      citTexture: citRule.textureContent,
+      citModel: citRule.model
+    }
+  }
 
   let itemTexture
   try {
@@ -259,8 +276,8 @@ const mapSlots = (slots: Array<RenderSlot | Item | null>) => {
     if (!slot) return
 
     try {
-      const slotCustomProps = renderSlot(slot)
-      Object.assign(slot, { ...slotCustomProps, displayName: ('nbt' in slot ? getItemName(slot) : undefined) ?? slot.displayName })
+      const slotCustomProps = renderSlot(slot as RenderSlot)
+      Object.assign(slot, { ...slotCustomProps, displayName: ('nbt' in slot ? getItemName(slot as Item) : undefined) ?? slot.displayName })
       //@ts-expect-error
       slot.toJSON = () => {
         // Allow to serialize slot to JSON as minecraft-inventory-gui creates icon property as cache (recursively)

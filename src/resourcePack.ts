@@ -20,7 +20,7 @@ export const resourcePackState = proxy({
   isServerInstalling: false
 })
 
-const getLoadedImage = async (url: string) => {
+export const getLoadedImage = async (url: string) => {
   const img = new Image()
   img.src = url
   await new Promise((resolve, reject) => {
