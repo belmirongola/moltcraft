@@ -33,7 +33,7 @@ export const pingServerVersion = async (ip: string, port?: number, mergeOptions:
 }
 
 const MAX_PACKET_SIZE = 2_097_152 // 2mb
-const CHAT_MAX_PACKET_DEPTH = 30
+const CHAT_MAX_PACKET_DEPTH = 200 // todo improve perf
 
 const CHAT_VALIDATE_PACKETS = new Set([
   'chat',
