@@ -4,7 +4,7 @@ import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack,
 import { resetLocalStorageWorld } from '../browserfs'
 import { fsState } from '../loadSave'
 import { guessProblem } from '../errorLoadingScreenHelpers'
-import { ConnectOptions } from '../connect'
+import type { ConnectOptions } from '../connect'
 import { downloadPacketsReplay, packetsReplaceSessionState, replayLogger } from '../packetsReplay'
 import { getProxyDetails } from '../microsoftAuthflow'
 import AppStatus from './AppStatus'

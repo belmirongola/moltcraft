@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { useSnapshot } from 'valtio'
-import { ConnectOptions } from '../connect'
+import { ConnectOptions, downloadAllMinecraftData, getVersionAutoSelect } from '../connect'
 import { activeModalStack, hideCurrentModal, miscUiState, showModal } from '../globalState'
 import supportedVersions from '../supportedVersions.mjs'
+import { appQueryParams } from '../appParams'
+import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
+import { pingServerVersion } from '../mineflayer/minecraft-protocol-extra'
+import { getServerInfo } from '../mineflayer/mc-protocol'
 import ServersList from './ServersList'
 import AddServerOrConnect, { BaseServerInfo } from './AddServerOrConnect'
 import { useDidUpdateEffect } from './utils'
@@ -11,42 +15,18 @@ import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import { useCopyKeybinding } from './simpleHooks'
 
-interface StoreServerItem extends BaseServerInfo {
+export interface StoreServerItem extends BaseServerInfo {
   lastJoined?: number
   description?: string
   optionsOverride?: Record<string, any>
   autoLogin?: Record<string, string>
 }
 
-type ServerResponse = {
-  online: boolean
-  version?: {
-    name_raw: string
-  }
-  // display tooltip
-  players?: {
-    online: number
-    max: number
-    list: Array<{
-      name_raw: string
-      name_clean: string
-    }>
-  }
-  icon?: string
-  motd?: {
-    raw: string
-  }
-  // todo circle error icon
-  mods?: Array<{ name, version }>
-  // todo display via hammer icon
-  software?: string
-  plugins?: Array<{ name, version }>
-}
-
 type AdditionalDisplayData = {
   formattedText: string
   textNameRight: string
   icon?: string
+  offline?: boolean
 }
 
 export interface AuthenticatedAccount {
@@ -93,8 +73,8 @@ const getInitialServersList = () => {
   return servers
 }
 
-const serversListQs = new URLSearchParams(window.location.search).get('serversList')
-const proxyQs = new URLSearchParams(window.location.search).get('proxy')
+const serversListQs = appQueryParams.serversList
+const proxyQs = appQueryParams.proxy
 
 const setNewServersList = (serversList: StoreServerItem[], force = false) => {
   if (serversListQs && !force) return
@@ -137,6 +117,9 @@ export const updateAuthenticatedAccountData = (callback: (data: AuthenticatedAcc
 
 // todo move to base
 const normalizeIp = (ip: string) => ip.replace(/https?:\/\//, '').replace(/\/(:|$)/, '')
+
+const FETCH_DELAY = 100 // ms between each request
+const MAX_CONCURRENT_REQUESTS = 10
 
 const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersList?: string[] }) => {
   const [proxies, setProxies] = useState<readonly string[]>(localStorage['proxies'] ? JSON.parse(localStorage['proxies']) : getInitialProxies())
@@ -196,35 +179,69 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     return serversList.map((server, index) => ({ ...server, index })).sort((a, b) => (b.lastJoined ?? 0) - (a.lastJoined ?? 0))
   }, [serversList])
 
-  useUtilsEffect(({ signal }) => {
-    const update = async () => {
-      for (const server of serversListSorted) {
-        const isInLocalNetwork = server.ip.startsWith('192.168.') || server.ip.startsWith('10.') || server.ip.startsWith('172.') || server.ip.startsWith('127.') || server.ip.startsWith('localhost')
-        if (isInLocalNetwork || signal.aborted) continue
-        // eslint-disable-next-line no-await-in-loop
-        await fetch(`https://api.mcstatus.io/v2/status/java/${server.ip}`, {
-          // TODO: bounty for this who fix it
-          // signal
-        }).then(async r => r.json()).then((data: ServerResponse) => {
-          const versionClean = data.version?.name_raw.replace(/^[^\d.]+/, '')
-          if (!versionClean) return
-          setAdditionalData(old => {
-            return ({
-              ...old,
-              [server.ip]: {
-                formattedText: data.motd?.raw ?? '',
-                textNameRight: `${versionClean} ${data.players?.online ?? '??'}/${data.players?.max ?? '??'}`,
-                icon: data.icon,
-              }
-            })
-          })
-        })
-      }
-    }
-    void update().catch((err) => {})
-  }, [serversListSorted])
-
   const isEditScreenModal = useIsModalActive('editServer')
+
+  useUtilsEffect(({ signal }) => {
+    if (isEditScreenModal) return
+    const update = async () => {
+      const queue = serversListSorted
+        .map(server => {
+          if (!isServerValid(server.ip) || signal.aborted) return null
+
+          return server
+        })
+        .filter(x => x !== null)
+
+      const activeRequests = new Set<Promise<void>>()
+
+      let lastRequestStart = 0
+      for (const server of queue) {
+        // Wait if at concurrency limit
+        if (activeRequests.size >= MAX_CONCURRENT_REQUESTS) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.race(activeRequests)
+        }
+
+        // Create and track new request
+        // eslint-disable-next-line @typescript-eslint/no-loop-func
+        const request = new Promise<void>(resolve => {
+          setTimeout(async () => {
+            try {
+              lastRequestStart = Date.now()
+              if (signal.aborted) return
+              const isWebSocket = server.ip.startsWith('ws://') || server.ip.startsWith('wss://')
+              let data
+              if (isWebSocket) {
+                const pingResult = await getServerInfo(server.ip, undefined, undefined, true)
+                data = {
+                  formattedText: `${pingResult.version} server with a direct websocket connection`,
+                  textNameRight: `ws ${pingResult.latency}ms`,
+                  offline: false
+                }
+              } else {
+                data = await fetchServerStatus(server.ip/* , signal */) // DONT ADD SIGNAL IT WILL CRUSH JS RUNTIME
+              }
+              if (data) {
+                setAdditionalData(old => ({
+                  ...old,
+                  [server.ip]: data
+                }))
+              }
+            } finally {
+              activeRequests.delete(request)
+              resolve()
+            }
+          }, lastRequestStart ? Math.max(0, FETCH_DELAY - (Date.now() - lastRequestStart)) : 0)
+        })
+
+        activeRequests.add(request)
+      }
+
+      await Promise.all(activeRequests)
+    }
+
+    void update()
+  }, [serversListSorted, isEditScreenModal])
 
   useDidUpdateEffect(() => {
     if (serverEditScreen && !isEditScreenModal) {
@@ -394,10 +411,10 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         name: server.index.toString(),
         title: server.name || server.ip,
         detail: (server.versionOverride ?? '') + ' ' + (server.usernameOverride ?? ''),
-        // lastPlayed: server.lastJoined,
         formattedTextOverride: additional?.formattedText,
         worldNameRight: additional?.textNameRight ?? '',
         iconSrc: additional?.icon,
+        offline: additional?.offline
       }
     })}
     initialProxies={{

@@ -2,19 +2,13 @@ import { CSSProperties, PointerEvent, useEffect, useRef } from 'react'
 import { proxy, ref, useSnapshot } from 'valtio'
 import { contro } from '../controls'
 import worldInteractions from '../worldInteractions'
+import { options } from '../optionsStorage'
 import PixelartIcon from './PixelartIcon'
 import Button from './Button'
 
 export type ButtonName = 'action' | 'sneak' | 'break' | 'jump'
 
 type ButtonsPositions = Record<ButtonName, [number, number]>
-
-interface Props {
-  touchActive: boolean
-  setupActive: boolean
-  buttonsPositions: ButtonsPositions
-  closeButtonsSetup: (newPositions?: ButtonsPositions) => void
-}
 
 const getCurrentAppScaling = () => {
   // body has css property --guiScale
@@ -51,15 +45,23 @@ export const handleMovementStickDelta = (e?: { clientX, clientY }) => {
   })
 }
 
-export default ({ touchActive, setupActive, buttonsPositions, closeButtonsSetup }: Props) => {
+type Props = {
+  setupActive: boolean
+  closeButtonsSetup: (newPositions?: ButtonsPositions) => void
+  foregroundGameActive: boolean
+}
+
+const Z_INDEX_INTERACTIBLE = 8
+
+export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props) => {
   const bot = window.bot as typeof __type_bot | undefined
-  if (setupActive) touchActive = true
+  const { touchControlsPositions, touchMovementType, touchInteractionType } = useSnapshot(options)
+  const buttonsPositions = touchControlsPositions as ButtonsPositions
 
   const joystickOuter = useRef<HTMLDivElement>(null)
   const joystickInner = useRef<HTMLDivElement>(null)
 
   const { pointer } = useSnapshot(joystickPointer)
-  // const { isFlying, isSneaking } = useSnapshot(gameAdditionalState)
   const newButtonPositions = { ...buttonsPositions }
 
   const buttonProps = (name: ButtonName) => {
@@ -146,6 +148,7 @@ export default ({ touchActive, setupActive, buttonsPositions, closeButtonsSetup 
         justifyContent: 'center',
         alignItems: 'center',
         transition: 'background 0.1s',
+        zIndex: Z_INDEX_INTERACTIBLE,
       } satisfies CSSProperties,
       onPointerDown (e: PType) {
         const elem = e.currentTarget as HTMLElement
@@ -162,8 +165,8 @@ export default ({ touchActive, setupActive, buttonsPositions, closeButtonsSetup 
           const elem = e.currentTarget as HTMLElement
           const size = 32
           const scale = getCurrentAppScaling()
-          const xPerc = (e.clientX - size / 4 / scale) / window.innerWidth * 100
-          const yPerc = (e.clientY - size / 4 / scale) / window.innerHeight * 100
+          const xPerc = (e.clientX - (size * scale) / 2) / window.innerWidth * 100
+          const yPerc = (e.clientY - (size * scale) / 2) / window.innerHeight * 100
           elem.style.left = `${xPerc}%`
           elem.style.top = `${yPerc}%`
           newButtonPositions[name] = [xPerc, yPerc]
@@ -178,55 +181,65 @@ export default ({ touchActive, setupActive, buttonsPositions, closeButtonsSetup 
   useEffect(() => {
     joystickPointer.joystickInner = joystickInner.current && ref(joystickInner.current)
     // todo antipattern
-  }, [touchActive])
+  }, [foregroundGameActive])
 
-  if (!touchActive) return null
+  if (!foregroundGameActive && !setupActive) return null
 
   return <div>
-    <div
-      className='movement_joystick_outer'
-      ref={joystickOuter}
-      style={{
-        display: pointer ? 'flex' : 'none',
-        borderRadius: '50%',
-        width: 50,
-        height: 50,
-        border: '2px solid rgba(0, 0, 0, 0.5)',
-        backgroundColor: 'rgba(255, 255, div, 0.5)',
-        position: 'fixed',
-        justifyContent: 'center',
-        alignItems: 'center',
-        translate: '-50% -50%',
-        ...pointer ? {
-          left: `${pointer.x / window.innerWidth * 100}%`,
-          top: `${pointer.y / window.innerHeight * 100}%`
-        } : {}
-      }}
-    >
+    {touchMovementType === 'modern' && (
       <div
-        className='movement_joystick_inner'
+        className='movement_joystick_outer'
+        ref={joystickOuter}
         style={{
+          display: pointer ? 'flex' : 'none',
           borderRadius: '50%',
-          width: 20,
-          height: 20,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          position: 'absolute',
+          width: 50,
+          height: 50,
+          border: '2px solid rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(255, 255, div, 0.5)',
+          position: 'fixed',
+          justifyContent: 'center',
+          alignItems: 'center',
+          translate: '-50% -50%',
+          ...pointer ? {
+            left: `${pointer.x / window.innerWidth * 100}%`,
+            top: `${pointer.y / window.innerHeight * 100}%`
+          } : {}
         }}
-        ref={joystickInner}
-      />
-    </div>
-    <div {...buttonProps('action')}>
-      <PixelartIcon iconName='circle' />
-    </div>
-    <div {...buttonProps('sneak')}>
-      <PixelartIcon iconName='arrow-down' />
-    </div>
-    <div {...buttonProps('jump')}>
-      <PixelartIcon iconName='arrow-up' />
-    </div>
-    <div {...buttonProps('break')}>
-      <MineIcon />
-    </div>
+      >
+        <div
+          className='movement_joystick_inner'
+          style={{
+            borderRadius: '50%',
+            width: 20,
+            height: 20,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            position: 'absolute',
+          }}
+          ref={joystickInner}
+        />
+      </div>
+    )}
+    {touchMovementType === 'modern' && (
+      <>
+        <div {...buttonProps('sneak')}>
+          <PixelartIcon iconName='arrow-down' />
+        </div>
+        <div {...buttonProps('jump')}>
+          <PixelartIcon iconName='arrow-up' />
+        </div>
+      </>
+    )}
+    {touchInteractionType === 'buttons' && (
+      <>
+        <div {...buttonProps('action')}>
+          <PixelartIcon iconName='circle' />
+        </div>
+        <div {...buttonProps('break')}>
+          <MineIcon />
+        </div>
+      </>
+    )}
     {setupActive && <div style={{
       position: 'fixed',
       bottom: 0,

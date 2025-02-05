@@ -26,6 +26,7 @@ if (!isProd) {
 app.get('/config.json', (req, res, next) => {
   // read original file config
   let config = {}
+  let publicConfig = {}
   try {
     config = require('./config.json')
   } catch {
@@ -33,9 +34,13 @@ app.get('/config.json', (req, res, next) => {
       config = require('./dist/config.json')
     } catch { }
   }
+  try {
+    publicConfig = require('./public/config.json')
+  } catch { }
   res.json({
     ...config,
     'defaultProxy': '', // use current url (this server)
+    ...publicConfig,
   })
 })
 if (isProd) {
@@ -45,6 +50,11 @@ if (isProd) {
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp')
     next()
   })
+
+  // First serve from the override directory (volume mount)
+  app.use(express.static(path.join(__dirname, './public')))
+
+  // Then fallback to the original dist directory
   app.use(express.static(path.join(__dirname, './dist')))
 }
 

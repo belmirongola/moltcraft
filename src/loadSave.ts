@@ -11,6 +11,7 @@ import { isMajorVersionGreater } from './utils'
 
 import { activeModalStacks, insertActiveModalStack, miscUiState } from './globalState'
 import supportedVersions from './supportedVersions.mjs'
+import { appQueryParams } from './appParams'
 
 // todo include name of opened handle (zip)!
 // additional fs metadata
@@ -84,8 +85,7 @@ export const loadSave = async (root = '/world') => {
   let version: string | undefined | null
   let isFlat = false
   if (levelDat) {
-    const qs = new URLSearchParams(window.location.search)
-    version = qs.get('mapVersion') ?? levelDat.Version?.Name
+    version = appQueryParams.mapVersion ?? levelDat.Version?.Name
     if (!version) {
       // const newVersion = disablePrompts ? '1.8.8' : prompt(`In 1.8 and before world save doesn't contain version info, please enter version you want to use to load the world.\nSupported versions ${supportedVersions.join(', ')}`, '1.8.8')
       // if (!newVersion) return

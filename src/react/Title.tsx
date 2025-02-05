@@ -29,7 +29,8 @@ const Title = ({
   const [mounted, setMounted] = useState(false)
   const [useEnterTransition, setUseEnterTransition] = useState(true)
 
-  const defaultDuration = 500
+  const defaultFadeIn = 500
+  const defaultFadeOut = 1000
   const startStyle = {
     opacity: 1,
     transition: `${transitionTimes.fadeIn}ms ease-in-out all` }
@@ -54,10 +55,10 @@ const Title = ({
     <div className='title-container'>
       <Transition
         in={openTitle}
-        timeout={transitionTimes ? {
-          enter: transitionTimes.fadeIn,
-          exit: transitionTimes.fadeOut,
-        } : defaultDuration}
+        timeout={{
+          enter: transitionTimes?.fadeIn ?? defaultFadeIn,
+          exit: transitionTimes?.fadeOut ?? defaultFadeOut,
+        }}
         mountOnEnter
         unmountOnExit
         enter={useEnterTransition}
@@ -83,10 +84,10 @@ const Title = ({
       </Transition>
       <Transition
         in={openActionBar}
-        timeout={transitionTimes ? {
-          enter: transitionTimes.fadeIn,
-          exit: transitionTimes.fadeOut,
-        } : defaultDuration}
+        timeout={{
+          enter: transitionTimes?.fadeIn ?? defaultFadeIn,
+          exit: transitionTimes?.fadeOut ?? defaultFadeOut,
+        }}
         mountOnEnter
         unmountOnExit
         // enter={useEnterTransition}

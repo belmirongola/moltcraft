@@ -7,6 +7,18 @@ export const useIsSmallWidth = () => {
   return useMedia(SMALL_SCREEN_MEDIA.replace('@media ', ''))
 }
 
+export const usePassesWindowDimensions = (minWidth: number | null = null, minHeight: number | null = null) => {
+  let media = '('
+  if (minWidth !== null) {
+    media += `min-width: ${minWidth}px, `
+  }
+  if (minHeight !== null) {
+    media += `min-height: ${minHeight}px, `
+  }
+  media += ')'
+  return useMedia(media)
+}
+
 export const useCopyKeybinding = (getCopyText: () => string | undefined) => {
   useUtilsEffect(({ signal }) => {
     addEventListener('keydown', (e) => {
