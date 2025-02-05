@@ -21,7 +21,7 @@ export default () => {
   }, [])
 
   const onLongPress = async () => {
-    const select = await showOptionsModal('', f3Keybinds.filter(f3Keybind => f3Keybind.mobileTitle).map(f3Keybind => f3Keybind.mobileTitle))
+    const select = await showOptionsModal('', f3Keybinds.filter(f3Keybind => f3Keybind.mobileTitle && (f3Keybind.enabled?.() ?? true)).map(f3Keybind => f3Keybind.mobileTitle))
     if (!select) return
     const f3Keybind = f3Keybinds.find(f3Keybind => f3Keybind.mobileTitle === select)
     if (f3Keybind) f3Keybind.action()

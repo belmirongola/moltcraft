@@ -12,6 +12,7 @@ import Button from './Button'
 import Tabs from './Tabs'
 import MessageFormattedString from './MessageFormattedString'
 import { useIsSmallWidth } from './simpleHooks'
+import PixelartIcon from './PixelartIcon'
 
 export interface WorldProps {
   name: string
@@ -25,9 +26,11 @@ export interface WorldProps {
   worldNameRight?: string
   onFocus?: (name: string) => void
   onInteraction?(interaction: 'enter' | 'space')
+  elemRef?: React.Ref<HTMLDivElement>
+  offline?: boolean
 }
 
-const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight }: WorldProps) => {
+const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
   const timeRelativeFormatted = useMemo(() => {
     if (!lastPlayed) return ''
     const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -47,6 +50,7 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
   }, [size])
 
   return <div
+    ref={elemRef}
     className={classNames(styles.world_root, isFocused ? styles.world_focused : undefined)} tabIndex={0} onFocus={() => onFocus?.(name)} onKeyDown={(e) => {
       if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault()
@@ -58,7 +62,19 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
     <div className={styles.world_info}>
       <div className={styles.world_title}>
         <div>{title}</div>
-        <div className={styles.world_title_right}>{worldNameRight}</div>
+        <div className={styles.world_title_right}>
+          {offline ? (
+            <span style={{ color: 'red', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <PixelartIcon iconName="signal-off" width={12} />
+              Offline
+            </span>
+          ) : worldNameRight?.startsWith('ws') ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <PixelartIcon iconName="cellular-signal-3" width={12} />
+              {worldNameRight.slice(3)}
+            </span>
+          ) : worldNameRight}
+        </div>
       </div>
       {formattedTextOverride ? <div className={styles.world_info_formatted}>
         <MessageFormattedString message={formattedTextOverride} />
@@ -92,6 +108,7 @@ interface Props {
   onGeneralAction (action: 'cancel' | 'create'): void
   onRowSelect? (name: string, index: number): void
   defaultSelectedRow?: number
+  selectedRow?: number
   listStyle?: React.CSSProperties
   setListHovered?: (hovered: boolean) => void
   secondRowStyles?: React.CSSProperties
@@ -116,6 +133,7 @@ export default ({
   hidden,
   onRowSelect,
   defaultSelectedRow,
+  selectedRow,
   listStyle,
   setListHovered,
   secondRowStyles,
@@ -123,9 +141,10 @@ export default ({
 }: Props) => {
   const containerRef = useRef<any>()
   const firstButton = useRef<HTMLButtonElement>(null)
+  const worldRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useTypedEventListener(window, 'keydown', (e) => {
-    if ((e.code === 'ArrowDown' || e.code === 'ArrowUp') && e.ctrlKey) {
+    if ((e.code === 'ArrowDown' || e.code === 'ArrowUp')) {
       e.preventDefault()
       const dir = e.code === 'ArrowDown' ? 1 : -1
       const elements = focusable(containerRef.current)
@@ -137,11 +156,20 @@ export default ({
   })
 
   const [search, setSearch] = useState('')
-  const [focusedWorld, setFocusedWorld] = useState(defaultSelectedRow ? worldData?.[defaultSelectedRow]?.name ?? '' : '')
+  const [focusedWorld, setFocusedWorld] = useState(defaultSelectedRow === undefined ? '' : worldData?.[defaultSelectedRow]?.name ?? '')
 
   useEffect(() => {
     setFocusedWorld('')
   }, [activeProvider])
+
+  useEffect(() => {
+    if (selectedRow === undefined) return
+    const worldName = worldData?.[selectedRow]?.name
+    setFocusedWorld(worldName ?? '')
+    if (worldName) {
+      worldRefs.current[worldName]?.focus()
+    }
+  }, [selectedRow, worldData?.[selectedRow as any]?.name])
 
   const onRowSelectHandler = (name: string, index: number) => {
     onRowSelect?.(name, index)
@@ -186,7 +214,14 @@ export default ({
             worldData
               ? worldData.filter(data => data.title.toLowerCase().includes(search.toLowerCase())).map(({ name, size, detail, ...rest }, index) => (
                 <World
-                  {...rest} size={size} name={name} onFocus={row => onRowSelectHandler(row, index)} isFocused={focusedWorld === name} key={name} onInteraction={(interaction) => {
+                  {...rest}
+                  size={size}
+                  name={name}
+                  elemRef={el => { worldRefs.current[name] = el }}
+                  onFocus={row => onRowSelectHandler(row, index)}
+                  isFocused={focusedWorld === name}
+                  key={name}
+                  onInteraction={(interaction) => {
                     if (interaction === 'enter') onWorldAction('load', name)
                     else if (interaction === 'space') firstButton.current?.focus()
                   }}

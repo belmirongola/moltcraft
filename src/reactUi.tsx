@@ -46,6 +46,7 @@ import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
 import DebugEdges from './react/DebugEdges'
+import GameInteractionOverlay from './react/GameInteractionOverlay'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -116,6 +117,7 @@ const InGameUi = () => {
     <RobustPortal to={document.querySelector('#ui-root')}>
       {/* apply scaling */}
       <div style={{ display: showUI ? 'block' : 'none' }}>
+        <GameInteractionOverlay zIndex={7} />
         {!disabledUiParts.includes('death-screen') && <DeathScreenProvider />}
         {!disabledUiParts.includes('debug-overlay') && <DebugOverlay />}
         {!disabledUiParts.includes('mobile-top-buttons') && <MobileTopButtons />}

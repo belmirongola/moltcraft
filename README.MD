@@ -19,7 +19,7 @@ For building the project yourself / contributing, see [Development, Debugging & 
 - Works offline
 - First-class touch (mobile) & controller support
 - First-class keybindings configuration
-- Basic Resource pack support: Custom GUI, all textures. Server resource packs are not supported yet.
+- Advanced Resource pack support: Custom GUI, all textures. Server resource packs are supported with proper CORS configuration.
 - Builtin JEI with recipes & descriptions for every item (JEI is creative inventory replacement)
 - Play with friends over internet! (P2P is powered by Peer.js discovery servers)
 - ~~Google Drive support for reading / saving worlds back to the cloud~~

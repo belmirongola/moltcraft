@@ -6,6 +6,7 @@ import { loadGoogleDriveApi, loadInMemorySave } from './react/SingleplayerProvid
 import { setLoadingScreenStatus } from './utils'
 import { mountGoogleDriveFolder } from './browserfs'
 import { showOptionsModal } from './react/SelectOption'
+import { appQueryParams } from './appParams'
 
 const CLIENT_ID = '137156026346-igv2gkjsj2hlid92rs3q7cjjnc77s132.apps.googleusercontent.com'
 // const CLIENT_ID = process.env.GOOGLE_CLIENT_ID
@@ -45,7 +46,7 @@ export const useGoogleLogIn = () => {
 }
 
 export const possiblyHandleStateVariable = async () => {
-  const stateParam = new URLSearchParams(window.location.search).get('state')
+  const stateParam = appQueryParams.state
   if (!stateParam) return
   setLoadingScreenStatus('Opening world in read only mode, waiting for login...')
   await loadGoogleDriveApi()

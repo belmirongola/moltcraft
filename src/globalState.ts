@@ -1,8 +1,7 @@
 //@ts-check
 
 import { proxy, ref, subscribe } from 'valtio'
-import { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
-import { pointerLock } from './utils'
+import type { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import type { OptionsGroupType } from './optionsGuiScheme'
 
 // todo: refactor structure with support of hideNext=false
@@ -25,16 +24,6 @@ export const insertActiveModalStack = (name: string, newModalStack = activeModal
 export const activeModalStacks: Record<string, Modal[]> = {}
 
 window.activeModalStack = activeModalStack
-
-subscribe(activeModalStack, () => {
-  if (activeModalStack.length === 0) {
-    if (isGameActive(false)) {
-      void pointerLock.requestPointerLock()
-    }
-  } else {
-    document.exitPointerLock?.()
-  }
-})
 
 /**
  * @returns true if operation was successful
@@ -86,9 +75,20 @@ export const hideCurrentModal = (_data?, onHide?: () => void) => {
   }
 }
 
+export const hideAllModals = () => {
+  while (activeModalStack.length > 0) {
+    if (!hideModal()) break
+  }
+  return activeModalStack.length === 0
+}
+
 export const openOptionsMenu = (group: OptionsGroupType) => {
   showModal({ reactType: `options-${group}` })
 }
+
+subscribe(activeModalStack, () => {
+  document.body.style.setProperty('--has-modals-z', activeModalStack.length ? '-1' : null)
+})
 
 // ---
 
@@ -139,12 +139,6 @@ export const miscUiState = proxy({
   displaySearchInput: false,
 })
 
-export const loadedGameState = proxy({
-  username: '',
-  serverIp: '' as string | null,
-  usingServerResourcePack: false,
-})
-
 export const isGameActive = (foregroundCheck: boolean) => {
   if (foregroundCheck && activeModalStack.length) return false
   return miscUiState.gameLoaded
@@ -158,9 +152,9 @@ export const gameAdditionalState = proxy({
   isSprinting: false,
   isSneaking: false,
   isZooming: false,
-  warps: [] as WorldWarp[]
+  warps: [] as WorldWarp[],
+
+  usingServerResourcePack: false,
 })
 
 window.gameAdditionalState = gameAdditionalState
-
-// todo restore auto-save on interval for player data! (or implement it in flying squid since there is already auto-save for world)

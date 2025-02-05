@@ -4,11 +4,8 @@ import { showInventory } from 'minecraft-inventory-gui/web/ext.mjs'
 // import Dirt from 'mc-assets/dist/other-textures/latest/blocks/dirt.png'
 import { RecipeItem } from 'minecraft-data'
 import { flat, fromFormattedString } from '@xmcl/text-component'
-import mojangson from 'mojangson'
-import nbt from 'prismarine-nbt'
 import { splitEvery, equals } from 'rambda'
 import PItem, { Item } from 'prismarine-item'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
@@ -21,6 +18,7 @@ import { displayClientChat } from './botUtils'
 import { currentScaling } from './scaleInterface'
 import { getItemDescription } from './itemsDescriptions'
 import { MessageFormatPart } from './chatUtils'
+import { GeneralInputItem, getItemMetadata, getItemNameRaw, RenderItem } from './mineflayer/items'
 
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
@@ -36,15 +34,12 @@ export const allImagesLoadedState = proxy({
   value: false
 })
 
-let itemsRenderer: ItemsRenderer
 export const onGameLoad = (onLoad) => {
   allImagesLoadedState.value = false
   version = bot.version
 
   const checkIfLoaded = () => {
     if (!viewer.world.itemsAtlasParser) return
-    itemsRenderer = new ItemsRenderer(bot.version, viewer.world.blockstatesModels, viewer.world.itemsAtlasParser, viewer.world.blocksAtlasParser)
-    globalThis.itemsRenderer = itemsRenderer
     if (!allImagesLoadedState.value) {
       onLoad?.()
     }
@@ -178,23 +173,33 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-type RenderSlot = Pick<import('prismarine-item').Item, 'name' | 'displayName' | 'durabilityUsed' | 'maxDurability' | 'enchants'>
-const renderSlot = (slot: RenderSlot, skipBlock = false): {
+export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false): {
   texture: string,
   blockData?: Record<string, { slice, path }>,
   scale?: number,
-  slice?: number[]
+  slice?: number[],
 } | undefined => {
-  let itemName = slot.name
-  const isItem = loadedData.itemsByName[itemName]
+  let itemModelName = slot.name
+  const originalItemName = itemModelName
+  const isItem = loadedData.itemsByName[itemModelName]
+
+  // #region normalize item name
+  if (versionToNumber(bot.version) < versionToNumber('1.13')) itemModelName = getRenamedData(isItem ? 'items' : 'blocks', itemModelName, bot.version, '1.13.1') as string
+  // #endregion
+
+
+  const { customModel } = getItemMetadata(slot)
+  if (customModel) {
+    itemModelName = customModel
+  }
 
   let itemTexture
   try {
-    if (versionToNumber(bot.version) < versionToNumber('1.13')) itemName = getRenamedData(isItem ? 'items' : 'blocks', itemName, bot.version, '1.13.1') as string
-    itemTexture = itemsRenderer.getItemTexture(itemName) ?? itemsRenderer.getItemTexture('item/missing_texture')!
+    assertDefined(viewer.world.itemsRenderer)
+    itemTexture = viewer.world.itemsRenderer.getItemTexture(itemModelName) ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
-    itemTexture = itemsRenderer.getItemTexture('block/errored')!
-    inGameError(`Failed to render item ${itemName} on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
+    inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
+    itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
   }
   if ('type' in itemTexture) {
     // is item
@@ -211,31 +216,7 @@ const renderSlot = (slot: RenderSlot, skipBlock = false): {
   }
 }
 
-type JsonString = string
-type PossibleItemProps = {
-  Damage?: number
-  display?: { Name?: JsonString } // {"text":"Knife","color":"white","italic":"true"}
-}
-export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null) => {
-  if (!item?.nbt) return
-  const itemNbt: PossibleItemProps = nbt.simplify(item.nbt)
-  const customName = itemNbt.display?.Name
-  if (!customName) return
-  try {
-    const parsed = customName.startsWith('{') && customName.endsWith('}') ? mojangson.simplify(mojangson.parse(customName)) : fromFormattedString(customName)
-    if (parsed.extra) {
-      return parsed as Record<string, any>
-    } else {
-      return parsed as MessageFormatPart
-    }
-  } catch (err) {
-    return {
-      text: customName
-    }
-  }
-}
-
-const getItemName = (slot: Item | null) => {
+const getItemName = (slot: Item | RenderItem | null) => {
   const parsed = getItemNameRaw(slot)
   if (!parsed) return
   // todo display full text renderer from sign renderer
@@ -244,7 +225,7 @@ const getItemName = (slot: Item | null) => {
 }
 
 export const renderSlotExternal = (slot) => {
-  const data = renderSlot(slot, true)
+  const data = renderSlot(slot)
   if (!data) return
   return {
     imageDataUrl: data.texture === 'invsprite' ? undefined : getImage({ path: data.texture })?.src,
@@ -253,14 +234,15 @@ export const renderSlotExternal = (slot) => {
   }
 }
 
-const mapSlots = (slots: Array<RenderSlot | Item | null>) => {
-  return slots.map(slot => {
+const mapSlots = (slots: Array<RenderItem | Item | null>) => {
+  return slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
     try {
-      const slotCustomProps = renderSlot(slot)
-      Object.assign(slot, { ...slotCustomProps, displayName: ('nbt' in slot ? getItemName(slot) : undefined) ?? slot.displayName })
+      const slotCustomProps = renderSlot(slot, i === bot.inventory.hotbarStart + bot.quickBarSlot)
+      const itemCustomName = getItemName(slot)
+      Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error
       slot.toJSON = () => {
         // Allow to serialize slot to JSON as minecraft-inventory-gui creates icon property as cache (recursively)

@@ -8,6 +8,7 @@ import { getMyHand } from './hand'
 export type HandItemBlock = {
   name?
   properties?
+  fullItem?
   type: 'block' | 'item' | 'hand'
   id?: number
 }
@@ -263,16 +264,12 @@ export default class HoldingBlock {
       this.blockSwapAnimation = undefined
       return
     }
-    const blockProvider = worldBlockProvider(blockstatesModels, blocksAtlases, 'latest')
     let blockInner
     if (handItem.type === 'block') {
-      const models = blockProvider.getAllResolvedModels0_1({
-        name: handItem.name,
-        properties: handItem.properties ?? {}
-      }, true)
-      blockInner = getThreeBlockModelGroup(material, models, undefined, 'plains', loadedData)
+      blockInner = getBlockMesh(material, handItem.name, handItem.properties ?? {})
     } else if (handItem.type === 'item') {
       const { mesh: itemMesh } = viewer.entities.getItemMesh({
+        ...handItem.fullItem,
         itemId: handItem.id,
       })!
       itemMesh.position.set(0.5, 0.5, 0.5)
@@ -409,4 +406,13 @@ export default class HoldingBlock {
       scale
     }
   }
+}
+
+export const getBlockMesh = (material: THREE.Material, name: string, properties: Record<string, any>) => {
+  const blockProvider = worldBlockProvider(viewer.world.blockstatesModels, viewer.world.blocksAtlases, 'latest')
+  const models = blockProvider.getAllResolvedModels0_1({
+    name,
+    properties
+  }, true)
+  return getThreeBlockModelGroup(material, models, undefined, 'plains', loadedData)
 }

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
-import { loadedGameState, miscUiState, openOptionsMenu, showModal } from './globalState'
+import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
 import { AppOptions, options } from './optionsStorage'
 import Button from './react/Button'
 import { OptionMeta, OptionSlider } from './react/OptionsItems'
@@ -12,6 +12,8 @@ import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
 import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallTexturePack } from './resourcePack'
 import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay'
 import { showOptionsModal } from './react/SelectOption'
+import supportedVersions from './supportedVersions.mjs'
+import { getVersionAutoSelect } from './connect'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -157,7 +159,7 @@ export const guiOptionsScheme: {
     {
       custom () {
         const { resourcePackInstalled } = useSnapshot(resourcePackState)
-        const { usingServerResourcePack } = useSnapshot(loadedGameState)
+        const { usingServerResourcePack } = useSnapshot(gameAdditionalState)
         const { enabledResourcepack } = useSnapshot(options)
         return <Button
           label={`Resource Pack: ${usingServerResourcePack ? 'SERVER ON' : resourcePackInstalled ? enabledResourcepack ? 'ON' : 'OFF' : 'NO'}`} inScreen onClick={async () => {
@@ -231,6 +233,19 @@ export const guiOptionsScheme: {
       chatOpacityOpened: {
       },
       chatSelect: {
+      },
+    },
+    {
+      custom () {
+        return <Category>World</Category>
+      },
+      highlightBlockColor: {
+        text: 'Block Highlight Color',
+        values: [
+          ['auto', 'Auto'],
+          ['blue', 'Blue'],
+          ['classic', 'Classic']
+        ],
       },
     },
     {
@@ -342,33 +357,38 @@ export const guiOptionsScheme: {
       touchButtonsSize: {
         min: 40,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsOpacity: {
         min: 10,
         max: 90,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsPosition: {
         max: 80,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
-      touchControlsType: {
-        values: [['classic', 'Classic'], ['joystick-buttons', 'New']],
+      touchMovementType: {
+        text: 'Movement Controls',
+        values: [['modern', 'Modern'], ['classic', 'Classic']],
+      },
+      touchInteractionType: {
+        text: 'Interaction Controls',
+        values: [['classic', 'Classic'], ['buttons', 'Buttons']],
       },
     },
     {
       custom () {
-        const { touchControlsType } = useSnapshot(options)
-        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchControlsType !== 'joystick-buttons'} />
+        const { touchInteractionType, touchMovementType } = useSnapshot(options)
+        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchInteractionType === 'classic' && touchMovementType === 'classic'} />
       },
     },
     {
@@ -438,21 +458,58 @@ export const guiOptionsScheme: {
           onClick={() => {
             packetsReplaceSessionState.active = !active
           }}
-        >{active ? 'Disable' : 'Enable'} Packets Replay</Button>
+        >{active ? 'Stop' : 'Start'} Packets Replay Logging</Button>
       },
     },
     {
       custom () {
-        const { active } = useSnapshot(packetsReplaceSessionState)
+        const { active, hasRecordedPackets } = useSnapshot(packetsReplaceSessionState)
         return <Button
-          disabled={!active}
+          disabled={!hasRecordedPackets}
           inScreen
           onClick={() => {
             void downloadPacketsReplay()
           }}
         >Download Packets Replay</Button>
       },
-    }
+    },
+    {
+      packetsLoggerPreset: {
+        text: 'Packets Logger Preset',
+        values: [
+          ['all', 'All'],
+          ['no-buffers', 'No Buffers']
+        ],
+      },
+    },
+    {
+      custom () {
+        const { serversAutoVersionSelect } = useSnapshot(options)
+        const allVersions = [...supportedVersions, 'latest', 'auto']
+        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
+
+        const getDisplayValue = (version: string) => {
+          const versionAutoSelect = getVersionAutoSelect(version)
+          if (version === 'latest') return `latest (${versionAutoSelect})`
+          if (version === 'auto') return `auto (${versionAutoSelect})`
+          return version
+        }
+
+        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Slider
+            style={{ width: 150 }}
+            label='Server Version'
+            value={currentIndex}
+            min={0}
+            max={allVersions.length - 1}
+            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
+            updateValue={(newVal) => {
+              options.serversAutoVersionSelect = allVersions[newVal]
+            }}
+          />
+        </div>
+      },
+    },
   ],
 }
 export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR'

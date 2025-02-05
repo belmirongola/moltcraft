@@ -19,6 +19,7 @@ import { disconnect } from '../flyingSquidUtils'
 import { pointerLock, setLoadingScreenStatus } from '../utils'
 import { closeWan, openToWanAndCopyJoinLink, getJoinLink } from '../localServerMultiplayer'
 import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../browserfs'
+import { appQueryParams } from '../appParams'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import Button from './Button'
@@ -86,7 +87,7 @@ export const saveToBrowserMemory = async () => {
           const srcPath = join(worldFolder, copyPath)
           const savePath = join(saveRootPath, copyPath)
           await mkdirRecursive(savePath)
-          await fs.promises.writeFile(savePath, await fs.promises.readFile(srcPath))
+          await fs.promises.writeFile(savePath, await fs.promises.readFile(srcPath) as any)
           upProgress(totalSIze)
           if (isRegionFiles) {
             const regionFile = copyPath.split('/').at(-1)!
@@ -146,8 +147,7 @@ const splitByCopySize = (files: string[], copySize = 15) => {
 }
 
 export default () => {
-  const qsParams = new URLSearchParams(window.location.search)
-  const lockConnect = qsParams?.get('lockConnect') === 'true'
+  const lockConnect = appQueryParams.lockConnect === 'true'
   const isModalActive = useIsModalActive('pause-screen')
   const fsStateSnap = useSnapshot(fsState)
   const activeModalStackSnap = useSnapshot(activeModalStack)

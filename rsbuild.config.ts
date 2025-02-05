@@ -32,6 +32,7 @@ const execAsync = promisify(childProcess.exec)
 const buildingVersion = new Date().toISOString().split(':')[0]
 
 const dev = process.env.NODE_ENV === 'development'
+const disableServiceWorker = process.env.DISABLE_SERVICE_WORKER === 'true'
 
 let releaseTag
 let releaseChangelog
@@ -124,6 +125,7 @@ const appConfig = defineConfig({
             'process.env.RELEASE_TAG': JSON.stringify(releaseTag),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
             'process.env.INLINED_APP_CONFIG_JSON': JSON.stringify(process.env.INLINE_APP_CONFIG_JSON || SINGLE_FILE_BUILD ? `data:text/json;base64,${fs.readFileSync('./config.json', 'base64')}` : undefined),
+            'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
         },
     },
     server: {
@@ -170,6 +172,9 @@ const appConfig = defineConfig({
                         configJson.defaultProxy = ':8080'
                     }
                     fs.writeFileSync('./dist/config.json', JSON.stringify({ ...configJson, ...configLocalJson }), 'utf8')
+                    if (fs.existsSync('./generated/sounds.js')) {
+                        fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
+                    }
                     // childProcess.execSync('./scripts/prepareSounds.mjs', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })
@@ -204,15 +209,17 @@ const appConfig = defineConfig({
                             // write output file size
                             console.log('single file size', (fs.statSync(singleBuildHtml).size / 1024 / 1024).toFixed(2), 'mb')
                         } else {
+                            if (!disableServiceWorker) {
                             const { count, size, warnings } = await generateSW({
-                                // dontCacheBustURLsMatching: [new RegExp('...')],
-                                globDirectory: 'dist',
-                                skipWaiting: true,
-                                clientsClaim: true,
-                                additionalManifestEntries: getSwAdditionalEntries(),
-                                globPatterns: [],
-                                swDest: './dist/service-worker.js',
-                            })
+                                    // dontCacheBustURLsMatching: [new RegExp('...')],
+                                    globDirectory: 'dist',
+                                    skipWaiting: true,
+                                    clientsClaim: true,
+                                    additionalManifestEntries: getSwAdditionalEntries(),
+                                    globPatterns: [],
+                                    swDest: './dist/service-worker.js',
+                                })
+                            }
                         }
                     })
                 }

@@ -75,6 +75,10 @@ export class WorldDataEmitter extends EventEmitter {
     this.eventListeners = {
       // 'move': botPosition,
       entitySpawn (e: any) {
+        if (e.name === 'item_frame' || e.name === 'glow_item_frame') {
+          // Item frames use block positions in the protocol, not their center. Fix that.
+          e.position.translate(0.5, 0.5, 0.5)
+        }
         emitEntity(e)
       },
       entityUpdate (e: any) {
@@ -113,7 +117,13 @@ export class WorldDataEmitter extends EventEmitter {
       // todo clean types
       const blockProperties = block ? new window.PrismarineBlock(block.id, 'void', newItem.metadata).getProperties() : {}
       // todo item props
-      viewer.world.onHandItemSwitch({ name: newItem.name, properties: blockProperties, id: newItem.type, type: block ? 'block' : 'item', }, isLeftHand)
+      viewer.world.onHandItemSwitch({
+        name: newItem.name,
+        properties: blockProperties,
+        id: newItem.type,
+        type: block ? 'block' : 'item',
+        fullItem: newItem,
+      }, isLeftHand)
     }
     bot.inventory.on('updateSlot', (index) => {
       if (index === 45) {

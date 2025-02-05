@@ -1,4 +1,4 @@
-import React, { CSSProperties, useEffect, useRef, useState } from 'react'
+import React, { CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 import { isMobile } from 'prismarine-viewer/viewer/lib/simpleUtils'
 import styles from './input.module.css'
 
@@ -28,6 +28,10 @@ export default ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, 
   }, [])
 
 
+  useEffect(() => {
+    setValidationStyle(validateInput?.(value as any) ?? {})
+  }, [value, validateInput])
+
   return <div id='input-container' className={styles.container} style={rootStyles}>
     <input
       ref={ref}
@@ -41,7 +45,6 @@ export default ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, 
       {...inputProps}
       value={value}
       onChange={(e) => {
-        setValidationStyle(validateInput?.(e.target.value) ?? {})
         setValue(e.target.value)
         inputProps.onChange?.(e)
       }}

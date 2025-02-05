@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { LineMaterial } from 'three-stdlib'
 import { Entity } from 'prismarine-entity'
+import { subscribeKey } from 'valtio/utils'
 import destroyStage0 from '../assets/destroy_stage_0.png'
 import destroyStage1 from '../assets/destroy_stage_1.png'
 import destroyStage2 from '../assets/destroy_stage_2.png'
@@ -149,7 +150,16 @@ class WorldInteraction {
       const inCreative = bot.game.gameMode === 'creative'
       const pixelRatio = viewer.renderer.getPixelRatio()
       viewer.world.threejsCursorLineMaterial = new LineMaterial({
-        color: inCreative ? 0x40_80_ff : 0x00_00_00,
+        color: (() => {
+          switch (options.highlightBlockColor) {
+            case 'blue':
+              return 0x40_80_ff
+            case 'classic':
+              return 0x00_00_00
+            default:
+              return inCreative ? 0x40_80_ff : 0x00_00_00
+          }
+        })(),
         linewidth: Math.max(pixelRatio * 0.7, 1) * 2,
         // dashed: true,
         // dashSize: 5,
@@ -158,6 +168,8 @@ class WorldInteraction {
     upLineMaterial()
     // todo use gamemode update only
     bot.on('game', upLineMaterial)
+    // Update material when highlight color setting changes
+    subscribeKey(options, 'highlightBlockColor', upLineMaterial)
   }
 
   activateEntity (entity: Entity) {
@@ -189,9 +201,18 @@ class WorldInteraction {
     }
   }
 
+  beforeUpdateChecks () {
+    if (!document.hasFocus()) {
+      // deactive all buttson
+      this.buttons.fill(false)
+    }
+  }
+
   // todo this shouldnt be done in the render loop, migrate the code to dom events to avoid delays on lags
   update () {
+    this.beforeUpdateChecks()
     const inSpectator = bot.game.gameMode === 'spectator'
+    const inAdventure = bot.game.gameMode === 'adventure'
     const entity = getEntityCursor()
     let cursorBlock = inSpectator && !options.showCursorBlockInSpectator ? null : bot.blockAtCursor(5)
     if (entity) {
@@ -199,7 +220,7 @@ class WorldInteraction {
     }
 
     let cursorBlockDiggable = cursorBlock
-    if (cursorBlock && !bot.canDigBlock(cursorBlock) && bot.game.gameMode !== 'creative') cursorBlockDiggable = null
+    if (cursorBlock && (!bot.canDigBlock(cursorBlock) || inAdventure) && bot.game.gameMode !== 'creative') cursorBlockDiggable = null
 
     const cursorChanged = cursorBlock && viewer.world.cursorBlock ? !viewer.world.cursorBlock.equals(cursorBlock.position) : viewer.world.cursorBlock !== cursorBlock
 
@@ -391,6 +412,43 @@ const getDataFromShape = (shape) => {
   const centerZ = (shape[5] + shape[2]) / 2
   const position = new Vec3(centerX, centerY, centerZ)
   return { position, width, height, depth }
+}
+
+// Blocks that can be interacted with in adventure mode
+const activatableBlockPatterns = [
+  // Containers
+  /^(chest|barrel|hopper|dispenser|dropper)$/,
+  /^.*shulker_box$/,
+  /^.*(furnace|smoker)$/,
+  /^(brewing_stand|beacon)$/,
+  // Crafting
+  /^.*table$/,
+  /^(grindstone|stonecutter|loom)$/,
+  /^.*anvil$/,
+  // Redstone
+  /^(lever|repeater|comparator|daylight_detector|observer|note_block|jukebox|bell)$/,
+  // Buttons
+  /^.*button$/,
+  // Doors and trapdoors
+  /^.*door$/,
+  /^.*trapdoor$/,
+  // Functional blocks
+  /^(enchanting_table|lectern|composter|respawn_anchor|lodestone|conduit)$/,
+  /^.*bee.*$/,
+  // Beds
+  /^.*bed$/,
+  // Misc
+  /^(cake|decorated_pot|crafter|trial_spawner|vault)$/
+]
+
+function isBlockActivatable (blockName: string) {
+  return activatableBlockPatterns.some(pattern => pattern.test(blockName))
+}
+
+function isLookingAtActivatableBlock () {
+  const cursorBlock = bot.blockAtCursor(5)
+  if (!cursorBlock) return false
+  return isBlockActivatable(cursorBlock.name)
 }
 
 export const getEntityCursor = () => {

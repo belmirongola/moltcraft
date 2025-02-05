@@ -48,7 +48,7 @@ export class Viewer {
     this.threeJsWorld = new WorldRendererThree(this.scene, this.renderer, worldConfig)
     this.setWorld()
     this.resetScene()
-    this.entities = new Entities(this.scene)
+    this.entities = new Entities(this)
     // this.primitives = new Primitives(this.scene, this.camera)
 
     this.domElement = renderer.domElement
@@ -159,7 +159,7 @@ export class Viewer {
     }))
   }
 
-  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number, roll = 0) {
+  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
     const cam = this.cameraObjectOverride || this.camera
     let yOffset = this.getMineflayerBot()?.entity?.eyeHeight ?? this.playerHeight
     if (this.isSneaking) yOffset -= 0.3

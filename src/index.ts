@@ -6,12 +6,15 @@ import './devtools'
 import './entities'
 import './globalDomListeners'
 import './mineflayer/maps'
+import './mineflayer/cameraShake'
+import './shims/patchShims'
+import './mineflayer/java-tester/index'
+import { getServerInfo } from './mineflayer/mc-protocol'
+import { onGameLoad, renderSlot } from './inventoryWindows'
+import { RenderItem } from './mineflayer/items'
 import initCollisionShapes from './getCollisionInteractionShapes'
-import { onGameLoad } from './inventoryWindows'
-import { supportedVersions } from 'minecraft-protocol'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
-import nbt from 'prismarine-nbt'
 
 import 'core-js/features/array/at'
 import 'core-js/features/promise/with-resolvers'
@@ -21,7 +24,7 @@ import { initWithRenderer } from './topRightStats'
 
 import { options, watchValue } from './optionsStorage'
 import './reactUi'
-import { contro, lockUrl, onBotCreate } from './controls'
+import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
 import { possiblyCleanHandle, resetStateAfterDisconnect } from './browserfs'
 import { watchOptionsAfterViewerInit, watchOptionsAfterWorldViewInit } from './watchOptions'
@@ -36,7 +39,7 @@ import pathfinder from 'mineflayer-pathfinder'
 import worldInteractions from './worldInteractions'
 
 import * as THREE from 'three'
-import MinecraftData, { versionsByMinecraftVersion } from 'minecraft-data'
+import MinecraftData from 'minecraft-data'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
 import initializePacketsReplay from './packetsReplay'
@@ -49,16 +52,12 @@ import {
   hideModal,
   insertActiveModalStack,
   isGameActive,
-  loadedGameState,
   miscUiState,
   showModal
 } from './globalState'
 
-
 import {
-  pointerLock,
-  toMajorVersion,
-  setLoadingScreenStatus
+  pointerLock, setLoadingScreenStatus
 } from './utils'
 import { isCypress } from './standaloneUtils'
 
@@ -70,10 +69,9 @@ import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalS
 import defaultServerOptions from './defaultLocalServerOptions'
 import dayCycle from './dayCycle'
 
-import { onAppLoad, resourcepackReload } from './resourcePack'
+import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
 import CustomChannelClient from './customClient'
-import { loadScript } from 'prismarine-viewer/viewer/lib/utils'
 import { registerServiceWorker } from './serviceWorker'
 import { appStatusState, lastConnectOptions } from './react/AppStatusProvider'
 
@@ -81,9 +79,7 @@ import { fsState } from './loadSave'
 import { watchFov } from './rendererUtils'
 import { loadInMemorySave } from './react/SingleplayerProvider'
 
-import { downloadSoundsIfNeeded } from './soundSystem'
 import { ua } from './react/utils'
-import { handleMovementStickDelta, joystickPointer } from './react/TouchAreasControls'
 import { possiblyHandleStateVariable } from './googledrive'
 import flyingSquidEvents from './flyingSquidEvents'
 import { hideNotification, notificationProxy, showNotification } from './react/NotificationProvider'
@@ -91,7 +87,7 @@ import { saveToBrowserMemory } from './react/PauseScreen'
 import { ViewerWrapper } from 'prismarine-viewer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
-import { ConnectOptions, downloadNeededDataOnConnect } from './connect'
+import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData } from './react/ServersListProvider'
@@ -103,6 +99,10 @@ import './mobileShim'
 import { preloadAllMcData } from './mcDataHelpers'
 import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream } from './viewerConnector'
+import { getWebsocketStream } from './mineflayer/websocket-core'
+import { appQueryParams, appQueryParamsArray } from './appParams'
+import { updateCursor } from './cameraRotationControls'
+import { pingServerVersion } from './mineflayer/minecraft-protocol-extra'
 
 window.debug = debug
 window.THREE = THREE
@@ -159,35 +159,42 @@ const viewer: import('prismarine-viewer/viewer/lib/viewer').Viewer = new Viewer(
 window.viewer = viewer
 viewer.getMineflayerBot = () => bot
 // todo unify
-viewer.entities.getItemUv = (idOrName: number | string) => {
+viewer.entities.getItemUv = (item) => {
+  const idOrName = item.itemId ?? item.blockId
   try {
     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
-    // TODO
-    if (!viewer.world.itemsAtlasParser) throw new Error('itemsAtlasParser not loaded yet')
-    const itemsRenderer = new ItemsRenderer('latest', viewer.world.blockstatesModels, viewer.world.itemsAtlasParser, viewer.world.blocksAtlasParser)
-    const textureInfo = itemsRenderer.getItemTexture(name)
-    if (!textureInfo) throw new Error(`Texture not found for item ${name}`)
-    const tex = 'type' in textureInfo ? textureInfo : textureInfo.left
-    const [x, y, w, h] = tex.slice
-    const textureThree = tex.type === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
+    if (!name) throw new Error(`Item not found: ${idOrName}`)
+
+    const renderInfo = renderSlot({
+      name,
+      nbt: null,
+      ...item
+    })
+
+    if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
+
+    const textureThree = renderInfo.texture === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
     const img = textureThree.image
-    const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
-    const uvInfo = {
-      u,
-      v,
-      su,
-      sv
+
+    if (renderInfo.blockData || renderInfo.slice) {
+      // Get slice coordinates from either block or item texture
+      const [x, y, w, h] = renderInfo.blockData ? renderInfo.blockData.left.slice : renderInfo.slice
+      const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
+      return {
+        u, v, su, sv,
+        texture: textureThree
+      }
     }
-    return {
-      ...uvInfo,
-      texture: textureThree
-    }
+
+    throw new Error(`Invalid render info for item ${name}`)
   } catch (err) {
     reportError?.(err)
+    // Return default UV coordinates for missing texture
     return {
       u: 0,
       v: 0,
-      size: 16 / viewer.world.material.map!.image.width,
+      su: 16 / viewer.world.material.map!.image.width,
+      sv: 16 / viewer.world.material.map!.image.width,
       texture: viewer.world.material.map!
     }
   }
@@ -198,44 +205,13 @@ viewer.entities.entitiesOptions = {
 }
 watchOptionsAfterViewerInit()
 
-let mouseMovePostHandle = (e) => { }
-let lastMouseMove: number
-const updateCursor = () => {
-  worldInteractions.update()
-}
-function onCameraMove (e) {
-  if (e.type !== 'touchmove' && !pointerLock.hasPointerLock) return
-  e.stopPropagation?.()
-  const now = performance.now()
-  // todo: limit camera movement for now to avoid unexpected jumps
-  if (now - lastMouseMove < 4) return
-  lastMouseMove = now
-  let { mouseSensX, mouseSensY } = options
-  if (mouseSensY === -1) mouseSensY = mouseSensX
-  mouseMovePostHandle({
-    x: e.movementX * mouseSensX * 0.0001,
-    y: e.movementY * mouseSensY * 0.0001
-  })
-  updateCursor()
-}
-window.addEventListener('mousemove', onCameraMove, { capture: true })
-contro.on('stickMovement', ({ stick, vector }) => {
-  if (!isGameActive(true)) return
-  if (stick !== 'right') return
-  let { x, z } = vector
-  if (Math.abs(x) < 0.18) x = 0
-  if (Math.abs(z) < 0.18) z = 0
-  onCameraMove({ movementX: x * 10, movementY: z * 10, type: 'touchmove' })
-  miscUiState.usingGamepadInput = true
-})
-
 function hideCurrentScreens () {
   activeModalStacks['main-menu'] = [...activeModalStack]
   insertActiveModalStack('', [])
 }
 
 const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}) => {
-  const serverSettingsQsRaw = new URLSearchParams(window.location.search).getAll('serverSetting')
+  const serverSettingsQsRaw = appQueryParamsArray.serverSetting ?? []
   const serverSettingsQs = serverSettingsQsRaw.map(x => x.split(':')).reduce<Record<string, string>>((acc, [key, value]) => {
     acc[key] = JSON.parse(value)
     return acc
@@ -283,7 +259,7 @@ const cleanConnectIp = (host: string | undefined, defaultPort: string | undefine
   }
 }
 
-async function connect (connectOptions: ConnectOptions) {
+export async function connect (connectOptions: ConnectOptions) {
   if (miscUiState.gameLoaded) return
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
@@ -294,17 +270,26 @@ async function connect (connectOptions: ConnectOptions) {
   miscUiState.singleplayer = singleplayer
   miscUiState.flyingSquid = singleplayer || p2pMultiplayer
   const { renderDistance: renderDistanceSingleplayer, multiplayerRenderDistance } = options
-  const server = cleanConnectIp(connectOptions.server, '25565')
+  const isWebSocket = connectOptions.server?.startsWith('ws://') || connectOptions.server?.startsWith('wss://')
+  const server = isWebSocket ? { host: connectOptions.server, port: undefined } : cleanConnectIp(connectOptions.server, '25565')
   if (connectOptions.proxy?.startsWith(':')) {
     connectOptions.proxy = `${location.protocol}//${location.hostname}${connectOptions.proxy}`
+  }
+  if (connectOptions.proxy && location.port !== '80' && location.port !== '443' && !/:\d+$/.test(connectOptions.proxy)) {
+    const https = connectOptions.proxy.startsWith('https://') || location.protocol === 'https:'
+    connectOptions.proxy = `${connectOptions.proxy}:${https ? 443 : 80}`
   }
   const proxy = cleanConnectIp(connectOptions.proxy, undefined)
   let { username } = connectOptions
 
-  console.log(`connecting to ${server.host}:${server.port} with ${username}`)
+  if (connectOptions.server) {
+    console.log(`connecting to ${server.host}:${server.port}`)
+  }
+  console.log('using player username', username)
 
   hideCurrentScreens()
-  setLoadingScreenStatus('Logging in')
+  const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
+  setLoadingScreenStatus(loggingInMsg)
 
   let ended = false
   let bot!: typeof __type_bot
@@ -376,9 +361,10 @@ async function connect (connectOptions: ConnectOptions) {
     signal: errorAbortController.signal
   })
 
-  if (proxy && !connectOptions.viewerWsConnect) {
-    console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
+  let clientDataStream
 
+  if (proxy && !connectOptions.viewerWsConnect && !isWebSocket) {
+    console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
     net['setProxy']({ hostname: proxy.host, port: proxy.port })
   }
 
@@ -388,15 +374,24 @@ async function connect (connectOptions: ConnectOptions) {
   try {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
-    preloadAllMcData()
+    setLoadingScreenStatus('Downloading minecraft data')
+    await Promise.all([
+      downloadAllMinecraftData(), // download mc data before we can use minecraft-data at all
+      downloadOtherGameData()
+    ])
+    setLoadingScreenStatus(loggingInMsg)
+    let dataDownloaded = false
     const downloadMcData = async (version: string) => {
+      if (dataDownloaded) return
+      dataDownloaded = true
       if (connectOptions.authenticatedAccount && (versionToNumber(version) < versionToNumber('1.19.4') || versionToNumber(version) >= versionToNumber('1.21'))) {
         // todo support it (just need to fix .export crash)
         throw new Error('Microsoft authentication is only supported on 1.19.4 - 1.20.6 (at least for now)')
       }
 
-      await downloadNeededDataOnConnect(version)
+      await downloadMcDataOnConnect(version)
       try {
+        // TODO! reload only after login packet (delay viewer display) so no unecessary reload after server one is isntalled
         await resourcepackReload(version)
       } catch (err) {
         console.error(err)
@@ -405,15 +400,13 @@ async function connect (connectOptions: ConnectOptions) {
           throw err
         }
       }
-
+      setLoadingScreenStatus('Loading minecraft assets')
+      viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
       void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
-      setLoadingScreenStatus(`Data loaded. Connected to server ${connectOptions.server}`)
+      miscUiState.loadedDataVersion = version
     }
 
-    const downloadVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
-    if (downloadVersion) {
-      await downloadMcData(downloadVersion)
-    }
+    let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
 
     if (singleplayer) {
       // SINGLEPLAYER EXPLAINER:
@@ -453,10 +446,22 @@ async function connect (connectOptions: ConnectOptions) {
       initialLoadingText = 'Local server is still starting'
     } else if (p2pMultiplayer) {
       initialLoadingText = 'Connecting to peer'
+    } else if (connectOptions.server) {
+      if (!finalVersion) {
+        const versionAutoSelect = getVersionAutoSelect()
+        setLoadingScreenStatus(`Fetching server version. Preffered: ${versionAutoSelect}`)
+        const autoVersionSelect = await getServerInfo(server.host!, server.port ? Number(server.port) : undefined, versionAutoSelect)
+        finalVersion = autoVersionSelect.version
+      }
+      initialLoadingText = `Connecting to server ${server.host} with version ${finalVersion}`
     } else {
-      initialLoadingText = 'Connecting to server'
+      initialLoadingText = 'We have no idea what to do'
     }
     setLoadingScreenStatus(initialLoadingText)
+
+    if (isWebSocket) {
+      clientDataStream = (await getWebsocketStream(server.host!)).mineflayerStream
+    }
 
     let newTokensCacheResult = null as any
     const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
@@ -472,7 +477,6 @@ async function connect (connectOptions: ConnectOptions) {
       connectingServer: server.host
     }) : undefined
 
-    let clientDataStream
     if (p2pMultiplayer) {
       clientDataStream = await connectToPeer(connectOptions.peerId!, connectOptions.peerOptions)
     }
@@ -480,16 +484,21 @@ async function connect (connectOptions: ConnectOptions) {
       const { version, time } = await getViewerVersionData(connectOptions.viewerWsConnect)
       console.log('Latency:', Date.now() - time, 'ms')
       // const version = '1.21.1'
-      connectOptions.botVersion = version
+      finalVersion = version
       await downloadMcData(version)
       setLoadingScreenStatus(`Connecting to WebSocket server ${connectOptions.viewerWsConnect}`)
       clientDataStream = await getWsProtocolStream(connectOptions.viewerWsConnect)
     }
 
+    if (finalVersion) {
+      // ensure data is downloaded
+      await downloadMcData(finalVersion)
+    }
+
     bot = mineflayer.createBot({
       host: server.host,
       port: server.port ? +server.port : undefined,
-      version: connectOptions.botVersion || false,
+      version: finalVersion || false,
       ...clientDataStream ? {
         stream: clientDataStream,
       } : {},
@@ -555,10 +564,6 @@ async function connect (connectOptions: ConnectOptions) {
       closeTimeout: 240 * 1000,
       respawn: options.autoRespawn,
       maxCatchupTicks: 0,
-      async versionSelectedHook (client) {
-        await downloadMcData(client.version)
-        setLoadingScreenStatus(initialLoadingText)
-      },
       'mapDownloader-saveToFile': false,
       // "mapDownloader-saveInternal": false, // do not save into memory, todo must be implemeneted as we do really care of ram
     }) as unknown as typeof __type_bot
@@ -576,7 +581,7 @@ async function connect (connectOptions: ConnectOptions) {
 
       bot.emit('inject_allowed')
       bot._client.emit('connect')
-    } else if (connectOptions.viewerWsConnect) {
+    } else if (clientDataStream) {
       // bot.emit('inject_allowed')
       bot._client.emit('connect')
     } else {
@@ -666,6 +671,9 @@ async function connect (connectOptions: ConnectOptions) {
   bot.on('end', (endReason) => {
     if (ended) return
     console.log('disconnected for', endReason)
+    if (endReason === 'socketClosed') {
+      endReason = 'Connection with server lost'
+    }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason: ${endReason}`, true)
     onPossibleErrorDisconnect()
     destroyAll()
@@ -682,7 +690,21 @@ async function connect (connectOptions: ConnectOptions) {
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
-  bot.once(spawnEarlier ? 'forcedMove' : 'health', () => {
+  bot.once(spawnEarlier ? 'forcedMove' : 'health', async () => {
+    if (resourcePackState.isServerInstalling) {
+      setLoadingScreenStatus('Downloading resource pack')
+      await new Promise<void>(resolve => {
+        subscribe(resourcePackState, () => {
+          if (!resourcePackState.isServerDownloading) {
+            setLoadingScreenStatus('Installing resource pack')
+          }
+          if (!resourcePackState.isServerInstalling) {
+            resolve()
+          }
+        })
+      })
+    }
+    window.focus?.()
     errorAbortController.abort()
     window.pathfinder = pathfinder
 
@@ -694,7 +716,7 @@ async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus('Placing blocks (starting viewer)')
     localStorage.lastConnectOptions = JSON.stringify(connectOptions)
     connectOptions.onSuccessfulPlay?.()
-    if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && new URLSearchParams(location.search).size === 0) {
+    if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
       lockUrl()
     }
     updateDataAfterJoin()
@@ -738,155 +760,11 @@ async function connect (connectOptions: ConnectOptions) {
 
     setLoadingScreenStatus('Setting callbacks')
 
-    const maxPitch = 0.5 * Math.PI
-    const minPitch = -0.5 * Math.PI
-    mouseMovePostHandle = ({ x, y }) => {
-      viewer.world.lastCamUpdate = Date.now()
-      bot.entity.pitch -= y
-      bot.entity.pitch = Math.max(minPitch, Math.min(maxPitch, bot.entity.pitch))
-      bot.entity.yaw -= x
-    }
-
-    function changeCallback () {
-      if (notificationProxy.id === 'pointerlockchange') {
-        hideNotification()
-      }
-      if (renderer.xr.isPresenting) return // todo
-      if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
-        showModal({ reactType: 'pause-screen' })
-      }
-    }
-
-    registerListener(document, 'pointerlockchange', changeCallback, false)
-
-    const cameraControlEl = document.querySelector('#ui-root')
-
-    /** after what time of holding the finger start breaking the block */
-    const touchStartBreakingBlockMs = 500
-    let virtualClickActive = false
-    let virtualClickTimeout
-    let screenTouches = 0
-    let capturedPointer: { id; x; y; sourceX; sourceY; activateCameraMove; time } | undefined
-    registerListener(document, 'pointerdown', (e) => {
-      const usingJoystick = options.touchControlsType === 'joystick-buttons'
-      const clickedEl = e.composedPath()[0]
-      if (!isGameActive(true) || !miscUiState.currentTouch || clickedEl !== cameraControlEl || e.pointerId === undefined) {
-        return
-      }
-      screenTouches++
-      if (screenTouches === 3) {
-        // todo needs fixing!
-        // window.dispatchEvent(new MouseEvent('mousedown', { button: 1 }))
-      }
-      if (usingJoystick) {
-        if (!joystickPointer.pointer && e.clientX < window.innerWidth / 2) {
-          joystickPointer.pointer = {
-            pointerId: e.pointerId,
-            x: e.clientX,
-            y: e.clientY
-          }
-          return
-        }
-      }
-      if (capturedPointer) {
-        return
-      }
-      cameraControlEl.setPointerCapture(e.pointerId)
-      capturedPointer = {
-        id: e.pointerId,
-        x: e.clientX,
-        y: e.clientY,
-        sourceX: e.clientX,
-        sourceY: e.clientY,
-        activateCameraMove: false,
-        time: Date.now()
-      }
-      if (options.touchControlsType !== 'joystick-buttons') {
-        virtualClickTimeout ??= setTimeout(() => {
-          virtualClickActive = true
-          document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
-        }, touchStartBreakingBlockMs)
-      }
-    })
-    registerListener(document, 'pointermove', (e) => {
-      if (e.pointerId === undefined) return
-      const supportsPressure = (e as any).pressure !== undefined && (e as any).pressure !== 0 && (e as any).pressure !== 0.5 && (e as any).pressure !== 1 && (e.pointerType === 'touch' || e.pointerType === 'pen')
-      if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta(e)
-        if (supportsPressure && (e as any).pressure > 0.5) {
-          bot.setControlState('sprint', true)
-          // todo
-        }
-        return
-      }
-      if (e.pointerId !== capturedPointer?.id) return
-      window.scrollTo(0, 0)
-      e.preventDefault()
-      e.stopPropagation()
-
-      const allowedJitter = 1.1
-      if (supportsPressure) {
-        bot.setControlState('jump', (e as any).pressure > 0.5)
-      }
-      const xDiff = Math.abs(e.pageX - capturedPointer.sourceX) > allowedJitter
-      const yDiff = Math.abs(e.pageY - capturedPointer.sourceY) > allowedJitter
-      if (!capturedPointer.activateCameraMove && (xDiff || yDiff)) capturedPointer.activateCameraMove = true
-      if (capturedPointer.activateCameraMove) {
-        clearTimeout(virtualClickTimeout)
-      }
-      onCameraMove({ movementX: e.pageX - capturedPointer.x, movementY: e.pageY - capturedPointer.y, type: 'touchmove' })
-      capturedPointer.x = e.pageX
-      capturedPointer.y = e.pageY
-    }, { passive: false })
-
-    const pointerUpHandler = (e: PointerEvent) => {
-      if (e.pointerId === undefined) return
-      if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta()
-        joystickPointer.pointer = null
-        return
-      }
-      if (e.pointerId !== capturedPointer?.id) return
-      clearTimeout(virtualClickTimeout)
-      virtualClickTimeout = undefined
-
-      if (options.touchControlsType !== 'joystick-buttons') {
-        if (virtualClickActive) {
-          // button 0 is left click
-          document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
-          virtualClickActive = false
-        } else if (!capturedPointer.activateCameraMove && (Date.now() - capturedPointer.time < touchStartBreakingBlockMs)) {
-          document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
-          worldInteractions.update()
-          document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
-        }
-      }
-      capturedPointer = undefined
-      screenTouches--
-    }
-    registerListener(document, 'pointerup', pointerUpHandler)
-    registerListener(document, 'pointercancel', pointerUpHandler)
-    registerListener(document, 'lostpointercapture', pointerUpHandler)
-
-    registerListener(document, 'contextmenu', (e) => e.preventDefault(), false)
-
-    registerListener(document, 'blur', (e) => {
-      bot.clearControlStates()
-    }, false)
-
-    console.log('Done!')
-
-    // todo
-    onGameLoad(async () => {
-      loadedGameState.serverIp = server.host ?? null
-      loadedGameState.username = username
-    })
+    onGameLoad(() => {})
 
     if (appStatusState.isError) return
     setTimeout(() => {
-      // todo
-      const qs = new URLSearchParams(window.location.search)
-      if (qs.get('suggest_save')) {
+      if (appQueryParams.suggest_save) {
         showNotification('Suggestion', 'Save the world to keep your progress!', false, undefined, async () => {
           const savePath = await saveToBrowserMemory()
           if (!savePath) return
@@ -905,7 +783,7 @@ async function connect (connectOptions: ConnectOptions) {
       // todo might not emit as servers simply don't send chunk if it's empty
       if (!viewer.world.allChunksFinished || done) return
       done = true
-      console.log('All done and ready! In', (Date.now() - start) / 1000, 's')
+      console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
       viewer.render() // ensure the last state is rendered
       document.dispatchEvent(new Event('cypress-world-ready'))
     })
@@ -918,8 +796,8 @@ async function connect (connectOptions: ConnectOptions) {
   if (!connectOptions.ignoreQs) {
     // todo cleanup
     customEvents.on('gameLoaded', () => {
-      const qs = new URLSearchParams(window.location.search)
-      for (let command of qs.getAll('command')) {
+      const commands = appQueryParamsArray.command ?? []
+      for (let command of commands) {
         if (!command.startsWith('/')) command = `/${command}`
         bot.chat(command)
       }
@@ -930,17 +808,14 @@ async function connect (connectOptions: ConnectOptions) {
 listenGlobalEvents()
 watchValue(miscUiState, async s => {
   if (s.appLoaded) { // fs ready
-    const qs = new URLSearchParams(window.location.search)
-    const moreServerOptions = {} as Record<string, any>
-    if (qs.has('version')) moreServerOptions.version = qs.get('version')
-    if (qs.get('singleplayer') === '1' || qs.get('sp') === '1') {
+    if (appQueryParams.singleplayer === '1' || appQueryParams.sp === '1') {
       loadSingleplayer({}, {
         worldFolder: undefined,
-        ...moreServerOptions
+        ...appQueryParams.version ? { version: appQueryParams.version } : {}
       })
     }
-    if (qs.get('loadSave')) {
-      const savePath = `/data/worlds/${qs.get('loadSave')}`
+    if (appQueryParams.loadSave) {
+      const savePath = `/data/worlds/${appQueryParams.loadSave}`
       try {
         await fs.promises.stat(savePath)
       } catch (err) {
@@ -996,22 +871,19 @@ void window.fetch(process.env.INLINED_APP_CONFIG_JSON || 'config.json').then(asy
 // qs open actions
 downloadAndOpenFile().then((downloadAction) => {
   if (downloadAction) return
-  const qs = new URLSearchParams(window.location.search)
-  if (qs.get('reconnect') && process.env.NODE_ENV === 'development') {
-    const ip = qs.get('ip')
+  if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
     const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
     void connect({
-      botVersion: qs.get('version') ?? undefined,
-      ...lastConnect, // todo mixing is not good idea
-      ip: ip || undefined
+      botVersion: appQueryParams.version ?? undefined,
+      ...lastConnect,
+      ip: appQueryParams.ip || undefined
     })
     return
   }
-  if (qs.get('ip') || qs.get('proxy')) {
-    const waitAppConfigLoad = !qs.get('proxy')
+  if (appQueryParams.ip || appQueryParams.proxy) {
+    const waitAppConfigLoad = !appQueryParams.proxy
     const openServerEditor = () => {
       hideModal()
-      // show server editor for connect or save
       showModal({ reactType: 'editServer' })
     }
     showModal({ reactType: 'empty' })
@@ -1033,12 +905,12 @@ downloadAndOpenFile().then((downloadAction) => {
 
   void Promise.resolve().then(() => {
     // try to connect to peer
-    const peerId = qs.get('connectPeer')
+    const peerId = appQueryParams.connectPeer
     const peerOptions = {} as ConnectPeerOptions
-    if (qs.get('server')) {
-      peerOptions.server = qs.get('server')!
+    if (appQueryParams.server) {
+      peerOptions.server = appQueryParams.server
     }
-    const version = qs.get('peerVersion')
+    const version = appQueryParams.peerVersion
     if (peerId) {
       let username: string | null = options.guestUsername
       if (options.askGuestName) username = prompt('Enter your username', username)
@@ -1053,11 +925,11 @@ downloadAndOpenFile().then((downloadAction) => {
     }
   })
 
-  if (qs.get('serversList')) {
+  if (appQueryParams.serversList) {
     showModal({ reactType: 'serversList' })
   }
 
-  const viewerWsConnect = qs.get('viewerConnect')
+  const viewerWsConnect = appQueryParams.viewerConnect
   if (viewerWsConnect) {
     void connect({
       username: `viewer-${Math.random().toString(36).slice(2, 10)}`,
@@ -1065,8 +937,8 @@ downloadAndOpenFile().then((downloadAction) => {
     })
   }
 
-  if (qs.get('modal')) {
-    const modals = qs.get('modal')!.split(',')
+  if (appQueryParams.modal) {
+    const modals = appQueryParams.modal.split(',')
     for (const modal of modals) {
       showModal({ reactType: modal })
     }
