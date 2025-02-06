@@ -21,7 +21,7 @@ customEvents.on('mineflayerBotCreated', () => {
 
 setInterval(() => {
   if (!bot || !lastPacketTime) return
-  if (Date.now() - lastPacketTime < 6000) {
+  if (Date.now() - lastPacketTime < 1000) {
     gameAdditionalState.noConnection = false
     return
   }
