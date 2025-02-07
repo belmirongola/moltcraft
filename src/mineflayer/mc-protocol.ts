@@ -21,7 +21,12 @@ customEvents.on('mineflayerBotCreated', () => {
 
 setInterval(() => {
   if (!bot || !lastPacketTime) return
-  if (Date.now() - lastPacketTime < 1000) {
+  if (bot.player?.ping > 500) { // TODO: we cant rely on server ping 1. weird calculations 2. available with delays instead patch minecraft-protocol to get latency of keep_alive packet
+    gameAdditionalState.poorConnection = true
+  } else {
+    gameAdditionalState.poorConnection = false
+  }
+  if (performance.now() - lastPacketTime < 1000) {
     gameAdditionalState.noConnection = false
     return
   }

@@ -55,13 +55,13 @@ export default () => {
   const { hasErrors } = useSnapshot(miscUiState)
   const { disabledUiParts } = useSnapshot(options)
   const { isReadonly, openReadOperations, openWriteOperations } = useSnapshot(fsState)
-  const { noConnection } = useSnapshot(gameAdditionalState)
+  const { noConnection, poorConnection } = useSnapshot(gameAdditionalState)
   const allIndicators: typeof defaultIndicatorsState = {
     readonlyFiles: isReadonly,
     writingFiles: openWriteOperations > 0,
     readingFiles: openReadOperations > 0,
     appHasErrors: hasErrors,
-    connectionIssues: noConnection,
+    connectionIssues: poorConnection ? 1 : noConnection ? 2 : 0,
     ...stateIndicators,
   }
 
