@@ -677,6 +677,7 @@ export async function connect (connectOptions: ConnectOptions) {
       endReason = 'Connection with server lost'
     }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason: ${endReason}`, true)
+    appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
     destroyAll()
     if (isCypress()) throw new Error(`disconnected: ${endReason}`)
@@ -812,24 +813,33 @@ export async function connect (connectOptions: ConnectOptions) {
   }
 }
 
+const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
+
 listenGlobalEvents()
 watchValue(miscUiState, async s => {
   if (s.appLoaded) { // fs ready
-    if (appQueryParams.singleplayer === '1' || appQueryParams.sp === '1') {
-      loadSingleplayer({}, {
-        worldFolder: undefined,
-        ...appQueryParams.version ? { version: appQueryParams.version } : {}
-      })
-    }
-    if (appQueryParams.loadSave) {
-      const savePath = `/data/worlds/${appQueryParams.loadSave}`
-      try {
-        await fs.promises.stat(savePath)
-      } catch (err) {
-        alert(`Save ${savePath} not found`)
-        return
+    if (reconnectOptions) {
+      sessionStorage.removeItem('reconnectOptions')
+      if (Date.now() - reconnectOptions.timestamp < 1000 * 60 * 2) {
+        void connect(reconnectOptions.value)
       }
-      await loadInMemorySave(savePath)
+    } else {
+      if (appQueryParams.singleplayer === '1' || appQueryParams.sp === '1') {
+        loadSingleplayer({}, {
+          worldFolder: undefined,
+          ...appQueryParams.version ? { version: appQueryParams.version } : {}
+        })
+      }
+      if (appQueryParams.loadSave) {
+        const savePath = `/data/worlds/${appQueryParams.loadSave}`
+        try {
+          await fs.promises.stat(savePath)
+        } catch (err) {
+          alert(`Save ${savePath} not found`)
+          return
+        }
+        await loadInMemorySave(savePath)
+      }
     }
   }
 })
@@ -876,84 +886,86 @@ void window.fetch('config.json').then(async res => res.json()).then(c => c, (err
 })
 
 // qs open actions
-downloadAndOpenFile().then((downloadAction) => {
-  if (downloadAction) return
-  if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
-    const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
-    void connect({
-      botVersion: appQueryParams.version ?? undefined,
-      ...lastConnect,
-      ip: appQueryParams.ip || undefined
-    })
-    return
-  }
-  if (appQueryParams.ip || appQueryParams.proxy) {
-    const waitAppConfigLoad = !appQueryParams.proxy
-    const openServerEditor = () => {
-      hideModal()
-      showModal({ reactType: 'editServer' })
-    }
-    showModal({ reactType: 'empty' })
-    if (waitAppConfigLoad) {
-      const unsubscribe = subscribe(miscUiState, checkCanDisplay)
-      checkCanDisplay()
-      // eslint-disable-next-line no-inner-declarations
-      function checkCanDisplay () {
-        if (miscUiState.appConfig) {
-          unsubscribe()
-          openServerEditor()
-          return true
-        }
-      }
-    } else {
-      openServerEditor()
-    }
-  }
-
-  void Promise.resolve().then(() => {
-    // try to connect to peer
-    const peerId = appQueryParams.connectPeer
-    const peerOptions = {} as ConnectPeerOptions
-    if (appQueryParams.server) {
-      peerOptions.server = appQueryParams.server
-    }
-    const version = appQueryParams.peerVersion
-    if (peerId) {
-      let username: string | null = options.guestUsername
-      if (options.askGuestName) username = prompt('Enter your username', username)
-      if (!username) return
-      options.guestUsername = username
+if (!reconnectOptions) {
+  downloadAndOpenFile().then((downloadAction) => {
+    if (downloadAction) return
+    if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
+      const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
       void connect({
-        username,
-        botVersion: version || undefined,
-        peerId,
-        peerOptions
+        botVersion: appQueryParams.version ?? undefined,
+        ...lastConnect,
+        ip: appQueryParams.ip || undefined
+      })
+      return
+    }
+    if (appQueryParams.ip || appQueryParams.proxy) {
+      const waitAppConfigLoad = !appQueryParams.proxy
+      const openServerEditor = () => {
+        hideModal()
+        showModal({ reactType: 'editServer' })
+      }
+      showModal({ reactType: 'empty' })
+      if (waitAppConfigLoad) {
+        const unsubscribe = subscribe(miscUiState, checkCanDisplay)
+        checkCanDisplay()
+        // eslint-disable-next-line no-inner-declarations
+        function checkCanDisplay () {
+          if (miscUiState.appConfig) {
+            unsubscribe()
+            openServerEditor()
+            return true
+          }
+        }
+      } else {
+        openServerEditor()
+      }
+    }
+
+    void Promise.resolve().then(() => {
+      // try to connect to peer
+      const peerId = appQueryParams.connectPeer
+      const peerOptions = {} as ConnectPeerOptions
+      if (appQueryParams.server) {
+        peerOptions.server = appQueryParams.server
+      }
+      const version = appQueryParams.peerVersion
+      if (peerId) {
+        let username: string | null = options.guestUsername
+        if (options.askGuestName) username = prompt('Enter your username', username)
+        if (!username) return
+        options.guestUsername = username
+        void connect({
+          username,
+          botVersion: version || undefined,
+          peerId,
+          peerOptions
+        })
+      }
+    })
+
+    if (appQueryParams.serversList) {
+      showModal({ reactType: 'serversList' })
+    }
+
+    const viewerWsConnect = appQueryParams.viewerConnect
+    if (viewerWsConnect) {
+      void connect({
+        username: `viewer-${Math.random().toString(36).slice(2, 10)}`,
+        viewerWsConnect,
       })
     }
-  })
 
-  if (appQueryParams.serversList) {
-    showModal({ reactType: 'serversList' })
-  }
-
-  const viewerWsConnect = appQueryParams.viewerConnect
-  if (viewerWsConnect) {
-    void connect({
-      username: `viewer-${Math.random().toString(36).slice(2, 10)}`,
-      viewerWsConnect,
-    })
-  }
-
-  if (appQueryParams.modal) {
-    const modals = appQueryParams.modal.split(',')
-    for (const modal of modals) {
-      showModal({ reactType: modal })
+    if (appQueryParams.modal) {
+      const modals = appQueryParams.modal.split(',')
+      for (const modal of modals) {
+        showModal({ reactType: modal })
+      }
     }
-  }
-}, (err) => {
-  console.error(err)
-  alert(`Failed to download file: ${err}`)
-})
+  }, (err) => {
+    console.error(err)
+    alert(`Failed to download file: ${err}`)
+  })
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 const initialLoader = document.querySelector('.initial-loader') as HTMLElement | null
@@ -963,4 +975,6 @@ if (initialLoader) {
 }
 window.pageLoaded = true
 
-void possiblyHandleStateVariable()
+if (!reconnectOptions) {
+  void possiblyHandleStateVariable()
+}

@@ -28,7 +28,8 @@ const initialState = {
   loadingChunksData: null as null | Record<string, string>,
   loadingChunksDataPlayerChunk: null as null | { x: number, z: number },
   isDisplaying: false,
-  minecraftJsonMessage: null as null | Record<string, any>
+  minecraftJsonMessage: null as null | Record<string, any>,
+  showReconnect: false
 }
 export const appStatusState = proxy(initialState)
 export const resetAppStatusState = () => {
@@ -39,8 +40,15 @@ export const lastConnectOptions = {
   value: null as ConnectOptions | null
 }
 
+const saveReconnectOptions = (options: ConnectOptions) => {
+  sessionStorage.setItem('reconnectOptions', JSON.stringify({
+    value: options,
+    timestamp: Date.now()
+  }))
+}
+
 export default () => {
-  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage } = useSnapshot(appStatusState)
+  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = useSnapshot(appStatusState)
   const { active: replayActive } = useSnapshot(packetsReplaceSessionState)
 
   const isOpen = useIsModalActive('app-status')
@@ -63,6 +71,13 @@ export default () => {
     window.dispatchEvent(new window.CustomEvent('connect', {
       detail: lastConnectOptions.value
     }))
+  }
+
+  const reconnectReload = () => {
+    if (lastConnectOptions.value) {
+      saveReconnectOptions(lastConnectOptions.value)
+      window.location.reload()
+    }
   }
 
   useEffect(() => {
@@ -98,6 +113,8 @@ export default () => {
       isError={isError || appStatusState.status === ''} // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
+      showReconnect={showReconnect}
+      onReconnect={reconnectReload}
       description={<>{
         displayAuthButton ? '' : (isError ? guessProblem(status) : '') || descriptionHint
       }{

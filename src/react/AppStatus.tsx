@@ -13,6 +13,8 @@ export default ({
   backAction = undefined as undefined | (() => void),
   description = '' as string | JSX.Element,
   actionsSlot = null as React.ReactNode | null,
+  showReconnect = false,
+  onReconnect = undefined as undefined | (() => void),
   children
 }) => {
   const [loadingDotIndex, setLoadingDotIndex] = useState(0)
@@ -67,9 +69,10 @@ export default ({
     >
       {isError && (
         <>
-          {!lockConnect && backAction && <Button label="Back" onClick={backAction} />}
+          {showReconnect && onReconnect && <Button label="Reconnect" onClick={onReconnect} />}
           {actionsSlot}
           <Button onClick={() => window.location.reload()} label="Reset App (recommended)" />
+          {!lockConnect && backAction && <Button label="Back" onClick={backAction} />}
         </>
       )}
       {children}

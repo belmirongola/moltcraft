@@ -42,7 +42,7 @@ export const getWebsocketStream = async (host: string) => {
     ws.addEventListener('open', resolve)
     ws.addEventListener('error', err => {
       console.log('ws error', err)
-      reject(err)
+      reject(new Error('Failed to open websocket connection'))
     })
   })
 
