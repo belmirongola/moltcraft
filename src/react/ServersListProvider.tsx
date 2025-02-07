@@ -227,7 +227,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
                   [server.ip]: data
                 }))
               }
-            } catch(err) {
+            } catch (err) {
               console.warn('Failed to fetch server status', err)
             } finally {
               activeRequests.delete(request)
