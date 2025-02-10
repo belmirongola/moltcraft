@@ -5,7 +5,7 @@ import { readLevelDat } from './loadSave'
 import { closeWan, openToWanAndCopyJoinLink } from './localServerMultiplayer'
 import { copyFilesAsync, uniqueFileNameFromWorldName } from './browserfs'
 import { saveServer } from './flyingSquidUtils'
-import { setLoadingScreenStatus } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
 import { displayClientChat } from './botUtils'
 
 const notImplemented = () => {

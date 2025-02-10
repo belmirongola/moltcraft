@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef } from 'react'
-import PixelartIcon from './PixelartIcon'
+import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import './IndicatorEffects.css'
 
 
@@ -46,6 +46,7 @@ export const defaultIndicatorsState = {
   readonlyFiles: false,
   writingFiles: false, // saving
   appHasErrors: false,
+  connectionIssues: 0
 }
 
 const indicatorIcons: Record<keyof typeof defaultIndicatorsState, string> = {
@@ -54,6 +55,15 @@ const indicatorIcons: Record<keyof typeof defaultIndicatorsState, string> = {
   writingFiles: 'arrow-bar-up',
   appHasErrors: 'alert',
   readonlyFiles: 'file-off',
+  connectionIssues: pixelartIcons['cellular-signal-off'],
+}
+
+const colorOverrides = {
+  connectionIssues: {
+    0: false,
+    1: 'orange',
+    2: 'red'
+  }
 }
 
 export default ({ indicators, effects }: { indicators: typeof defaultIndicatorsState, effects: readonly EffectType[] }) => {
@@ -79,18 +89,24 @@ export default ({ indicators, effects }: { indicators: typeof defaultIndicatorsS
     }
   }, [])
 
-  const indicatorsMapped = Object.entries(defaultIndicatorsState).map(([key, state]) => ({
-    icon: indicatorIcons[key],
-    // preserve order
-    state: indicators[key],
-  }))
+  const indicatorsMapped = Object.entries(defaultIndicatorsState).map(([key]) => {
+    const state = indicators[key]
+    return {
+      icon: indicatorIcons[key],
+      // preserve order
+      state,
+      key
+    }
+  })
   return <div className='effectsScreen-container'>
     <div className='indicators-container'>
       {
         indicatorsMapped.map((indicator) => <div
-          key={indicator.icon} style={{
+          key={indicator.icon}
+          style={{
             opacity: indicator.state ? 1 : 0,
-            transition: 'opacity 0.1s',
+            transition: 'opacity color 0.1s',
+            color: colorOverrides[indicator.key]?.[indicator.state]
           }}
         >
           <PixelartIcon iconName={indicator.icon} />

@@ -1,5 +1,5 @@
 import React, { CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
-import { isMobile } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { isMobile } from 'renderer/viewer/lib/simpleUtils'
 import styles from './input.module.css'
 
 interface Props extends Omit<React.ComponentProps<'input'>, 'width'> {

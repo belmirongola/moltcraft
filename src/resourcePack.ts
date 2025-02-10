@@ -3,9 +3,9 @@ import { join, dirname, basename } from 'path'
 import fs from 'fs'
 import JSZip from 'jszip'
 import { proxy, subscribe } from 'valtio'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { collectFilesToCopy, copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
-import { setLoadingScreenStatus } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
 import { showNotification } from './react/NotificationProvider'
 import { options } from './optionsStorage'
 import { showOptionsModal } from './react/SelectOption'
@@ -31,7 +31,7 @@ const getLoadedImage = async (url: string) => {
 }
 
 const texturePackBasePath = '/data/resourcePacks/'
-export const uninstallTexturePack = async (name = 'default') => {
+export const uninstallResourcePack = async (name = 'default') => {
   if (await existsAsync('/resourcepack/pack.mcmeta')) {
     await removeFileRecursiveAsync('/resourcepack')
     gameAdditionalState.usingServerResourcePack = false
@@ -69,10 +69,11 @@ export const installTexturePackFromHandle = async () => {
   // await completeTexturePackInstall()
 }
 
-export const installTexturePack = async (file: File | ArrayBuffer, displayName = file['name'], name = 'default', isServer = false) => {
+export const installResourcepackPack = async (file: File | ArrayBuffer, displayName = file['name'], name = 'default', isServer = false) => {
+  console.time('processResourcePack')
   const installPath = isServer ? '/resourcepack/' : texturePackBasePath + name
   try {
-    await uninstallTexturePack(name)
+    await uninstallResourcePack(name)
   } catch (err) {
   }
   const showLoader = !isServer
@@ -97,6 +98,7 @@ export const installTexturePack = async (file: File | ArrayBuffer, displayName =
   }
   const createdDirs = new Set<string>()
   const copyTasks = [] as Array<Promise<void>>
+  console.time('resourcePackCopy')
   await Promise.all(allFilesArr.map(async ([path, file]) => {
     const writePath = join(installPath, path)
     if (path.endsWith('/')) return
@@ -115,8 +117,10 @@ export const installTexturePack = async (file: File | ArrayBuffer, displayName =
     done++
     upStatus()
   }))
-  console.log('resource pack install done')
+  console.timeEnd('resourcePackCopy')
   await completeTexturePackInstall(displayName, name, isServer)
+  console.log('resource pack install done')
+  console.timeEnd('processResourcePack')
 }
 
 // or enablement
@@ -289,41 +293,47 @@ const prepareBlockstatesAndModels = async () => {
   if (appStatusState.status) {
     setLoadingScreenStatus('Reading resource pack blockstates and models')
   }
-  const readData = async (namespaceDir: string) => {
-    const blockstatesPath = `${basePath}/assets/${namespaceDir}/blockstates`
-    const modelsPath = `${basePath}/assets/${namespaceDir}/models/block` // todo also models/item
-    const getAllJson = async (path: string, type: 'models' | 'blockstates') => {
-      if (!(await existsAsync(path))) return
-      const files = await fs.promises.readdir(path)
-      const jsons = {} as Record<string, any>
-      await Promise.all(files.map(async (file) => {
-        const filePath = `${path}/${file}`
-        if (file.endsWith('.json')) {
-          const contents = await fs.promises.readFile(filePath, 'utf8')
-          let name = file.replace('.json', '')
-          if (type === 'models') {
-            name = `block/${name}`
-          }
-          const parsed = JSON.parse(contents)
-          if (namespaceDir === 'minecraft') {
-            jsons[name] = parsed
-          }
-          jsons[`${namespaceDir}:${name}`] = parsed
-          if (type === 'models') {
-            for (let texturePath of Object.values(parsed.textures ?? {})) {
-              if (typeof texturePath !== 'string') continue
-              if (texturePath.startsWith('#')) continue
-              if (!texturePath.includes(':')) texturePath = `minecraft:${texturePath}`
-              usedTextures.add(texturePath as string)
-            }
+
+  const readModelData = async (path: string, type: 'models' | 'blockstates', namespaceDir: string) => {
+    if (!(await existsAsync(path))) return
+    const files = await fs.promises.readdir(path)
+    const jsons = {} as Record<string, any>
+    await Promise.all(files.map(async (file) => {
+      const filePath = `${path}/${file}`
+      if (file.endsWith('.json')) {
+        const contents = await fs.promises.readFile(filePath, 'utf8')
+        let name = file.replace('.json', '')
+        if (type === 'models') {
+          name = `${path.endsWith('block') ? 'block' : 'item'}/${name}`
+        }
+        const parsed = JSON.parse(contents)
+        if (namespaceDir === 'minecraft') {
+          jsons[name] = parsed
+        }
+        jsons[`${namespaceDir}:${name}`] = parsed
+        if (type === 'models') {
+          for (let texturePath of Object.values(parsed.textures ?? {})) {
+            if (typeof texturePath !== 'string') continue
+            if (texturePath.startsWith('#')) continue
+            if (!texturePath.includes(':')) texturePath = `minecraft:${texturePath}`
+            usedTextures.add(texturePath as string)
           }
         }
-      }))
-      return jsons
-    }
-    Object.assign(viewer.world.customBlockStates!, await getAllJson(blockstatesPath, 'blockstates'))
-    Object.assign(viewer.world.customModels!, await getAllJson(modelsPath, 'models'))
+      }
+    }))
+    return jsons
   }
+
+  const readData = async (namespaceDir: string) => {
+    const blockstatesPath = `${basePath}/assets/${namespaceDir}/blockstates`
+    const blockModelsPath = `${basePath}/assets/${namespaceDir}/models/block`
+    const itemModelsPath = `${basePath}/assets/${namespaceDir}/models/item`
+
+    Object.assign(viewer.world.customBlockStates!, await readModelData(blockstatesPath, 'blockstates', namespaceDir))
+    Object.assign(viewer.world.customModels!, await readModelData(blockModelsPath, 'models', namespaceDir))
+    Object.assign(viewer.world.customModels!, await readModelData(itemModelsPath, 'models', namespaceDir))
+  }
+
   try {
     const assetsDirs = await fs.promises.readdir(join(basePath, 'assets'))
     for (const assetsDir of assetsDirs) {
@@ -342,16 +352,18 @@ const downloadAndUseResourcePack = async (url: string): Promise<void> => {
     resourcePackState.isServerInstalling = true
     resourcePackState.isServerDownloading = true
     console.log('Downloading server resource pack', url)
+    console.time('downloadServerResourcePack')
     const response = await fetch(url).catch((err) => {
       console.log(`Ensure server on ${url} support CORS which is not required for regular client, but is required for the web client`)
       console.error(err)
       showNotification('Failed to download resource pack: ' + err.message)
     })
+    console.timeEnd('downloadServerResourcePack')
     if (!response) return
     resourcePackState.isServerDownloading = false
     const resourcePackData = await response.arrayBuffer()
     showNotification('Installing resource pack...')
-    await installTexturePack(resourcePackData, undefined, undefined, true).catch((err) => {
+    await installResourcepackPack(resourcePackData, undefined, undefined, true).catch((err) => {
       console.error(err)
       showNotification('Failed to install resource pack: ' + err.message)
     })
@@ -389,7 +401,10 @@ export const onAppLoad = () => {
           cancel: !forced,
           minecraftJsonMessage: promptMessagePacket,
         })
-      if (!choice) return
+      if (!choice) {
+        bot.denyResourcePack()
+        return
+      }
       await new Promise(resolve => {
         setTimeout(resolve, 500)
       })
@@ -448,11 +463,11 @@ const updateAllReplacableTextures = async () => {
 const repeatArr = (arr, i) => Array.from({ length: i }, () => arr)
 
 const updateTextures = async () => {
-  const blocksFiles = Object.keys(viewer.world.blocksAtlases.latest.textures)
-  const itemsFiles = Object.keys(viewer.world.itemsAtlases.latest.textures)
+  const origBlocksFiles = Object.keys(viewer.world.sourceData.blocksAtlases.latest.textures)
+  const origItemsFiles = Object.keys(viewer.world.sourceData.itemsAtlases.latest.textures)
   const { usedTextures: extraBlockTextures = new Set<string>() } = await prepareBlockstatesAndModels() ?? {}
-  const blocksData = await getResourcepackTiles('blocks', [...blocksFiles, ...extraBlockTextures])
-  const itemsData = await getResourcepackTiles('items', itemsFiles)
+  const blocksData = await getResourcepackTiles('blocks', [...origBlocksFiles, ...extraBlockTextures])
+  const itemsData = await getResourcepackTiles('items', origItemsFiles)
   await updateAllReplacableTextures()
   viewer.world.customTextures = {}
   if (blocksData) {

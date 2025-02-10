@@ -112,7 +112,7 @@ class MainScene extends BasePlaygroundScene {
       this.entityUpdateShared()
       if (!this.params.entity) return
       if (this.params.entity === 'player') {
-        viewer.entities.updatePlayerSkin('id', viewer.entities.entities.id.username, true, true)
+        viewer.entities.updatePlayerSkin('id', viewer.entities.entities.id.username, undefined, true, true)
         viewer.entities.playAnimation('id', 'running')
       }
       // let prev = false
@@ -222,7 +222,7 @@ class MainScene extends BasePlaygroundScene {
     })
 
     const zip = new JSZip()
-    zip.file('description.txt', 'Generated with prismarine-viewer')
+    zip.file('description.txt', 'Generated with mcraft.fun/playground')
 
     const end = async () => {
       // download zip file

@@ -14,6 +14,7 @@ import { flat, fromFormattedString } from '@xmcl/text-component'
 import mojangson from 'mojangson'
 import { snakeCase } from 'change-case'
 import { Item } from 'prismarine-item'
+import { BlockModel } from 'mc-assets'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import * as Entity from './entity/EntityMesh'
 import { getMesh } from './entity/EntityMesh'
@@ -21,6 +22,7 @@ import { WalkingGeneralSwing } from './entity/animations'
 import { disposeObject } from './threeJsUtils'
 import { armorModels } from './entity/objModels'
 import { Viewer } from './viewer'
+import { getBlockMeshFromModel } from './holdingBlock'
 const { loadTexture } = globalThis.isElectron ? require('./utils.electron.js') : require('./utils')
 
 export const TWEEN_DURATION = 120
@@ -199,6 +201,7 @@ export type SceneEntity = THREE.Object3D & {
     animation?: PlayerAnimation
   }
   username?: string
+  uuid?: string
   additionalCleanup?: () => void
 }
 
@@ -214,13 +217,16 @@ export class Entities extends EventEmitter {
   itemsTexture: THREE.Texture | null = null
   cachedMapsImages = {} as Record<number, string>
   itemFrameMaps = {} as Record<number, Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>>>
-  getItemUv: undefined | ((idOrName: number | string) => {
+  getItemUv: undefined | ((item: Record<string, any>) => {
     texture: THREE.Texture;
     u: number;
     v: number;
     su?: number;
     sv?: number;
     size?: number;
+  } | {
+    resolvedModel: BlockModel
+    modelName: string
   })
 
   constructor (public viewer: Viewer) {
@@ -263,10 +269,32 @@ export class Entities extends EventEmitter {
 
   render () {
     const dt = this.clock.getDelta()
+    const botPos = this.viewer.world.viewerPosition
+    const VISIBLE_DISTANCE = 8 * 8
+
     for (const entityId of Object.keys(this.entities)) {
-      const playerObject = this.getPlayerObject(entityId)
+      const entity = this.entities[entityId]
+      const playerObject = entity.playerObject as PlayerObjectType | undefined
+
+      // Update animations
       if (playerObject?.animation) {
         playerObject.animation.update(playerObject, dt)
+      }
+
+      // Update visibility based on distance and chunk load status
+      if (botPos && entity.position) {
+        const dx = entity.position.x - botPos.x
+        const dy = entity.position.y - botPos.y
+        const dz = entity.position.z - botPos.z
+        const distanceSquared = dx * dx + dy * dy + dz * dz
+
+        // Get chunk coordinates
+        const chunkX = Math.floor(entity.position.x / 16)
+        const chunkZ = Math.floor(entity.position.z / 16)
+        const chunkKey = `${chunkX},${chunkZ}`
+
+        // Entity is visible if within 16 blocks OR in a finished chunk
+        entity.visible = distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey]
       }
     }
   }
@@ -279,18 +307,18 @@ export class Entities extends EventEmitter {
   // fixme workaround
   defaultSteveTexture
 
-  usernamePerSkinUrlsCache = {} as Record<string, { skinUrl?: string, capeUrl?: string }>
+  uuidPerSkinUrlsCache = {} as Record<string, { skinUrl?: string, capeUrl?: string }>
 
   // true means use default skin url
-  updatePlayerSkin (entityId: string | number, username: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
-    if (username) {
-      if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.usernamePerSkinUrlsCache[username] = {}
-      if (typeof skinUrl === 'string') this.usernamePerSkinUrlsCache[username].skinUrl = skinUrl
-      if (typeof capeUrl === 'string') this.usernamePerSkinUrlsCache[username].capeUrl = capeUrl
+  updatePlayerSkin (entityId: string | number, username: string | undefined, uuid: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
+    if (uuid) {
+      if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid] = {}
+      if (typeof skinUrl === 'string') this.uuidPerSkinUrlsCache[uuid].skinUrl = skinUrl
+      if (typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid].capeUrl = capeUrl
       if (skinUrl === true) {
-        skinUrl = this.usernamePerSkinUrlsCache[username]?.skinUrl ?? skinUrl
+        skinUrl = this.uuidPerSkinUrlsCache[uuid]?.skinUrl ?? skinUrl
       }
-      capeUrl ??= this.usernamePerSkinUrlsCache[username]?.capeUrl
+      capeUrl ??= this.uuidPerSkinUrlsCache[uuid]?.capeUrl
     }
 
     let playerObject = this.getPlayerObject(entityId)
@@ -419,9 +447,26 @@ export class Entities extends EventEmitter {
     return typeof component === 'string' ? component : component.text ?? ''
   }
 
-  getItemMesh (item) {
+  getItemMesh (item, isDropped = false) {
+    const textureUv = this.getItemUv?.(item)
+    if (textureUv && 'resolvedModel' in textureUv) {
+      const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
+      if (isDropped) {
+        const SCALE = 0.5
+        mesh.scale.set(SCALE, SCALE, SCALE)
+        mesh.position.set(0, 0.2, 0)
+      }
+      const outerGroup = new THREE.Group()
+      outerGroup.add(mesh)
+      return {
+        mesh: outerGroup,
+        isBlock: true,
+        itemsTexture: null,
+        itemsTextureFlipped: null,
+      }
+    }
+
     // TODO: Render proper model (especially for blocks) instead of flat texture
-    const textureUv = this.getItemUv?.(item.itemId ?? item.blockId)
     if (textureUv) {
       // todo use geometry buffer uv instead!
       const { u, v, size, su, sv, texture } = textureUv
@@ -456,6 +501,7 @@ export class Entities extends EventEmitter {
       ])
       return {
         mesh,
+        isBlock: false,
         itemsTexture,
         itemsTextureFlipped,
       }
@@ -501,7 +547,7 @@ export class Entities extends EventEmitter {
       if (entity.name === 'item') {
         const item = entity.metadata?.find((m: any) => typeof m === 'object' && m?.itemCount)
         if (item) {
-          const object = this.getItemMesh(item)
+          const object = this.getItemMesh(item, true)
           if (object) {
             mesh = object.mesh
             mesh.scale.set(0.5, 0.5, 0.5)
@@ -517,8 +563,8 @@ export class Entities extends EventEmitter {
             //@ts-expect-error
             group.additionalCleanup = () => {
               // important: avoid texture memory leak and gpu slowdown
-              object.itemsTexture.dispose()
-              object.itemsTextureFlipped.dispose()
+              object.itemsTexture?.dispose()
+              object.itemsTextureFlipped?.dispose()
             }
           }
         }
@@ -586,7 +632,7 @@ export class Entities extends EventEmitter {
       this.emit('add', entity)
 
       if (isPlayerModel) {
-        this.updatePlayerSkin(entity.id, '', overrides?.texture || stevePng)
+        this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePng)
       }
       this.setDebugMode(this.debugMode, group)
       this.setRendering(this.rendering, group)
@@ -862,7 +908,7 @@ function getGeneralEntitiesMetadata (entity: { name; metadata }): Partial<UnionT
     get (target, p, receiver) {
       if (typeof p !== 'string' || !entityData) return
       const index = entityData.metadataKeys?.indexOf(p)
-      return entity.metadata[index ?? -1]
+      return entity.metadata?.[index ?? -1]
     },
   })
 }
@@ -878,15 +924,38 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     return
   }
   const itemParts = item.name.split('_')
-  const armorMaterial = itemParts[0]
-  if (!armorMaterial) {
+  let texturePath
+  const isPlayerHead = slotType === 'head' && item.name === 'player_head'
+  if (isPlayerHead) {
     removeArmorModel(entityMesh, slotType)
-    return
+    if (item.nbt) {
+      const itemNbt = nbt.simplify(item.nbt)
+      try {
+        let textureData
+        if (itemNbt.SkullOwner) {
+          textureData = itemNbt.SkullOwner.Properties.textures[0]?.Value
+        } else {
+          textureData = itemNbt['minecraft:profile']?.Properties?.find(p => p.name === 'textures')?.value
+        }
+        if (textureData) {
+          const decodedData = JSON.parse(Buffer.from(textureData, 'base64').toString())
+          texturePath = decodedData.textures?.SKIN?.url
+        }
+      } catch (err) {
+        console.error('Error decoding player head texture:', err)
+      }
+    } else {
+      texturePath = stevePng
+    }
   }
-  // TODO: Support resource pack
-  // TODO: Support mirroring on certain parts of the model
-  const texturePath = armorModels[`${armorMaterial}Layer${layer}${overlay ? 'Overlay' : ''}`]
+  const armorMaterial = itemParts[0]
+  if (!texturePath) {
+    // TODO: Support resource pack
+    // TODO: Support mirroring on certain parts of the model
+    texturePath = armorModels[`${armorMaterial}Layer${layer}${overlay ? 'Overlay' : ''}`]
+  }
   if (!texturePath || !armorModels.armorModel[slotType]) {
+    removeArmorModel(entityMesh, slotType)
     return
   }
 
@@ -907,7 +976,9 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     mesh = getMesh(viewer.world, texturePath, armorModels.armorModel[slotType])
     mesh.name = meshName
     material = mesh.material
-    material.side = THREE.DoubleSide
+    if (!isPlayerHead) {
+      material.side = THREE.DoubleSide
+    }
   }
   if (armorMaterial === 'leather' && !overlay) {
     const color = (item.nbt?.value as any)?.display?.value?.color?.value

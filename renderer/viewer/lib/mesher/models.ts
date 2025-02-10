@@ -1,7 +1,7 @@
 import { Vec3 } from 'vec3'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import legacyJson from '../../../../src/preflatMap.json'
-import { BlockType } from '../../../examples/shared'
+import { BlockType } from '../../../playground/shared'
 import { World, BlockModelPartsResolved, WorldBlock as Block } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
@@ -460,6 +460,7 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     indices: [],
     tiles: {},
     // todo this can be removed here
+    heads: {},
     signs: {},
     // isFull: true,
     highestBlocks: new Map<string, HighestBlockInfo>([]),
@@ -493,6 +494,20 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
           attr.signs[key] = {
             isWall,
             isHanging,
+            rotation: isWall ? facingRotationMap[props.facing] : +props.rotation
+          }
+        } else if (block.name === 'player_head' || block.name === 'player_wall_head') {
+          const key = `${cursor.x},${cursor.y},${cursor.z}`
+          const props: any = block.getProperties()
+          const facingRotationMap = {
+            'north': 0,
+            'south': 2,
+            'west': 3,
+            'east': 1
+          }
+          const isWall = block.name === 'player_wall_head'
+          attr.heads[key] = {
+            isWall,
             rotation: isWall ? facingRotationMap[props.facing] : +props.rotation
           }
         }

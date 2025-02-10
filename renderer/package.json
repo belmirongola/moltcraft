@@ -1,5 +1,5 @@
 {
-  "name": "prismarine-viewer",
+  "name": "renderer",
   "version": "1.25.0",
   "description": "Web based viewer",
   "main": "index.js",
@@ -26,7 +26,7 @@
     "prismarine-block": "^1.7.3",
     "prismarine-chunk": "^1.22.0",
     "prismarine-schematic": "^1.2.0",
-    "prismarine-viewer": "link:./",
+    "renderer": "link:./",
     "process": "^0.11.10",
     "socket.io": "^4.0.0",
     "socket.io-client": "^4.0.0",

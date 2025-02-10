@@ -104,6 +104,17 @@ export class BasePlaygroundScene {
     }
     if (window.innerHeight < 700) {
       this.gui.open(false)
+    } else {
+      // const observer = new MutationObserver(() => {
+      //   this.gui.domElement.classList.remove('transition')
+      // })
+      // observer.observe(this.gui.domElement, {
+      //   attributes: true,
+      //   attributeFilter: ['class'],
+      // })
+      setTimeout(() => {
+        this.gui.domElement.classList.remove('transition')
+      }, 500)
     }
 
     this.gui.onChange(({ property, object }) => {

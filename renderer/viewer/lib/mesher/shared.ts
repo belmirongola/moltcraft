@@ -1,4 +1,4 @@
-import { BlockType } from '../../../examples/shared'
+import { BlockType } from '../../../playground/shared'
 
 export const defaultMesherConfig = {
   version: '',
@@ -30,6 +30,7 @@ export type MesherGeometryOutput = {
 
   indices: number[],
   tiles: Record<string, BlockType>,
+  heads: Record<string, any>,
   signs: Record<string, any>,
   // isFull: boolean
   highestBlocks: Map<string, HighestBlockInfo>

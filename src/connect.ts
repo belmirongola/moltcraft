@@ -1,6 +1,6 @@
 // import { versionsByMinecraftVersion } from 'minecraft-data'
 // import minecraftInitialDataJson from '../generated/minecraft-initial-data.json'
-import { AuthenticatedAccount } from './react/ServersListProvider'
+import { AuthenticatedAccount } from './react/serversStorage'
 import { downloadSoundsIfNeeded } from './sounds/botSoundSystem'
 import { options } from './optionsStorage'
 import supportedVersions from './supportedVersions.mjs'
@@ -22,6 +22,7 @@ export type ConnectOptions = {
   authenticatedAccount?: AuthenticatedAccount | true
   peerOptions?: any
   viewerWsConnect?: string
+  saveServerToHistory?: boolean
 }
 
 export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVersionSelect) => {

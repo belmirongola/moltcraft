@@ -10,7 +10,7 @@ import fsExtra from 'fs-extra'
 import { promisify } from 'util'
 import { generateSW } from 'workbox-build'
 import { getSwAdditionalEntries } from './scripts/build'
-import { appAndRendererSharedConfig } from './prismarine-viewer/rsbuildSharedConfig'
+import { appAndRendererSharedConfig } from './renderer/rsbuildSharedConfig'
 
 //@ts-ignore
 try { require('./localSettings.js') } catch { }
@@ -31,7 +31,7 @@ if (fs.existsSync('./assets/release.json')) {
     releaseChangelog = releaseJson.changelog?.replace(/<!-- bump-type:[\w]+ -->/, '')
 }
 
-// base options are in ./prismarine-viewer/rsbuildSharedConfig.ts
+// base options are in ./renderer/rsbuildSharedConfig.ts
 const appConfig = defineConfig({
     html: {
         template: './index.html',
@@ -111,10 +111,10 @@ const appConfig = defineConfig({
                     // childProcess.execSync('./scripts/prepareSounds.mjs', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })
-                    if (fs.existsSync('./prismarine-viewer/dist/mesher.js') && dev) {
+                    if (fs.existsSync('./renderer/dist/mesher.js') && dev) {
                         // copy mesher
-                        fs.copyFileSync('./prismarine-viewer/dist/mesher.js', './dist/mesher.js')
-                        fs.copyFileSync('./prismarine-viewer/dist/mesher.js.map', './dist/mesher.js.map')
+                        fs.copyFileSync('./renderer/dist/mesher.js', './dist/mesher.js')
+                        fs.copyFileSync('./renderer/dist/mesher.js.map', './dist/mesher.js.map')
                     } else if (!dev) {
                         await execAsync('pnpm run build-mesher')
                     }

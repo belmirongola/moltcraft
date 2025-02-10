@@ -12,6 +12,8 @@ import { disposeObject } from './threeJsUtils'
 import HoldingBlock, { HandItemBlock } from './holdingBlock'
 import { addNewStat } from './ui/newStats'
 import { MesherGeometryOutput } from './mesher/shared'
+import { getMesh } from './entity/EntityMesh'
+import { armorModel } from './entity/armorModels'
 
 export class WorldRendererThree extends WorldRendererCommon {
   interactionLines: null | { blockPos; mesh } = null
@@ -67,7 +69,7 @@ export class WorldRendererThree extends WorldRendererCommon {
       holdingBlock.toBeRenderedItem = item
       return
     }
-    void holdingBlock.initHandObject(this.material, this.blockstatesModels, this.blocksAtlases, item)
+    void holdingBlock.initHandObject(item)
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
@@ -188,12 +190,22 @@ export class WorldRendererThree extends WorldRendererCommon {
     // should not compute it once
     if (Object.keys(data.geometry.signs).length) {
       for (const [posKey, { isWall, isHanging, rotation }] of Object.entries(data.geometry.signs)) {
-        const [x, y, z] = posKey.split(',')
         const signBlockEntity = this.blockEntities[posKey]
         if (!signBlockEntity) continue
+        const [x, y, z] = posKey.split(',')
         const sign = this.renderSign(new Vec3(+x, +y, +z), rotation, isWall, isHanging, nbt.simplify(signBlockEntity))
         if (!sign) continue
         object.add(sign)
+      }
+    }
+    if (Object.keys(data.geometry.heads).length) {
+      for (const [posKey, { isWall, rotation }] of Object.entries(data.geometry.heads)) {
+        const headBlockEntity = this.blockEntities[posKey]
+        if (!headBlockEntity) continue
+        const [x, y, z] = posKey.split(',')
+        const head = this.renderHead(new Vec3(+x, +y, +z), rotation, isWall, nbt.simplify(headBlockEntity))
+        if (!head) continue
+        object.add(head)
       }
     }
     this.sectionObjects[data.key] = object
@@ -243,6 +255,35 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (this.config.displayHand) {
       this.holdingBlock.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
+    }
+  }
+
+  renderHead (position: Vec3, rotation: number, isWall: boolean, blockEntity) {
+    const textures = blockEntity.SkullOwner?.Properties?.textures[0]
+    if (!textures) return
+
+    try {
+      const textureData = JSON.parse(Buffer.from(textures.Value, 'base64').toString())
+      const skinUrl = textureData.textures?.SKIN?.url
+
+      const mesh = getMesh(this, skinUrl, armorModel.head)
+      const group = new THREE.Group()
+      if (isWall) {
+        mesh.position.set(0, 0.3125, 0.3125)
+      }
+      // move head model down as armor have a different offset than blocks
+      mesh.position.y -= 23 / 16
+      group.add(mesh)
+      group.position.set(position.x + 0.5, position.y + 0.045, position.z + 0.5)
+      group.rotation.set(
+        0,
+        -THREE.MathUtils.degToRad(rotation * (isWall ? 90 : 45 / 2)),
+        0
+      )
+      group.scale.set(0.8, 0.8, 0.8)
+      return group
+    } catch (err) {
+      console.error('Error decoding player texture:', err)
     }
   }
 

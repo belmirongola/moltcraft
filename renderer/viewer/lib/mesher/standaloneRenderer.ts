@@ -48,7 +48,7 @@ function renderElement (element: BlockElement, doAO: boolean, attr, globalMatrix
 
     const ndx = Math.floor(attr.positions.length / 3)
 
-    const tint = [1, 1, 1]
+    let tint = [1, 1, 1]
     if (eFace.tintindex !== undefined) {
       if (eFace.tintindex === 0) {
         // TODO
@@ -63,6 +63,8 @@ function renderElement (element: BlockElement, doAO: boolean, attr, globalMatrix
         // } else {
         //   tint = tints.grass[biome]
         // }
+        const grassTint = [145 / 255, 189 / 255, 89 / 255]
+        tint = grassTint
       }
     }
 

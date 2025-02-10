@@ -30,7 +30,7 @@ export default mergeRsbuildConfig(
         },
         source: {
             entry: {
-                index: join(__dirname, './examples/playground.ts')
+                index: join(__dirname, './playground/playground.ts')
             },
             define: {
                 'globalThis.includedVersions': JSON.stringify(supportedVersions),

@@ -47,6 +47,8 @@ import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
 import DebugEdges from './react/DebugEdges'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
+import MineflayerPluginHud from './react/MineflayerPluginHud'
+import MineflayerPluginConsole from './react/MineflayerPluginConsole'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -134,6 +136,8 @@ const InGameUi = () => {
       </div>
 
       <PauseScreen />
+      <MineflayerPluginHud />
+      <MineflayerPluginConsole />
       <div style={{ display: showUI ? 'block' : 'none' }}>
         {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
         {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}

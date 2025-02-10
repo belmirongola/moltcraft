@@ -19,7 +19,7 @@ For building the project yourself / contributing, see [Development, Debugging & 
 - Works offline
 - First-class touch (mobile) & controller support
 - First-class keybindings configuration
-- Basic Resource pack support: Custom GUI, all textures. Server resource packs are not supported yet.
+- Advanced Resource pack support: Custom GUI, all textures. Server resource packs are supported with proper CORS configuration.
 - Builtin JEI with recipes & descriptions for every item (JEI is creative inventory replacement)
 - Play with friends over internet! (P2P is powered by Peer.js discovery servers)
 - ~~Google Drive support for reading / saving worlds back to the cloud~~
@@ -33,6 +33,13 @@ All components that are in [Storybook](https://mcraft.fun/storybook) are publish
 - Controls -> **Auto Full Screen** -> **On** - To avoid ctrl+w issue
 - Controls -> **Raw Input** -> **On** - This will make the controls more precise (UPD: already enabled by default)
 - Interface -> **Chat Select** -> **On** - To select chat messages (UPD: already enabled by default)
+
+### Browser Notes
+
+These browsers have issues with capturing pointer:
+
+**Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
+**Vivaldi**: Disable Controls -> *Raw Input* in game settings if experiencing issues
 
 ### World Loading
 

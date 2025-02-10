@@ -6,7 +6,7 @@ import { generateSpiralMatrix, ViewRect } from 'flying-squid/dist/utils'
 import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
 import { getItemFromBlock } from '../../../src/chatUtils'
-import { delayedIterator } from '../../examples/shared'
+import { delayedIterator } from '../../playground/shared'
 import { chunkPos } from './simpleUtils'
 
 export type ChunkPosKey = string
@@ -117,7 +117,13 @@ export class WorldDataEmitter extends EventEmitter {
       // todo clean types
       const blockProperties = block ? new window.PrismarineBlock(block.id, 'void', newItem.metadata).getProperties() : {}
       // todo item props
-      viewer.world.onHandItemSwitch({ name: newItem.name, properties: blockProperties, id: newItem.type, type: block ? 'block' : 'item', }, isLeftHand)
+      viewer.world.onHandItemSwitch({
+        name: newItem.name,
+        properties: blockProperties,
+        id: newItem.type,
+        type: block ? 'block' : 'item',
+        fullItem: newItem,
+      }, isLeftHand)
     }
     bot.inventory.on('updateSlot', (index) => {
       if (index === 45) {

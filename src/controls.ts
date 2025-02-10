@@ -52,10 +52,11 @@ export const contro = new ControMax({
       swapHands: ['KeyF'],
       zoom: ['KeyC'],
       selectItem: ['KeyH'], // default will be removed
-      rotateCameraLeft: ['ArrowLeft'],
-      rotateCameraRight: ['ArrowRight'],
-      rotateCameraUp: ['ArrowUp'],
-      rotateCameraDown: ['ArrowDown']
+      rotateCameraLeft: [null],
+      rotateCameraRight: [null],
+      rotateCameraUp: [null],
+      rotateCameraDown: [null],
+      viewerConsole: ['Backquote']
     },
     ui: {
       toggleFullscreen: ['F11'],
@@ -508,6 +509,11 @@ contro.on('trigger', ({ command }) => {
         break
       case 'general.zoom':
         break
+      case 'general.viewerConsole':
+        if (lastConnectOptions.value?.viewerWsConnect) {
+          showModal({ reactType: 'console' })
+        }
+        break
     }
   }
 
@@ -824,6 +830,7 @@ const selectItem = async () => {
 
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
+  if (gameAdditionalState.viewerConnection && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
   // wheel click

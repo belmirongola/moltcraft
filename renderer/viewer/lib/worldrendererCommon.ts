@@ -13,6 +13,7 @@ import { AtlasParser } from 'mc-assets'
 import TypedEmitter from 'typed-emitter'
 import { LineMaterial } from 'three-stdlib'
 import christmasPack from 'mc-assets/dist/textureReplacements/christmas'
+import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { buildCleanupDecorator } from './cleanupDecorator'
@@ -116,8 +117,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   itemsAtlasParser: AtlasParser | undefined
   blocksAtlasParser: AtlasParser | undefined
 
-  blocksAtlases = blocksAtlases
-  itemsAtlases = itemsAtlases
+  sourceData = {
+    blocksAtlases,
+    itemsAtlases
+  }
   customTextures: {
     items?: CustomTexturesData
     blocks?: CustomTexturesData
@@ -138,6 +141,9 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   neighborChunkUpdates = true
   lastChunkDistance = 0
   debugStopGeometryUpdate = false
+
+  @worldCleanup()
+  itemsRenderer: ItemsRenderer | undefined
 
   abstract outputFormat: 'threeJs' | 'webgpu'
 
@@ -316,8 +322,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   async updateTexturesData (resourcePackUpdate = false, prioritizeBlockTextures?: string[]) {
-    const blocksAssetsParser = new AtlasParser(this.blocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
-    const itemsAssetsParser = new AtlasParser(this.itemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
+    const blocksAssetsParser = new AtlasParser(this.sourceData.blocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
+    const itemsAssetsParser = new AtlasParser(this.sourceData.itemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
 
     const blockTexturesChanges = {} as Record<string, string>
     const date = new Date()
@@ -337,6 +343,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }, this.customTextures?.items?.tileSize)
     this.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
     this.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
+
+    this.itemsRenderer = new ItemsRenderer(this.version!, this.blockstatesModels, this.itemsAtlasParser, this.blocksAtlasParser)
 
     const texture = await new THREE.TextureLoader().loadAsync(this.blocksAtlasParser.latestImage)
     texture.magFilter = THREE.NearestFilter
