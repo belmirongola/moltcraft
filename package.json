@@ -168,6 +168,15 @@
     "cypress-plugin-snapshots": "^1.4.4",
     "systeminformation": "^5.21.22"
   },
+  "browserslist": [
+    "iOS >= 14",
+    "Android >= 13",
+    "Chrome >= 103",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all",
+    "> 0.5%"
+  ],
   "pnpm": {
     "overrides": {
       "buffer": "^6.0.3",

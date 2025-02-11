@@ -1,6 +1,7 @@
 /* eslint-disable import/order */
 import './importsWorkaround'
 import './styles.css'
+import './testCrasher'
 import './globals'
 import './devtools'
 import './entities'
@@ -16,9 +17,6 @@ import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
 import { Duplex } from 'stream'
-
-import 'core-js/features/array/at'
-import 'core-js/features/promise/with-resolvers'
 
 import './scaleInterface'
 import { initWithRenderer } from './topRightStats'
@@ -159,6 +157,8 @@ const isIphone = ua.getDevice().model === 'iPhone' // todo ipad?
 if (isIphone) {
   document.documentElement.style.setProperty('--hud-bottom-max', '21px') // env-safe-aria-inset-bottom
 }
+
+if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
 // Create viewer
 const viewer: import('renderer/viewer/lib/viewer').Viewer = new Viewer(renderer)
@@ -393,10 +393,10 @@ export async function connect (connectOptions: ConnectOptions) {
     const downloadMcData = async (version: string) => {
       if (dataDownloaded) return
       dataDownloaded = true
-      if (connectOptions.authenticatedAccount && (versionToNumber(version) < versionToNumber('1.19.4') || versionToNumber(version) >= versionToNumber('1.21'))) {
-        // todo support it (just need to fix .export crash)
-        throw new UserError('Microsoft authentication is only supported on 1.19.4 - 1.20.6 (at least for now)')
-      }
+      // if (connectOptions.authenticatedAccount && (versionToNumber(version) < versionToNumber('1.19.4') || versionToNumber(version) >= versionToNumber('1.21'))) {
+      //   // todo support it (just need to fix .export crash)
+      //   throw new UserError('Microsoft authentication is only supported on 1.19.4 - 1.20.6 (at least for now)')
+      // }
 
       await downloadMcDataOnConnect(version)
       try {

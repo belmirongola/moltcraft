@@ -58,6 +58,14 @@ export default ({
     { delay: 500 }
   )
 
+  const versionLongPress = useLongPress(
+    () => {
+      const buildDate = process.env.BUILD_VERSION ? new Date(process.env.BUILD_VERSION) : null
+      alert(`BUILD INFO:\n${buildDate?.toLocaleString() || 'Development build'}`)
+    },
+    () => onVersionTextClick?.(),
+  )
+
   const connectToServerLongPress = useLongPress(
     () => {
       if (process.env.NODE_ENV === 'development') {
@@ -147,7 +155,7 @@ export default ({
 
       <div className={styles['bottom-info']}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 10, color: 'gray' }} onClick={onVersionTextClick}>{versionText}</span>
+          <span style={{ fontSize: 10, color: 'gray' }} {...versionLongPress}>{versionText}</span>
           <span
             title={`${versionTitle} (click to reload)`}
             onClick={onVersionStatusClick}

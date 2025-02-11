@@ -2,12 +2,12 @@
 
 export const parseServerAddress = (address: string | undefined, removeHttp = true): ParsedServerAddress => {
   if (!address) {
-    return { host: '', isWebSocket: false }
+    return { host: '', isWebSocket: false, serverIpFull: '' }
   }
 
   const isWebSocket = address.startsWith('ws://') || address.startsWith('wss://')
   if (isWebSocket) {
-    return { host: address, isWebSocket: true }
+    return { host: address, isWebSocket: true, serverIpFull: address }
   }
 
   if (removeHttp) {
@@ -33,11 +33,13 @@ export const parseServerAddress = (address: string | undefined, removeHttp = tru
     }
   }
 
+  const host = parts.join(':')
   return {
-    host: parts.join(':'),
+    host,
     ...(port ? { port } : {}),
     ...(version ? { version } : {}),
-    isWebSocket: false
+    isWebSocket: false,
+    serverIpFull: port ? `${host}:${port}` : host
   }
 }
 
@@ -46,4 +48,5 @@ export interface ParsedServerAddress {
   port?: string
   version?: string
   isWebSocket: boolean
+  serverIpFull: string
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseServerAddress } from './parseServerAddress'
+import { parseServerAddress as parseServerAddressOriginal } from './parseServerAddress'
+
+const parseServerAddress = (address: string | undefined, removeHttp = true) => {
+  const { serverIpFull, ...result } = parseServerAddressOriginal(address, removeHttp)
+  return result
+}
 
 describe('parseServerAddress', () => {
   it('should handle undefined input', () => {

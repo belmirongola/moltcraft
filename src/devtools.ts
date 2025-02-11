@@ -45,8 +45,12 @@ customEvents.on('gameLoaded', () => {
 })
 
 window.inspectPacket = (packetName, isFromClient = false, fullOrListener: boolean | ((...args) => void) = false) => {
+  if (typeof isFromClient === 'function') {
+    fullOrListener = isFromClient
+    isFromClient = false
+  }
   const listener = typeof fullOrListener === 'function'
-    ? (name, ...args) => fullOrListener(name, ...args)
+    ? (name, ...args) => fullOrListener(...args, name)
     : (name, ...args) => {
       const displayName = name === packetName ? name : `${name} (${packetName})`
       console.log('packet', displayName, fullOrListener ? args : args[0])
@@ -57,7 +61,7 @@ window.inspectPacket = (packetName, isFromClient = false, fullOrListener: boolea
     ? new RegExp('^' + packetName.replaceAll('*', '.*') + '$')
     : null
 
-  const packetsListener = (name, data) => {
+  const packetNameListener = (name, data) => {
     if (pattern) {
       if (pattern.test(name)) {
         listener(name, data)
@@ -66,19 +70,24 @@ window.inspectPacket = (packetName, isFromClient = false, fullOrListener: boolea
       listener(name, data)
     }
   }
+  const packetListener = (data, { name }) => {
+    packetNameListener(name, data)
+  }
 
   const attach = () => {
     if (isFromClient) {
-      bot?._client.prependListener('writePacket', packetsListener)
+      bot?._client.prependListener('writePacket', packetNameListener)
     } else {
-      bot?._client.prependListener('packet_name', packetsListener)
+      bot?._client.prependListener('packet_name', packetNameListener)
+      bot?._client.prependListener('packet', packetListener)
     }
   }
   const detach = () => {
     if (isFromClient) {
-      bot?._client.removeListener('writePacket', packetsListener)
+      bot?._client.removeListener('writePacket', packetNameListener)
     } else {
-      bot?._client.removeListener('packet_name', packetsListener)
+      bot?._client.removeListener('packet_name', packetNameListener)
+      bot?._client.removeListener('packet', packetListener)
     }
   }
   attach()

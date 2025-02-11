@@ -25,6 +25,8 @@
     <div>
         <div style="font-size: calc(var(--font-size) * 1.8);color: lightgray;" class="title">Loading...</div>
         <div style="font-size: var(--font-size);color: rgb(176, 176, 176);margin-top: 3px;text-align: center" class="subtitle">A true Minecraft client in your browser!</div>
+        <!-- small text pre -->
+        <div style="font-size: calc(var(--font-size) * 0.6);color: rgb(150, 150, 150);margin-top: 3px;text-align: center;white-space: pre-line;" class="advanced-info"></div>
     </div>
 </div>
 `
@@ -35,16 +37,28 @@
             document.documentElement.appendChild(loadingDivElem)
           }
           // load error handling
-          const onError = (message) => {
-            console.log(message)
+          const onError = (errorOrMessage, log = false) => {
+            const message = errorOrMessage instanceof Error ? (errorOrMessage.stack ?? errorOrMessage.message) : errorOrMessage
+            if (log) console.log(message)
             if (document.querySelector('.initial-loader') && document.querySelector('.initial-loader').querySelector('.title').textContent !== 'Error') {
               document.querySelector('.initial-loader').querySelector('.title').textContent = 'Error'
-              document.querySelector('.initial-loader').querySelector('.subtitle').textContent = message
+              const [errorMessage, ...errorStack] = message.split('\n')
+              document.querySelector('.initial-loader').querySelector('.subtitle').textContent = errorMessage
+              document.querySelector('.initial-loader').querySelector('.advanced-info').textContent = errorStack.join('\n')
               if (window.navigator.maxTouchPoints > 1) window.location.hash = '#dev' // show eruda
+              // unregister all sw
+              if (window.navigator.serviceWorker) {
+                window.navigator.serviceWorker.getRegistrations().then(registrations => {
+                  registrations.forEach(registration => {
+                    registration.unregister()
+                  })
+                })
+              }
             }
+            window.lastError = errorOrMessage instanceof Error ? errorOrMessage : new Error(errorOrMessage)
           }
-          window.addEventListener('unhandledrejection', (e) => onError(e.reason))
-          window.addEventListener('error', (e) => onError(e.message))
+          window.addEventListener('unhandledrejection', (e) => onError(e.reason, true))
+          window.addEventListener('error', (e) => onError(e.error ?? e.message))
         }
         insertLoadingDiv()
         document.addEventListener('DOMContentLoaded', () => {
@@ -60,6 +74,25 @@
           // todo precache (check offline)?
           import('https://cdn.skypack.dev/eruda').then(({ default: eruda }) => {
             eruda.init()
+          })
+          Promise.all([import('https://cdn.skypack.dev/stacktrace-gps'), import('https://cdn.skypack.dev/error-stack-parser')]).then(async ([{ default: StackTraceGPS }, { default: ErrorStackParser }]) => {
+            if (!window.lastError) return
+
+            let stackFrames = [];
+            if (window.lastError instanceof Error) {
+              stackFrames = ErrorStackParser.parse(window.lastError);
+            }
+            console.log('stackFrames', stackFrames)
+            const gps = new StackTraceGPS()
+            const mappedFrames = await Promise.all(
+              stackFrames.map(frame => gps.pinpoint(frame))
+            );
+            console.log('mappedFrames', mappedFrames)
+
+            const stackTrace = mappedFrames
+              .map(frame => `at ${frame.functionName} (${frame.fileName}:${frame.lineNumber}:${frame.columnNumber})`)
+              .join('\n');
+            console.log('stackTrace', stackTrace)
           })
         }
       }

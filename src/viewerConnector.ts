@@ -126,9 +126,9 @@ export const getWsProtocolStream = async (url: string) => {
 const CHANNEL_NAME = 'minecraft-web-client:data'
 
 export const handleCustomChannel = async () => {
-  // await new Promise(resolve => {
-  //   bot._client.once('login', resolve)
-  // })
+  await new Promise(resolve => {
+    bot._client.once('login', resolve)
+  })
 
   bot._client.registerChannel(CHANNEL_NAME, ['string', []], true)
   const toCleanup = [] as Array<() => void>

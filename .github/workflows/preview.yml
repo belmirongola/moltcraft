@@ -58,7 +58,7 @@ jobs:
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - name: Write Release Info
         run: |
-          echo "{\"latestTag\": \"$(git rev-parse --short ${{ github.event.pull_request.head.sha }})\"}" > assets/release.json
+          echo "{\"latestTag\": \"$(git rev-parse --short ${{ github.event.pull_request.head.sha }})\", \"isCommit\": true}" > assets/release.json
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
       - run: pnpm build-storybook

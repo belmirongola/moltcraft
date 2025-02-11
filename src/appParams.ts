@@ -38,6 +38,7 @@ export type AppQsParams = {
   // Misc params
   suggest_save?: string
   noPacketsValidation?: string
+  testCrashApp?: string
 }
 
 export type AppQsParamsArray = {

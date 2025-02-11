@@ -245,7 +245,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         }
         const parsed = parseServerAddress(parts.join(':'))
         overrides = {
-          ip: parsed.host,
+          ip: parsed.serverIpFull,
           versionOverride: parsed.version,
           authenticatedAccountOverride: msAuth ? true : undefined, // todo popup selector
         }
