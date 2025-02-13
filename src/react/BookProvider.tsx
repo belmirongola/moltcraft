@@ -1,4 +1,4 @@
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import nbt from 'prismarine-nbt'
 import { useEffect, useState } from 'react'
 import { useSnapshot } from 'valtio'

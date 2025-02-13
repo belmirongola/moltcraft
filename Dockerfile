@@ -18,7 +18,7 @@ RUN if [ "$DOWNLOAD_SOUNDS" = "true" ] ; then node scripts/downloadSoundsMap.mjs
 # TODO for development
 # EXPOSE 9090
 # VOLUME /app/src
-# VOLUME /app/prismarine-viewer
+# VOLUME /app/renderer
 # ENTRYPOINT ["pnpm", "run", "run-all"]
 
 # only for prod

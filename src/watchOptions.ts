@@ -1,8 +1,8 @@
 // not all options are watched here
 
 import { subscribeKey } from 'valtio/utils'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
-import { isMobile } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { isMobile } from 'renderer/viewer/lib/simpleUtils'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'

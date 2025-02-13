@@ -1,17 +1,27 @@
-import { useRef } from 'react'
-import { useSnapshot } from 'valtio'
+import { useRef, useEffect } from 'react'
+import { subscribe, useSnapshot } from 'valtio'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { options } from '../optionsStorage'
-import { activeModalStack, isGameActive, miscUiState } from '../globalState'
+import { activeModalStack, gameAdditionalState, isGameActive, miscUiState } from '../globalState'
 import worldInteractions from '../worldInteractions'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
+import { pointerLock } from '../utils'
 import { handleMovementStickDelta, joystickPointer } from './TouchAreasControls'
 
 /** after what time of holding the finger start breaking the block */
 const touchStartBreakingBlockMs = 500
 
-function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
+function GameInteractionOverlayInner ({
+  zIndex,
+  setJoystickOrigin,
+  updateJoystick
+}: {
+  zIndex: number,
+  setJoystickOrigin: (e: PointerEvent | null) => void
+  updateJoystick: (e: PointerEvent) => void
+}) {
   const overlayRef = useRef<HTMLDivElement>(null)
+
 
   useUtilsEffect(({ signal }) => {
     if (!overlayRef.current) return
@@ -20,15 +30,17 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
     let virtualClickActive = false
     let virtualClickTimeout: NodeJS.Timeout | undefined
     let screenTouches = 0
-    let capturedPointer: {
-      id: number;
-      x: number;
-      y: number;
-      sourceX: number;
-      sourceY: number;
-      activateCameraMove: boolean;
-      time: number
-    } | undefined
+    const capturedPointer = {
+      active: null as {
+        id: number;
+        x: number;
+        y: number;
+        sourceX: number;
+        sourceY: number;
+        activateCameraMove: boolean;
+        time: number
+      } | null
+    }
 
     const pointerDownHandler = (e: PointerEvent) => {
       const clickedEl = e.composedPath()[0]
@@ -43,19 +55,15 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
       if (usingModernMovement) {
         if (!joystickPointer.pointer && e.clientX < window.innerWidth / 2) {
           cameraControlEl.setPointerCapture(e.pointerId)
-          joystickPointer.pointer = {
-            pointerId: e.pointerId,
-            x: e.clientX,
-            y: e.clientY
-          }
+          setJoystickOrigin(e)
           return
         }
       }
-      if (capturedPointer) {
+      if (capturedPointer.active) {
         return
       }
       cameraControlEl.setPointerCapture(e.pointerId)
-      capturedPointer = {
+      capturedPointer.active = {
         id: e.pointerId,
         x: e.clientX,
         y: e.clientY,
@@ -74,6 +82,8 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
 
     const pointerMoveHandler = (e: PointerEvent) => {
       if (e.pointerId === undefined) return
+      const scale = window.visualViewport?.scale || 1
+
       const supportsPressure = (e as any).pressure !== undefined &&
         (e as any).pressure !== 0 &&
         (e as any).pressure !== 0.5 &&
@@ -81,13 +91,13 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
         (e.pointerType === 'touch' || e.pointerType === 'pen')
 
       if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta(e)
+        updateJoystick(e)
         if (supportsPressure && (e as any).pressure > 0.5) {
           bot.setControlState('sprint', true)
         }
         return
       }
-      if (e.pointerId !== capturedPointer?.id) return
+      if (e.pointerId !== capturedPointer.active?.id) return
       // window.scrollTo(0, 0)
       e.preventDefault()
       e.stopPropagation()
@@ -96,33 +106,43 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
       if (supportsPressure) {
         bot.setControlState('jump', (e as any).pressure > 0.5)
       }
-      const xDiff = Math.abs(e.pageX - capturedPointer.sourceX) > allowedJitter
-      const yDiff = Math.abs(e.pageY - capturedPointer.sourceY) > allowedJitter
-      if (!capturedPointer.activateCameraMove && (xDiff || yDiff)) {
-        capturedPointer.activateCameraMove = true
+
+      // Adjust coordinates for scale
+      const currentX = e.clientX / scale
+      const currentY = e.clientY / scale
+      const sourceX = capturedPointer.active.sourceX / scale
+      const sourceY = capturedPointer.active.sourceY / scale
+      const lastX = capturedPointer.active.x / scale
+      const lastY = capturedPointer.active.y / scale
+
+      const xDiff = Math.abs(currentX - sourceX) > allowedJitter
+      const yDiff = Math.abs(currentY - sourceY) > allowedJitter
+
+      if (!capturedPointer.active.activateCameraMove && (xDiff || yDiff)) {
+        capturedPointer.active.activateCameraMove = true
       }
-      if (capturedPointer.activateCameraMove) {
+      if (capturedPointer.active.activateCameraMove) {
         clearTimeout(virtualClickTimeout)
       }
 
       onCameraMove({
-        movementX: e.pageX - capturedPointer.x,
-        movementY: e.pageY - capturedPointer.y,
+        movementX: (currentX - lastX),
+        movementY: (currentY - lastY),
         type: 'touchmove',
         stopPropagation: () => e.stopPropagation()
       } as CameraMoveEvent)
-      capturedPointer.x = e.pageX
-      capturedPointer.y = e.pageY
+
+      capturedPointer.active.x = e.clientX
+      capturedPointer.active.y = e.clientY
     }
 
     const pointerUpHandler = (e: PointerEvent) => {
       if (e.pointerId === undefined) return
       if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta()
-        joystickPointer.pointer = null
+        setJoystickOrigin(null)
         return
       }
-      if (e.pointerId !== capturedPointer?.id) return
+      if (e.pointerId !== capturedPointer.active?.id) return
       clearTimeout(virtualClickTimeout)
       virtualClickTimeout = undefined
 
@@ -130,14 +150,16 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
         // button 0 is left click
         document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
         virtualClickActive = false
-      } else if (!capturedPointer.activateCameraMove && (Date.now() - capturedPointer.time < touchStartBreakingBlockMs)) {
+      } else if (!capturedPointer.active.activateCameraMove && (Date.now() - capturedPointer.active.time < touchStartBreakingBlockMs)) {
         document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
         worldInteractions.update()
         document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
       }
 
-      capturedPointer = undefined
-      screenTouches--
+      if (screenTouches > 0) {
+        screenTouches--
+      }
+      capturedPointer.active = null
     }
 
     const contextMenuHandler = (e: Event) => {
@@ -155,11 +177,68 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
     cameraControlEl.addEventListener('lostpointercapture', pointerUpHandler, { signal })
     cameraControlEl.addEventListener('contextmenu', contextMenuHandler, { signal })
     window.addEventListener('blur', blurHandler, { signal })
-  }, [])
+
+    // Add zoom detection and reset
+    const detectAndResetZoom = () => {
+      const { visualViewport } = window
+      if (!visualViewport) return
+
+      if (visualViewport.scale !== 1) {
+        // Reset zoom by updating viewport meta tag
+        const viewport = document.querySelector('meta[name=viewport]')
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+          // Force re-layout
+          setTimeout(() => {
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+          }, 300)
+        }
+      }
+    }
+
+    // Listen for zoom changes
+    window.visualViewport?.addEventListener('resize', detectAndResetZoom, { signal })
+    detectAndResetZoom()
+
+    // Prevent zoom gestures
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { signal })
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { signal })
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { signal })
+
+
+    // Debug method to simulate zoom
+    window.debugSimulateZoom = (scale = 1.1, x = 0, y = 0) => {
+      const viewport = document.querySelector('meta[name=viewport]')
+      if (viewport) {
+        viewport.setAttribute('content', `width=device-width, initial-scale=${scale}, user-scalable=no, viewport-fit=cover, transform-origin: ${x}px ${y}px`)
+      }
+      // This will trigger the visualViewport resize event
+      setTimeout(() => {
+        window.visualViewport?.dispatchEvent(new Event('resize'))
+      }, 100)
+    }
+
+    // Debug method to reset zoom
+    window.debugResetZoom = () => {
+      const viewport = document.querySelector('meta[name=viewport]')
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+      }
+      setTimeout(() => {
+        window.visualViewport?.dispatchEvent(new Event('resize'))
+      }, 100)
+    }
+
+    signal.addEventListener('abort', () => {
+      setJoystickOrigin(null)
+    })
+  }, [setJoystickOrigin])
 
   return (
     <OverlayElement divRef={overlayRef} zIndex={zIndex} />
   )
+
+
 }
 
 const OverlayElement = ({ divRef, zIndex }: { divRef: React.RefObject<HTMLDivElement>, zIndex: number }) => {
@@ -182,6 +261,40 @@ const OverlayElement = ({ divRef, zIndex }: { divRef: React.RefObject<HTMLDivEle
 export default function GameInteractionOverlay ({ zIndex }: { zIndex: number }) {
   const modalStack = useSnapshot(activeModalStack)
   const { currentTouch } = useSnapshot(miscUiState)
+
+  const setJoystickOrigin = useRef((e: PointerEvent | null) => {
+    if (!e) {
+      handleMovementStickDelta()
+      joystickPointer.pointer = null
+      return
+    }
+
+    joystickPointer.pointer = {
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY
+    }
+  }).current
+
+  const updateJoystick = useRef((e: PointerEvent) => {
+    handleMovementStickDelta(e)
+  }).current
+
   if (modalStack.length > 0 || !currentTouch) return null
-  return <GameInteractionOverlayInner zIndex={zIndex} />
+  return <GameInteractionOverlayInner
+    zIndex={zIndex}
+    setJoystickOrigin={setJoystickOrigin}
+    updateJoystick={updateJoystick}
+  />
+
 }
+
+subscribe(activeModalStack, () => {
+  if (activeModalStack.length === 0) {
+    if (isGameActive(false) && !gameAdditionalState.viewerConnection) {
+      void pointerLock.requestPointerLock()
+    }
+  } else {
+    document.exitPointerLock?.()
+  }
+})

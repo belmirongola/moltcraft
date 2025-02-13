@@ -19,7 +19,7 @@ import ScoreboardProvider from './react/ScoreboardProvider'
 import SignEditorProvider from './react/SignEditorProvider'
 import IndicatorEffectsProvider from './react/IndicatorEffectsProvider'
 import PlayerListOverlayProvider from './react/PlayerListOverlayProvider'
-import MinimapProvider from './react/MinimapProvider'
+import MinimapProvider, { DrawerAdapterImpl } from './react/MinimapProvider'
 import HudBarsProvider from './react/HudBarsProvider'
 import XPBarProvider from './react/XPBarProvider'
 import DebugOverlay from './react/DebugOverlay'
@@ -48,6 +48,8 @@ import BossBarOverlayProvider from './react/BossBarOverlayProvider'
 import DebugEdges from './react/DebugEdges'
 import LibraryVersions from './react/components/LibraryVersions'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
+import MineflayerPluginHud from './react/MineflayerPluginHud'
+import MineflayerPluginConsole from './react/MineflayerPluginConsole'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -103,16 +105,21 @@ const InGameComponent = ({ children }) => {
   return children
 }
 
+// for Fullmap and Minimap in InGameUi
+let adapter: DrawerAdapterImpl
+
 const InGameUi = () => {
   const { gameLoaded, showUI: showUIRaw } = useSnapshot(miscUiState)
   const { disabledUiParts, displayBossBars, showMinimap } = useSnapshot(options)
   const modalsSnapshot = useSnapshot(activeModalStack)
   const hasModals = modalsSnapshot.length > 0
   const showUI = showUIRaw || hasModals
-  const displayFullmap = modalsSnapshot.some(modal => modal.reactType === 'full-map')
+  const displayFullmap = modalsSnapshot.some(modal => modal.reactType === 'full-map') || true
   // bot can't be used here
 
   if (!gameLoaded || !bot || disabledUiParts.includes('*')) return
+
+  if (!adapter) adapter = new DrawerAdapterImpl(bot.entity.position)
 
   return <>
     <RobustPortal to={document.querySelector('#ui-root')}>
@@ -125,7 +132,7 @@ const InGameUi = () => {
         {!disabledUiParts.includes('players-list') && <PlayerListOverlayProvider />}
         {!disabledUiParts.includes('chat') && <ChatProvider />}
         <SoundMuffler />
-        {showMinimap !== 'never' && <MinimapProvider displayMode='minimapOnly' />}
+        {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
         {!disabledUiParts.includes('title') && <TitleProvider />}
         {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
         {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
@@ -135,6 +142,8 @@ const InGameUi = () => {
       </div>
 
       <PauseScreen />
+      <MineflayerPluginHud />
+      <MineflayerPluginConsole />
       <div style={{ display: showUI ? 'block' : 'none' }}>
         {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
         {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
@@ -147,7 +156,7 @@ const InGameUi = () => {
       <DisplayQr />
     </PerComponentErrorBoundary>
     <RobustPortal to={document.body}>
-      {displayFullmap && <MinimapProvider displayMode='fullmapOnly' />}
+      {displayFullmap && <MinimapProvider adapter={adapter} displayMode='fullmapOnly' />}
       {/* because of z-index */}
       {showUI && <TouchControls />}
       <GlobalSearchInput />

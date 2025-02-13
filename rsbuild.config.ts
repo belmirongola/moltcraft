@@ -10,7 +10,7 @@ import fsExtra from 'fs-extra'
 import { promisify } from 'util'
 import { generateSW } from 'workbox-build'
 import { getSwAdditionalEntries } from './scripts/build'
-import { appAndRendererSharedConfig } from './prismarine-viewer/rsbuildSharedConfig'
+import { appAndRendererSharedConfig } from './renderer/rsbuildSharedConfig'
 
 //@ts-ignore
 try { require('./localSettings.js') } catch { }
@@ -23,15 +23,17 @@ const dev = process.env.NODE_ENV === 'development'
 const disableServiceWorker = process.env.DISABLE_SERVICE_WORKER === 'true'
 
 let releaseTag
+let releaseLink
 let releaseChangelog
 
 if (fs.existsSync('./assets/release.json')) {
     const releaseJson = JSON.parse(fs.readFileSync('./assets/release.json', 'utf8'))
     releaseTag = releaseJson.latestTag
+    releaseLink = releaseJson.isCommit ? `/commit/${releaseJson.latestTag}` : `/releases/${releaseJson.latestTag}`
     releaseChangelog = releaseJson.changelog?.replace(/<!-- bump-type:[\w]+ -->/, '')
 }
 
-// base options are in ./prismarine-viewer/rsbuildSharedConfig.ts
+// base options are in ./renderer/rsbuildSharedConfig.ts
 const appConfig = defineConfig({
     html: {
         template: './index.html',
@@ -59,6 +61,7 @@ const appConfig = defineConfig({
                 JSON.stringify(`https://github.com/${process.env.GITHUB_REPOSITORY || `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`}`),
             'process.env.DEPS_VERSIONS': JSON.stringify({}),
             'process.env.RELEASE_TAG': JSON.stringify(releaseTag),
+            'process.env.RELEASE_LINK': JSON.stringify(releaseLink),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
             'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
         },
@@ -111,10 +114,10 @@ const appConfig = defineConfig({
                     // childProcess.execSync('./scripts/prepareSounds.mjs', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })
-                    if (fs.existsSync('./prismarine-viewer/dist/mesher.js') && dev) {
+                    if (fs.existsSync('./renderer/dist/mesher.js') && dev) {
                         // copy mesher
-                        fs.copyFileSync('./prismarine-viewer/dist/mesher.js', './dist/mesher.js')
-                        fs.copyFileSync('./prismarine-viewer/dist/mesher.js.map', './dist/mesher.js.map')
+                        fs.copyFileSync('./renderer/dist/mesher.js', './dist/mesher.js')
+                        fs.copyFileSync('./renderer/dist/mesher.js.map', './dist/mesher.js.map')
                     } else if (!dev) {
                         await execAsync('pnpm run build-mesher')
                     }

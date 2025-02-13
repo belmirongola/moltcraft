@@ -3,29 +3,67 @@ import { Transition } from 'react-transition-group'
 import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useState } from 'react'
 import { activeModalStack, miscUiState, openOptionsMenu, showModal } from '../globalState'
-import { openGithub, setLoadingScreenStatus } from '../utils'
+import { openGithub } from '../utils'
+import { setLoadingScreenStatus } from '../appStatus'
 import { openFilePicker, copyFilesAsync, mkdirRecursive, openWorldDirectory, removeFileRecursiveAsync } from '../browserfs'
 
 import MainMenu from './MainMenu'
 import { DiscordButton } from './DiscordButton'
 
+const isMainMenu = () => {
+  return activeModalStack.length === 0 && !miscUiState.gameLoaded
+}
+
 const refreshApp = async (failedUpdate = false) => {
-  const registration = await navigator.serviceWorker.getRegistration()
-  await registration?.unregister()
-  if (failedUpdate) {
-    await new Promise(resolve => {
-      setTimeout(resolve, 2000)
-    })
-  }
-  if (activeModalStack.length !== 0) return
-  if (failedUpdate) {
-    sessionStorage.justReloaded = false
-    // try to force bypass cache
-    location.search = '?update=true'
-  } else {
-    window.justReloaded = true
-    sessionStorage.justReloaded = true
-    window.location.reload()
+  try {
+    const registration = await navigator.serviceWorker.getRegistration()
+    if (registration) {
+      // First, disconnect all clients
+      const clients = await window.clients?.matchAll() || []
+      await Promise.all(clients.map(client => client.postMessage('SKIP_WAITING')))
+
+      // Force the waiting service worker to become active
+      if (registration.waiting) {
+        registration.waiting.postMessage('SKIP_WAITING')
+      }
+
+      // Add timeout to prevent infinite waiting
+      const unregisterPromise = registration.unregister()
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('SW unregister timeout')), 3000)
+      })
+
+      await Promise.race([unregisterPromise, timeoutPromise])
+        .catch(err => {
+          console.warn('SW unregister error:', err)
+          if (isMainMenu()) {
+            alert('Failed to unregister SW: ' + err)
+          }
+        })
+    }
+
+    if (failedUpdate) {
+      await new Promise(resolve => { setTimeout(resolve, 2000) })
+    }
+
+    if (!isMainMenu()) return
+
+    if (failedUpdate) {
+      sessionStorage.justReloaded = false
+      // try to force bypass cache
+      location.search = '?update=true'
+    } else {
+      window.justReloaded = true
+      sessionStorage.justReloaded = true
+      window.location.reload()
+    }
+  } catch (err) {
+    console.error('Failed to refresh app:', err)
+    if (!isMainMenu()) {
+      alert('Critical error on refreshApp: ' + err)
+      // Fallback to force reload if something goes wrong
+      window.location.reload()
+    }
   }
 }
 
@@ -121,7 +159,7 @@ export default () => {
           await refreshApp()
         }}
         onVersionTextClick={async () => {
-          openGithub('/releases')
+          openGithub(process.env.RELEASE_LINK)
         }}
         versionText={process.env.RELEASE_TAG}
       />

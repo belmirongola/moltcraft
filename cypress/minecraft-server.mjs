@@ -1,6 +1,6 @@
 //@ts-check
 import mcServer from 'flying-squid'
-import defaultOptions from 'flying-squid/config/default-settings.json' assert { type: 'json' }
+import defaultOptions from 'flying-squid/config/default-settings.json' with { type: 'json' }
 
 /** @type {Options} */
 const serverOptions = {

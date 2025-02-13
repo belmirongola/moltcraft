@@ -1,7 +1,8 @@
 // global variables useful for debugging
 
 import fs from 'fs'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { enable, disable, enabled } from 'debug'
 import { getEntityCursor } from './worldInteractions'
 
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
@@ -43,17 +44,59 @@ customEvents.on('gameLoaded', () => {
   })
 })
 
-window.inspectPacket = (packetName, fullOrListener: boolean | ((...args) => void) = false) => {
-  const listener = typeof fullOrListener === 'function' ? fullOrListener : (...args) => console.log('packet', packetName, fullOrListener ? args : args[0])
+window.inspectPacket = (packetName, isFromClient = false, fullOrListener: boolean | ((...args) => void) = false) => {
+  if (typeof isFromClient === 'function') {
+    fullOrListener = isFromClient
+    isFromClient = false
+  }
+  const listener = typeof fullOrListener === 'function'
+    ? (name, ...args) => fullOrListener(...args, name)
+    : (name, ...args) => {
+      const displayName = name === packetName ? name : `${name} (${packetName})`
+      console.log('packet', displayName, fullOrListener ? args : args[0])
+    }
+
+  // Pre-compile regex if using wildcards
+  const pattern = typeof packetName === 'string' && packetName.includes('*')
+    ? new RegExp('^' + packetName.replaceAll('*', '.*') + '$')
+    : null
+
+  const packetNameListener = (name, data) => {
+    if (pattern) {
+      if (pattern.test(name)) {
+        listener(name, data)
+      }
+    } else if (name === packetName) {
+      listener(name, data)
+    }
+  }
+  const packetListener = (data, { name }) => {
+    packetNameListener(name, data)
+  }
+
   const attach = () => {
-    bot?._client.prependListener(packetName, listener)
+    if (isFromClient) {
+      bot?._client.prependListener('writePacket', packetNameListener)
+    } else {
+      bot?._client.prependListener('packet_name', packetNameListener)
+      bot?._client.prependListener('packet', packetListener)
+    }
+  }
+  const detach = () => {
+    if (isFromClient) {
+      bot?._client.removeListener('writePacket', packetNameListener)
+    } else {
+      bot?._client.removeListener('packet_name', packetNameListener)
+      bot?._client.removeListener('packet', packetListener)
+    }
   }
   attach()
   customEvents.on('mineflayerBotCreated', attach)
+
   const returnobj = {}
   Object.defineProperty(returnobj, 'detach', {
     get () {
-      bot?.removeListener(packetName, listener)
+      detach()
       customEvents.removeListener('mineflayerBotCreated', attach)
       return true
     },
@@ -72,3 +115,21 @@ window.downloadFile = async (path: string) => {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+Object.defineProperty(window, 'debugToggle', {
+  get () {
+    localStorage.debug = localStorage.debug === '*' ? '' : '*'
+    if (enabled('*')) {
+      disable()
+      return 'disabled debug'
+    } else {
+      enable('*')
+      return 'enabled debug'
+    }
+  },
+  set (v) {
+    enable(v)
+    localStorage.debug = v
+    console.log('Enabled debug for', v)
+  }
+})

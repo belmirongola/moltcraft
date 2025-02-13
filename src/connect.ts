@@ -1,9 +1,7 @@
 // import { versionsByMinecraftVersion } from 'minecraft-data'
 // import minecraftInitialDataJson from '../generated/minecraft-initial-data.json'
-import { AuthenticatedAccount } from './react/ServersListProvider'
-import { setLoadingScreenStatus } from './utils'
+import { AuthenticatedAccount } from './react/serversStorage'
 import { downloadSoundsIfNeeded } from './sounds/botSoundSystem'
-import { miscUiState } from './globalState'
 import { options } from './optionsStorage'
 import supportedVersions from './supportedVersions.mjs'
 
@@ -24,6 +22,7 @@ export type ConnectOptions = {
   authenticatedAccount?: AuthenticatedAccount | true
   peerOptions?: any
   viewerWsConnect?: string
+  saveServerToHistory?: boolean
 }
 
 export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVersionSelect) => {
@@ -47,6 +46,10 @@ export const downloadMcDataOnConnect = async (version: string) => {
 
   // await window._MC_DATA_RESOLVER.promise // ensure data is loaded
   // miscUiState.loadedDataVersion = version
+}
+
+export const downloadAllMinecraftData = async () => {
+  await window._LOAD_MC_DATA()
 }
 
 const loadFonts = async () => {

@@ -68,6 +68,11 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
               <PixelartIcon iconName="signal-off" width={12} />
               Offline
             </span>
+          ) : worldNameRight?.startsWith('ws') ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <PixelartIcon iconName="cellular-signal-3" width={12} />
+              {worldNameRight.slice(3)}
+            </span>
           ) : worldNameRight}
         </div>
       </div>

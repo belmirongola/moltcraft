@@ -16,9 +16,19 @@
   align-items: center;
 }
 
-.button:hover,
-.button:focus-visible {
-  --txrV: 86px;
+/* Only apply hover on devices that support it */
+@media (hover: hover) {
+  .button:hover,
+  .button:focus-visible {
+    --txrV: 86px;
+  }
+}
+
+/* For touch devices, use active state */
+@media (hover: none) {
+  .button:active {
+    --txrV: 86px;
+  }
 }
 
 .button:disabled {

@@ -1,6 +1,6 @@
 import { Vec3 } from 'vec3'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
-import { loadScript } from 'prismarine-viewer/viewer/lib/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { loadScript } from 'renderer/viewer/lib/utils'
 import type { Block } from 'prismarine-block'
 import { subscribeKey } from 'valtio/utils'
 import { miscUiState } from '../globalState'

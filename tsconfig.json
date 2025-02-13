@@ -25,8 +25,8 @@
     "include": [
         "src",
         "cypress",
-        "prismarine-viewer/viewer",
-        "prismarine-viewer/examples"
+        "renderer/viewer",
+        "renderer/playground"
     ],
     "exclude": [
         "node_modules"

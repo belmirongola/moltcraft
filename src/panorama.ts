@@ -4,7 +4,7 @@ import { join } from 'path'
 import fs from 'fs'
 import * as THREE from 'three'
 import { subscribeKey } from 'valtio/utils'
-import { EntityMesh } from 'prismarine-viewer/viewer/lib/entity/EntityMesh'
+import { EntityMesh } from 'renderer/viewer/lib/entity/EntityMesh'
 import { fromTexturePackPath, resourcePackState } from './resourcePack'
 import { options, watchValue } from './optionsStorage'
 import { miscUiState } from './globalState'
@@ -105,7 +105,7 @@ export async function addPanoramaCubeMap () {
 
   // should be rewritten entirely
   for (let i = 0; i < 20; i++) {
-    const m = new EntityMesh('1.16.4', 'squid').mesh!
+    const m = new EntityMesh('1.16.4', 'squid', viewer.world).mesh
     m.position.set(Math.random() * 30 - 15, Math.random() * 20 - 10, Math.random() * 10 - 17)
     m.rotation.set(0, Math.PI + Math.random(), -Math.PI / 4, 'ZYX')
     const v = Math.random() * 0.01

@@ -1,4 +1,4 @@
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import JsonOptimizer from '../optimizeJson'
 // import minecraftInitialDataJson from '../../generated/minecraft-initial-data.json'
 import { toMajorVersion } from '../utils'

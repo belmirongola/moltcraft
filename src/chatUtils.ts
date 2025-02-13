@@ -1,8 +1,8 @@
-// this should actually be moved to mineflayer / prismarine-viewer
+// this should actually be moved to mineflayer / renderer
 
 import { fromFormattedString, TextComponent } from '@xmcl/text-component'
 import type { IndexedData } from 'minecraft-data'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 
 export type MessageFormatPart = Pick<TextComponent, 'hoverEvent' | 'clickEvent'> & {
   text: string

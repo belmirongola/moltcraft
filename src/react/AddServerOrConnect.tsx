@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { appQueryParams } from '../appParams'
 import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
+import { parseServerAddress } from '../parseServerAddress'
 import Screen from './Screen'
 import Input from './Input'
 import Button from './Button'
@@ -42,12 +43,12 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const qsParamUsername = parseQs ? appQueryParams.username : undefined
   const qsParamLockConnect = parseQs ? appQueryParams.lockConnect : undefined
 
-  const qsIpParts = qsParamIp?.split(':')
-  const ipParts = initialData?.ip ? initialData?.ip.split(':') : undefined
+  const parsedQsIp = parseServerAddress(qsParamIp)
+  const parsedInitialIp = parseServerAddress(initialData?.ip)
 
   const [serverName, setServerName] = React.useState(initialData?.name ?? qsParamName ?? '')
-  const [serverIp, setServerIp] = React.useState(ipParts?.[0] ?? qsIpParts?.[0] ?? '')
-  const [serverPort, setServerPort] = React.useState(ipParts?.[1] ?? qsIpParts?.[1] ?? '')
+  const [serverIp, setServerIp] = React.useState(parsedQsIp.host || parsedInitialIp.host || '')
+  const [serverPort, setServerPort] = React.useState(parsedQsIp.port || parsedInitialIp.port || '')
   const [versionOverride, setVersionOverride] = React.useState(initialData?.versionOverride ?? /* legacy */ initialData?.['version'] ?? qsParamVersion ?? '')
   const [proxyOverride, setProxyOverride] = React.useState(initialData?.proxyOverride ?? qsParamProxy ?? '')
   const [usernameOverride, setUsernameOverride] = React.useState(initialData?.usernameOverride ?? qsParamUsername ?? '')
@@ -61,7 +62,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const noAccountSelected = accountIndex === -1
   const authenticatedAccountOverride = noAccountSelected ? undefined : freshAccount ? true : accounts?.[accountIndex]
 
-  let ipFinal = serverIp.includes(':') ? serverIp : `${serverIp}:${serverPort}`
+  let ipFinal = serverIp.includes(':') ? serverIp : `${serverIp}${serverPort ? `:${serverPort}` : ''}`
   ipFinal = ipFinal.replace(/:$/, '')
   const commonUseOptions: BaseServerInfo = {
     name: serverName,
@@ -152,14 +153,14 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
           required
           label="Server IP"
           value={serverIp}
-          disabled={lockConnect && qsIpParts?.[0] !== null}
+          disabled={lockConnect && parsedQsIp.host !== null}
           onChange={({ target: { value } }) => {
             setServerIp(value)
             setServerOnline(false)
           }}
           validateInput={serverOnline === null || fetchedServerInfoIp !== serverIp ? undefined : validateServerIp}
         />
-        <InputWithLabel label="Server Port" value={serverPort} disabled={lockConnect && qsIpParts?.[1] !== null} onChange={({ target: { value } }) => setServerPort(value)} placeholder='25565' />
+        <InputWithLabel label="Server Port" value={serverPort} disabled={lockConnect && parsedQsIp.port !== null} onChange={({ target: { value } }) => setServerPort(value)} placeholder={serverIp.startsWith('ws://') || serverIp.startsWith('wss://') ? '' : '25565'} />
         {isSmallHeight ? <div style={{ gridColumn: 'span 2', marginTop: 10, }} /> : <div style={{ gridColumn: smallWidth ? '' : 'span 2' }}>Overrides:</div>}
         <div style={{
           display: 'flex',
@@ -177,7 +178,13 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
           />
         </div>
 
-        <InputWithLabel label="Proxy Override" value={proxyOverride} disabled={lockConnect && (qsParamProxy !== null || !!placeholders?.proxyOverride)} onChange={({ target: { value } }) => setProxyOverride(value)} placeholder={placeholders?.proxyOverride} />
+        <InputWithLabel
+          label="Proxy Override"
+          value={proxyOverride}
+          disabled={lockConnect && (qsParamProxy !== null || !!placeholders?.proxyOverride) || serverIp.startsWith('ws://') || serverIp.startsWith('wss://')}
+          onChange={({ target: { value } }) => setProxyOverride(value)}
+          placeholder={serverIp.startsWith('ws://') || serverIp.startsWith('wss://') ? 'Not needed for websocket servers' : placeholders?.proxyOverride}
+        />
         <InputWithLabel
           label="Username Override"
           value={usernameOverride}
@@ -221,7 +228,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
             onClick={() => {
               onQsConnect?.(commonUseOptions)
             }}
-          >Connect</ButtonWrapper>
+          ><strong>Connect</strong></ButtonWrapper>
         </div>}
       </div>
     </form>
