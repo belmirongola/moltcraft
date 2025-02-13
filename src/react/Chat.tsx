@@ -6,6 +6,7 @@ import './Chat.css'
 import { isIos, reactKeyForMessage } from './utils'
 import Button from './Button'
 import { pixelartIcons } from './PixelartIcon'
+import { useScrollBehavior } from './hooks/useScrollBehavior'
 
 export type Message = {
   parts: MessageFormatPart[],
@@ -77,22 +78,10 @@ export default ({
 
   const chatInput = useRef<HTMLInputElement>(null!)
   const chatMessages = useRef<HTMLDivElement>(null)
-  const openedChatWasAtBottom = useRef(false)
-  const wasAtBottomBeforeOpen = useRef(false)
   const chatHistoryPos = useRef(sendHistoryRef.current.length)
   const inputCurrentlyEnteredValue = useRef('')
 
-  const isAtBottom = () => {
-    if (!chatMessages.current) return true
-    const { scrollTop, scrollHeight, clientHeight } = chatMessages.current
-    return Math.abs(scrollHeight - clientHeight - scrollTop) < 1
-  }
-
-  const scrollToBottom = () => {
-    if (chatMessages.current) {
-      chatMessages.current.scrollTop = chatMessages.current.scrollHeight
-    }
-  }
+  const { scrollToBottom } = useScrollBehavior(chatMessages, { messages, opened })
 
   const setSendHistory = (newHistory: string[]) => {
     sendHistoryRef.current = newHistory
@@ -117,6 +106,11 @@ export default ({
     }, 0)
   }
 
+  const auxInputFocus = (fireKey: string) => {
+    chatInput.current.focus()
+    chatInput.current.dispatchEvent(new KeyboardEvent('keydown', { code: fireKey, bubbles: true }))
+  }
+
   useEffect(() => {
     // todo focus input on any keypress except tab
   }, [])
@@ -133,11 +127,6 @@ export default ({
       if (!usingTouch) {
         chatInput.current.focus()
       }
-      // Check if was at bottom before opening
-      wasAtBottomBeforeOpen.current = isAtBottom()
-      if (wasAtBottomBeforeOpen.current) {
-        scrollToBottom()
-      }
       const unsubscribe = subscribe(chatInputValueGlobal, () => {
         if (!chatInputValueGlobal.value) return
         updateInputValue(chatInputValueGlobal.value)
@@ -145,9 +134,6 @@ export default ({
         chatInput.current.focus()
       })
       return unsubscribe
-    }
-    if (!opened && chatMessages.current) {
-      scrollToBottom()
     }
   }, [opened])
 
@@ -158,50 +144,23 @@ export default ({
     }
   }, [opened])
 
-  useEffect(() => {
-    if ((!opened || (opened && openedChatWasAtBottom.current)) && chatMessages.current) {
-      openedChatWasAtBottom.current = false
-      // stay at bottom on messages changes only if we were at bottom
-      if (isAtBottom()) {
-        scrollToBottom()
-      }
-    }
-  }, [messages])
-
-  useMemo(() => {
-    if ((opened && chatMessages.current)) {
-      openedChatWasAtBottom.current = isAtBottom()
-    }
-  }, [messages])
-
-  // Add scroll handler to track scroll position
-  useEffect(() => {
-    const messagesEl = chatMessages.current
-    if (!messagesEl) return
-
-    const handleScroll = () => {
-      openedChatWasAtBottom.current = isAtBottom()
+  const onMainInputChange = () => {
+    const completeValue = getCompleteValue()
+    setCompletePadText(completeValue === '/' ? '' : completeValue)
+    if (completeRequestValue.current === completeValue) {
+      updateFilteredCompleteItems(completionItemsSource)
+      return
     }
 
-    messagesEl.addEventListener('scroll', handleScroll)
-    return () => messagesEl.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  const auxInputFocus = (fireKey: string) => {
-    chatInput.current.focus()
-    chatInput.current.dispatchEvent(new KeyboardEvent('keydown', { code: fireKey, bubbles: true }))
-  }
-
-  const getDefaultCompleteValue = () => {
-    const raw = chatInput.current.value
-    return raw.slice(0, chatInput.current.selectionEnd ?? raw.length)
-  }
-  const getCompleteValue = (value = getDefaultCompleteValue()) => {
-    const valueParts = value.split(' ')
-    const lastLength = valueParts.at(-1)!.length
-    const completeValue = lastLength ? value.slice(0, -lastLength) : value
-    if (valueParts.length === 1 && value.startsWith('/')) return '/'
-    return completeValue
+    if (completeValue.startsWith('/')) {
+      void fetchCompletions(true)
+    } else {
+      resetCompletionItems()
+    }
+    completeRequestValue.current = completeValue
+    // if (completeValue === '/') {
+    //   void fetchCompletions(true)
+    // }
   }
 
   const fetchCompletions = async (implicit: boolean, inputValue = chatInput.current.value) => {
@@ -224,23 +183,16 @@ export default ({
     setCompletionItems(newCompleteItems)
   }
 
-  const onMainInputChange = () => {
-    const completeValue = getCompleteValue()
-    setCompletePadText(completeValue === '/' ? '' : completeValue)
-    if (completeRequestValue.current === completeValue) {
-      updateFilteredCompleteItems(completionItemsSource)
-      return
-    }
-
-    if (completeValue.startsWith('/')) {
-      void fetchCompletions(true)
-    } else {
-      resetCompletionItems()
-    }
-    completeRequestValue.current = completeValue
-    // if (completeValue === '/') {
-    //   void fetchCompletions(true)
-    // }
+  const getDefaultCompleteValue = () => {
+    const raw = chatInput.current.value
+    return raw.slice(0, chatInput.current.selectionEnd ?? raw.length)
+  }
+  const getCompleteValue = (value = getDefaultCompleteValue()) => {
+    const valueParts = value.split(' ')
+    const lastLength = valueParts.at(-1)!.length
+    const completeValue = lastLength ? value.slice(0, -lastLength) : value
+    if (valueParts.length === 1 && value.startsWith('/')) return '/'
+    return completeValue
   }
 
   return (
