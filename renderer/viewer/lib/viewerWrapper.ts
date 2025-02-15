@@ -79,7 +79,7 @@ export class ViewerWrapper {
     if (this.globalObject.stopLoop) return
     for (const fn of beforeRenderFrame) fn()
     this.globalObject.requestAnimationFrame(this.render.bind(this))
-    if (this.globalObject.stopRender || this.renderer?.xr.isPresenting || (this.stopRenderOnBlur && !this.windowFocused)) return
+    if (!viewer || this.globalObject.stopRender || this.renderer?.xr.isPresenting || (this.stopRenderOnBlur && !this.windowFocused)) return
     const renderInterval = (this.windowFocused ? this.renderInterval : this.renderIntervalUnfocused) ?? this.renderInterval
     if (renderInterval) {
       this.delta += time - this.lastTime

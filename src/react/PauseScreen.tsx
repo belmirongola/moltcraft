@@ -12,7 +12,8 @@ import {
   showModal,
   hideModal,
   miscUiState,
-  openOptionsMenu
+  openOptionsMenu,
+  gameAdditionalState
 } from '../globalState'
 import { fsState } from '../loadSave'
 import { disconnect } from '../flyingSquidUtils'
@@ -28,7 +29,7 @@ import Screen from './Screen'
 import styles from './PauseScreen.module.css'
 import { DiscordButton } from './DiscordButton'
 import { showNotification } from './NotificationProvider'
-import { appStatusState } from './AppStatusProvider'
+import { appStatusState, reconnectReload } from './AppStatusProvider'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -153,6 +154,7 @@ export default () => {
   const fsStateSnap = useSnapshot(fsState)
   const activeModalStackSnap = useSnapshot(activeModalStack)
   const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
+  const { noConnection } = useSnapshot(gameAdditionalState)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -254,6 +256,11 @@ export default () => {
           />
         </div>
       ) : null}
+      {noConnection && (
+        <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
+          Reconnect
+        </Button>
+      )}
       {!lockConnect && <>
         <Button className="button" style={{ width: '204px' }} onClick={disconnect}>
           {localServer && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}

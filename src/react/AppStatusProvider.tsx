@@ -44,6 +44,13 @@ const saveReconnectOptions = (options: ConnectOptions) => {
   }))
 }
 
+export const reconnectReload = () => {
+  if (lastConnectOptions.value) {
+    saveReconnectOptions(lastConnectOptions.value)
+    window.location.reload()
+  }
+}
+
 export default () => {
   const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = useSnapshot(appStatusState)
   const { active: replayActive } = useSnapshot(packetsReplaceSessionState)
@@ -68,13 +75,6 @@ export default () => {
     window.dispatchEvent(new window.CustomEvent('connect', {
       detail: lastConnectOptions.value
     }))
-  }
-
-  const reconnectReload = () => {
-    if (lastConnectOptions.value) {
-      saveReconnectOptions(lastConnectOptions.value)
-      window.location.reload()
-    }
   }
 
   useEffect(() => {

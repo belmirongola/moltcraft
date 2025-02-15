@@ -3,10 +3,15 @@
 import { proxy, ref, subscribe } from 'valtio'
 import type { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import type { OptionsGroupType } from './optionsGuiScheme'
+import { appQueryParams } from './appParams'
 
 // todo: refactor structure with support of hideNext=false
 
 const notHideableModalsWithoutForce = new Set(['app-status'])
+
+if (appQueryParams.lockConnect) {
+  notHideableModalsWithoutForce.add('editServer')
+}
 
 type Modal = ({ elem?: HTMLElement & Record<string, any> } & { reactType: string })
 

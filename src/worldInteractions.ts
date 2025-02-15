@@ -25,6 +25,7 @@ import { options } from './optionsStorage'
 import { itemBeingUsed } from './react/Crosshair'
 import { isCypress } from './standaloneUtils'
 import { displayClientChat } from './botUtils'
+import { playerState } from './mineflayer/playerState'
 
 function getViewDirection (pitch, yaw) {
   const csPitch = Math.cos(pitch)
@@ -332,6 +333,7 @@ class WorldInteraction {
         if (item) {
           customEvents.emit('activateItem', item, offhand ? 45 : bot.quickBarSlot, offhand)
         }
+        playerState.startUsingItem()
         itemBeingUsed.name = (offhand ? bot.inventory.slots[45]?.name : bot.heldItem?.name) ?? null
         itemBeingUsed.hand = offhand ? 1 : 0
       }
@@ -343,6 +345,7 @@ class WorldInteraction {
       // "only foods and bow can be deactivated" - not true, shields also can be deactivated and client always sends this
       // if (bot.heldItem && (loadedData.foodsArray.map((f) => f.name).includes(bot.heldItem.name) || bot.heldItem.name === 'bow')) {
       bot.deactivateItem()
+      playerState.stopUsingItem()
       // }
     }
 

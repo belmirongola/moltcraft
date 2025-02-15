@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { OBJLoader } from 'three-stdlib'
 import huskPng from 'mc-assets/dist/other-textures/latest/entity/zombie/husk.png'
 import { Vec3 } from 'vec3'
+import spectralArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/spectral_arrow.png'
+import tippedArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/tipped_arrow.png'
 import { WorldRendererCommon } from '../worldrendererCommon'
 import entities from './entities.json'
 import { externalModels } from './objModels'
@@ -456,6 +458,13 @@ export class EntityMesh {
       this.mesh = obj
       return
     }
+
+    // if (originalType === 'arrow') {
+    //   overrides.textures = {
+    //     'default': arrowTexture,
+    //     ...overrides.textures,
+    //   }
+    // }
 
     const e = getEntity(type)
     if (!e) {

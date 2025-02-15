@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
-import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 import { Entities } from './entities'
 import { Primitives } from './primitives'
 import { WorldRendererThree } from './worldrendererThree'
@@ -11,6 +10,8 @@ import { WorldRendererCommon, WorldRendererConfig, defaultWorldRendererConfig } 
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
 import { addNewStat } from './ui/newStats'
 import { getMyHand } from './hand'
+import { IPlayerState, BasePlayerState } from './basePlayerState'
+import { CameraBobbing } from './cameraBobbing'
 
 export class Viewer {
   scene: THREE.Scene
@@ -21,14 +22,12 @@ export class Viewer {
   // primitives: Primitives
   domElement: HTMLCanvasElement
   playerHeight = 1.62
-  isSneaking = false
   threeJsWorld: WorldRendererThree
   cameraObjectOverride?: THREE.Object3D // for xr
   audioListener: THREE.AudioListener
   renderingUntilNoUpdates = false
   processEntityOverrides = (e, overrides) => overrides
-
-  getMineflayerBot (): void | Record<string, any> {} // to be overridden
+  private readonly cameraBobbing: CameraBobbing
 
   get camera () {
     return this.world.camera
@@ -38,18 +37,19 @@ export class Viewer {
     this.world.camera = camera
   }
 
-  constructor (public renderer: THREE.WebGLRenderer, worldConfig = defaultWorldRendererConfig) {
+  constructor (public renderer: THREE.WebGLRenderer, worldConfig = defaultWorldRendererConfig, public playerState: IPlayerState = new BasePlayerState()) {
     // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
     THREE.ColorManagement.enabled = false
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace
 
     this.scene = new THREE.Scene()
     this.scene.matrixAutoUpdate = false // for perf
-    this.threeJsWorld = new WorldRendererThree(this.scene, this.renderer, worldConfig)
+    this.threeJsWorld = new WorldRendererThree(this.scene, this.renderer, worldConfig, this.playerState)
     this.setWorld()
     this.resetScene()
     this.entities = new Entities(this)
     // this.primitives = new Primitives(this.scene, this.camera)
+    this.cameraBobbing = new CameraBobbing()
 
     this.domElement = renderer.domElement
   }
@@ -139,7 +139,7 @@ export class Viewer {
     const pos = cursorBlockRel(0, 1, 0).position
     const { mesh } = this.entities.getItemMesh({
       itemId: 541,
-    })!
+    }, {})!
     mesh.position.set(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
     // mesh.scale.set(0.5, 0.5, 0.5)
     const helper = new THREE.BoxHelper(mesh, 0xff_ff_00)
@@ -161,12 +161,31 @@ export class Viewer {
 
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
     const cam = this.cameraObjectOverride || this.camera
-    let yOffset = this.getMineflayerBot()?.entity?.eyeHeight ?? this.playerHeight
-    if (this.isSneaking) yOffset -= 0.3
+    const yOffset = this.playerState.getEyeHeight()
+    // if (this.playerState.isSneaking()) yOffset -= 0.3
 
     this.world.camera = cam as THREE.PerspectiveCamera
-
     this.world.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
+
+    // // Update camera bobbing based on movement state
+    // const velocity = this.playerState.getVelocity()
+    // const movementState = this.playerState.getMovementState()
+    // const isMoving = movementState === 'SPRINTING' || movementState === 'WALKING'
+    // const speed = Math.hypot(velocity.x, velocity.z)
+
+    // // Update bobbing state
+    // this.cameraBobbing.updateWalkDistance(speed)
+    // this.cameraBobbing.updateBobAmount(isMoving)
+
+    // // Get bobbing offsets
+    // const bobbing = isMoving ? this.cameraBobbing.getBobbing() : { position: { x: 0, y: 0 }, rotation: { x: 0, z: 0 } }
+
+    // // Apply camera position with bobbing
+    // const finalPos = pos ? pos.offset(bobbing.position.x, yOffset + bobbing.position.y, 0) : null
+    // this.world.updateCamera(finalPos, yaw + bobbing.rotation.x, pitch)
+
+    // // Apply roll rotation separately since updateCamera doesn't handle it
+    // this.camera.rotation.z = bobbing.rotation.z
   }
 
   playSound (position: Vec3, path: string, volume = 1, pitch = 1) {

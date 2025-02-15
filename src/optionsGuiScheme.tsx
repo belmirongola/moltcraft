@@ -91,7 +91,6 @@ export const guiOptionsScheme: {
         unit: '',
         tooltip: 'Additional distance to keep the chunks loading before unloading them by marking them as too far',
       },
-      handDisplay: {},
       renderDebug: {
         values: [
           'advanced',
@@ -247,6 +246,12 @@ export const guiOptionsScheme: {
           ['blue', 'Blue'],
           ['classic', 'Classic']
         ],
+      },
+      showHand: {
+        text: 'Show Hand',
+      },
+      viewBobbing: {
+        text: 'View Bobbing',
       },
     },
     {

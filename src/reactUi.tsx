@@ -50,6 +50,8 @@ import LibraryVersions from './react/components/LibraryVersions'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
 import MineflayerPluginHud from './react/MineflayerPluginHud'
 import MineflayerPluginConsole from './react/MineflayerPluginConsole'
+import { UIProvider } from './react/UIProvider'
+import { useAppScale } from './scaleInterface'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -176,46 +178,48 @@ const WidgetDisplay = ({ name, Component }) => {
 }
 
 const App = () => {
-  return <div>
-    <ButtonAppProvider>
-      <RobustPortal to={document.body}>
-        <div className='overlay-bottom-scaled'>
-          <InGameComponent>
-            <HeldMapUi />
-          </InGameComponent>
-        </div>
-        <div />
-      </RobustPortal>
-      <LibraryVersions />
-      <EnterFullscreenButton />
-      <InGameUi />
-      <RobustPortal to={document.querySelector('#ui-root')}>
-        <AllWidgets />
-        <SingleplayerProvider />
-        <CreateWorldProvider />
-        <AppStatusProvider />
-        <KeybindingsScreenProvider />
-        <SelectOption />
-        <ServersListProvider />
-        <OptionsRenderApp />
-        <MainMenuRenderApp />
-        <NotificationProvider />
-        <TouchAreasControlsProvider />
-        <SignInMessageProvider />
-        <NoModalFoundProvider />
-        {/* <GameHud>
-        </GameHud> */}
-      </RobustPortal>
-      <RobustPortal to={document.body}>
-        {/* todo correct mounting! */}
-        <div className='overlay-top-scaled'>
-          <GamepadUiCursor />
-        </div>
-        <div />
-        <DebugEdges />
-      </RobustPortal>
-    </ButtonAppProvider>
-  </div>
+  const scale = useAppScale()
+  return (
+    <UIProvider scale={scale}>
+      <div>
+        <ButtonAppProvider>
+          <RobustPortal to={document.body}>
+            <div className='overlay-bottom-scaled'>
+              <InGameComponent>
+                <HeldMapUi />
+              </InGameComponent>
+            </div>
+            <div />
+          </RobustPortal>
+          <EnterFullscreenButton />
+          <InGameUi />
+          <LibraryVersions />
+          <RobustPortal to={document.querySelector('#ui-root')}>
+            <AllWidgets />
+            <SingleplayerProvider />
+            <CreateWorldProvider />
+            <AppStatusProvider />
+            <KeybindingsScreenProvider />
+            <SelectOption />
+            <ServersListProvider />
+            <OptionsRenderApp />
+            <MainMenuRenderApp />
+            <NotificationProvider />
+            <TouchAreasControlsProvider />
+            <SignInMessageProvider />
+            <NoModalFoundProvider />
+          </RobustPortal>
+          <RobustPortal to={document.body}>
+            <div className='overlay-top-scaled'>
+              <GamepadUiCursor />
+            </div>
+            <div />
+            <DebugEdges />
+          </RobustPortal>
+        </ButtonAppProvider>
+      </div>
+    </UIProvider>
+  )
 }
 
 const PerComponentErrorBoundary = ({ children }) => {

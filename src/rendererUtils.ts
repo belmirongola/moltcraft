@@ -1,67 +1,96 @@
 import { subscribeKey } from 'valtio/utils'
 import { gameAdditionalState } from './globalState'
 import { options } from './optionsStorage'
+import { playerState } from './mineflayer/playerState'
 
 let currentFov = 0
 let targetFov = 0
 let lastUpdateTime = 0
 const FOV_TRANSITION_DURATION = 200 // milliseconds
 
+// TODO: These should be configured based on your game's settings
+const BASE_MOVEMENT_SPEED = 0.1 // Default walking speed in Minecraft
+const FOV_EFFECT_SCALE = 1 // Equivalent to Minecraft's FOV Effects slider
+
 const updateFovAnimation = () => {
-  if (currentFov === targetFov) return
+  if (!bot) return
 
-  const now = performance.now()
-  const elapsed = now - lastUpdateTime
-  const progress = Math.min(elapsed / FOV_TRANSITION_DURATION, 1)
+  // Calculate base FOV modifier
+  let fovModifier = 1
 
-  // Smooth easing function
-  const easeOutCubic = (t: number) => 1 - (1 - t) ** 3
-
-  currentFov += (targetFov - currentFov) * easeOutCubic(progress)
-
-  if (Math.abs(currentFov - targetFov) < 0.01) {
-    currentFov = targetFov
+  // Flying modifier
+  if (gameAdditionalState.isFlying) {
+    fovModifier *= 1.05
   }
 
-  viewer.camera.fov = currentFov
-  viewer.camera.updateProjectionMatrix()
+  // Movement speed modifier
+  // TODO: Get actual movement speed attribute value
+  const movementSpeedAttr = (bot.entity?.attributes?.['generic.movement_speed'] || bot.entity?.attributes?.['minecraft:movement_speed'] || bot.entity?.attributes?.['movement_speed'] || bot.entity?.attributes?.['minecraft:movementSpeed'])?.value || BASE_MOVEMENT_SPEED
+  let currentSpeed = BASE_MOVEMENT_SPEED
+  // todo
+  if (bot.controlState?.sprint && !bot.controlState?.sneak) {
+    currentSpeed *= 1.3
+  }
+  fovModifier *= (currentSpeed / movementSpeedAttr + 1) / 2
+
+  // Validate fov modifier
+  if (Math.abs(BASE_MOVEMENT_SPEED) < Number.EPSILON || isNaN(fovModifier) || !isFinite(fovModifier)) {
+    fovModifier = 1
+  }
+
+  // Item usage modifier
+  if (playerState.getHeldItem()) {
+    const heldItem = playerState.getHeldItem()
+    if (heldItem?.name === 'bow' && playerState.getItemUsageTicks() > 0) {
+      const ticksUsingItem = playerState.getItemUsageTicks()
+      let usageProgress = ticksUsingItem / 20
+      if (usageProgress > 1) {
+        usageProgress = 1
+      } else {
+        usageProgress *= usageProgress
+      }
+      fovModifier *= 1 - usageProgress * 0.15
+    }
+    // TODO: Add spyglass/scope check here if needed
+  }
+
+  // Apply FOV effect scale
+  fovModifier = 1 + (fovModifier - 1) * FOV_EFFECT_SCALE
+
+  // Calculate target FOV
+  const baseFov = gameAdditionalState.isZooming ? 30 : options.fov
+  targetFov = baseFov * fovModifier
+
+  // Smooth transition
+  const now = performance.now()
+  if (currentFov !== targetFov) {
+    const elapsed = now - lastUpdateTime
+    const progress = Math.min(elapsed / FOV_TRANSITION_DURATION, 1)
+    const easeOutCubic = (t: number) => 1 - (1 - t) ** 3
+
+    currentFov += (targetFov - currentFov) * easeOutCubic(progress)
+
+    if (Math.abs(currentFov - targetFov) < 0.01) {
+      currentFov = targetFov
+    }
+
+    viewer.camera.fov = currentFov
+    viewer.camera.updateProjectionMatrix()
+  }
+  lastUpdateTime = now
 }
 
 export const watchFov = () => {
-  const updateFov = () => {
-    if (!bot) return
-    let fov = gameAdditionalState.isZooming ? 30 : options.fov
-
-    if (bot.controlState.sprint && !bot.controlState.sneak) {
-      fov += 5
-    }
-    if (gameAdditionalState.isFlying) {
-      fov += 5
-    }
-
-    if (targetFov !== fov) {
-      targetFov = fov
-      lastUpdateTime = performance.now()
-    }
-  }
-
-  customEvents.on('gameLoaded', () => {
-    updateFov()
-  })
-
-  updateFov()
-
-  // Add FOV animation to render loop
+  // Initial FOV setup
   if (!beforeRenderFrame.includes(updateFovAnimation)) {
     beforeRenderFrame.push(updateFovAnimation)
   }
 
-  subscribeKey(options, 'fov', updateFov)
-  subscribeKey(gameAdditionalState, 'isFlying', updateFov)
-  subscribeKey(gameAdditionalState, 'isSprinting', updateFov)
-  subscribeKey(gameAdditionalState, 'isZooming', updateFov)
+  customEvents.on('gameLoaded', () => {
+    updateFovAnimation()
+  })
+
   subscribeKey(gameAdditionalState, 'isSneaking', () => {
-    viewer.isSneaking = gameAdditionalState.isSneaking
     viewer.setFirstPersonCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
   })
 }

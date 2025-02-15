@@ -7,7 +7,6 @@ import * as THREE from 'three'
 import { PlayerObject, PlayerAnimation } from 'skinview3d'
 import { loadSkinToCanvas, loadEarsToCanvasFromSkin, inferModelType, loadCapeToCanvas, loadImage } from 'skinview-utils'
 // todo replace with url
-import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 import { degreesToRadians } from '@nxg-org/mineflayer-tracker/lib/mathUtils'
 import { NameTagObject } from 'skinview3d/libs/nametag'
 import { flat, fromFormattedString } from '@xmcl/text-component'
@@ -23,6 +22,8 @@ import { disposeObject } from './threeJsUtils'
 import { armorModel, armorTextures } from './entity/armorModels'
 import { Viewer } from './viewer'
 import { getBlockMeshFromModel } from './holdingBlock'
+import { ItemSpecificContextProperties } from './basePlayerState'
+import { loadSkinImage, getLookupUrl, stevePngUrl, steveTexture } from './utils/skins'
 const { loadTexture } = globalThis.isElectron ? require('./utils.electron.js') : require('./utils')
 
 export const TWEEN_DURATION = 120
@@ -217,7 +218,7 @@ export class Entities extends EventEmitter {
   itemsTexture: THREE.Texture | null = null
   cachedMapsImages = {} as Record<number, string>
   itemFrameMaps = {} as Record<number, Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>>>
-  getItemUv: undefined | ((item: Record<string, any>) => {
+  getItemUv: undefined | ((item: Record<string, any>, specificProps: ItemSpecificContextProperties) => {
     texture: THREE.Texture;
     u: number;
     v: number;
@@ -228,6 +229,20 @@ export class Entities extends EventEmitter {
     resolvedModel: BlockModel
     modelName: string
   })
+
+  get entitiesByName (): Record<string, SceneEntity[]> {
+    const byName: Record<string, SceneEntity[]> = {}
+    for (const entity of Object.values(this.entities)) {
+      if (!entity['realName']) continue
+      byName[entity['realName']] = byName[entity['realName']] || []
+      byName[entity['realName']].push(entity)
+    }
+    return byName
+  }
+
+  get entitiesRenderingCount (): number {
+    return Object.values(this.entities).filter(entity => entity.visible).length
+  }
 
   constructor (public viewer: Viewer) {
     super()
@@ -289,12 +304,12 @@ export class Entities extends EventEmitter {
         const distanceSquared = dx * dx + dy * dy + dz * dz
 
         // Get chunk coordinates
-        const chunkX = Math.floor(entity.position.x / 16)
-        const chunkZ = Math.floor(entity.position.z / 16)
+        const chunkX = Math.floor(entity.position.x / 16) * 16
+        const chunkZ = Math.floor(entity.position.z / 16) * 16
         const chunkKey = `${chunkX},${chunkZ}`
 
         // Entity is visible if within 16 blocks OR in a finished chunk
-        entity.visible = distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey]
+        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey])
       }
     }
   }
@@ -304,12 +319,15 @@ export class Entities extends EventEmitter {
     return playerObject
   }
 
-  // fixme workaround
-  defaultSteveTexture
-
   uuidPerSkinUrlsCache = {} as Record<string, { skinUrl?: string, capeUrl?: string }>
 
-  // true means use default skin url
+  private isCanvasBlank (canvas: HTMLCanvasElement): boolean {
+    return !canvas.getContext('2d')
+      ?.getImageData(0, 0, canvas.width, canvas.height).data
+      .some(channel => channel !== 0)
+  }
+
+  // eslint-disable-next-line max-params
   updatePlayerSkin (entityId: string | number, username: string | undefined, uuid: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
     if (uuid) {
       if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid] = {}
@@ -321,38 +339,68 @@ export class Entities extends EventEmitter {
       capeUrl ??= this.uuidPerSkinUrlsCache[uuid]?.capeUrl
     }
 
-    let playerObject = this.getPlayerObject(entityId)
+    const playerObject = this.getPlayerObject(entityId)
     if (!playerObject) return
-    // const username = this.entities[entityId].username
-    // or https://mulv.vercel.app/
+
     if (skinUrl === true) {
-      skinUrl = `https://mulv.tycrek.dev/api/lookup?username=${username}&type=skin`
       if (!username) return
+      skinUrl = getLookupUrl(username, 'skin')
     }
-    loadImage(skinUrl).then(image => {
-      playerObject = this.getPlayerObject(entityId)
-      if (!playerObject) return
-      /** @type {THREE.CanvasTexture} */
-      let skinTexture
-      if (skinUrl === stevePng && this.defaultSteveTexture) {
-        skinTexture = this.defaultSteveTexture
-      } else {
-        const skinCanvas = document.createElement('canvas')
-        loadSkinToCanvas(skinCanvas, image)
-        skinTexture = new THREE.CanvasTexture(skinCanvas)
-        if (skinUrl === stevePng) {
-          this.defaultSteveTexture = skinTexture
+
+    if (typeof skinUrl !== 'string') throw new Error('Invalid skin url')
+    void this.loadAndApplySkin(entityId, skinUrl).then(() => {
+      if (capeUrl) {
+        if (capeUrl === true && username) {
+          capeUrl = getLookupUrl(username, 'cape')
+        }
+        if (typeof capeUrl === 'string') {
+          void this.loadAndApplyCape(entityId, capeUrl)
         }
       }
+    })
+
+
+    playerObject.cape.visible = false
+    if (!capeUrl) {
+      playerObject.backEquipment = null
+      playerObject.elytra.map = null
+      if (playerObject.cape.map) {
+        playerObject.cape.map.dispose()
+      }
+      playerObject.cape.map = null
+    }
+  }
+
+  private async loadAndApplySkin (entityId: string | number, skinUrl: string) {
+    let playerObject = this.getPlayerObject(entityId)
+    if (!playerObject) return
+
+    try {
+      let playerCustomSkinImage: HTMLImageElement | undefined
+
+      playerObject = this.getPlayerObject(entityId)
+      if (!playerObject) return
+
+      let skinTexture: THREE.Texture
+      if (skinUrl === stevePngUrl) {
+        skinTexture = await steveTexture
+      } else {
+        const { canvas: skinCanvas, image } = await loadSkinImage(skinUrl)
+        playerCustomSkinImage = image
+        skinTexture = new THREE.CanvasTexture(skinCanvas)
+      }
+
       skinTexture.magFilter = THREE.NearestFilter
       skinTexture.minFilter = THREE.NearestFilter
       skinTexture.needsUpdate = true
-      playerObject.skin.map = skinTexture
+      playerObject.skin.map = skinTexture as any
       playerObject.skin.modelType = inferModelType(skinTexture.image)
 
       const earsCanvas = document.createElement('canvas')
-      loadEarsToCanvasFromSkin(earsCanvas, image)
-      if (isCanvasBlank(earsCanvas)) {
+      if (playerCustomSkinImage) {
+        loadEarsToCanvasFromSkin(earsCanvas, playerCustomSkinImage)
+      }
+      if (this.isCanvasBlank(earsCanvas)) {
         playerObject.ears.map = null
         playerObject.ears.visible = false
       } else {
@@ -365,47 +413,38 @@ export class Entities extends EventEmitter {
         playerObject.ears.visible = true
       }
       this.onSkinUpdate?.()
-      if (capeUrl) {
-        if (capeUrl === true) capeUrl = `https://mulv.tycrek.dev/api/lookup?username=${username}&type=cape`
-        loadImage(capeUrl).then(capeImage => {
-          playerObject = this.getPlayerObject(entityId)
-          if (!playerObject) return
-          const capeCanvas = document.createElement('canvas')
-          loadCapeToCanvas(capeCanvas, capeImage)
-
-          const capeTexture = new THREE.CanvasTexture(capeCanvas)
-          capeTexture.magFilter = THREE.NearestFilter
-          capeTexture.minFilter = THREE.NearestFilter
-          capeTexture.needsUpdate = true
-          //@ts-expect-error
-          playerObject.cape.map = capeTexture
-          playerObject.cape.visible = true
-          //@ts-expect-error
-          playerObject.elytra.map = capeTexture
-          this.onSkinUpdate?.()
-
-          if (!playerObject.backEquipment) {
-            playerObject.backEquipment = 'cape'
-          }
-        }, () => { })
-      }
-    }, () => { })
-
-
-    playerObject.cape.visible = false
-    if (!capeUrl) {
-      playerObject.backEquipment = null
-      playerObject.elytra.map = null
-      if (playerObject.cape.map) {
-        playerObject.cape.map.dispose()
-      }
-      playerObject.cape.map = null
+    } catch (error) {
+      console.error('Error loading skin:', error)
     }
+  }
 
-    function isCanvasBlank (canvas) {
-      return !canvas.getContext('2d')
-        .getImageData(0, 0, canvas.width, canvas.height).data
-        .some(channel => channel !== 0)
+  private async loadAndApplyCape (entityId: string | number, capeUrl: string) {
+    let playerObject = this.getPlayerObject(entityId)
+    if (!playerObject) return
+
+    try {
+      const { canvas: capeCanvas, image: capeImage } = await loadSkinImage(capeUrl)
+
+      playerObject = this.getPlayerObject(entityId)
+      if (!playerObject) return
+
+      loadCapeToCanvas(capeCanvas, capeImage)
+      const capeTexture = new THREE.CanvasTexture(capeCanvas)
+      capeTexture.magFilter = THREE.NearestFilter
+      capeTexture.minFilter = THREE.NearestFilter
+      capeTexture.needsUpdate = true
+      //@ts-expect-error
+      playerObject.cape.map = capeTexture
+      playerObject.cape.visible = true
+      //@ts-expect-error
+      playerObject.elytra.map = capeTexture
+      this.onSkinUpdate?.()
+
+      if (!playerObject.backEquipment) {
+        playerObject.backEquipment = 'cape'
+      }
+    } catch (error) {
+      console.error('Error loading cape:', error)
     }
   }
 
@@ -447,11 +486,11 @@ export class Entities extends EventEmitter {
     return typeof component === 'string' ? component : component.text ?? ''
   }
 
-  getItemMesh (item, isDropped = false) {
-    const textureUv = this.getItemUv?.(item)
+  getItemMesh (item, specificProps: ItemSpecificContextProperties) {
+    const textureUv = this.getItemUv?.(item, specificProps)
     if (textureUv && 'resolvedModel' in textureUv) {
       const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
-      if (isDropped) {
+      if (specificProps['minecraft:display_context'] === 'ground') {
         const SCALE = 0.5
         mesh.scale.set(SCALE, SCALE, SCALE)
         mesh.position.set(0, 0.2, 0)
@@ -547,7 +586,9 @@ export class Entities extends EventEmitter {
       if (entity.name === 'item') {
         const item = entity.metadata?.find((m: any) => typeof m === 'object' && m?.itemCount)
         if (item) {
-          const object = this.getItemMesh(item, true)
+          const object = this.getItemMesh(item, {
+            'minecraft:display_context': 'ground',
+          })
           if (object) {
             mesh = object.mesh
             mesh.scale.set(0.5, 0.5, 0.5)
@@ -627,12 +668,14 @@ export class Entities extends EventEmitter {
       this.viewer.scene.add(group)
 
       e = group
+      e.name = 'entity'
+      e['realName'] = entity.name
       this.entities[entity.id] = e
 
       this.emit('add', entity)
 
       if (isPlayerModel) {
-        this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePng)
+        this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePngUrl)
       }
       this.setDebugMode(this.debugMode, group)
       this.setRendering(this.rendering, group)
@@ -781,7 +824,9 @@ export class Entities extends EventEmitter {
           mesh.scale.set(16 / 12, 16 / 12, 1)
           this.addMapModel(e, mapNumber, rotation)
         } else {
-          const itemMesh = this.getItemMesh(item)
+          const itemMesh = this.getItemMesh(item, {
+            'minecraft:display_context': 'fixed',
+          })
           if (itemMesh) {
             itemMesh.mesh.position.set(0, 0, 0.43)
             itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
@@ -945,7 +990,7 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
         console.error('Error decoding player head texture:', err)
       }
     } else {
-      texturePath = stevePng
+      texturePath = stevePngUrl
     }
   }
   const armorMaterial = itemParts[0]

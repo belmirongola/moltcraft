@@ -8,17 +8,24 @@ const componentActive = proxy({
   enabled: false
 })
 
-subscribe(activeModalStack, () => {
+const checkModalAvailability = () => {
   const last = activeModalStack.at(-1)
   let withWildCardModal = false
-  for (const modal of watchedModalsFromHooks) {
+  for (const modal of watchedModalsFromHooks.value) {
     if (modal.endsWith('*') && last?.reactType.startsWith(modal.slice(0, -1))) {
       withWildCardModal = true
       break
     }
   }
 
-  componentActive.enabled = !!last && !hardcodedKnownModals.some(x => last.reactType.startsWith(x)) && !watchedModalsFromHooks.has(last.reactType) && !withWildCardModal
+  componentActive.enabled = !!last && !hardcodedKnownModals.some(x => last.reactType.startsWith(x)) && !watchedModalsFromHooks.value.has(last.reactType) && !withWildCardModal
+}
+
+subscribe(activeModalStack, () => {
+  checkModalAvailability()
+})
+subscribe(watchedModalsFromHooks, () => {
+  checkModalAvailability()
 })
 
 export default () => {

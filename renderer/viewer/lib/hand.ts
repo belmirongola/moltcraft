@@ -1,32 +1,21 @@
 import * as THREE from 'three'
 import { loadSkinToCanvas } from 'skinview-utils'
-import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
+import { getLookupUrl, loadSkinImage, steveTexture } from './utils/skins'
 
-let steveTexture: THREE.Texture
-export const getMyHand = async (image?: string) => {
+export const getMyHand = async (image?: string, userName?: string) => {
   let newMap: THREE.Texture
-  if (!image && steveTexture) {
-    newMap = steveTexture
+  if (!image && !userName) {
+    newMap = await steveTexture
   } else {
-    image ??= stevePng
-    const skinCanvas = document.createElement('canvas')
-    const img = new Image()
-    img.src = image
-    await new Promise<void>(resolve => {
-      img.onload = () => {
-        resolve()
-      }
-    })
-    loadSkinToCanvas(skinCanvas, img)
-    newMap = new THREE.CanvasTexture(skinCanvas)
-    // newMap.flipY = false
-    newMap.magFilter = THREE.NearestFilter
-    newMap.minFilter = THREE.NearestFilter
     if (!image) {
-      steveTexture = newMap
+      image = getLookupUrl(userName!, 'skin')
     }
+    const { canvas } = await loadSkinImage(image)
+    newMap = new THREE.CanvasTexture(canvas)
   }
 
+  newMap.magFilter = THREE.NearestFilter
+  newMap.minFilter = THREE.NearestFilter
   // right arm
   const box = new THREE.BoxGeometry()
   const material = new THREE.MeshStandardMaterial()

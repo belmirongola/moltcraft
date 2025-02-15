@@ -28,6 +28,7 @@ const buildOptions = {
     'debugger'
   ] : [],
   sourcemap: 'linked',
+  target: watch ? undefined : ['ios14'],
   write: false,
   metafile: true,
   outdir: path.join(__dirname, './dist'),

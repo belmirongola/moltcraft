@@ -13,6 +13,7 @@ function InnerSearch () {
     margin: 'auto',
     zIndex: 11,
     width: 'min-content',
+    transform: 'scale(1.5)'
   }}
   >
     <Input

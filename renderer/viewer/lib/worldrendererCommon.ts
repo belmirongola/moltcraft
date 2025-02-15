@@ -9,11 +9,12 @@ import blocksAtlasLegacy from 'mc-assets/dist/blocksAtlasLegacy.png'
 import itemsAtlases from 'mc-assets/dist/itemsAtlases.json'
 import itemsAtlasLatest from 'mc-assets/dist/itemsAtlasLatest.png'
 import itemsAtlasLegacy from 'mc-assets/dist/itemsAtlasLegacy.png'
-import { AtlasParser } from 'mc-assets'
+import { AtlasParser, getLoadedItemDefinitionsStore } from 'mc-assets'
 import TypedEmitter from 'typed-emitter'
 import { LineMaterial } from 'three-stdlib'
 import christmasPack from 'mc-assets/dist/textureReplacements/christmas'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
+import itemDefinitionsJson from 'mc-assets/dist/itemDefinitions.json'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { buildCleanupDecorator } from './cleanupDecorator'
@@ -34,7 +35,8 @@ export const defaultWorldRendererConfig = {
   numWorkers: 4,
   isPlayground: false,
   // game renderer setting actually
-  displayHand: false
+  showHand: false,
+  viewBobbing: false
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -119,13 +121,15 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   sourceData = {
     blocksAtlases,
-    itemsAtlases
+    itemsAtlases,
+    itemDefinitionsJson
   }
   customTextures: {
     items?: CustomTexturesData
     blocks?: CustomTexturesData
     armor?: CustomTexturesData
   } = {}
+  itemsDefinitionsStore = getLoadedItemDefinitionsStore(this.sourceData.itemDefinitionsJson)
   workersProcessAverageTime = 0
   workersProcessAverageTimeCount = 0
   maxWorkersProcessTime = 0
@@ -248,7 +252,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
   }
 
-  onHandItemSwitch (item: HandItemBlock | undefined, isLeftHand: boolean): void { }
   changeHandSwingingState (isAnimationPlaying: boolean, isLeftHand: boolean): void { }
 
   abstract handleWorkerMessage (data: WorkerReceive): void

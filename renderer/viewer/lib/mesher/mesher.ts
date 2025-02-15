@@ -2,6 +2,8 @@ import { Vec3 } from 'vec3'
 import { World } from './world'
 import { getSectionGeometry, setBlockStatesData as setMesherData } from './models'
 
+globalThis.structuredClone ??= (value) => JSON.parse(JSON.stringify(value))
+
 if (module.require) {
   // If we are in a node environement, we need to fake some env variables
   const r = module.require

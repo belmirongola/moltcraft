@@ -5,6 +5,8 @@ export const parseServerAddress = (address: string | undefined, removeHttp = tru
     return { host: '', isWebSocket: false, serverIpFull: '' }
   }
 
+  if (/^ws:[^/]/.test(address)) address = address.replace('ws:', 'ws://')
+  if (/^wss:[^/]/.test(address)) address = address.replace('wss:', 'wss://')
   const isWebSocket = address.startsWith('ws://') || address.startsWith('wss://')
   if (isWebSocket) {
     return { host: address, isWebSocket: true, serverIpFull: address }

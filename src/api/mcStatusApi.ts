@@ -1,3 +1,8 @@
+globalThis.resolveDnsFallback = async (hostname: string) => {
+  const response = await fetchServerStatus(hostname)
+  return response?.raw.srv_record ?? undefined
+}
+
 export const isServerValid = (ip: string) => {
   const isInLocalNetwork = ip.startsWith('192.168.') ||
     ip.startsWith('10.') ||
@@ -51,4 +56,9 @@ export type ServerResponse = {
   // todo display via hammer icon
   software?: string
   plugins?: Array<{ name, version }>
+  // port?: number
+  srv_record?: {
+    host: string
+    port: number
+  }
 }

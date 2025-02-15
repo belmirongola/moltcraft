@@ -174,7 +174,7 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false): {
+export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false, fullBlockModelSupport = false): {
   texture: string,
   blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
   scale?: number,
@@ -198,7 +198,7 @@ export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false): {
   let itemTexture
   try {
     assertDefined(viewer.world.itemsRenderer)
-    itemTexture = viewer.world.itemsRenderer.getItemTexture(itemModelName) ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
+    itemTexture = viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport) ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
     itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
