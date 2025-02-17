@@ -1,8 +1,8 @@
 // not all options are watched here
 
 import { subscribeKey } from 'valtio/utils'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
-import { isMobile } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { isMobile } from 'renderer/viewer/lib/simpleUtils'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
@@ -96,6 +96,7 @@ export const watchOptionsAfterWorldViewInit = () => {
   watchValue(options, o => {
     if (!worldView) return
     worldView.keepChunksDistance = o.keepChunksDistance
-    viewer.world.config.displayHand = o.handDisplay
+    viewer.world.config.renderEars = o.renderEars
+    viewer.world.config.viewBobbing = o.viewBobbing
   })
 }

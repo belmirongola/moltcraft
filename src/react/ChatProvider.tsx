@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { formatMessage } from '../chatUtils'
 import { getBuiltinCommandsList, tryHandleBuiltinCommand } from '../builtinCommands'
-import { hideCurrentModal, miscUiState } from '../globalState'
+import { gameAdditionalState, hideCurrentModal, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
+import { viewerVersionState } from '../viewerConnector'
 import Chat, { Message, fadeMessage } from './Chat'
 import { useIsModalActive } from './utilsApp'
 import { hideNotification, showNotification } from './NotificationProvider'
-import { updateLoadedServerData } from './ServersListProvider'
+import { updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
 
 export default () => {
@@ -18,6 +19,8 @@ export default () => {
   const usingTouch = useSnapshot(miscUiState).currentTouch
   const { chatSelect } = useSnapshot(options)
   const isUsingMicrosoftAuth = useMemo(() => !!lastConnectOptions.value?.authenticatedAccount, [])
+  const { forwardChat } = useSnapshot(viewerVersionState)
+  const { viewerConnection } = useSnapshot(gameAdditionalState)
 
   useEffect(() => {
     bot.addListener('message', (jsonMsg, position) => {
@@ -46,7 +49,7 @@ export default () => {
     opacity={(isChatActive ? chatOpacityOpened : chatOpacity) / 100}
     messages={messages}
     opened={isChatActive}
-    // inputDisabled={isUsingMicrosoftAuth ? 'Chat signing is not supported with Microsoft auth yet' : ''}
+    placeholder={forwardChat || !viewerConnection ? undefined : 'Chat forwarding is not enabled in the plugin settings'}
     sendMessage={(message) => {
       const builtinHandled = tryHandleBuiltinCommand(message)
       if (miscUiState.loadedServerIndex && (message.startsWith('/login') || message.startsWith('/register'))) {

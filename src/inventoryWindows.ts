@@ -6,9 +6,10 @@ import { RecipeItem } from 'minecraft-data'
 import { flat, fromFormattedString } from '@xmcl/text-component'
 import { splitEvery, equals } from 'rambda'
 import PItem, { Item } from 'prismarine-item'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
+import { BlockModel } from 'mc-assets'
 import Generic95 from '../assets/generic_95.png'
 import { appReplacableResources } from './generated/resources'
 import { activeModalStack, hideCurrentModal, hideModal, miscUiState, showModal } from './globalState'
@@ -173,11 +174,12 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false): {
+export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false, fullBlockModelSupport = false): {
   texture: string,
-  blockData?: Record<string, { slice, path }>,
+  blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
   scale?: number,
   slice?: number[],
+  modelName?: string
 } | undefined => {
   let itemModelName = slot.name
   const originalItemName = itemModelName
@@ -196,7 +198,7 @@ export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false): {
   let itemTexture
   try {
     assertDefined(viewer.world.itemsRenderer)
-    itemTexture = viewer.world.itemsRenderer.getItemTexture(itemModelName) ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
+    itemTexture = viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport) ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
     itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
@@ -211,7 +213,8 @@ export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false): {
     // is block
     return {
       texture: 'blocks',
-      blockData: itemTexture
+      blockData: itemTexture,
+      modelName: itemModelName
     }
   }
 }

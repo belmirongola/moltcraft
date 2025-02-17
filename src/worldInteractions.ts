@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { LineMaterial } from 'three-stdlib'
 import { Entity } from 'prismarine-entity'
+import { Block } from 'prismarine-block'
 import { subscribeKey } from 'valtio/utils'
 import destroyStage0 from '../assets/destroy_stage_0.png'
 import destroyStage1 from '../assets/destroy_stage_1.png'
@@ -24,6 +25,7 @@ import { options } from './optionsStorage'
 import { itemBeingUsed } from './react/Crosshair'
 import { isCypress } from './standaloneUtils'
 import { displayClientChat } from './botUtils'
+import { playerState } from './mineflayer/playerState'
 
 function getViewDirection (pitch, yaw) {
   const csPitch = Math.cos(pitch)
@@ -35,9 +37,10 @@ function getViewDirection (pitch, yaw) {
 
 class WorldInteraction {
   ready = false
-  prevBreakState
-  currentDigTime
-  prevOnGround
+  cursorBlock: Block | null = null
+  prevBreakState: number | null = null
+  currentDigTime: number | null = null
+  prevOnGround: boolean | null = null
   lastBlockPlaced: number
   lastSwing = 0
   buttons = [false, false, false]
@@ -48,6 +51,8 @@ class WorldInteraction {
   breakTextures: THREE.Texture[]
   lastDigged: number
   debugDigStatus: string
+  currentBreakBlock: { block: any, stage: number } | null = null
+  swingTimeout: any = null
 
   oneTimeInit () {
     const loader = new THREE.TextureLoader()
@@ -129,11 +134,11 @@ class WorldInteraction {
       // TODO: Any blocks with a breaking time of 0.05
       this.lastDigged = Date.now()
       this.debugDigStatus = 'done'
+      this.stopBreakAnimation()
     })
     bot.on('diggingAborted', (block) => {
       if (!viewer.world.cursorBlock?.equals(block.position)) return
       this.debugDigStatus = 'aborted'
-      // if (this.lastDugBlock)
       this.breakStartTime = undefined
       if (this.buttons[0]) {
         this.buttons[0] = false
@@ -141,9 +146,60 @@ class WorldInteraction {
         this.buttons[0] = true // trigger again
       }
       this.lastDugBlock = null
+      this.stopBreakAnimation()
     })
     bot.on('heldItemChanged' as any, () => {
       itemBeingUsed.name = null
+    })
+
+    // Add new event listeners for block breaking and swinging
+    bot.on('entitySwingArm', (entity: Entity) => {
+      if (entity.id === bot.entity.id) {
+        if (this.swingTimeout) {
+          clearTimeout(this.swingTimeout)
+        }
+        viewer.world.changeHandSwingingState(true, false)
+        this.swingTimeout = setTimeout(() => {
+          viewer.world.changeHandSwingingState(false, false)
+          this.swingTimeout = null
+        }, 250)
+      }
+    })
+
+    //@ts-expect-error mineflayer types are wrong
+    bot.on('blockBreakProgressObserved', (block: Block, destroyStage: number, entity: Entity) => {
+      if (this.cursorBlock?.position.equals(block.position) && entity.id === bot.entity.id) {
+        if (!this.buttons[0]) {
+          // Simulate left mouse button press
+          this.buttons[0] = true
+          this.update()
+        }
+        // this.setBreakState(block, destroyStage)
+      }
+    })
+
+    //@ts-expect-error mineflayer types are wrong
+    bot.on('blockBreakProgressEnd', (block: Block, entity: Entity) => {
+      if (this.currentBreakBlock?.block.position.equals(block.position) && entity.id === bot.entity.id) {
+        if (!this.buttons[0]) {
+          // Simulate left mouse button press
+          this.buttons[0] = false
+          this.update()
+        }
+        // this.stopBreakAnimation()
+      }
+    })
+
+    // Handle acknowledge_player_digging packet
+    bot._client.on('acknowledge_player_digging', (data: { location: { x: number, y: number, z: number }, block: number, status: number, successful: boolean } | { sequenceId: number }) => {
+      if ('location' in data && !data.successful) {
+        const packetPos = new Vec3(data.location.x, data.location.y, data.location.z)
+        if (this.cursorBlock?.position.equals(packetPos)) {
+          this.buttons[0] = false
+          this.update()
+          this.stopBreakAnimation()
+        }
+      }
     })
 
     const upLineMaterial = () => {
@@ -214,10 +270,12 @@ class WorldInteraction {
     const inSpectator = bot.game.gameMode === 'spectator'
     const inAdventure = bot.game.gameMode === 'adventure'
     const entity = getEntityCursor()
-    let cursorBlock = inSpectator && !options.showCursorBlockInSpectator ? null : bot.blockAtCursor(5)
+    let _cursorBlock = inSpectator && !options.showCursorBlockInSpectator ? null : bot.blockAtCursor(5)
     if (entity) {
-      cursorBlock = null
+      _cursorBlock = null
     }
+    this.cursorBlock = _cursorBlock
+    const { cursorBlock } = this
 
     let cursorBlockDiggable = cursorBlock
     if (cursorBlock && (!bot.canDigBlock(cursorBlock) || inAdventure) && bot.game.gameMode !== 'creative') cursorBlockDiggable = null
@@ -287,6 +345,7 @@ class WorldInteraction {
         if (item) {
           customEvents.emit('activateItem', item, offhand ? 45 : bot.quickBarSlot, offhand)
         }
+        playerState.startUsingItem()
         itemBeingUsed.name = (offhand ? bot.inventory.slots[45]?.name : bot.heldItem?.name) ?? null
         itemBeingUsed.hand = offhand ? 1 : 0
       }
@@ -298,6 +357,7 @@ class WorldInteraction {
       // "only foods and bow can be deactivated" - not true, shields also can be deactivated and client always sends this
       // if (bot.heldItem && (loadedData.foodsArray.map((f) => f.name).includes(bot.heldItem.name) || bot.heldItem.name === 'bow')) {
       bot.deactivateItem()
+      playerState.stopUsingItem()
       // }
     }
 
@@ -312,6 +372,7 @@ class WorldInteraction {
       this.lastDugBlock = null
       this.breakStartTime = undefined
       this.debugDigStatus = 'cancelled'
+      this.stopBreakAnimation()
     }
 
     const onGround = bot.entity.onGround || bot.game.gameMode === 'creative'
@@ -379,14 +440,10 @@ class WorldInteraction {
         try { bot.stopDigging() } catch { }
       }
       const state = Math.floor((elapsed / time) * 10)
-      //@ts-expect-error
-      this.blockBreakMesh.material.map = this.breakTextures[state] ?? this.breakTextures.at(-1)
       if (state !== this.prevBreakState) {
-        //@ts-expect-error
-        this.blockBreakMesh.material.needsUpdate = true
+        this.setBreakState(cursorBlockDiggable, Math.min(state, 9))
       }
       this.prevBreakState = state
-      this.blockBreakMesh.visible = true
     } else {
       this.blockBreakMesh.visible = false
     }
@@ -400,6 +457,20 @@ class WorldInteraction {
     this.lastButtons[0] = this.buttons[0]
     this.lastButtons[1] = this.buttons[1]
     this.lastButtons[2] = this.buttons[2]
+  }
+
+  setBreakState (block: Block, stage: number) {
+    this.currentBreakBlock = { block, stage }
+    this.blockBreakMesh.visible = true
+    //@ts-expect-error
+    this.blockBreakMesh.material.map = this.breakTextures[stage] ?? this.breakTextures.at(-1)
+    //@ts-expect-error
+    this.blockBreakMesh.material.needsUpdate = true
+  }
+
+  stopBreakAnimation () {
+    this.currentBreakBlock = null
+    this.blockBreakMesh.visible = false
   }
 }
 
@@ -445,10 +516,8 @@ function isBlockActivatable (blockName: string) {
   return activatableBlockPatterns.some(pattern => pattern.test(blockName))
 }
 
-function isLookingAtActivatableBlock () {
-  const cursorBlock = bot.blockAtCursor(5)
-  if (!cursorBlock) return false
-  return isBlockActivatable(cursorBlock.name)
+function isLookingAtActivatableBlock (block: Block) {
+  return isBlockActivatable(block.name)
 }
 
 export const getEntityCursor = () => {

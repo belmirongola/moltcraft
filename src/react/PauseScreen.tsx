@@ -3,7 +3,7 @@ import fs from 'fs'
 import { useEffect } from 'react'
 import { subscribe, useSnapshot } from 'valtio'
 import { usedServerPathsV1 } from 'flying-squid/dist/lib/modules/world'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import { subscribeKey } from 'valtio/utils'
@@ -12,11 +12,13 @@ import {
   showModal,
   hideModal,
   miscUiState,
-  openOptionsMenu
+  openOptionsMenu,
+  gameAdditionalState
 } from '../globalState'
 import { fsState } from '../loadSave'
 import { disconnect } from '../flyingSquidUtils'
-import { pointerLock, setLoadingScreenStatus } from '../utils'
+import { pointerLock } from '../utils'
+import { setLoadingScreenStatus } from '../appStatus'
 import { closeWan, openToWanAndCopyJoinLink, getJoinLink } from '../localServerMultiplayer'
 import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../browserfs'
 import { appQueryParams } from '../appParams'
@@ -27,7 +29,7 @@ import Screen from './Screen'
 import styles from './PauseScreen.module.css'
 import { DiscordButton } from './DiscordButton'
 import { showNotification } from './NotificationProvider'
-import { appStatusState } from './AppStatusProvider'
+import { appStatusState, reconnectReload } from './AppStatusProvider'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -152,6 +154,7 @@ export default () => {
   const fsStateSnap = useSnapshot(fsState)
   const activeModalStackSnap = useSnapshot(activeModalStack)
   const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
+  const { noConnection } = useSnapshot(gameAdditionalState)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -253,6 +256,11 @@ export default () => {
           />
         </div>
       ) : null}
+      {noConnection && (
+        <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
+          Reconnect
+        </Button>
+      )}
       {!lockConnect && <>
         <Button className="button" style={{ width: '204px' }} onClick={disconnect}>
           {localServer && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}

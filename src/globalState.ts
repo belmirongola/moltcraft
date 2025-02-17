@@ -3,10 +3,15 @@
 import { proxy, ref, subscribe } from 'valtio'
 import type { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import type { OptionsGroupType } from './optionsGuiScheme'
+import { appQueryParams } from './appParams'
 
 // todo: refactor structure with support of hideNext=false
 
 const notHideableModalsWithoutForce = new Set(['app-status'])
+
+if (appQueryParams.lockConnect) {
+  notHideableModalsWithoutForce.add('editServer')
+}
 
 type Modal = ({ elem?: HTMLElement & Record<string, any> } & { reactType: string })
 
@@ -137,6 +142,7 @@ export const miscUiState = proxy({
   usingGamepadInput: false,
   appConfig: null as AppConfig | null,
   displaySearchInput: false,
+  displayFullmap: false
 })
 
 export const isGameActive = (foregroundCheck: boolean) => {
@@ -153,6 +159,9 @@ export const gameAdditionalState = proxy({
   isSneaking: false,
   isZooming: false,
   warps: [] as WorldWarp[],
+  noConnection: false,
+  poorConnection: false,
+  viewerConnection: false,
 
   usingServerResourcePack: false,
 })

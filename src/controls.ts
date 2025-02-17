@@ -55,7 +55,8 @@ export const contro = new ControMax({
       rotateCameraLeft: [null],
       rotateCameraRight: [null],
       rotateCameraUp: [null],
-      rotateCameraDown: [null]
+      rotateCameraDown: [null],
+      viewerConsole: ['Backquote']
     },
     ui: {
       toggleFullscreen: ['F11'],
@@ -508,6 +509,11 @@ contro.on('trigger', ({ command }) => {
         break
       case 'general.zoom':
         break
+      case 'general.viewerConsole':
+        if (lastConnectOptions.value?.viewerWsConnect) {
+          showModal({ reactType: 'console' })
+        }
+        break
     }
   }
 
@@ -518,13 +524,18 @@ contro.on('trigger', ({ command }) => {
   if (command === 'ui.toggleFullscreen') {
     void goFullscreen(true)
   }
+})
 
-  if (command === 'ui.toggleMap') {
-    if (activeModalStack.at(-1)?.reactType === 'full-map') {
-      hideModal({ reactType: 'full-map' })
-    } else {
-      showModal({ reactType: 'full-map' })
-    }
+// show-hide Fullmap
+contro.on('trigger', ({ command }) => {
+  if (command !== 'ui.toggleMap') return
+  const isActive = isGameActive(true)
+  if (activeModalStack.at(-1)?.reactType === 'full-map') {
+    miscUiState.displayFullmap = false
+    hideModal({ reactType: 'full-map' })
+  } else if (isActive && !activeModalStack.length) {
+    miscUiState.displayFullmap = true
+    showModal({ reactType: 'full-map' })
   }
 })
 
@@ -824,6 +835,7 @@ const selectItem = async () => {
 
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
+  if (gameAdditionalState.viewerConnection && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
   // wheel click

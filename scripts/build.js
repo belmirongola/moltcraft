@@ -6,7 +6,7 @@ const fs = require('fs')
 const crypto = require('crypto')
 const path = require('path')
 
-const prismarineViewerBase = "./node_modules/prismarine-viewer"
+const prismarineViewerBase = "./node_modules/renderer"
 
 // these files could be copied at build time eg with copy plugin, but copy plugin slows down the config so we copy them there, alternative we could inline it in esbuild config
 const filesToCopy = [

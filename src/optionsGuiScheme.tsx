@@ -1,15 +1,16 @@
 import { useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
 import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
 import { AppOptions, options } from './optionsStorage'
 import Button from './react/Button'
 import { OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
-import { getScreenRefreshRate, setLoadingScreenStatus } from './utils'
+import { getScreenRefreshRate } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
-import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallTexturePack } from './resourcePack'
+import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay'
 import { showOptionsModal } from './react/SelectOption'
 import supportedVersions from './supportedVersions.mjs'
@@ -90,7 +91,9 @@ export const guiOptionsScheme: {
         unit: '',
         tooltip: 'Additional distance to keep the chunks loading before unloading them by marking them as too far',
       },
-      handDisplay: {},
+      renderEars: {
+        tooltip: 'Enable rendering Deadmau5 ears for all players if their skin contains textures for it',
+      },
       renderDebug: {
         values: [
           'advanced',
@@ -184,7 +187,7 @@ export const guiOptionsScheme: {
               if (choice === 'Uninstall') {
               // todo make hidable
                 setLoadingScreenStatus('Uninstalling texturepack')
-                await uninstallTexturePack()
+                await uninstallResourcePack()
                 setLoadingScreenStatus(undefined)
               }
             } else {
@@ -246,6 +249,12 @@ export const guiOptionsScheme: {
           ['blue', 'Blue'],
           ['classic', 'Classic']
         ],
+      },
+      showHand: {
+        text: 'Show Hand',
+      },
+      viewBobbing: {
+        text: 'View Bobbing',
       },
     },
     {

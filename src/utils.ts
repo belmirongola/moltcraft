@@ -1,6 +1,5 @@
-import { activeModalStack, hideModal, isGameActive, miscUiState, showModal } from './globalState'
+import { isGameActive, miscUiState } from './globalState'
 import { options } from './optionsStorage'
-import { appStatusState, resetAppStatusState } from './react/AppStatusProvider'
 import { notificationProxy, showNotification } from './react/NotificationProvider'
 
 export const goFullscreen = async (doToggle = false) => {
@@ -120,39 +119,6 @@ export const isMajorVersionGreater = (ver1: string, ver2: string) => {
   const [a1, b1] = ver1.split('.')
   const [a2, b2] = ver2.split('.')
   return +a1 > +a2 || (+a1 === +a2 && +b1 > +b2)
-}
-
-let ourLastStatus: string | undefined = ''
-export const setLoadingScreenStatus = function (status: string | undefined | null, isError = false, hideDots = false, fromFlyingSquid = false, minecraftJsonMessage?: Record<string, any>) {
-  // null can come from flying squid, should restore our last status
-  if (status === null) {
-    status = ourLastStatus
-  } else if (!fromFlyingSquid) {
-    ourLastStatus = status
-  }
-  fromFlyingSquid = false
-
-  if (status === undefined) {
-    appStatusState.status = ''
-
-    hideModal({ reactType: 'app-status' }, {}, { force: true })
-    return
-  }
-
-  if (!activeModalStack.some(x => x.reactType === 'app-status')) {
-    // just showing app status
-    resetAppStatusState()
-  }
-  showModal({ reactType: 'app-status' })
-  if (appStatusState.isError) {
-    miscUiState.gameLoaded = false
-    return
-  }
-  appStatusState.hideDots = hideDots
-  appStatusState.isError = isError
-  appStatusState.lastStatus = isError ? appStatusState.status : ''
-  appStatusState.status = status
-  appStatusState.minecraftJsonMessage = minecraftJsonMessage ?? null
 }
 
 // doesn't support snapshots

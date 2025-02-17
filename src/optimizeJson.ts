@@ -1,4 +1,4 @@
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 
 type IdMap = Record<string, number>
 

@@ -8,7 +8,7 @@ interface LongPressOptions {
 const useLongPress = (
   onLongPress: () => void,
   onClick: () => void,
-  { shouldPreventDefault = true, delay = 300 }: LongPressOptions = {}
+  { shouldPreventDefault = false, delay = 300 }: LongPressOptions = {}
 ) => {
   const [longPressTriggered, setLongPressTriggered] = useState(false)
   const timeout = useRef<number | undefined>()
@@ -32,11 +32,16 @@ const useLongPress = (
 
   const clear = useCallback(
     (event: React.MouseEvent | React.TouchEvent) => {
-      if (timeout.current) clearTimeout(timeout.current)
-      if (!longPressTriggered) onClick()
+      if (timeout.current) {
+        clearTimeout(timeout.current)
+        timeout.current = undefined
+      }
+
       setLongPressTriggered(false)
+
       if (shouldPreventDefault && target.current) {
         target.current.removeEventListener('touchend', preventDefault)
+        target.current = null
       }
     },
     [shouldPreventDefault, onClick, longPressTriggered]
@@ -47,7 +52,10 @@ const useLongPress = (
     onTouchStart: (e: React.TouchEvent) => start(e),
     onMouseUp: (e: React.MouseEvent) => clear(e),
     onMouseLeave: (e: React.MouseEvent) => clear(e),
-    onTouchEnd: (e: React.TouchEvent) => clear(e)
+    onTouchEnd: (e: React.TouchEvent) => clear(e),
+    onClick (e: React.MouseEvent) {
+      onClick()
+    }
   }
 }
 

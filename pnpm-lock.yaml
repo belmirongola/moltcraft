@@ -43,9 +43,6 @@ importers:
       '@floating-ui/react':
         specifier: ^0.26.1
         version: 0.26.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      '@mui/base':
-        specifier: 5.0.0-beta.40
-        version: 5.0.0-beta.40(@types/react@18.2.20)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@nxg-org/mineflayer-auto-jump':
         specifier: ^0.7.12
         version: 0.7.12
@@ -100,6 +97,9 @@ importers:
       debug:
         specifier: ^4.3.4
         version: 4.4.0(supports-color@8.1.1)
+      deepslate:
+        specifier: ^0.23.5
+        version: 0.23.5
       diff-match-patch:
         specifier: ^1.0.5
         version: 1.0.5
@@ -133,6 +133,9 @@ importers:
       lodash-es:
         specifier: ^4.17.21
         version: 4.17.21
+      mcraft-fun-mineflayer:
+        specifier: 0.0.3
+        version: 0.0.3(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
@@ -346,14 +349,14 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.28
-        version: 0.2.28
+        specifier: ^0.2.34
+        version: 0.2.34
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
       mineflayer:
         specifier: github:zardoy/mineflayer
-        version: https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5(encoding@0.1.13)
+        version: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -369,12 +372,12 @@ importers:
       path-exists-cli:
         specifier: ^2.0.0
         version: 2.0.0
-      prismarine-viewer:
-        specifier: link:prismarine-viewer
-        version: link:prismarine-viewer
       process:
         specifier: github:PrismarineJS/node-process
         version: https://codeload.github.com/PrismarineJS/node-process/tar.gz/380d0b4f4c86f1b65b216c311bf00431f314e88e
+      renderer:
+        specifier: link:renderer
+        version: link:renderer
       rimraf:
         specifier: ^5.0.1
         version: 5.0.1
@@ -400,7 +403,7 @@ importers:
         specifier: ^2.3.2
         version: 2.4.1
 
-  prismarine-viewer:
+  renderer:
     dependencies:
       '@tweenjs/tween.js':
         specifier: ^20.0.3
@@ -435,12 +438,12 @@ importers:
       prismarine-schematic:
         specifier: ^1.2.0
         version: 1.2.3
-      prismarine-viewer:
-        specifier: link:./
-        version: 'link:'
       process:
         specifier: ^0.11.10
         version: 0.11.10
+      renderer:
+        specifier: link:./
+        version: 'link:'
       socket.io:
         specifier: ^4.0.0
         version: 4.7.2
@@ -471,7 +474,7 @@ importers:
         specifier: ^1.2.2
         version: 1.2.2
 
-  prismarine-viewer/viewer/sign-renderer:
+  renderer/viewer/sign-renderer:
     dependencies:
       vite:
         specifier: ^4.4.9
@@ -1843,35 +1846,6 @@ packages:
     resolution: {integrity: sha512-h9u4u/jiIRKbq25PM+zymTyW6bhTzELvOoUd+AvYriWOAKpLGnIamaET3pnHYoI5iYphAHBI4ayx0MehR+VVPQ==}
     engines: {node: '>= 10'}
 
-  '@mui/base@5.0.0-beta.40':
-    resolution: {integrity: sha512-I/lGHztkCzvwlXpjD2+SNmvNQvB4227xBXhISPjEaJUXGImOQ9f3D2Yj/T3KasSI/h0MLWy74X0J6clhPmsRbQ==}
-    engines: {node: '>=12.0.0'}
-    peerDependencies:
-      '@types/react': ^17.0.0 || ^18.0.0
-      react: ^18.2.0
-      react-dom: ^17.0.0 || ^18.0.0
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-
-  '@mui/types@7.2.14':
-    resolution: {integrity: sha512-MZsBZ4q4HfzBsywtXgM1Ksj6HDThtiwmOKUXH1pKYISI9gAVXCNHNpo7TlGoGrBaYWZTdNoirIN7JsQcQUjmQQ==}
-    peerDependencies:
-      '@types/react': ^17.0.0 || ^18.0.0
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-
-  '@mui/utils@5.15.14':
-    resolution: {integrity: sha512-0lF/7Hh/ezDv5X7Pry6enMsbYyGKjADzvHyo3Qrc/SSlTsQ1VkbDMbH0m2t3OR5iIVLwMoxwM7yGd+6FCMtTFA==}
-    engines: {node: '>=12.0.0'}
-    peerDependencies:
-      '@types/react': ^17.0.0 || ^18.0.0
-      react: ^18.2.0
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-
   '@ndelangen/get-tarball@3.0.9':
     resolution: {integrity: sha512-9JKTEik4vq+yGosHYhZ1tiH/3WpUS0Nh0kej4Agndhox8pAdWhEx5knFVRcb/ya9knCRCs1rPxNrSXTDdfVqpA==}
 
@@ -3167,6 +3141,11 @@ packages:
     resolution: {integrity: sha512-6xm38yGVIa6mKm/DUCF2zFFJhERh/QWp1ufm4cNUvxsONBmfPg8uZ9pZBdOmF6qFGr/HlT6ABBkCSx/dlEtvWg==}
     engines: {node: '>=12 <14 || 14.2 - 14.9 || >14.10.0'}
 
+  '@zardoy/flying-squid@0.0.49':
+    resolution: {integrity: sha512-Kt4wr5/R+44tcLU9gjuNG2an9weWeKEpIoKXfsgJN2GGQqdnbd5nBpxfGDdgZ9aMdFugsVW8BsyPZNhj9vbMXA==}
+    engines: {node: '>=8'}
+    hasBin: true
+
   '@zardoy/flying-squid@0.0.51':
     resolution: {integrity: sha512-HHZ79H9NkS44lL9vk6gVEuJDJqj88gpiBt9Ihh5p4rHXTVbRid95riiNK5dD0kHI94P5/DXdtNalvmJDPU86oQ==}
     engines: {node: '>=8'}
@@ -3815,6 +3794,9 @@ packages:
   character-entities@2.0.2:
     resolution: {integrity: sha512-shx7oQ0Awen/BRIdkjkvz54PnEEI/EjwXDSIZp86/KKdbafHh1Df/RYGBhn4hbe2+uKC9FnT5UCEdyPz3ai9hQ==}
 
+  charenc@0.0.2:
+    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
+
   check-error@1.0.3:
     resolution: {integrity: sha512-iKEoDYaRmd1mxM90a2OEfWhjsjPpYPuQ+lMYsoxB126+t8fw7ySEO48nmDg5COTjxDI65/Y2OWpeEHk3ZOe8zg==}
 
@@ -3895,10 +3877,6 @@ packages:
 
   clsx@1.1.1:
     resolution: {integrity: sha512-6/bPho624p3S2pMyvP5kKBPXnI3ufHLObBFCfgx+LkeR5lg2XYy2hqZqUf45ypD8COn2bhgGJSUE+l5dhNBieA==}
-    engines: {node: '>=6'}
-
-  clsx@2.1.1:
-    resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
   collection-visit@1.0.0:
@@ -4093,6 +4071,9 @@ packages:
     resolution: {integrity: sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==}
     engines: {node: '>= 8'}
 
+  crypt@0.0.2:
+    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
+
   crypto-browserify@3.12.0:
     resolution: {integrity: sha512-fz4spIh+znjO2VjL+IdhEpRJ3YN6sMzITSBijk6FK2UvTqruSQW+/cCZTSNsMiZNvUeq0CqurF+dAbyiGOY6Wg==}
 
@@ -4245,6 +4226,9 @@ packages:
   deepmerge@4.3.1:
     resolution: {integrity: sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==}
     engines: {node: '>=0.10.0'}
+
+  deepslate@0.23.5:
+    resolution: {integrity: sha512-FjBBbuPUI1Y/dXtUc4WiCJSA7s7yRAXepD7qWRF6wX5m/q7AVRauMEShu8lphRvqCtJyxcYFZmISwX5OOH/tWw==}
 
   default-browser-id@3.0.0:
     resolution: {integrity: sha512-OZ1y3y0SqSICtE8DE4S8YOE9UZOJ8wO16fKWVP5J1Qz42kV9jcnMVFrEE/noXb/ss3Q4pZIH79kxofzyNNtUNA==}
@@ -5210,6 +5194,9 @@ packages:
 
   github-slugger@1.5.0:
     resolution: {integrity: sha512-wIh+gKBI9Nshz2o46B0B3f5k/W+WI9ZAv6y5Dn5WJ5SK1t0TnDimB4WE5rmTD05ZAIn8HALCZVmCsvj0w0v0lw==}
+
+  gl-matrix@3.4.3:
+    resolution: {integrity: sha512-wcCp8vu8FT22BnvKVPjXa/ICBWRq/zjFfdofZy1WSpQZpphblv12/bOQLBC1rMM7SGOFS9ltVmKOHil5+Ml7gA==}
 
   gl@6.0.2:
     resolution: {integrity: sha512-yBbfpChOtFvg5D+KtMaBFvj6yt3vUnheNAH+UrQH2TfDB8kr0tERdL0Tjhe0W7xJ6jR6ftQBluTZR9jXUnKe8g==}
@@ -6256,9 +6243,20 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  mc-assets@0.2.28:
-    resolution: {integrity: sha512-NwUpKFExg/xs5YguFMeGa7Zie2yoJh2EcUSV4n46q4OF60AmgoEj0OSOS2xnZF2BL17JJ3Y97V6quAR9NCKLeQ==}
+  mc-assets@0.2.34:
+    resolution: {integrity: sha512-BvE2mVs9XETLFb+FN1Zbc4mJ+CvZqgxVd3kxhERp1QljudDmMsWsMcK2EUTrevuE6a7L3F2kx8XC1vVA79i/ow==}
     engines: {node: '>=18.0.0'}
+
+  mcraft-fun-mineflayer@0.0.3:
+    resolution: {integrity: sha512-IqYXHk5ihQOF9FzEpMWsFwgilTySklYVj3AODK7sdgaSe+pU9wZllJjVvsYdc/F3uLMgogkyTLuVoEVMD+UiSA==}
+    version: 0.0.3
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    peerDependencies:
+      '@roamhq/wrtc': '*'
+      mineflayer: '>=4.x'
+    peerDependenciesMeta:
+      '@roamhq/wrtc':
+        optional: true
 
   md5-file@4.0.0:
     resolution: {integrity: sha512-UC0qFwyAjn4YdPpKaDNw6gNxRf7Mcx7jC1UGCY4boCzgvU2Aoc1mOGzTtrjjLKhM5ivsnhoKpQVxKPp+1j1qwg==}
@@ -6267,6 +6265,9 @@ packages:
 
   md5.js@1.3.5:
     resolution: {integrity: sha512-xitP+WxNPcTTOgnTJcrhM0xvdPepipPSf3I8EIpGKeFLjt3PlJLIDG3u8EX53ZIubkb+5U2+3rELYpEhHhzdkg==}
+
+  md5@2.3.0:
+    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
   mdast-util-definitions@4.0.0:
     resolution: {integrity: sha512-k8AJ6aNnUkB7IE+5azR9h81O5EQ/cTDXtWdMq9Kk5KcEW/8ritU5CeLg/9HhOC++nALHBlaogJ5jz0Ybk3kPMQ==}
@@ -6479,8 +6480,8 @@ packages:
     resolution: {integrity: sha512-q7cmpZFaSI6sodcMJxc2GkV8IO84HbsUP+xNipGKfGg+FMISKabzdJ838Axb60qRtZrp6ny7LluQE7lesHvvxQ==}
     engines: {node: '>=18'}
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5:
-    resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5}
+  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828:
+    resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828}
     version: 4.25.0
     engines: {node: '>=18'}
 
@@ -6890,6 +6891,9 @@ packages:
 
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
+
+  pako@2.1.0:
+    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
 
   param-case@3.0.4:
     resolution: {integrity: sha512-RXlj7zCYokReqWpOPH9oYivUzLYZ5vAPIfEmCTNViosC78F8F0H9y7T7gG2M39ymgutxF5gcFEsyZQSph9Bp3A==}
@@ -9182,6 +9186,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.18.0:
+    resolution: {integrity: sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xhr@2.6.0:
     resolution: {integrity: sha512-/eCGLb5rxjx5e3mF1A7s+pLlR6CGyqWN91fv1JgER5mVWg1MZmlhBvy9kjcsOdRk8RrIujotWyJamfyrp+WIcA==}
 
@@ -9262,6 +9278,9 @@ packages:
   yocto-queue@1.0.0:
     resolution: {integrity: sha512-9bnSc/HEW2uRy67wc+T8UwauLuPJVn28jb+GtJY16iiKWyvmYJRXVT4UamsAEGQfPohgr2q4Tq0sQbQlxTfi1g==}
     engines: {node: '>=12.20'}
+
+  zod@3.24.1:
+    resolution: {integrity: sha512-muH7gBL9sI1nciMZV67X5fTKKBLtwpZ5VBp1vsOQzj1MhrBZ4wlVCm3gedKZWLp0Oyel8sIGfeiz54Su+OVT+A==}
 
   zustand@3.6.5:
     resolution: {integrity: sha512-/WfLJuXiEJimt61KGMHebrFBwckkCHGhAgVXTgPQHl6IMzjqm6MREb1OnDSnCRiSmRdhgdFCctceg6tSm79hiw==}
@@ -10866,34 +10885,6 @@ snapshots:
 
   '@msgpack/msgpack@2.8.0': {}
 
-  '@mui/base@5.0.0-beta.40(@types/react@18.2.20)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.5
-      '@floating-ui/react-dom': 2.0.9(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      '@mui/types': 7.2.14(@types/react@18.2.20)
-      '@mui/utils': 5.15.14(@types/react@18.2.20)(react@18.2.0)
-      '@popperjs/core': 2.11.8
-      clsx: 2.1.1
-      prop-types: 15.8.1
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-    optionalDependencies:
-      '@types/react': 18.2.20
-
-  '@mui/types@7.2.14(@types/react@18.2.20)':
-    optionalDependencies:
-      '@types/react': 18.2.20
-
-  '@mui/utils@5.15.14(@types/react@18.2.20)(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.5
-      '@types/prop-types': 15.7.12
-      prop-types: 15.8.1
-      react: 18.2.0
-      react-is: 18.2.0
-    optionalDependencies:
-      '@types/react': 18.2.20
-
   '@ndelangen/get-tarball@3.0.9':
     dependencies:
       gunzip-maybe: 1.4.2
@@ -11907,7 +11898,7 @@ snapshots:
       util: 0.12.5
       util-deprecate: 1.0.2
       watchpack: 2.4.1
-      ws: 8.11.0
+      ws: 8.18.0
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -12769,6 +12760,42 @@ snapshots:
       '@types/emscripten': 1.39.8
       tslib: 1.14.1
 
+  '@zardoy/flying-squid@0.0.49(encoding@0.1.13)':
+    dependencies:
+      '@tootallnate/once': 2.0.0
+      chalk: 5.3.0
+      change-case: 4.1.2
+      diamond-square: https://codeload.github.com/zardoy/diamond-square/tar.gz/cfaad2d1d5909fdfa63c8cc7bc05fb5e87782d71
+      emit-then: 2.0.0
+      exit-hook: 2.2.1
+      flatmap: 0.0.3
+      long: 5.2.3
+      minecraft-data: 3.83.1
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      mkdirp: 2.1.6
+      node-gzip: 1.1.2
+      node-rsa: 1.1.1
+      prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
+      prismarine-entity: 2.3.1
+      prismarine-item: 1.16.0
+      prismarine-nbt: 2.5.0
+      prismarine-provider-anvil: https://codeload.github.com/zardoy/prismarine-provider-anvil/tar.gz/1d548fac63fe977c8281f0a9a522b37e4d92d0b7(minecraft-data@3.83.1)
+      prismarine-windows: 2.9.0
+      prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
+      rambda: 9.2.0
+      random-seed: 0.3.0
+      range: 0.0.3
+      readline: 1.3.0
+      sanitize-filename: 1.6.3
+      typed-emitter: 1.4.0
+      uuid-1345: 1.0.2
+      vec3: 0.1.8
+      yaml: 2.4.1
+      yargs: 17.7.2
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
   '@zardoy/flying-squid@0.0.51(encoding@0.1.13)':
     dependencies:
       '@tootallnate/once': 2.0.0
@@ -13601,6 +13628,8 @@ snapshots:
 
   character-entities@2.0.2: {}
 
+  charenc@0.0.2: {}
+
   check-error@1.0.3:
     dependencies:
       get-func-name: 2.0.2
@@ -13705,8 +13734,6 @@ snapshots:
   clone@1.0.4: {}
 
   clsx@1.1.1: {}
-
-  clsx@2.1.1: {}
 
   collection-visit@1.0.0:
     dependencies:
@@ -13923,6 +13950,8 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
+  crypt@0.0.2: {}
+
   crypto-browserify@3.12.0:
     dependencies:
       browserify-cipher: 1.0.1
@@ -14123,6 +14152,12 @@ snapshots:
   deep-is@0.1.4: {}
 
   deepmerge@4.3.1: {}
+
+  deepslate@0.23.5:
+    dependencies:
+      gl-matrix: 3.4.3
+      md5: 2.3.0
+      pako: 2.1.0
 
   default-browser-id@3.0.0:
     dependencies:
@@ -15461,6 +15496,8 @@ snapshots:
 
   github-slugger@1.5.0: {}
 
+  gl-matrix@3.4.3: {}
+
   gl@6.0.2:
     dependencies:
       bindings: 1.5.0
@@ -16642,7 +16679,23 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  mc-assets@0.2.28: {}
+  mc-assets@0.2.34:
+    dependencies:
+      zod: 3.24.1
+
+  mcraft-fun-mineflayer@0.0.3(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)):
+    dependencies:
+      '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
+      exit-hook: 2.2.1
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)
+      prismarine-item: 1.16.0
+      ws: 8.18.0
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
 
   md5-file@4.0.0: {}
 
@@ -16651,6 +16704,12 @@ snapshots:
       hash-base: 3.1.0
       inherits: 2.0.4
       safe-buffer: 5.2.1
+
+  md5@2.3.0:
+    dependencies:
+      charenc: 0.0.2
+      crypt: 0.0.2
+      is-buffer: 1.1.6
 
   mdast-util-definitions@4.0.0:
     dependencies:
@@ -17027,7 +17086,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/54f8c2282d822ad02967a197bda36302a4e7b4a5(encoding@0.1.13):
+  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13):
     dependencies:
       minecraft-data: 3.83.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
@@ -17540,6 +17599,8 @@ snapshots:
   pako@0.2.9: {}
 
   pako@1.0.11: {}
+
+  pako@2.1.0: {}
 
   param-case@3.0.4:
     dependencies:
@@ -20308,6 +20369,8 @@ snapshots:
 
   ws@8.11.0: {}
 
+  ws@8.18.0: {}
+
   xhr@2.6.0:
     dependencies:
       global: 4.4.0
@@ -20389,6 +20452,8 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   yocto-queue@1.0.0: {}
+
+  zod@3.24.1: {}
 
   zustand@3.6.5(react@18.2.0):
     optionalDependencies:

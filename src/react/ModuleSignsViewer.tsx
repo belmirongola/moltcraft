@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import FullScreenWidget from './FullScreenWidget'
 
 export const name = 'loaded world signs'

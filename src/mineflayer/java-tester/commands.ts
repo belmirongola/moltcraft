@@ -50,5 +50,15 @@ export const javaServerTester = {
       custom_name: [{ translate: 'item.diamond.name' }]
     })
     writeCmd(cmd)
+  },
+  spamChat () {
+    for (let i = 0; i < 100; i++) {
+      bot.chat('Hello, world, ' + i)
+    }
+  },
+  spamChatComplexMessage () {
+    for (let i = 0; i < 100; i++) {
+      bot.chat('/tell @a ')
+    }
   }
 }

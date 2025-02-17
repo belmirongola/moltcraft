@@ -2,7 +2,7 @@ import { proxy, useSnapshot } from 'valtio'
 import { useEffect, useMemo } from 'react'
 import { inGameError } from '../utils'
 import { fsState } from '../loadSave'
-import { miscUiState } from '../globalState'
+import { gameAdditionalState, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import IndicatorEffects, { EffectType, defaultIndicatorsState } from './IndicatorEffects'
 import { images } from './effectsImages'
@@ -55,11 +55,13 @@ export default () => {
   const { hasErrors } = useSnapshot(miscUiState)
   const { disabledUiParts } = useSnapshot(options)
   const { isReadonly, openReadOperations, openWriteOperations } = useSnapshot(fsState)
+  const { noConnection, poorConnection } = useSnapshot(gameAdditionalState)
   const allIndicators: typeof defaultIndicatorsState = {
     readonlyFiles: isReadonly,
     writingFiles: openWriteOperations > 0,
     readingFiles: openReadOperations > 0,
     appHasErrors: hasErrors,
+    connectionIssues: poorConnection ? 1 : noConnection ? 2 : 0,
     ...stateIndicators,
   }
 

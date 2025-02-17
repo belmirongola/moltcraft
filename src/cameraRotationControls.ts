@@ -4,8 +4,14 @@ import { options } from './optionsStorage'
 import { hideNotification, notificationProxy } from './react/NotificationProvider'
 import { pointerLock } from './utils'
 import worldInteractions from './worldInteractions'
+import { updateMotion, initMotionTracking } from './react/uiMotion'
 
 let lastMouseMove: number
+
+const MOTION_DAMPING = 0.92
+const MAX_MOTION_OFFSET = 30
+const motionVelocity = { x: 0, y: 0 }
+const lastUpdate = performance.now()
 
 export const updateCursor = () => {
   worldInteractions.update()
@@ -33,7 +39,9 @@ export function onCameraMove (e: MouseEvent | CameraMoveEvent) {
     y: e.movementY * mouseSensY * 0.0001
   })
   updateCursor()
+  updateMotion()
 }
+
 
 export const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
   const maxPitch = 0.5 * Math.PI
@@ -44,7 +52,6 @@ export const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
   const pitch = bot.entity.pitch - y
   void bot.look(bot.entity.yaw - x, Math.max(minPitch, Math.min(maxPitch, pitch)), true)
 }
-
 
 window.addEventListener('mousemove', (e: MouseEvent) => {
   onCameraMove(e)
@@ -72,7 +79,7 @@ function pointerLockChangeCallback () {
     hideNotification()
   }
   if (viewer.renderer.xr.isPresenting) return // todo
-  if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
+  if (!pointerLock.hasPointerLock && activeModalStack.length === 0 && miscUiState.gameLoaded) {
     showModal({ reactType: 'pause-screen' })
   }
 }
