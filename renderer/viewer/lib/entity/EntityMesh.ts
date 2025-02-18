@@ -29,6 +29,19 @@ interface GeoData {
   skinWeights: number[]
 }
 
+interface UVFace {
+  uv: [number, number]
+}
+
+interface CubeFaces {
+  north?: UVFace
+  south?: UVFace
+  east?: UVFace
+  west?: UVFace
+  up?: UVFace
+  down?: UVFace
+}
+
 interface JsonBone {
   name: string
   pivot?: [number, number, number]
@@ -42,7 +55,7 @@ interface JsonBone {
 interface JsonCube {
   origin: [number, number, number]
   size: [number, number, number]
-  uv: [number, number]
+  uv?: [number, number] | CubeFaces
   inflate?: number
   rotation?: [number, number, number]
 }
@@ -143,6 +156,21 @@ function dot (a: number[], b: number[]): number {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
+function getFaceUV (cube: JsonCube, face: keyof CubeFaces): [number, number] | undefined {
+  // Handle per-face UV format (new format)
+  if (typeof cube.uv === 'object' && !Array.isArray(cube.uv)) {
+    const faceUV = cube.uv[face.toLowerCase()]
+    if (faceUV?.uv) {
+      return faceUV.uv
+    }
+  }
+  // Handle legacy format (array format)
+  if (Array.isArray(cube.uv)) {
+    return cube.uv
+  }
+  return undefined
+}
+
 function addCube (
   attr: GeoData,
   boneId: number,
@@ -160,27 +188,54 @@ function addCube (
     cubeRotation.y = -cube.rotation[1] * Math.PI / 180
     cubeRotation.z = -cube.rotation[2] * Math.PI / 180
   }
+
+  const faceToDirection: Record<keyof CubeFaces, string> = {
+    up: 'up',
+    down: 'down',
+    north: 'north',
+    south: 'south',
+    east: 'east',
+    west: 'west'
+  }
+
   for (const { dir, corners, u0, v0, u1, v1 } of Object.values(elemFaces)) {
     const ndx = Math.floor(attr.positions.length / 3)
-
     const eastOrWest = dir[0] !== 0
+
+    // Determine which face we're processing based on direction
+    let currentFace: keyof CubeFaces | undefined
+    for (const [face, direction] of Object.entries(faceToDirection)) {
+      if (direction === Object.keys(elemFaces)[Object.values(elemFaces).indexOf({ dir, corners, u0, v0, u1, v1 })]) {
+        currentFace = face
+        break
+      }
+    }
+
     const faceUvs: number[] = []
     for (const pos of corners) {
       let u: number
       let v: number
-      if (sameTextureForAllFaces) {
-        u = (cube.uv[0] + pos[3] * cube.size[0]) / texWidth
-        v = (cube.uv[1] + pos[4] * cube.size[1]) / texHeight
-      } else {
-        u = (cube.uv[0] + dot(pos[3] ? u1 : u0, cube.size)) / texWidth
-        v = (cube.uv[1] + dot(pos[4] ? v1 : v0, cube.size)) / texHeight
+
+      const uvCoords = currentFace ? getFaceUV(cube, currentFace) : cube.uv
+      if (!uvCoords) {
+        errors.push(`Missing UV coordinates for face ${currentFace || 'unknown'}`)
+        continue
       }
+
+      if (sameTextureForAllFaces) {
+        u = (uvCoords[0] + pos[3] * cube.size[0]) / texWidth
+        v = (uvCoords[1] + pos[4] * cube.size[1]) / texHeight
+      } else {
+        u = (uvCoords[0] + dot(pos[3] ? u1 : u0, cube.size)) / texWidth
+        v = (uvCoords[1] + dot(pos[4] ? v1 : v0, cube.size)) / texHeight
+      }
+
       if (isNaN(u) || isNaN(v)) {
-        errors.push(`NaN u: ${u}, v: ${v}`)
+        errors.push(`NaN u: ${u}, v: ${v} for face ${currentFace || 'unknown'}`)
         continue
       }
       if (u < 0 || u > 1 || v < 0 || v > 1) {
-        errors.push(`u: ${u}, v: ${v} out of range`)
+        errors.push(`u: ${u}, v: ${v} out of range for face ${currentFace || 'unknown'}`)
         continue
       }
 
