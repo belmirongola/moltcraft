@@ -5,10 +5,10 @@ import { EventEmitter } from 'events'
 import { generateSpiralMatrix, ViewRect } from 'flying-squid/dist/utils'
 import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
-import { getItemFromBlock } from '../../../src/chatUtils'
 import { delayedIterator } from '../../playground/shared'
 import { playerState } from '../../../src/mineflayer/playerState'
 import { chunkPos } from './simpleUtils'
+import { createLightEngine, processLightChunk, updateBlockLight } from './lightEngine'
 
 export type ChunkPosKey = string
 type ChunkPos = { x: number, z: number }
@@ -52,6 +52,7 @@ export class WorldDataEmitter extends EventEmitter {
       return
     }
 
+    updateBlockLight(position.x, position.y, position.z, stateId)
     this.emit('blockUpdate', { pos: position, stateId })
   }
 
@@ -145,6 +146,7 @@ export class WorldDataEmitter extends EventEmitter {
   }
 
   async init (pos: Vec3) {
+    createLightEngine()
     this.updateViewDistance(this.viewDistance)
     this.emitter.emit('chunkPosUpdate', { pos })
     const [botX, botZ] = chunkPos(pos)
@@ -177,12 +179,22 @@ export class WorldDataEmitter extends EventEmitter {
 
   async loadChunk (pos: ChunkPos, isLightUpdate = false) {
     const [botX, botZ] = chunkPos(this.lastPos)
-    const dx = Math.abs(botX - Math.floor(pos.x / 16))
-    const dz = Math.abs(botZ - Math.floor(pos.z / 16))
+    const chunkX = Math.floor(pos.x / 16)
+    const chunkZ = Math.floor(pos.z / 16)
+    const dx = Math.abs(botX - chunkX)
+    const dz = Math.abs(botZ - chunkZ)
     if (dx <= this.viewDistance && dz <= this.viewDistance) {
       // eslint-disable-next-line @typescript-eslint/await-thenable -- todo allow to use async world provider but not sure if needed
       const column = await this.world.getColumnAt(pos['y'] ? pos as Vec3 : new Vec3(pos.x, 0, pos.z))
       if (column) {
+        const result = await processLightChunk(pos.x, pos.z)
+        if (!result) return
+        for (const affectedChunk of result) {
+          if (affectedChunk.x === chunkX && affectedChunk.z === chunkZ) continue
+          const loadedChunk = this.loadedChunks[`${affectedChunk.x},${affectedChunk.z}`]
+          if (!loadedChunk) continue
+          void this.loadChunk(new Vec3(affectedChunk.x * 16, 0, affectedChunk.z * 16), true)
+        }
         // const latency = Math.floor(performance.now() - this.lastTime)
         // this.debugGotChunkLatency.push(latency)
         // this.lastTime = performance.now()
