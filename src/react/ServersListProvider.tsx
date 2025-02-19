@@ -53,6 +53,13 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   const [quickConnectIp, setQuickConnectIp] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
 
+  // Save username to localStorage when component mounts if it doesn't exist
+  useEffect(() => {
+    if (!localStorage['username']) {
+      localStorage.setItem('username', defaultUsername)
+    }
+  }, [])
+
   const setAuthenticatedAccounts = (newState: typeof authenticatedAccounts) => {
     _setAuthenticatedAccounts(newState)
     localStorage.setItem('authenticatedAccounts', JSON.stringify(newState))

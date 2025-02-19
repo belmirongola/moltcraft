@@ -63,6 +63,7 @@
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "debug": "^4.3.4",
+    "deepslate": "^0.23.5",
     "diff-match-patch": "^1.0.5",
     "eruda": "^3.0.1",
     "esbuild": "^0.19.3",
@@ -144,7 +145,7 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "^0.2.31",
+    "mc-assets": "^0.2.34",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:zardoy/mineflayer",
     "mineflayer-pathfinder": "^2.4.4",
@@ -168,15 +169,22 @@
     "cypress-plugin-snapshots": "^1.4.4",
     "systeminformation": "^5.21.22"
   },
-  "browserslist": [
-    "iOS >= 14",
-    "Android >= 13",
-    "Chrome >= 103",
-    "not dead",
-    "not ie <= 11",
-    "not op_mini all",
-    "> 0.5%"
-  ],
+  "browserslist": {
+    "production": [
+      "iOS >= 14",
+      "Android >= 13",
+      "Chrome >= 103",
+      "not dead",
+      "not ie <= 11",
+      "not op_mini all",
+      "> 0.5%"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
   "pnpm": {
     "overrides": {
       "buffer": "^6.0.3",

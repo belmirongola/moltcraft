@@ -5,7 +5,7 @@ import { Vec3 } from 'vec3'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import moreBlockDataGeneratedJson from '../moreBlockDataGenerated.json'
 import legacyJson from '../../../../src/preflatMap.json'
-import { defaultMesherConfig } from './shared'
+import { defaultMesherConfig, CustomBlockModels } from './shared'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 
 const ignoreAoBlocks = Object.keys(moreBlockDataGeneratedJson.noOcclusions)
@@ -48,6 +48,7 @@ export class World {
   biomeCache: { [id: number]: mcData.Biome }
   preflat: boolean
   erroredBlockModel?: BlockModelPartsResolved
+  customBlockModels = new Map<string, CustomBlockModels>() // chunkKey -> blockModels
 
   constructor (version) {
     this.Chunk = Chunks(version) as any
@@ -126,6 +127,8 @@ export class World {
     // for easier testing
     if (!(pos instanceof Vec3)) pos = new Vec3(...pos as [number, number, number])
     const key = columnKey(Math.floor(pos.x / 16) * 16, Math.floor(pos.z / 16) * 16)
+    const blockPosKey = `${pos.x},${pos.y},${pos.z}`
+    const modelOverride = this.customBlockModels.get(key)?.[blockPosKey]
 
     const column = this.columns[key]
     // null column means chunk not loaded
@@ -135,10 +138,15 @@ export class World {
     const locInChunk = posInChunk(loc)
     const stateId = column.getBlockStateId(locInChunk)
 
-    if (!this.blockCache[stateId]) {
+    const cacheKey = modelOverride ? `${stateId}:${modelOverride}` : stateId
+
+    if (!this.blockCache[cacheKey]) {
       const b = column.getBlock(locInChunk) as unknown as WorldBlock
+      if (modelOverride) {
+        b.name = modelOverride
+      }
       b.isCube = isCube(b.shapes)
-      this.blockCache[stateId] = b
+      this.blockCache[cacheKey] = b
       Object.defineProperty(b, 'position', {
         get () {
           throw new Error('position is not reliable, use pos parameter instead of block.position')
@@ -163,7 +171,7 @@ export class World {
       }
     }
 
-    const block = this.blockCache[stateId]
+    const block = this.blockCache[cacheKey]
 
     if (block.models === undefined && blockProvider) {
       if (!attr) throw new Error('attr is required')
@@ -188,10 +196,11 @@ export class World {
           }
         }
 
+        const useFallbackModel = this.preflat || modelOverride
         block.models = blockProvider.getAllResolvedModels0_1({
           name: block.name,
           properties: props,
-        }, this.preflat)! // fixme! this is a hack (also need a setting for all versions)
+        }, useFallbackModel)! // fixme! this is a hack (also need a setting for all versions)
         if (!block.models!.length) {
           if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
             console.debug('[mesher] block to render not found', block.name, props)

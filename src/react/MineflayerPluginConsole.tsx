@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import './MineflayerPluginConsole.css'
 import { miscUiState } from '../globalState'
 import { useIsModalActive } from './utilsApp'
+import { useScrollBehavior } from './hooks/useScrollBehavior'
 
 export type ConsoleMessage = {
   text: string
@@ -36,11 +37,14 @@ export default () => {
   const consoleInput = useRef<HTMLInputElement>(null!)
   const consoleMessages = useRef<HTMLDivElement>(null)
 
+  const { scrollToBottom } = useScrollBehavior(consoleMessages, { messages, opened })
+
+  // Add useEffect to focus input when opened
   useEffect(() => {
-    if (consoleMessages.current) {
-      consoleMessages.current.scrollTop = consoleMessages.current.scrollHeight
+    if (opened && replEnabled) {
+      consoleInput.current?.focus()
     }
-  }, [messages])
+  }, [opened, replEnabled])
 
   const updateInputValue = (newValue: string) => {
     consoleInput.current.value = newValue
@@ -78,6 +82,8 @@ export default () => {
             if (code) {
               onExecute?.(code)
               updateInputValue('')
+              // Scroll to bottom after sending command
+              scrollToBottom()
             }
           }}
         >

@@ -24,6 +24,19 @@ Object.defineProperty(window, 'debugSceneChunks', {
   },
 })
 
+window.chunkKey = (xRel = 0, zRel = 0) => {
+  const pos = bot.entity.position
+  return `${(Math.floor(pos.x / 16) + xRel) * 16},${(Math.floor(pos.z / 16) + zRel) * 16}`
+}
+
+window.sectionKey = (xRel = 0, yRel = 0, zRel = 0) => {
+  const pos = bot.entity.position
+  return `${(Math.floor(pos.x / 16) + xRel) * 16},${(Math.floor(pos.y / 16) + yRel) * 16},${(Math.floor(pos.z / 16) + zRel) * 16}`
+}
+
+window.keys = (obj) => Object.keys(obj)
+window.values = (obj) => Object.values(obj)
+
 window.len = (obj) => Object.keys(obj).length
 
 customEvents.on('gameLoaded', () => {
@@ -133,3 +146,17 @@ Object.defineProperty(window, 'debugToggle', {
     console.log('Enabled debug for', v)
   }
 })
+
+customEvents.on('gameLoaded', () => {
+  window.holdingBlock = (viewer.world as WorldRendererThree).holdingBlock
+})
+
+window.clearStorage = (...keysToKeep: string[]) => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && !keysToKeep.includes(key)) {
+      localStorage.removeItem(key)
+    }
+  }
+  return `Cleared ${localStorage.length - keysToKeep.length} items from localStorage. Kept: ${keysToKeep.join(', ')}`
+}

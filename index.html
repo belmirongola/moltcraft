@@ -54,8 +54,8 @@
                   })
                 })
               }
+              window.lastError = errorOrMessage instanceof Error ? errorOrMessage : new Error(errorOrMessage)
             }
-            window.lastError = errorOrMessage instanceof Error ? errorOrMessage : new Error(errorOrMessage)
           }
           window.addEventListener('unhandledrejection', (e) => onError(e.reason, true))
           window.addEventListener('error', (e) => onError(e.error ?? e.message))

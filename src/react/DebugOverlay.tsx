@@ -33,7 +33,7 @@ export default () => {
   const [blockL, setBlockL] = useState(0)
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
-  const [entitiesCount, setEntitiesCount] = useState(0)
+  const [entitiesCount, setEntitiesCount] = useState('0')
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
   const minecraftYaw = useRef(0)
@@ -106,7 +106,7 @@ export default () => {
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
       setCursorBlock(bot.blockAtCursor(5))
-      setEntitiesCount(Object.values(bot.entities).length)
+      setEntitiesCount(`${viewer.entities.entitiesRenderingCount} (${Object.values(bot.entities).length})`)
     }, 100)
 
     // @ts-expect-error

@@ -36,12 +36,20 @@ export const resetAppStatusState = () => {
 export const lastConnectOptions = {
   value: null as ConnectOptions | null
 }
+globalThis.lastConnectOptions = lastConnectOptions
 
 const saveReconnectOptions = (options: ConnectOptions) => {
   sessionStorage.setItem('reconnectOptions', JSON.stringify({
     value: options,
     timestamp: Date.now()
   }))
+}
+
+export const reconnectReload = () => {
+  if (lastConnectOptions.value) {
+    saveReconnectOptions(lastConnectOptions.value)
+    window.location.reload()
+  }
 }
 
 export default () => {
@@ -68,13 +76,6 @@ export default () => {
     window.dispatchEvent(new window.CustomEvent('connect', {
       detail: lastConnectOptions.value
     }))
-  }
-
-  const reconnectReload = () => {
-    if (lastConnectOptions.value) {
-      saveReconnectOptions(lastConnectOptions.value)
-      window.location.reload()
-    }
   }
 
   useEffect(() => {

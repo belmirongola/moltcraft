@@ -91,7 +91,9 @@ export const guiOptionsScheme: {
         unit: '',
         tooltip: 'Additional distance to keep the chunks loading before unloading them by marking them as too far',
       },
-      handDisplay: {},
+      renderEars: {
+        tooltip: 'Enable rendering Deadmau5 ears for all players if their skin contains textures for it',
+      },
       renderDebug: {
         values: [
           'advanced',
@@ -247,6 +249,12 @@ export const guiOptionsScheme: {
           ['blue', 'Blue'],
           ['classic', 'Classic']
         ],
+      },
+      showHand: {
+        text: 'Show Hand',
+      },
+      viewBobbing: {
+        text: 'View Bobbing',
       },
     },
     {

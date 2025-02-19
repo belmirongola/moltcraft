@@ -4,6 +4,7 @@ import fs from 'fs'
 import JSZip from 'jszip'
 import { proxy, subscribe } from 'valtio'
 import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { armorTextures } from 'renderer/viewer/lib/entity/armorModels'
 import { collectFilesToCopy, copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
 import { setLoadingScreenStatus } from './appStatus'
 import { showNotification } from './react/NotificationProvider'
@@ -203,7 +204,7 @@ const getFilesMapFromDir = async (dir: string) => {
   return files
 }
 
-export const getResourcepackTiles = async (type: 'blocks' | 'items', existingTextures: string[]) => {
+export const getResourcepackTiles = async (type: 'blocks' | 'items' | 'armor', existingTextures: string[]) => {
   const basePath = await getActiveResourcepackBasePath()
   if (!basePath) return
   let firstTextureSize: number | undefined
@@ -212,11 +213,25 @@ export const getResourcepackTiles = async (type: 'blocks' | 'items', existingTex
     setLoadingScreenStatus(`Generating atlas texture for ${type}`)
   }
   const textures = {} as Record<string, HTMLImageElement>
+  let path
+  switch (type) {
+    case 'blocks':
+      path = 'block'
+      break
+    case 'items':
+      path = 'item'
+      break
+    case 'armor':
+      path = 'models/armor'
+      break
+    default:
+      throw new Error('Invalid type')
+  }
   for (const namespace of namespaces) {
     const texturesCommonBasePath = `${basePath}/assets/${namespace}/textures`
     const isMinecraftNamespace = namespace === 'minecraft'
-    let texturesBasePath = `${texturesCommonBasePath}/${type === 'blocks' ? 'block' : 'item'}`
-    const texturesBasePathAlt = `${texturesCommonBasePath}/${type === 'blocks' ? 'blocks' : 'items'}`
+    let texturesBasePath = `${texturesCommonBasePath}/${path}`
+    const texturesBasePathAlt = `${texturesCommonBasePath}/${path}s`
     if (!(await existsAsync(texturesBasePath))) {
       if (await existsAsync(texturesBasePathAlt)) {
         texturesBasePath = texturesBasePathAlt
@@ -465,9 +480,11 @@ const repeatArr = (arr, i) => Array.from({ length: i }, () => arr)
 const updateTextures = async () => {
   const origBlocksFiles = Object.keys(viewer.world.sourceData.blocksAtlases.latest.textures)
   const origItemsFiles = Object.keys(viewer.world.sourceData.itemsAtlases.latest.textures)
+  const origArmorFiles = Object.keys(armorTextures)
   const { usedTextures: extraBlockTextures = new Set<string>() } = await prepareBlockstatesAndModels() ?? {}
   const blocksData = await getResourcepackTiles('blocks', [...origBlocksFiles, ...extraBlockTextures])
   const itemsData = await getResourcepackTiles('items', origItemsFiles)
+  const armorData = await getResourcepackTiles('armor', origArmorFiles)
   await updateAllReplacableTextures()
   viewer.world.customTextures = {}
   if (blocksData) {
@@ -482,8 +499,14 @@ const updateTextures = async () => {
       textures: itemsData.textures
     }
   }
+  if (armorData) {
+    viewer.world.customTextures.armor = {
+      tileSize: armorData.firstTextureSize,
+      textures: armorData.textures
+    }
+  }
   if (viewer.world.active) {
-    await viewer.world.updateTexturesData()
+    await viewer.world.updateAssetsData()
     if (viewer.world instanceof WorldRendererThree) {
       viewer.world.rerenderAllChunks?.()
     }

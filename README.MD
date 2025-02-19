@@ -14,13 +14,14 @@ For building the project yourself / contributing, see [Development, Debugging & 
 
 - Open any zip world file or even folder in read-write mode!
 - Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
-- Integrated JS server capable of opening Java world saves in any way (folders, zip, web streaming, etc)
+- Integrated JS server clone capable of opening Java world saves in any way (folders, zip, web chunks streaming, etc)
 - Singleplayer mode with simple world generations!
 - Works offline
 - First-class touch (mobile) & controller support
 - First-class keybindings configuration
 - Advanced Resource pack support: Custom GUI, all textures. Server resource packs are supported with proper CORS configuration.
-- Builtin JEI with recipes & descriptions for every item (JEI is creative inventory replacement)
+- Builtin JEI with recipes & descriptions for almost every item (JEI is creative inventory replacement)
+- Custom protocol channel extensions (eg for custom block models in the world)
 - Play with friends over internet! (P2P is powered by Peer.js discovery servers)
 - ~~Google Drive support for reading / saving worlds back to the cloud~~
 - even even more!
@@ -152,6 +153,7 @@ Server specific:
 - `?proxy=<proxy_address>` - Set the proxy server address to use for  the server
 - `?username=<username>` - Set the username for the server
 - `?lockConnect=true` - Only works then `ip` parameter is set. Disables cancel/save buttons and all inputs in the connect screen already set as parameters. Useful for integrates iframes.
+- `?autoConnect=true` - Only works then `ip` and `version` parameters are set and `allowAutoConnect` is `true` in config.json! Directly connects to the specified server. Useful for integrates iframes.
 - `?serversList=<list_or_url>` - `<list_or_url>` can be a list of servers in the format `ip:version,ip` or a url to a json file with the same format (array) or a txt file with line-delimited list of server IPs.
 
 Single player specific:

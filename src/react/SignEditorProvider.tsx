@@ -6,10 +6,10 @@ import SignEditor, { ResultType } from './SignEditor'
 
 
 const isWysiwyg = async () => {
-  const items = await bot.tabComplete('/', true, true)
-  const commands = new Set<string>(['data'])
+  const items = await bot.tabComplete('/data ', true, true)
+  const commands = new Set<string>(['merge'])
   for (const item of items) {
-    if (commands.has(item.match as unknown as string)) {
+    if (commands.has((item.match ?? item) as unknown as string)) {
       return true
     }
   }

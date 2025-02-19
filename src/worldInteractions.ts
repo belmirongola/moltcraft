@@ -25,6 +25,7 @@ import { options } from './optionsStorage'
 import { itemBeingUsed } from './react/Crosshair'
 import { isCypress } from './standaloneUtils'
 import { displayClientChat } from './botUtils'
+import { playerState } from './mineflayer/playerState'
 
 function getViewDirection (pitch, yaw) {
   const csPitch = Math.cos(pitch)
@@ -165,15 +166,39 @@ class WorldInteraction {
       }
     })
 
-    bot.on('blockBreakProgressObserved', (block: Block, destroyStage: number) => {
-      if (this.cursorBlock?.position.equals(block.position)) {
-        this.setBreakState(block, destroyStage)
+    //@ts-expect-error mineflayer types are wrong
+    bot.on('blockBreakProgressObserved', (block: Block, destroyStage: number, entity: Entity) => {
+      if (this.cursorBlock?.position.equals(block.position) && entity.id === bot.entity.id) {
+        if (!this.buttons[0]) {
+          // Simulate left mouse button press
+          this.buttons[0] = true
+          this.update()
+        }
+        // this.setBreakState(block, destroyStage)
       }
     })
 
-    bot.on('blockBreakProgressEnd', (block: Block) => {
-      if (this.currentBreakBlock?.block.position.equals(block.position)) {
-        this.stopBreakAnimation()
+    //@ts-expect-error mineflayer types are wrong
+    bot.on('blockBreakProgressEnd', (block: Block, entity: Entity) => {
+      if (this.currentBreakBlock?.block.position.equals(block.position) && entity.id === bot.entity.id) {
+        if (!this.buttons[0]) {
+          // Simulate left mouse button press
+          this.buttons[0] = false
+          this.update()
+        }
+        // this.stopBreakAnimation()
+      }
+    })
+
+    // Handle acknowledge_player_digging packet
+    bot._client.on('acknowledge_player_digging', (data: { location: { x: number, y: number, z: number }, block: number, status: number, successful: boolean } | { sequenceId: number }) => {
+      if ('location' in data && !data.successful) {
+        const packetPos = new Vec3(data.location.x, data.location.y, data.location.z)
+        if (this.cursorBlock?.position.equals(packetPos)) {
+          this.buttons[0] = false
+          this.update()
+          this.stopBreakAnimation()
+        }
       }
     })
 
@@ -320,6 +345,7 @@ class WorldInteraction {
         if (item) {
           customEvents.emit('activateItem', item, offhand ? 45 : bot.quickBarSlot, offhand)
         }
+        playerState.startUsingItem()
         itemBeingUsed.name = (offhand ? bot.inventory.slots[45]?.name : bot.heldItem?.name) ?? null
         itemBeingUsed.hand = offhand ? 1 : 0
       }
@@ -331,6 +357,7 @@ class WorldInteraction {
       // "only foods and bow can be deactivated" - not true, shields also can be deactivated and client always sends this
       // if (bot.heldItem && (loadedData.foodsArray.map((f) => f.name).includes(bot.heldItem.name) || bot.heldItem.name === 'bow')) {
       bot.deactivateItem()
+      playerState.stopUsingItem()
       // }
     }
 

@@ -126,11 +126,7 @@ export const getWsProtocolStream = async (url: string) => {
 const CHANNEL_NAME = 'minecraft-web-client:data'
 
 export const handleCustomChannel = async () => {
-  await new Promise(resolve => {
-    bot._client.once('login', resolve)
-  })
-
-  bot._client.registerChannel(CHANNEL_NAME, ['string', []], true)
+  bot._client.registerChannel(CHANNEL_NAME, ['string', []])
   const toCleanup = [] as Array<() => void>
   subscribe(activeModalStack, () => {
     if (activeModalStack.length === 1 && activeModalStack[0].reactType === 'main-menu') {
@@ -191,6 +187,11 @@ export const handleCustomChannel = async () => {
         if (mineflayerConsoleState.messages.length > 500) {
           mineflayerConsoleState.messages = mineflayerConsoleState.messages.slice(-500)
         }
+        break
+      }
+      // todo
+      case 'kick' as any: {
+        bot.emit('end', (data as any).reason)
         break
       }
       case 'ui': {

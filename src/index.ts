@@ -5,6 +5,7 @@ import './testCrasher'
 import './globals'
 import './devtools'
 import './entities'
+import './customChannels'
 import './globalDomListeners'
 import './mineflayer/maps'
 import './mineflayer/cameraShake'
@@ -66,6 +67,7 @@ import { isCypress } from './standaloneUtils'
 import {
   removePanorama
 } from './panorama'
+import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
@@ -104,9 +106,11 @@ import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 import { updateCursor } from './cameraRotationControls'
 import { pingServerVersion } from './mineflayer/minecraft-protocol-extra'
+import { playerState, PlayerStateManager } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
+import ping from './mineflayer/plugins/ping'
 
 window.debug = debug
 window.THREE = THREE
@@ -161,21 +165,29 @@ if (isIphone) {
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
 // Create viewer
-const viewer: import('renderer/viewer/lib/viewer').Viewer = new Viewer(renderer)
+const viewer: import('renderer/viewer/lib/viewer').Viewer = new Viewer(renderer, undefined, playerState)
 window.viewer = viewer
-viewer.getMineflayerBot = () => bot
 // todo unify
-viewer.entities.getItemUv = (item) => {
+viewer.entities.getItemUv = (item, specificProps) => {
   const idOrName = item.itemId ?? item.blockId
   try {
     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
     if (!name) throw new Error(`Item not found: ${idOrName}`)
 
-    const renderInfo = renderSlot({
-      name,
-      nbt: null,
-      ...item
+    const itemSelector = playerState.getItemSelector({
+      ...specificProps
     })
+    const model = getItemDefinition(viewer.world.itemsDefinitionsStore, {
+      name,
+      version: viewer.world.texturesVersion!,
+      properties: itemSelector
+    })?.model ?? name
+
+    const renderInfo = renderSlot({
+      ...item,
+      nbt: null,
+      name: model,
+    }, false, true)
 
     if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
 
@@ -409,10 +421,12 @@ export async function connect (connectOptions: ConnectOptions) {
           throw err
         }
       }
+      const oldStatus = appStatusState.status
       setLoadingScreenStatus('Loading minecraft assets')
       viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
       void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
       miscUiState.loadedDataVersion = version
+      setLoadingScreenStatus(oldStatus)
     }
 
     let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
@@ -630,22 +644,6 @@ export async function connect (connectOptions: ConnectOptions) {
             })
           })
         })
-        let i = 0
-        //@ts-expect-error
-        bot.pingProxy = async () => {
-          const curI = ++i
-          return new Promise(resolve => {
-            //@ts-expect-error
-            bot._client.socket._ws.send(`ping:${curI}`)
-            const date = Date.now()
-            const onPong = (received) => {
-              if (received !== curI.toString()) return
-              bot._client.socket.off('pong' as any, onPong)
-              resolve(Date.now() - date)
-            }
-            bot._client.socket.on('pong' as any, onPong)
-          })
-        }
       }
       // socket setup actually can be delayed because of dns lookup
       if (bot._client.socket) {
@@ -662,6 +660,10 @@ export async function connect (connectOptions: ConnectOptions) {
     }
   } catch (err) {
     handleError(err)
+  }
+
+  if (connectOptions.server) {
+    bot.loadPlugin(ping)
   }
   if (!bot) return
 
@@ -712,6 +714,13 @@ export async function connect (connectOptions: ConnectOptions) {
     worldInteractions.initBot()
 
     setLoadingScreenStatus('Loading world')
+
+    const mcData = MinecraftData(bot.version)
+    window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
+    window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
+    window.loadedData = mcData
+    window.Vec3 = Vec3
+    window.pathfinder = pathfinder
   })
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
@@ -732,17 +741,13 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     window.focus?.()
     errorAbortController.abort()
-    const mcData = MinecraftData(bot.version)
-    window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
-    window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
-    window.loadedData = mcData
-    window.Vec3 = Vec3
-    window.pathfinder = pathfinder
 
     miscUiState.gameLoaded = true
     miscUiState.loadedServerIndex = connectOptions.serverIndex ?? ''
     customEvents.emit('gameLoaded')
     if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
+
+    playerState.onlineMode = !!connectOptions.authenticatedAccount
 
     setLoadingScreenStatus('Placing blocks (starting viewer)')
     localStorage.lastConnectOptions = JSON.stringify(connectOptions)
@@ -997,6 +1002,4 @@ if (initialLoader) {
 }
 window.pageLoaded = true
 
-if (!reconnectOptions) {
-  void possiblyHandleStateVariable()
-}
+void possiblyHandleStateVariable()

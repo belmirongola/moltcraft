@@ -112,15 +112,20 @@ const commands: Array<{
   {
     command: ['/pos'],
     async invoke ([type]) {
-      let pos: string | undefined
+      let pos: { x: number, y: number, z: number } | undefined
       if (type === 'block') {
-        pos = window.cursorBlockRel()?.position?.toString().slice(1, -1)
+        const blockPos = window.cursorBlockRel()?.position
+        if (blockPos) {
+          pos = { x: blockPos.x, y: blockPos.y, z: blockPos.z }
+        }
       } else {
-        pos = bot.entity.position.toString().slice(1, -1)
+        const playerPos = bot.entity.position
+        pos = { x: playerPos.x, y: playerPos.y, z: playerPos.z }
       }
       if (!pos) return
-      await navigator.clipboard.writeText(pos)
-      writeText(`Copied position to clipboard: ${pos}`)
+      const formatted = `${pos.x.toFixed(2)} ${pos.y.toFixed(2)} ${pos.z.toFixed(2)}`
+      await navigator.clipboard.writeText(formatted)
+      writeText(`Copied position to clipboard: ${formatted}`)
     }
   }
 ]

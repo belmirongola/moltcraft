@@ -6,7 +6,7 @@ import Screen from './Screen'
 import Input from './Input'
 import Button from './Button'
 import SelectGameVersion from './SelectGameVersion'
-import { useIsSmallWidth, usePassesWindowDimensions } from './simpleHooks'
+import { usePassesScaledDimensions } from './UIProvider'
 
 export interface BaseServerInfo {
   ip: string
@@ -35,13 +35,14 @@ interface Props {
 const ELEMENTS_WIDTH = 190
 
 export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, placeholders, accounts, versions, allowAutoConnect }: Props) => {
-  const isSmallHeight = !usePassesWindowDimensions(null, 350)
+  const isSmallHeight = !usePassesScaledDimensions(null, 350)
   const qsParamName = parseQs ? appQueryParams.name : undefined
   const qsParamIp = parseQs ? appQueryParams.ip : undefined
   const qsParamVersion = parseQs ? appQueryParams.version : undefined
   const qsParamProxy = parseQs ? appQueryParams.proxy : undefined
   const qsParamUsername = parseQs ? appQueryParams.username : undefined
   const qsParamLockConnect = parseQs ? appQueryParams.lockConnect : undefined
+  const qsParamAutoConnect = parseQs ? appQueryParams.autoConnect : undefined
 
   const parsedQsIp = parseServerAddress(qsParamIp)
   const parsedInitialIp = parseServerAddress(initialData?.ip)
@@ -54,7 +55,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const [usernameOverride, setUsernameOverride] = React.useState(initialData?.usernameOverride ?? qsParamUsername ?? '')
   const lockConnect = qsParamLockConnect === 'true'
 
-  const smallWidth = useIsSmallWidth()
+  const smallWidth = !usePassesScaledDimensions(400)
   const initialAccount = initialData?.authenticatedAccountOverride
   const [accountIndex, setAccountIndex] = React.useState(initialAccount === true ? -2 : initialAccount ? (accounts?.includes(initialAccount) ? accounts.indexOf(initialAccount) : -2) : -1)
 
@@ -121,10 +122,12 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   }
 
   useEffect(() => {
-    if (qsParamIp && qsParamVersion && allowAutoConnect) {
+    if (qsParamAutoConnect && qsParamIp && qsParamVersion && allowAutoConnect) {
       onQsConnect?.(commonUseOptions)
     }
   }, [])
+
+  const displayConnectButton = qsParamIp
 
   return <Screen title={qsParamIp ? 'Connect to Server' : title} backdrop>
     <form
@@ -139,9 +142,13 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
       }}
     >
       <div style={{
-        display: 'grid',
+        display: smallWidth ? 'flex' : 'grid',
         gap: 3,
-        gridTemplateColumns: smallWidth ? '1fr' : '1fr 1fr'
+        ...(smallWidth ? {
+          flexDirection: 'column',
+        } : {
+          gridTemplateColumns: '1fr 1fr'
+        })
       }}
       >
         {!lockConnect && <>
@@ -219,17 +226,29 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
         {!lockConnect && <>
           <ButtonWrapper onClick={() => {
             onBack()
-          }}>Cancel</ButtonWrapper>
-          <ButtonWrapper type='submit'>Save</ButtonWrapper>
+          }}>
+            Cancel
+          </ButtonWrapper>
+          <ButtonWrapper type='submit'>
+            {displayConnectButton ? 'Save' : <strong>Save</strong>}
+          </ButtonWrapper>
         </>}
-        {qsParamIp && <div style={{ gridColumn: smallWidth ? '' : 'span 2', display: 'flex', justifyContent: 'center' }}>
-          <ButtonWrapper
-            data-test-id='connect-qs'
-            onClick={() => {
-              onQsConnect?.(commonUseOptions)
-            }}
-          ><strong>Connect</strong></ButtonWrapper>
-        </div>}
+        {displayConnectButton && (
+          <div style={{
+            gridColumn: smallWidth ? '' : 'span 2',
+            display: 'flex',
+            justifyContent: 'center'
+          }}>
+            <ButtonWrapper
+              data-test-id='connect-qs'
+              onClick={() => {
+                onQsConnect?.(commonUseOptions)
+              }}
+            >
+              <strong>Connect</strong>
+            </ButtonWrapper>
+          </div>
+        )}
       </div>
     </form>
   </Screen>

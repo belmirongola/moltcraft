@@ -12,6 +12,7 @@ import { disposeObject } from './threeJsUtils'
 import HoldingBlock, { HandItemBlock } from './holdingBlock'
 import { addNewStat } from './ui/newStats'
 import { MesherGeometryOutput } from './mesher/shared'
+import { IPlayerState } from './basePlayerState'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
 
@@ -36,40 +37,21 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public config: WorldRendererConfig) {
+  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public config: WorldRendererConfig, public playerState: IPlayerState) {
     super(config)
     this.rendererDevice = `${WorldRendererThree.getRendererInfo(this.renderer)} powered by three.js r${THREE.REVISION}`
     this.starField = new StarField(scene)
-    this.holdingBlock = new HoldingBlock()
-    this.holdingBlockLeft = new HoldingBlock()
-    this.holdingBlockLeft.rightSide = false
+    this.holdingBlock = new HoldingBlock(playerState, this.config)
+    this.holdingBlockLeft = new HoldingBlock(playerState, this.config, true)
 
     this.renderUpdateEmitter.on('itemsTextureDownloaded', () => {
-      if (this.holdingBlock.toBeRenderedItem) {
-        this.onHandItemSwitch(this.holdingBlock.toBeRenderedItem)
-        this.holdingBlock.toBeRenderedItem = undefined
-      }
-      if (this.holdingBlockLeft.toBeRenderedItem) {
-        this.onHandItemSwitch(this.holdingBlock.toBeRenderedItem, true)
-        this.holdingBlockLeft.toBeRenderedItem = undefined
-      }
+      this.holdingBlock.ready = true
+      this.holdingBlock.updateItem()
+      this.holdingBlockLeft.ready = true
+      this.holdingBlockLeft.updateItem()
     })
 
     this.addDebugOverlay()
-  }
-
-  onHandItemSwitch (item: HandItemBlock | undefined, isLeft = false) {
-    if (!isLeft) {
-      item ??= {
-        type: 'hand',
-      }
-    }
-    const holdingBlock = isLeft ? this.holdingBlockLeft : this.holdingBlock
-    if (!this.currentTextureImage) {
-      holdingBlock.toBeRenderedItem = item
-      return
-    }
-    void holdingBlock.initHandObject(item)
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
@@ -77,7 +59,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (isAnimationPlaying) {
       holdingBlock.startSwing()
     } else {
-      void holdingBlock.stopSwing()
+      holdingBlock.stopSwing()
     }
   }
 
@@ -252,7 +234,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
     const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
-    if (this.config.displayHand) {
+    if (this.config.showHand) {
       this.holdingBlock.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
     }
