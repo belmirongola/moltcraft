@@ -58,6 +58,7 @@ const defaultOptions = {
   serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
   customChannels: false,
   packetsReplayAutoStart: false,
+  preciseMouseInput: false,
 
   // antiAliasing: false,
 

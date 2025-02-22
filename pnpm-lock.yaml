@@ -358,6 +358,9 @@ importers:
       mineflayer:
         specifier: github:zardoy/mineflayer
         version: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)
+      mineflayer-mouse:
+        specifier: ^0.0.1
+        version: 0.0.1
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -3795,6 +3798,9 @@ packages:
   change-case@5.1.2:
     resolution: {integrity: sha512-CAtbGEDulyjzs05RXy3uKcwqeztz/dMEuAc1Xu9NQBsbrhuGMneL0u9Dj5SoutLKBFYun8txxYIwhjtLNfUmCA==}
 
+  change-case@5.4.4:
+    resolution: {integrity: sha512-HRQyTk2/YPEkt9TnUPbOpr64Uw3KOicFWPVBb+xiHvd6eBx/qPr9xqfBFDT8P2vWsvvz4jbEkfDe71W3VyNu2w==}
+
   character-entities@2.0.2:
     resolution: {integrity: sha512-shx7oQ0Awen/BRIdkjkvz54PnEEI/EjwXDSIZp86/KKdbafHh1Df/RYGBhn4hbe2+uKC9FnT5UCEdyPz3ai9hQ==}
 
@@ -6476,6 +6482,10 @@ packages:
   mineflayer-item-map-downloader@https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
+
+  mineflayer-mouse@0.0.1:
+    resolution: {integrity: sha512-a/ICOZx0YgKSoYIgSt+c1/xCs2288qOrnw5pDa4DC7cbkLSxKcw9pRk0nkBp3ToHFeib6Lgw8oU8JHdJlSGykQ==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer-pathfinder@2.4.4:
     resolution: {integrity: sha512-HAXakZrJRb1UC+5dv8EaDrqjW3ZnBnBk3nkb6x/YWyhHCUKn/E7VU0FO+UN9whuqPlkSaVumEdXJdydE6lSYxQ==}
@@ -13632,6 +13642,8 @@ snapshots:
 
   change-case@5.1.2: {}
 
+  change-case@5.4.4: {}
+
   character-entities@2.0.2: {}
 
   charenc@0.0.2: {}
@@ -17058,6 +17070,14 @@ snapshots:
       sharp: 0.30.7
     transitivePeerDependencies:
       - encoding
+      - supports-color
+
+  mineflayer-mouse@0.0.1:
+    dependencies:
+      change-case: 5.4.4
+      debug: 4.4.0(supports-color@8.1.1)
+      prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
+    transitivePeerDependencies:
       - supports-color
 
   mineflayer-pathfinder@2.4.4:

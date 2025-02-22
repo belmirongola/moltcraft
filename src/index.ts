@@ -39,8 +39,6 @@ import { WorldDataEmitter, Viewer } from 'renderer/viewer'
 import pathfinder from 'mineflayer-pathfinder'
 import { Vec3 } from 'vec3'
 
-import worldInteractions from './worldInteractions'
-
 import * as THREE from 'three'
 import MinecraftData from 'minecraft-data'
 import debug from 'debug'
@@ -104,17 +102,15 @@ import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from './viewerConnector'
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
-import { updateCursor } from './cameraRotationControls'
-import { pingServerVersion } from './mineflayer/minecraft-protocol-extra'
 import { playerState, PlayerStateManager } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
+import mouse from './mineflayer/plugins/mouse'
 
 window.debug = debug
 window.THREE = THREE
-window.worldInteractions = worldInteractions
 window.beforeRenderFrame = []
 
 // ACTUAL CODE
@@ -670,6 +666,7 @@ export async function connect (connectOptions: ConnectOptions) {
   if (connectOptions.server) {
     bot.loadPlugin(ping)
   }
+  bot.loadPlugin(mouse)
   if (!bot) return
 
   const p2pConnectTimeout = p2pMultiplayer ? setTimeout(() => { throw new UserError('Spawn timeout. There might be error on the other side, check console.') }, 20_000) : undefined
@@ -716,8 +713,6 @@ export async function connect (connectOptions: ConnectOptions) {
   onBotCreate()
 
   bot.once('login', () => {
-    worldInteractions.initBot()
-
     setLoadingScreenStatus('Loading world')
 
     const mcData = MinecraftData(bot.version)
@@ -767,8 +762,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
     const worldView = window.worldView = new WorldDataEmitter(bot.world, renderDistance, center)
     watchOptionsAfterWorldViewInit()
-
-    bot.on('physicsTick', () => updateCursor())
 
     void initVR()
     initMotionTracking()

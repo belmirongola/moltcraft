@@ -3,19 +3,9 @@ import { activeModalStack, isGameActive, miscUiState, showModal } from './global
 import { options } from './optionsStorage'
 import { hideNotification, notificationProxy } from './react/NotificationProvider'
 import { pointerLock } from './utils'
-import worldInteractions from './worldInteractions'
 import { updateMotion, initMotionTracking } from './react/uiMotion'
 
 let lastMouseMove: number
-
-const MOTION_DAMPING = 0.92
-const MAX_MOTION_OFFSET = 30
-const motionVelocity = { x: 0, y: 0 }
-const lastUpdate = performance.now()
-
-export const updateCursor = () => {
-  worldInteractions.update()
-}
 
 export type CameraMoveEvent = {
   movementX: number
@@ -30,7 +20,7 @@ export function onCameraMove (e: MouseEvent | CameraMoveEvent) {
   e.stopPropagation?.()
   const now = performance.now()
   // todo: limit camera movement for now to avoid unexpected jumps
-  if (now - lastMouseMove < 4) return
+  if (now - lastMouseMove < 4 && !options.preciseMouseInput) return
   lastMouseMove = now
   let { mouseSensX, mouseSensY } = options
   if (mouseSensY === -1) mouseSensY = mouseSensX
@@ -38,7 +28,7 @@ export function onCameraMove (e: MouseEvent | CameraMoveEvent) {
     x: e.movementX * mouseSensX * 0.0001,
     y: e.movementY * mouseSensY * 0.0001
   })
-  updateCursor()
+  bot.mouse.update()
   updateMotion()
 }
 
