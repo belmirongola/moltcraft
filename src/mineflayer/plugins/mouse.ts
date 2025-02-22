@@ -90,7 +90,7 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
     })
   }
 
-  function updateBreakAnimation (block: Block, stage: number) {
+  function updateBreakAnimation (block: Block, stage: number | null) {
     if (!state.blockBreakMesh) return
 
     const shapes = [...block.shapes ?? [], ...block['interactionShapes'] ?? []]
@@ -146,7 +146,7 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
     // Handle cursor highlight update with data
   })
 
-  bot.on('blockBreakProgress', (block: Block, stage: number) => {
+  bot.on('blockBreakProgress', (block: Block, stage: number | null) => {
     updateBreakAnimation(block, stage)
   })
 
