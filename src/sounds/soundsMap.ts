@@ -48,6 +48,7 @@ interface ResourcePackSoundsJson {
 
 export class SoundMap {
   private readonly soundsPerName: Record<string, SoundEntry[]>
+  soundsIdToName: Record<string, string>
   private readonly existingResourcePackPaths: Set<string>
   private activeResourcePackBasePath: string | undefined
   private activeResourcePackSoundsJson: ResourcePackSoundsJson | undefined
@@ -58,24 +59,28 @@ export class SoundMap {
   ) {
     const allSoundsMajor = versionsMapToMajor(soundData.allSoundsMap)
     const soundsMap = allSoundsMajor[versionToMajor(version)] ?? Object.values(allSoundsMajor)[0]
-    this.soundsPerName = Object.fromEntries(
-      Object.entries(soundsMap).map(([id, soundsStr]) => {
-        const sounds = soundsStr.split(',').map(s => {
-          const [volume, name, weight] = s.split(';')
-          if (isNaN(Number(volume))) throw new Error('volume is not a number')
-          if (isNaN(Number(weight))) {
-            // debugger
-            throw new TypeError('weight is not a number')
-          }
-          return {
-            file: name,
-            weight: Number(weight),
-            volume: Number(volume)
-          }
-        })
-        return [id.split(';')[1], sounds]
+
+    // Create both mappings
+    this.soundsIdToName = {}
+    this.soundsPerName = {}
+
+    for (const [id, soundsStr] of Object.entries(soundsMap)) {
+      const sounds = soundsStr.split(',').map(s => {
+        const [volume, name, weight] = s.split(';')
+        if (isNaN(Number(volume))) throw new Error('volume is not a number')
+        if (isNaN(Number(weight))) throw new TypeError('weight is not a number')
+        return {
+          file: name,
+          weight: Number(weight),
+          volume: Number(volume)
+        }
       })
-    )
+
+      const [idPart, namePart] = id.split(';')
+      this.soundsIdToName[idPart] = namePart
+
+      this.soundsPerName[namePart] = sounds
+    }
   }
 
   async updateActiveResourcePackBasePath (basePath: string | undefined) {
@@ -241,7 +246,6 @@ const blockSoundAliases: BlockSoundMap = {
   bamboo: 'grass',
   vine: 'grass',
   nether_sprouts: 'grass',
-  nether_wart: 'grass',
   twisting_vines: 'grass',
   weeping_vines: 'grass',
   sweet_berry_bush: 'grass',
@@ -256,6 +260,28 @@ const blockSoundAliases: BlockSoundMap = {
   azalea: 'grass',
   azalea_leaves: 'grass',
   flowering_azalea_leaves: 'grass',
+
+  // Dirt and ground blocks
+  dirt: 'gravel',
+  coarse_dirt: 'gravel',
+  podzol: 'gravel',
+  mycelium: 'gravel',
+  farmland: 'gravel',
+  dirt_path: 'gravel',
+  rooted_dirt: 'rooted_dirt',
+
+  // Crop blocks
+  wheat: 'crop',
+  potatoes: 'crop',
+  carrots: 'crop',
+  beetroots: 'crop',
+  melon_stem: 'crop',
+  pumpkin_stem: 'crop',
+  sweet_berries: 'crop',
+  cocoa: 'crop',
+  nether_wart: 'crop',
+  torchflower_crop: 'crop',
+  pitcher_crop: 'crop',
 
   // Stone-like blocks
   cobblestone: 'stone',
@@ -394,7 +420,6 @@ const blockSoundAliases: BlockSoundMap = {
   soul_lantern: 'lantern',
   pointed_dripstone: 'pointed_dripstone',
   dripstone_block: 'dripstone_block',
-  rooted_dirt: 'rooted_dirt',
   sculk_sensor: 'sculk_sensor',
   shroomlight: 'shroomlight'
 }
