@@ -5,7 +5,8 @@ import { Block } from 'prismarine-block'
 import { Vec3 } from 'vec3'
 import { LineMaterial } from 'three-stdlib'
 import { subscribeKey } from 'valtio/utils'
-import { showModal } from '../../globalState'
+import { disposeObject } from 'renderer/viewer/lib/threeJsUtils'
+import { isGameActive, showModal } from '../../globalState'
 
 // wouldn't better to create atlas instead?
 import destroyStage0 from '../../../assets/destroy_stage_0.png'
@@ -19,13 +20,13 @@ import destroyStage7 from '../../../assets/destroy_stage_7.png'
 import destroyStage8 from '../../../assets/destroy_stage_8.png'
 import destroyStage9 from '../../../assets/destroy_stage_9.png'
 import { options } from '../../optionsStorage'
+import { isCypress } from '../../standaloneUtils'
 
 function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
   // State
   const state = {
     blockBreakMesh: null as THREE.Mesh | null,
     breakTextures: [] as THREE.Texture[],
-    cursorLineMaterial: null as LineMaterial | null
   }
 
   // Initialize break mesh and textures
@@ -56,9 +57,9 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
   // Update functions
   function updateLineMaterial () {
     const inCreative = bot.game.gameMode === 'creative'
-    const pixelRatio = renderer.getPixelRatio()
+    const pixelRatio = viewer.renderer.getPixelRatio()
 
-    state.cursorLineMaterial = new LineMaterial({
+    viewer.world.threejsCursorLineMaterial = new LineMaterial({
       color: (() => {
         switch (options.highlightBlockColor) {
           case 'blue':
@@ -70,16 +71,16 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
         }
       })(),
       linewidth: Math.max(pixelRatio * 0.7, 1) * 2,
+      // dashed: true,
+      // dashSize: 5,
     })
   }
 
   function updateDisplay () {
-    if (state.cursorLineMaterial) {
-      state.cursorLineMaterial.resolution.set(
-        renderer.domElement.width,
-        renderer.domElement.height
-      )
-      // state.cursorLineMaterial.dashOffset = performance.now() / 750
+    if (viewer.world.threejsCursorLineMaterial) {
+      const { renderer } = viewer
+      viewer.world.threejsCursorLineMaterial.resolution.set(renderer.domElement.width, renderer.domElement.height)
+      viewer.world.threejsCursorLineMaterial.dashOffset = performance.now() / 750
     }
   }
   beforeRenderFrame.push(updateDisplay)
@@ -94,7 +95,7 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
     if (!state.blockBreakMesh) return // todo
     if (!stage || !block) return
 
-    const mergedShape = bot.mouse.getMergedShape(block)
+    const mergedShape = bot.mouse.getMergedCursorShape(block)
     if (!mergedShape) return
     const { position, width, height, depth } = bot.mouse.getDataFromShape(mergedShape)
     state.blockBreakMesh.scale.set(width * 1.001, height * 1.001, depth * 1.001)
@@ -114,10 +115,26 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
     }
   }
 
+  function updateCursorBlock (data?: { block: Block }) {
+    if (!data?.block) {
+      viewer.world.setHighlightCursorBlock(null)
+      return
+    }
+
+    const { block } = data
+    viewer.world.setHighlightCursorBlock(block.position, bot.mouse.getBlockCursorShapes(block).map(shape => {
+      return bot.mouse.getDataFromShape(shape)
+    }))
+  }
+
+  bot.on('highlightCursorBlock', updateCursorBlock)
+
   bot.on('blockBreakProgressStage', updateBreakAnimation)
 
   bot.on('end', () => {
-    updateBreakAnimation(undefined, null)
+    disposeObject(state.blockBreakMesh!, true)
+    scene.remove(state.blockBreakMesh!)
+    viewer.world.setHighlightCursorBlock(null)
   })
 }
 
@@ -138,18 +155,40 @@ export default (bot: Bot) => {
 
 const domListeners = (bot: Bot) => {
   document.addEventListener('mousedown', (e) => {
+    if (e.isTrusted && !document.pointerLockElement && !isCypress()) return
+    if (!isGameActive(true)) return
+
+    const { entity } = bot.mouse.getCursorState()
+
+    if (entity) {
+      // todo! isntead attack entity only once and rm workaround
+      if (e.button === 0) {
+        bot.leftClick()
+      } else if (e.button === 1) {
+        bot.rightClick()
+      }
+      return
+    }
+
     if (e.button === 0) {
-      bot.rightClickStart()
-    } else if (e.button === 1) {
       bot.leftClickStart()
+    } else if (e.button === 1) {
+      bot.rightClickStart()
     }
   })
 
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) {
-      bot.rightClickEnd()
-    } else if (e.button === 1) {
       bot.leftClickEnd()
+    } else if (e.button === 1) {
+      bot.rightClickEnd()
     }
   })
+
+  bot.mouse.beforeUpdateChecks = () => {
+    if (!document.hasFocus()) {
+      // deactive all buttons
+      bot.mouse.buttons.fill(false)
+    }
+  }
 }

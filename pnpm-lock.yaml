@@ -359,8 +359,8 @@ importers:
         specifier: github:zardoy/mineflayer
         version: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)
       mineflayer-mouse:
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.0.2
+        version: 0.0.2
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -6488,8 +6488,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
 
-  mineflayer-mouse@0.0.1:
-    resolution: {integrity: sha512-a/ICOZx0YgKSoYIgSt+c1/xCs2288qOrnw5pDa4DC7cbkLSxKcw9pRk0nkBp3ToHFeib6Lgw8oU8JHdJlSGykQ==}
+  mineflayer-mouse@0.0.2:
+    resolution: {integrity: sha512-1hUtj5QaA1LX1JPkRNPXw3xtYqtXhTrJoADqCDeJmVZhKu/ZF4QiYHiM+7vYXm2i4nYawZQaR4whtPOHD1o7ag==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer-pathfinder@2.4.4:
@@ -17103,7 +17103,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-mouse@0.0.1:
+  mineflayer-mouse@0.0.2:
     dependencies:
       change-case: 5.4.4
       debug: 4.4.0(supports-color@8.1.1)
