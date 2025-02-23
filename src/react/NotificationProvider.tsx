@@ -61,7 +61,7 @@ export default () => {
   const scale = useAppScale()
 
   return <div style={{
-    scale,
+    transform: `scale(${scale})`,
     transformOrigin: 'top right',
   }}>
     <Notification

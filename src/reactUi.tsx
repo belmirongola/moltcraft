@@ -51,6 +51,7 @@ import MineflayerPluginHud from './react/MineflayerPluginHud'
 import MineflayerPluginConsole from './react/MineflayerPluginConsole'
 import { UIProvider } from './react/UIProvider'
 import { useAppScale } from './scaleInterface'
+import PacketsReplayProvider from './react/PacketsReplayProvider'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -205,6 +206,7 @@ const App = () => {
             <TouchAreasControlsProvider />
             <SignInMessageProvider />
             <NoModalFoundProvider />
+            <PacketsReplayProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>

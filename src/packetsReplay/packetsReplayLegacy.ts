@@ -1,6 +1,6 @@
 import { proxy } from 'valtio'
-import { PacketsLogger } from './packetsReplayBase'
-import { options } from './optionsStorage'
+import { PacketsLogger } from 'mcraft-fun-mineflayer/build/packetsLogger'
+import { options } from '../optionsStorage'
 
 export const packetsReplaceSessionState = proxy({
   active: options.packetsReplayAutoStart,

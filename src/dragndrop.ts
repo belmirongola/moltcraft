@@ -6,6 +6,7 @@ import { versions } from 'minecraft-data'
 import { openWorldDirectory, openWorldZip } from './browserfs'
 import { isGameActive } from './globalState'
 import { showNotification } from './react/NotificationProvider'
+import { openFile, VALID_REPLAY_EXTENSIONS } from './packetsReplay/replayPackets'
 
 const parseNbt = promisify(nbt.parse)
 const simplifyNbt = nbt.simplify
@@ -53,10 +54,19 @@ async function handleDroppedFile (file: File) {
     alert('Rar files are not supported yet!')
     return
   }
+  if (VALID_REPLAY_EXTENSIONS.some(ext => file.name.endsWith(ext)) || file.name.startsWith('packets-replay')) {
+    const contents = await file.text()
+    openFile({
+      contents,
+      filename: file.name,
+      filesize: file.size
+    })
+    return
+  }
   if (file.name.endsWith('.mca')) {
     const tempPath = '/data/temp.mca'
     try {
-      await fs.promises.writeFile(tempPath, Buffer.from(await file.arrayBuffer()))
+      await fs.promises.writeFile(tempPath, Buffer.from(await file.arrayBuffer()) as any)
       const region = new RegionFile(tempPath)
       await region.initialize()
       const chunks: Record<string, any> = {}

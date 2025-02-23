@@ -39,6 +39,12 @@ export type AppQsParams = {
   suggest_save?: string
   noPacketsValidation?: string
   testCrashApp?: string
+
+  // Replay params
+  replayFilter?: string
+  replaySpeed?: string
+  replayFileUrl?: string
+  replayValidateClient?: string
 }
 
 export type AppQsParamsArray = {
@@ -55,7 +61,7 @@ type AppQsParamsArrayTransformed = {
 export const appQueryParams = new Proxy<AppQsParams>({} as AppQsParams, {
   get (target, property) {
     if (typeof property !== 'string') {
-      return null
+      return undefined
     }
     return qsParams.get(property)
   },

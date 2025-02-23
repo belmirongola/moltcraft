@@ -20,11 +20,6 @@ import destroyStage8 from '../../../assets/destroy_stage_8.png'
 import destroyStage9 from '../../../assets/destroy_stage_9.png'
 import { options } from '../../optionsStorage'
 
-interface CursorBlockData {
-  block: Block | null
-  shapes: Array<{ position: Vec3, width: number, height: number, depth: number }>
-}
-
 function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
   // State
   const state = {
@@ -58,18 +53,6 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
   state.blockBreakMesh.name = 'blockBreakMesh'
   scene.add(state.blockBreakMesh)
 
-  // Helper function to get shape data
-  function getDataFromShape (shape: number[]) {
-    const width = shape[3] - shape[0]
-    const height = shape[4] - shape[1]
-    const depth = shape[5] - shape[2]
-    const centerX = (shape[3] + shape[0]) / 2
-    const centerY = (shape[4] + shape[1]) / 2
-    const centerZ = (shape[5] + shape[2]) / 2
-    const position = new Vec3(centerX, centerY, centerZ)
-    return { position, width, height, depth }
-  }
-
   // Update functions
   function updateLineMaterial () {
     const inCreative = bot.game.gameMode === 'creative'
@@ -90,25 +73,30 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
     })
   }
 
-  function updateBreakAnimation (block: Block, stage: number | null) {
-    if (!state.blockBreakMesh) return
+  function updateDisplay () {
+    if (state.cursorLineMaterial) {
+      state.cursorLineMaterial.resolution.set(
+        renderer.domElement.width,
+        renderer.domElement.height
+      )
+      // state.cursorLineMaterial.dashOffset = performance.now() / 750
+    }
+  }
+  beforeRenderFrame.push(updateDisplay)
 
-    const shapes = [...block.shapes ?? [], ...block['interactionShapes'] ?? []]
-    if (!shapes.length) return
+  // Update cursor line material on game mode change
+  bot.on('game', updateLineMaterial)
+  // Update material when highlight color setting changes
+  subscribeKey(options, 'highlightBlockColor', updateLineMaterial)
 
-    // Union of all shapes
-    const breakShape = shapes.reduce((acc, cur) => {
-      return [
-        Math.min(acc[0], cur[0]),
-        Math.min(acc[1], cur[1]),
-        Math.min(acc[2], cur[2]),
-        Math.max(acc[3], cur[3]),
-        Math.max(acc[4], cur[4]),
-        Math.max(acc[5], cur[5])
-      ]
-    })
+  function updateBreakAnimation (block: Block | undefined, stage: number | null) {
+    hideBreakAnimation()
+    if (!state.blockBreakMesh) return // todo
+    if (!stage || !block) return
 
-    const { position, width, height, depth } = getDataFromShape(breakShape)
+    const mergedShape = bot.mouse.getMergedShape(block)
+    if (!mergedShape) return
+    const { position, width, height, depth } = bot.mouse.getDataFromShape(mergedShape)
     state.blockBreakMesh.scale.set(width * 1.001, height * 1.001, depth * 1.001)
     position.add(block.position)
     state.blockBreakMesh.position.set(position.x, position.y, position.z)
@@ -126,37 +114,11 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
     }
   }
 
-  function updateDisplay () {
-    if (state.cursorLineMaterial) {
-      state.cursorLineMaterial.resolution.set(
-        renderer.domElement.width,
-        renderer.domElement.height
-      )
-      // state.cursorLineMaterial.dashOffset = performance.now() / 750
-    }
-  }
-  beforeRenderFrame.push(updateDisplay)
+  bot.on('blockBreakProgressStage', updateBreakAnimation)
 
-  // Set up event listeners
-  bot.on('highlightCursorBlock', (data?: CursorBlockData) => {
-    if (!data) {
-      // Handle cursor highlight update with null data
-
-    }
-    // Handle cursor highlight update with data
+  bot.on('end', () => {
+    updateBreakAnimation(undefined, null)
   })
-
-  bot.on('blockBreakProgress', (block: Block, stage: number | null) => {
-    updateBreakAnimation(block, stage)
-  })
-
-  bot.on('diggingCompleted', hideBreakAnimation)
-  bot.on('diggingAborted', hideBreakAnimation)
-
-  // Update cursor line material on game mode change
-  bot.on('game', updateLineMaterial)
-  // Update material when highlight color setting changes
-  subscribeKey(options, 'highlightBlockColor', updateLineMaterial)
 }
 
 export default (bot: Bot) => {

@@ -43,7 +43,7 @@ import * as THREE from 'three'
 import MinecraftData from 'minecraft-data'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
-import initializePacketsReplay from './packetsReplay'
+import initializePacketsReplay from './packetsReplay/packetsReplayLegacy'
 
 import { initVR } from './vr'
 import {
@@ -94,7 +94,7 @@ import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
 import { versionToNumber } from 'renderer/viewer/prepare/utils'
-import packetsPatcher from './packetsPatcher'
+import packetsPatcher from './mineflayer/plugins/packetsPatcher'
 import { mainMenuState } from './react/MainMenuRenderApp'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import './mobileShim'
@@ -108,6 +108,9 @@ import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
+import { LocalServer } from './customServer'
+import { startLocalReplayServer } from './packetsReplay/replayPackets'
+import { localRelayServerPlugin } from './mineflayer/plugins/localRelay'
 
 window.debug = debug
 window.THREE = THREE
@@ -393,6 +396,7 @@ export async function connect (connectOptions: ConnectOptions) {
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
   let updateDataAfterJoin = () => { }
   let localServer
+  let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
   try {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
@@ -431,6 +435,16 @@ export async function connect (connectOptions: ConnectOptions) {
     }
 
     let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
+
+    if (connectOptions.worldStateFileContents) {
+      try {
+        localReplaySession = startLocalReplayServer(connectOptions.worldStateFileContents)
+      } catch (err) {
+        console.error(err)
+        throw new UserError(`Failed to start local replay server: ${err}`)
+      }
+      finalVersion = localReplaySession.version
+    }
 
     if (singleplayer) {
       // SINGLEPLAYER EXPLAINER:
@@ -480,6 +494,8 @@ export async function connect (connectOptions: ConnectOptions) {
       initialLoadingText = `Connecting to server ${server.host}:${server.port ?? 25_565} with version ${finalVersion}`
     } else if (connectOptions.viewerWsConnect) {
       initialLoadingText = `Connecting to Mineflayer WebSocket server ${connectOptions.viewerWsConnect}`
+    } else if (connectOptions.worldStateFileContents) {
+      initialLoadingText = `Loading local replay server`
     } else {
       initialLoadingText = 'We have no idea what to do'
     }
@@ -539,11 +555,15 @@ export async function connect (connectOptions: ConnectOptions) {
       ...clientDataStream ? {
         stream: clientDataStream as any,
       } : {},
-      ...singleplayer || p2pMultiplayer ? {
+      ...singleplayer || p2pMultiplayer || localReplaySession ? {
         keepAlive: false,
       } : {},
       ...singleplayer ? {
         version: serverOptions.version,
+        connect () { },
+        Client: CustomChannelClient as any,
+      } : {},
+      ...localReplaySession ? {
         connect () { },
         Client: CustomChannelClient as any,
       } : {},
@@ -609,15 +629,17 @@ export async function connect (connectOptions: ConnectOptions) {
       void handleCustomChannel()
     }
     customEvents.emit('mineflayerBotCreated')
-    if (singleplayer || p2pMultiplayer) {
-      // in case of p2pMultiplayer there is still flying-squid on the host side
-      const _supportFeature = bot.supportFeature
-      bot.supportFeature = ((feature) => {
-        if (unsupportedLocalServerFeatures.includes(feature)) {
-          return false
-        }
-        return _supportFeature(feature)
-      }) as typeof bot.supportFeature
+    if (singleplayer || p2pMultiplayer || localReplaySession) {
+      if (singleplayer || p2pMultiplayer) {
+        // in case of p2pMultiplayer there is still flying-squid on the host side
+        const _supportFeature = bot.supportFeature
+        bot.supportFeature = ((feature) => {
+          if (unsupportedLocalServerFeatures.includes(feature)) {
+            return false
+          }
+          return _supportFeature(feature)
+        }) as typeof bot.supportFeature
+      }
 
       bot.emit('inject_allowed')
       bot._client.emit('connect')
@@ -667,6 +689,9 @@ export async function connect (connectOptions: ConnectOptions) {
     bot.loadPlugin(ping)
   }
   bot.loadPlugin(mouse)
+  if (!localReplaySession) {
+    bot.loadPlugin(localRelayServerPlugin)
+  }
   if (!bot) return
 
   const p2pConnectTimeout = p2pMultiplayer ? setTimeout(() => { throw new UserError('Spawn timeout. There might be error on the other side, check console.') }, 20_000) : undefined

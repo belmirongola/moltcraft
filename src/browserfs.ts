@@ -10,7 +10,10 @@ import { fsState, loadSave } from './loadSave'
 import { installResourcepackPack, installTexturePackFromHandle, updateTexturePackInstalledState } from './resourcePack'
 import { miscUiState } from './globalState'
 import { setLoadingScreenStatus } from './appStatus'
-const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive') // disable type checking
+import { VALID_REPLAY_EXTENSIONS, openFile } from './packetsReplay/replayPackets'
+import { getFixedFilesize } from './downloadAndOpenFile'
+import { packetsReplayState } from './react/state/packetsReplayState'
+const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive')
 
 browserfs.install(window)
 const defaultMountablePoints = {
@@ -621,22 +624,33 @@ export const openFilePicker = (specificCase?: 'resourcepack') => {
   if (!picker) {
     picker = document.createElement('input')
     picker.type = 'file'
-    picker.accept = '.zip'
+    picker.accept = specificCase ? '.zip' : [...VALID_REPLAY_EXTENSIONS, '.zip'].join(',')
 
     picker.addEventListener('change', () => {
       const file = picker.files?.[0]
       picker.value = ''
       if (!file) return
-      if (!file.name.endsWith('.zip')) {
-        const doContinue = confirm(`Are you sure ${file.name.slice(-20)} is .zip file? Only .zip files are supported. Continue?`)
-        if (!doContinue) return
-      }
       if (specificCase === 'resourcepack') {
+        if (!file.name.endsWith('.zip')) {
+          const doContinue = confirm(`Are you sure ${file.name.slice(-20)} is .zip file? ONLY .zip files are supported. Continue?`)
+          if (!doContinue) return
+        }
         void installResourcepackPack(file).catch((err) => {
           setLoadingScreenStatus(err.message, true)
         })
       } else {
-        void openWorldZip(file)
+        // eslint-disable-next-line no-lonely-if
+        if (VALID_REPLAY_EXTENSIONS.some(ext => file.name.endsWith(ext)) || file.name.startsWith('packets-replay')) {
+          void file.text().then(contents => {
+            openFile({
+              contents,
+              filename: file.name,
+              filesize: file.size
+            })
+          })
+        } else {
+          void openWorldZip(file)
+        }
       }
     })
     picker.hidden = true
