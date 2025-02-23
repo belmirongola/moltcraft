@@ -21,6 +21,7 @@ import destroyStage8 from '../../../assets/destroy_stage_8.png'
 import destroyStage9 from '../../../assets/destroy_stage_9.png'
 import { options } from '../../optionsStorage'
 import { isCypress } from '../../standaloneUtils'
+import { playerState } from '../playerState'
 
 function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
   // State
@@ -144,12 +145,33 @@ export default (bot: Bot) => {
   domListeners(bot)
   createDisplayManager(bot, viewer.scene, viewer.renderer)
 
+  otherListeners()
+}
+
+const otherListeners = () => {
   bot.on('startDigging', (block) => {
     customEvents.emit('digStart')
   })
 
   bot.on('goingToSleep', () => {
     showModal({ reactType: 'bed' })
+  })
+
+  bot.on('botArmSwingStart', (hand) => {
+    viewer.world.changeHandSwingingState(true, hand === 'left')
+  })
+
+  bot.on('botArmSwingEnd', (hand) => {
+    viewer.world.changeHandSwingingState(false, hand === 'left')
+  })
+
+  bot.on('startUsingItem', (item, slot, isOffhand, duration) => {
+    customEvents.emit('activateItem', item, isOffhand ? 45 : bot.quickBarSlot, isOffhand)
+    playerState.startUsingItem()
+  })
+
+  bot.on('stopUsingItem', () => {
+    playerState.stopUsingItem()
   })
 }
 
