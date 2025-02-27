@@ -3,12 +3,31 @@ import { openWorldFromHttpDir, openWorldZip } from './browserfs'
 import { getResourcePackNames, installResourcepackPack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
 import { setLoadingScreenStatus } from './appStatus'
 import { appQueryParams, appQueryParamsArray } from './appParams'
+import { VALID_REPLAY_EXTENSIONS, openFile } from './packetsReplay/replayPackets'
+import { createFullScreenProgressReporter } from './core/progressReporter'
 
 export const getFixedFilesize = (bytes: number) => {
   return prettyBytes(bytes, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const inner = async () => {
+  const { replayFileUrl } = appQueryParams
+  if (replayFileUrl) {
+    setLoadingScreenStatus('Downloading replay file...')
+    const response = await fetch(replayFileUrl)
+    const contentLength = response.headers?.get('Content-Length')
+    const size = contentLength ? +contentLength : undefined
+    const filename = replayFileUrl.split('/').pop()
+
+    const contents = await response.text()
+    openFile({
+      contents,
+      filename,
+      filesize: size
+    })
+    return true
+  }
+
   const mapUrlDir = appQueryParamsArray.mapDir ?? []
   const mapUrlDirGuess = appQueryParams.mapDirGuess
   const mapUrlDirBaseUrl = appQueryParams.mapDirBaseUrl
@@ -74,7 +93,7 @@ const inner = async () => {
   })).arrayBuffer()
   if (texturepack) {
     const name = mapUrl.slice(mapUrl.lastIndexOf('/') + 1).slice(-30)
-    await installResourcepackPack(buffer, name)
+    await installResourcepackPack(buffer, createFullScreenProgressReporter(), name)
   } else {
     await openWorldZip(buffer)
   }

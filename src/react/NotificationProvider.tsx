@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { proxy, useSnapshot } from 'valtio'
+import { useAppScale } from '../scaleInterface'
 import Notification from './Notification'
 
 type NotificationType = React.ComponentProps<typeof Notification> & {
@@ -34,6 +35,7 @@ export const showNotification = (
   notificationProxy.autoHide = autoHide
   notificationProxy.action = action
 }
+globalThis.showNotification = showNotification
 export const hideNotification = () => {
   // openNotification('') // reset
   notificationProxy.open = false
@@ -56,13 +58,19 @@ export default () => {
   //     openNotification('test', 'test', false, 'message')
   //   }, 1000)
   // }, [])
+  const scale = useAppScale()
 
-  return <Notification
-    action={action}
-    type={type}
-    message={message}
-    subMessage={subMessage}
-    open={open}
-    icon={icon}
-  />
+  return <div style={{
+    transform: `scale(${scale})`,
+    transformOrigin: 'top right',
+  }}>
+    <Notification
+      action={action}
+      type={type}
+      message={message}
+      subMessage={subMessage}
+      open={open}
+      icon={icon}
+    />
+  </div>
 }

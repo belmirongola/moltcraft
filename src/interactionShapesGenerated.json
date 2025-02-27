@@ -1632,20 +1632,20 @@
     },
     "stone_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -1664,34 +1664,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -1760,20 +1760,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -1792,34 +1792,34 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
@@ -2374,20 +2374,20 @@
     },
     "oak_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -2406,34 +2406,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -2502,20 +2502,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -2534,54 +2534,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "spruce_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -2600,34 +2600,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -2696,20 +2696,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -2728,54 +2728,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "birch_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -2794,34 +2794,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -2890,20 +2890,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -2922,54 +2922,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "jungle_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -2988,34 +2988,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -3084,20 +3084,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -3116,54 +3116,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "acacia_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -3182,34 +3182,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -3278,20 +3278,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -3310,54 +3310,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "cherry_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -3376,34 +3376,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -3472,20 +3472,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -3504,54 +3504,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "dark_oak_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -3570,34 +3570,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -3666,20 +3666,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -3698,54 +3698,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "mangrove_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -3764,34 +3764,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -3860,20 +3860,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -3892,54 +3892,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "bamboo_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -3958,34 +3958,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -4054,20 +4054,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -4086,34 +4086,34 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
@@ -5813,20 +5813,20 @@
     },
     "crimson_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -5845,34 +5845,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -5941,20 +5941,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -5973,54 +5973,54 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
     },
     "warped_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -6039,34 +6039,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -6135,20 +6135,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -6167,34 +6167,34 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]
@@ -6303,20 +6303,20 @@
     },
     "polished_blackstone_button": {
         "face=floor,facing=north,powered=false": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             2,
-            11
+            10
         ],
         "face=floor,facing=north,powered=true": [
-            6,
-            0,
             5,
-            10,
+            0,
+            6,
+            11,
             1,
-            11
+            10
         ],
         "face=floor,facing=south,powered=false": [
             5,
@@ -6335,34 +6335,34 @@
             10
         ],
         "face=floor,facing=west,powered=false": [
-            14,
+            6,
             0,
             5,
-            16,
+            10,
             2,
             11
         ],
         "face=floor,facing=west,powered=true": [
-            15,
+            6,
             0,
             5,
-            16,
+            10,
             1,
             11
         ],
         "face=floor,facing=east,powered=false": [
-            0,
+            6,
             0,
             5,
-            2,
+            10,
             2,
             11
         ],
         "face=floor,facing=east,powered=true": [
-            0,
+            6,
             0,
             5,
-            1,
+            10,
             1,
             11
         ],
@@ -6431,20 +6431,20 @@
             11
         ],
         "face=ceiling,facing=north,powered=false": [
-            6,
-            14,
             5,
-            10,
+            14,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=north,powered=true": [
-            6,
-            15,
             5,
-            10,
+            15,
+            6,
+            11,
             16,
-            11
+            10
         ],
         "face=ceiling,facing=south,powered=false": [
             5,
@@ -6463,34 +6463,34 @@
             10
         ],
         "face=ceiling,facing=west,powered=false": [
-            14,
+            6,
             14,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=west,powered=true": [
-            15,
+            6,
             15,
             5,
-            16,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=false": [
-            0,
+            6,
             14,
             5,
-            2,
+            10,
             16,
             11
         ],
         "face=ceiling,facing=east,powered=true": [
-            0,
+            6,
             15,
             5,
-            1,
+            10,
             16,
             11
         ]

@@ -58,7 +58,9 @@ export default ({ type = 'message', message, subMessage = '', open, icon = '', a
           gap: 2,
         }}
         >
-          <div>
+          <div style={{
+            whiteSpace: 'normal',
+          }}>
             {message}
           </div>
           <div style={{

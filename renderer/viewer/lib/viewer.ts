@@ -124,7 +124,6 @@ export class Viewer {
   async demoModel () {
     //@ts-expect-error
     const pos = cursorBlockRel(0, 1, 0).position
-    const blockProvider = worldBlockProvider(this.world.blockstatesModels, this.world.blocksAtlasParser!.atlas, 'latest')
 
     const mesh = await getMyHand()
     // mesh.rotation.y = THREE.MathUtils.degToRad(90)

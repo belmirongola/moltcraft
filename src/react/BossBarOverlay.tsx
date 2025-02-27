@@ -12,7 +12,8 @@ export type BossBarType = BossBarTypeRaw & {
   _title: string | Record<string, any> | null,
   _color: string,
   _dividers: number,
-  _health: number
+  _health: number,
+  lastUpdated: number
 }
 
 export default ({ bar }: { bar: BossBarType }) => {

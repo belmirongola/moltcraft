@@ -18,6 +18,8 @@ const writeCmd = (cmd: string) => {
   bot.chat(cmd)
 }
 
+let msg = 0
+const LIMIT_MSG = 100
 export const javaServerTester = {
   itemCustomLore () {
     const cmd = customStickNbt({
@@ -51,14 +53,16 @@ export const javaServerTester = {
     })
     writeCmd(cmd)
   },
+
   spamChat () {
-    for (let i = 0; i < 100; i++) {
+    for (let i = msg; i < msg + LIMIT_MSG; i++) {
       bot.chat('Hello, world, ' + i)
     }
+    msg += LIMIT_MSG
   },
   spamChatComplexMessage () {
-    for (let i = 0; i < 100; i++) {
-      bot.chat('/tell @a ')
+    for (let i = msg; i < msg + LIMIT_MSG; i++) {
+      bot.chat('/tell @a ' + i)
     }
   }
 }

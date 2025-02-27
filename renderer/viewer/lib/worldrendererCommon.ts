@@ -15,10 +15,11 @@ import { LineMaterial } from 'three-stdlib'
 import christmasPack from 'mc-assets/dist/textureReplacements/christmas'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import itemDefinitionsJson from 'mc-assets/dist/itemDefinitions.json'
+import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput } from './mesher/shared'
+import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { HandItemBlock } from './holdingBlock'
 import { updateStatText } from './ui/newStats'
@@ -34,6 +35,7 @@ export const defaultWorldRendererConfig = {
   showChunkBorders: false,
   numWorkers: 4,
   isPlayground: false,
+  renderEars: true,
   // game renderer setting actually
   showHand: false,
   viewBobbing: false
@@ -148,9 +150,23 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   debugStopGeometryUpdate = false
 
   @worldCleanup()
+  freeFlyMode = false
+  @worldCleanup()
+  freeFlyState = {
+    yaw: 0,
+    pitch: 0,
+    position: new Vec3(0, 0, 0)
+  }
+  @worldCleanup()
   itemsRenderer: ItemsRenderer | undefined
 
+  protocolCustomBlocks = new Map<string, CustomBlockModels>()
+
+  @worldCleanup()
+  blockStateModelInfo = new Map<string, BlockStateModelInfo>()
+
   abstract outputFormat: 'threeJs' | 'webgpu'
+  worldBlockProvider: WorldBlockProvider
 
   abstract changeBackgroundColor (color: [number, number, number]): void
 
@@ -225,6 +241,12 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
             this.workersProcessAverageTimeCount++
             this.workersProcessAverageTime = ((this.workersProcessAverageTime * (this.workersProcessAverageTimeCount - 1)) + data.processTime) / this.workersProcessAverageTimeCount
             this.maxWorkersProcessTime = Math.max(this.maxWorkersProcessTime, data.processTime)
+          }
+        }
+
+        if (data.type === 'blockStateModelInfo') {
+          for (const [cacheKey, info] of Object.entries(data.info)) {
+            this.blockStateModelInfo.set(cacheKey, info)
           }
         }
       }
@@ -315,7 +337,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.mesherConfig.version = this.version!
 
     this.sendMesherMcData()
-    await this.updateTexturesData()
+    await this.updateAssetsData()
   }
 
   sendMesherMcData () {
@@ -332,7 +354,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
   }
 
-  async updateTexturesData (resourcePackUpdate = false, prioritizeBlockTextures?: string[]) {
+  async updateAssetsData (resourcePackUpdate = false, prioritizeBlockTextures?: string[]) {
     const blocksAssetsParser = new AtlasParser(this.sourceData.blocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
     const itemsAssetsParser = new AtlasParser(this.sourceData.itemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
 
@@ -343,19 +365,24 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
 
     const customBlockTextures = Object.keys(this.customTextures.blocks?.textures ?? {})
+    console.time('createBlocksAtlas')
     const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
       const texture = this.customTextures?.blocks?.textures[textureName]
       return blockTexturesChanges[textureName] ?? texture
     }, /* this.customTextures?.blocks?.tileSize */undefined, prioritizeBlockTextures, customBlockTextures)
+    console.timeEnd('createBlocksAtlas')
+    console.time('createItemsAtlas')
     const { atlas: itemsAtlas, canvas: itemsCanvas } = await itemsAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
       const texture = this.customTextures?.items?.textures[textureName]
       if (!texture) return
       return texture
     }, this.customTextures?.items?.tileSize)
+    console.timeEnd('createItemsAtlas')
     this.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
     this.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
 
     this.itemsRenderer = new ItemsRenderer(this.version!, this.blockstatesModels, this.itemsAtlasParser, this.blocksAtlasParser)
+    this.worldBlockProvider = worldBlockProvider(this.blockstatesModels, this.blocksAtlasParser.atlas, 'latest')
 
     const texture = await new THREE.TextureLoader().loadAsync(this.blocksAtlasParser.latestImage)
     texture.magFilter = THREE.NearestFilter
@@ -394,6 +421,15 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     console.log('texture loaded')
   }
 
+  async downloadDebugAtlas (isItems = false) {
+    const atlasParser = (isItems ? this.itemsAtlasParser : this.blocksAtlasParser)!
+    const dataUrl = await atlasParser.createDebugImage(true)
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `atlas-debug-${isItems ? 'items' : 'blocks'}.png`
+    a.click()
+  }
+
   get worldMinYRender () {
     return Math.floor(Math.max(this.worldConfig.minY, this.mesherConfig.clipWorldBelowY ?? -Infinity) / 16) * 16
   }
@@ -409,9 +445,18 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.initialChunkLoadWasStartedIn ??= Date.now()
     this.loadedChunks[`${x},${z}`] = true
     this.updateChunksStatsText()
+
+    const chunkKey = `${x},${z}`
+    const customBlockModels = this.protocolCustomBlocks.get(chunkKey)
+
     for (const worker of this.workers) {
-      // todo optimize
-      worker.postMessage({ type: 'chunk', x, z, chunk })
+      worker.postMessage({
+        type: 'chunk',
+        x,
+        z,
+        chunk,
+        customBlockModels: customBlockModels || undefined
+      })
     }
     for (let y = this.worldMinYRender; y < this.worldConfig.worldHeight; y += 16) {
       const loc = new Vec3(x, y, z)
@@ -461,8 +506,17 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   setBlockStateId (pos: Vec3, stateId: number) {
     const needAoRecalculation = true
+    const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
+    const blockPosKey = `${pos.x},${pos.y},${pos.z}`
+    const customBlockModels = this.protocolCustomBlocks.get(chunkKey) || {}
+
     for (const worker of this.workers) {
-      worker.postMessage({ type: 'blockUpdate', pos, stateId })
+      worker.postMessage({
+        type: 'blockUpdate',
+        pos,
+        stateId,
+        customBlockModels
+      })
     }
     this.setSectionDirty(pos, true, true)
     if (this.neighborChunkUpdates) {

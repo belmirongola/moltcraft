@@ -35,12 +35,6 @@ export interface IPlayerState {
 }
 
 export class BasePlayerState implements IPlayerState {
-  getItemUsageTicks? (): number {
-    throw new Error('Method not implemented.')
-  }
-  getHeldItem? (isLeftHand: boolean): HandItemBlock | undefined {
-    throw new Error('Method not implemented.')
-  }
   reactive = proxy({
     playerSkin: undefined
   })

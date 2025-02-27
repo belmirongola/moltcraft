@@ -1,6 +1,7 @@
 import { Vec3 } from 'vec3'
 import { World } from './world'
 import { getSectionGeometry, setBlockStatesData as setMesherData } from './models'
+import { BlockStateModelInfo } from './shared'
 
 globalThis.structuredClone ??= (value) => JSON.parse(JSON.stringify(value))
 
@@ -106,19 +107,26 @@ const handleMessage = data => {
     }
     case 'chunk': {
       world.addColumn(data.x, data.z, data.chunk)
-
+      if (data.customBlockModels) {
+        const chunkKey = `${data.x},${data.z}`
+        world.customBlockModels.set(chunkKey, data.customBlockModels)
+      }
       break
     }
     case 'unloadChunk': {
       world.removeColumn(data.x, data.z)
+      world.customBlockModels.delete(`${data.x},${data.z}`)
       if (Object.keys(world.columns).length === 0) softCleanup()
-
       break
     }
     case 'blockUpdate': {
       const loc = new Vec3(data.pos.x, data.pos.y, data.pos.z).floored()
       world.setBlockStateId(loc, data.stateId)
 
+      const chunkKey = `${Math.floor(loc.x / 16) * 16},${Math.floor(loc.z / 16) * 16}`
+      if (data.customBlockModels) {
+        world.customBlockModels.set(chunkKey, data.customBlockModels)
+      }
       break
     }
     case 'reset': {
@@ -175,6 +183,21 @@ setInterval(() => {
     }
     dirtySections.delete(key)
   }
+
+  // Send new block state model info if any
+  if (world.blockStateModelInfo.size > 0) {
+    const newBlockStateInfo: Record<string, BlockStateModelInfo> = {}
+    for (const [cacheKey, info] of world.blockStateModelInfo) {
+      if (!world.sentBlockStateModels.has(cacheKey)) {
+        newBlockStateInfo[cacheKey] = info
+        world.sentBlockStateModels.add(cacheKey)
+      }
+    }
+    if (Object.keys(newBlockStateInfo).length > 0) {
+      postMessage({ type: 'blockStateModelInfo', info: newBlockStateInfo })
+    }
+  }
+
   // const time = performance.now() - start
   // console.log(`Processed ${sections.length} sections in ${time} ms (${time / sections.length} ms/section)`)
 }, 50)

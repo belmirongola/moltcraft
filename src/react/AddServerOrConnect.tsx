@@ -42,6 +42,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const qsParamProxy = parseQs ? appQueryParams.proxy : undefined
   const qsParamUsername = parseQs ? appQueryParams.username : undefined
   const qsParamLockConnect = parseQs ? appQueryParams.lockConnect : undefined
+  const qsParamAutoConnect = parseQs ? appQueryParams.autoConnect : undefined
 
   const parsedQsIp = parseServerAddress(qsParamIp)
   const parsedInitialIp = parseServerAddress(initialData?.ip)
@@ -121,7 +122,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   }
 
   useEffect(() => {
-    if (qsParamIp && qsParamVersion && allowAutoConnect) {
+    if (qsParamAutoConnect && qsParamIp && qsParamVersion && allowAutoConnect) {
       onQsConnect?.(commonUseOptions)
     }
   }, [])

@@ -10,11 +10,12 @@ import Slider from './react/Slider'
 import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
-import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
-import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay'
+import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
+import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showOptionsModal } from './react/SelectOption'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
+import { createNotificationProgressReporter } from './core/progressReporter'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -90,6 +91,9 @@ export const guiOptionsScheme: {
         max: 5,
         unit: '',
         tooltip: 'Additional distance to keep the chunks loading before unloading them by marking them as too far',
+      },
+      renderEars: {
+        tooltip: 'Enable rendering Deadmau5 ears for all players if their skin contains textures for it',
       },
       renderDebug: {
         values: [
@@ -178,7 +182,7 @@ export const guiOptionsScheme: {
               }
               if (choice === 'Enable') {
                 options.enabledResourcepack = name
-                await completeTexturePackInstall(name, name, false)
+                await completeResourcepackPackInstall(name, name, false, createNotificationProgressReporter())
                 return
               }
               if (choice === 'Uninstall') {
@@ -458,18 +462,18 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        const { active } = useSnapshot(packetsReplaceSessionState)
+        const { active } = useSnapshot(packetsRecordingState)
         return <Button
           inScreen
           onClick={() => {
-            packetsReplaceSessionState.active = !active
+            packetsRecordingState.active = !active
           }}
         >{active ? 'Stop' : 'Start'} Packets Replay Logging</Button>
       },
     },
     {
       custom () {
-        const { active, hasRecordedPackets } = useSnapshot(packetsReplaceSessionState)
+        const { active, hasRecordedPackets } = useSnapshot(packetsRecordingState)
         return <Button
           disabled={!hasRecordedPackets}
           inScreen

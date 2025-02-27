@@ -11,24 +11,6 @@ const mapIncludeDefined = (props) => {
   }
 }
 
-/*
-TODO (nbt)
-{
-    "extra": [
-        {
-            "italic": 0,
-            "underlined": 0,
-            "bold": 0,
-            "color": "aqua",
-            "obfuscated": 0,
-            "strikethrough": 0,
-            "text": "minecraft:lift"
-        }
-    ],
-    "text": ""
-}
-*/
-
 test('formatMessage', () => {
   const result = formatMessage({
     'json': {

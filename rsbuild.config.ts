@@ -33,6 +33,14 @@ if (fs.existsSync('./assets/release.json')) {
     releaseChangelog = releaseJson.changelog?.replace(/<!-- bump-type:[\w]+ -->/, '')
 }
 
+const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
+try {
+    Object.assign(configJson, JSON.parse(fs.readFileSync('./config.local.json', 'utf8')))
+} catch (err) {}
+if (dev) {
+    configJson.defaultProxy = ':8080'
+}
+
 // base options are in ./renderer/rsbuildSharedConfig.ts
 const appConfig = defineConfig({
     html: {
@@ -64,6 +72,7 @@ const appConfig = defineConfig({
             'process.env.RELEASE_LINK': JSON.stringify(releaseLink),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
             'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
+            'process.env.INLINED_APP_CONFIG': JSON.stringify(configJson),
         },
     },
     server: {
@@ -99,15 +108,8 @@ const appConfig = defineConfig({
                     if (fs.existsSync('./assets/release.json')) {
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
                     }
-                    const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
-                    let configLocalJson = {}
-                    try {
-                        configLocalJson = JSON.parse(fs.readFileSync('./config.local.json', 'utf8'))
-                    } catch (err) {}
-                    if (dev) {
-                        configJson.defaultProxy = ':8080'
-                    }
-                    fs.writeFileSync('./dist/config.json', JSON.stringify({ ...configJson, ...configLocalJson }), 'utf8')
+
+                    fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
                     }

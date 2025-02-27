@@ -7,6 +7,7 @@ settings:
 overrides:
   '@nxg-org/mineflayer-physics-util': latest
   buffer: ^6.0.3
+  vec3: 0.1.10
   three: 0.154.0
   diamond-square: github:zardoy/diamond-square
   prismarine-block: github:zardoy/prismarine-block#next-era
@@ -134,14 +135,14 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
       mcraft-fun-mineflayer:
-        specifier: 0.0.3
-        version: 0.0.3(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13))
+        specifier: ^0.1.7
+        version: 0.1.7(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/dde528c876fd4e84a3c9635d900fba5a3918905a(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
       minecraft-protocol:
         specifier: github:PrismarineJS/node-minecraft-protocol#master
-        version: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+        version: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
       mineflayer-item-map-downloader:
         specifier: github:zardoy/mineflayer-item-map-downloader
         version: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824(patch_hash=bck55yjvd4wrgz46x7o4vfur5q)(encoding@0.1.13)
@@ -233,8 +234,8 @@ importers:
         specifier: ^1.11.1
         version: 1.11.2(@types/react@18.2.20)(react@18.2.0)
       vec3:
-        specifier: ^0.1.7
-        version: 0.1.8
+        specifier: 0.1.10
+        version: 0.1.10
       wait-on:
         specifier: ^7.2.0
         version: 7.2.0(debug@4.4.0)
@@ -349,14 +350,14 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.34
-        version: 0.2.34
+        specifier: ^0.2.37
+        version: 0.2.37
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
       mineflayer:
         specifier: github:GenerelSchwerz/mineflayer
-        version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/400ceb2bd0ff8d67d488d48c9dc94da5e6fcdc1a(encoding@0.1.13)
+        version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/dde528c876fd4e84a3c9635d900fba5a3918905a(encoding@0.1.13)
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -460,8 +461,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0
       vec3:
-        specifier: ^0.1.7
-        version: 0.1.8
+        specifier: 0.1.10
+        version: 0.1.10
     optionalDependencies:
       canvas:
         specifier: ^2.11.2
@@ -1873,8 +1874,8 @@ packages:
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     resolution: {integrity: sha512-F5vX/lerlWx/5HVlkDNbvrtQ19PL6iG8i4ItPTIRtjGiFzusDefP7DI226zSFR8Wlaw45qHv0jn814p/4/qVdQ==}
 
-  '@nxg-org/mineflayer-physics-util@1.7.11':
-    resolution: {integrity: sha512-IUgIIEqopXuirM2ZI1+iPFdZQMs8/ckfsHS6634nEG4DpavnxG5NsfewJQgvVr+xxtndJ+eJpnrfMQul2d42iw==}
+  '@nxg-org/mineflayer-physics-util@1.7.13':
+    resolution: {integrity: sha512-88JGHisrYTfoecXMwvwBhmo/IV2DXXvfoSLqhfOQUF2qOIdz0dA7bG1PdfAMehRvUkR0WFWoeQV3tqiiieIAHQ==}
 
   '@nxg-org/mineflayer-tracker@1.2.1':
     resolution: {integrity: sha512-SI1ffF8zvg3/ZNE021Ja2W0FZPN+WbQDZf8yFqOcXtPRXAtM9W6HvoACdzXep8BZid7WYgYLIgjKpB+9RqvCNQ==}
@@ -3305,6 +3306,9 @@ packages:
     resolution: {integrity: sha512-FCAJojipPn0bXjuEpjOOOMN8FZDkxfWWp4JGN9mifU2IhxvKyXZYqpzPHdnTSUpmPDy+tsslB6Z1g+Vg6nVbYA==}
     engines: {node: '>=8'}
 
+  apl-image-packer@1.1.0:
+    resolution: {integrity: sha512-Pb1Q76cp8xpY8X4OqVrnk5v1/tB5kOtCzwgOnx8IxMNeekFh/eNUiUKeX5fvGNViZiLmuKAAQc5ICuBDspZ4cA==}
+
   app-root-dir@1.0.2:
     resolution: {integrity: sha512-jlpIfsOoNoafl92Sz//64uQHGSyMrD2vYG5d8o2a4qGvyNCvXur7bzIsWtAC/6flI2RYAp3kv8rsfBtaLm7w0g==}
 
@@ -3718,8 +3722,8 @@ packages:
     resolution: {integrity: sha512-9EtFOZR8g22CL7BWjJ9BUx1+A/djkofnyW3aOXZORNW2kxoUpx2h+uN2cOqwPmFhnpVmxg+KW2OjOSgChTEvsQ==}
     engines: {node: '>=6'}
 
-  call-bind-apply-helpers@1.0.1:
-    resolution: {integrity: sha512-BhYE+WDaywFg2TBWYNXAE+8B1ATnThNBqXHP5nQu0jWJdVvY2hvkpyB3qOmtmDePiS5/BDQ8wASEWGMWRG148g==}
+  call-bind-apply-helpers@1.0.2:
+    resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
     engines: {node: '>= 0.4'}
 
   call-bind@1.0.8:
@@ -4545,8 +4549,9 @@ packages:
     resolution: {integrity: sha512-j6vWzfrGVfyXxge+O0x5sh6cvxAog0a/4Rdd2K36zCMV5eJ+/+tOAngRO8cODMNWbVRdVlmGZQL2YS3yR8bIUA==}
     engines: {node: '>= 0.4'}
 
-  es-shim-unscopables@1.0.2:
-    resolution: {integrity: sha512-J3yBRXCzDu4ULnQwxyToo/OjdMx6akgVC7K6few0a7F/0wLtmKKN7I73AH5T2836UuXRqN7Qg+IIUw/+YJksRw==}
+  es-shim-unscopables@1.1.0:
+    resolution: {integrity: sha512-d9T8ucsEhh8Bi1woXCf+TIKDIROLG5WCkxg8geBCbvk22kzwC5G2OnXVMO6FUsvQlgUUXQ2itephWDLqDzbeCw==}
+    engines: {node: '>= 0.4'}
 
   es-to-primitive@1.3.0:
     resolution: {integrity: sha512-w+5mJ3GuFL+NjVtJlvydShqE1eN3h3PbI7/5LAsYJP/2qtuMXjfL2LpHSRqo4b4eSF5K/DH1JXKUAHSB2UW50g==}
@@ -5133,8 +5138,8 @@ packages:
   get-func-name@2.0.2:
     resolution: {integrity: sha512-8vXOvuE167CtIc3OyItco7N/dpRtBbYOsPsXCz7X/PMnlGjYjSGuZJgM1Y7mmew7BKf9BqvLX2tnOVy1BBUsxQ==}
 
-  get-intrinsic@1.2.7:
-    resolution: {integrity: sha512-VW6Pxhsrk0KAOqs3WEd0klDiF/+V7gQOpAvY1jVU/LHmaD/kQO4523aiJuikX/QAKYiW6x8Jh+RJej1almdtCA==}
+  get-intrinsic@1.3.0:
+    resolution: {integrity: sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ==}
     engines: {node: '>= 0.4'}
 
   get-nonce@1.0.1:
@@ -6243,13 +6248,13 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  mc-assets@0.2.34:
-    resolution: {integrity: sha512-BvE2mVs9XETLFb+FN1Zbc4mJ+CvZqgxVd3kxhERp1QljudDmMsWsMcK2EUTrevuE6a7L3F2kx8XC1vVA79i/ow==}
+  mc-assets@0.2.37:
+    resolution: {integrity: sha512-49tk3shwxsDoV0PrrbORZEKg613vUQPULgusWjXNl8JEma5y41LEo57D6q4aHliXsV3Gb9ThrkFf6hIb0WlY1Q==}
     engines: {node: '>=18.0.0'}
 
-  mcraft-fun-mineflayer@0.0.3:
-    resolution: {integrity: sha512-IqYXHk5ihQOF9FzEpMWsFwgilTySklYVj3AODK7sdgaSe+pU9wZllJjVvsYdc/F3uLMgogkyTLuVoEVMD+UiSA==}
-    version: 0.0.3
+  mcraft-fun-mineflayer@0.1.7:
+    resolution: {integrity: sha512-DJPpp1YFwztoscdIOwfqBV9lbotva621F9GEep3BlqG3l06UdTzX2ElkvwyTR0IurFFBX/YKsNfxwL5WtLytgw==}
+    version: 0.1.7
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     peerDependencies:
       '@roamhq/wrtc': '*'
@@ -6457,8 +6462,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8}
     version: 1.0.1
 
-  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76:
-    resolution: {tarball: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76}
+  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d:
+    resolution: {tarball: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d}
     version: 1.54.0
     engines: {node: '>=22'}
 
@@ -6480,8 +6485,8 @@ packages:
     resolution: {integrity: sha512-q7cmpZFaSI6sodcMJxc2GkV8IO84HbsUP+xNipGKfGg+FMISKabzdJ838Axb60qRtZrp6ny7LluQE7lesHvvxQ==}
     engines: {node: '>=18'}
 
-  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/400ceb2bd0ff8d67d488d48c9dc94da5e6fcdc1a:
-    resolution: {tarball: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/400ceb2bd0ff8d67d488d48c9dc94da5e6fcdc1a}
+  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/dde528c876fd4e84a3c9635d900fba5a3918905a:
+    resolution: {tarball: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/dde528c876fd4e84a3c9635d900fba5a3918905a}
     version: 4.25.0
     engines: {node: '>=18'}
 
@@ -8886,8 +8891,8 @@ packages:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
 
-  vec3@0.1.8:
-    resolution: {integrity: sha512-LfKrP625Bsg/Tj52YdYPsHmpsJuo+tc6fLxZxXjEo9k2xSspKlPvoYTHehykKhp1FvV9nm+XU3Ehej5/9tpDCg==}
+  vec3@0.1.10:
+    resolution: {integrity: sha512-Sr1U3mYtMqCOonGd3LAN9iqy0qF6C+Gjil92awyK/i2OwiUo9bm7PnLgFpafymun50mOjnDcg4ToTgRssrlTcw==}
 
   verror@1.10.0:
     resolution: {integrity: sha512-ZZKSmDAEFOijERBLkmYfJ+vmk3w+7hOLYDNkRCuRuMJGEmqYNCNLyBBFwWKVMhfwaEF3WOd0Zlw86U/WC/+nYw==}
@@ -10920,10 +10925,10 @@ snapshots:
 
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.7.11
+      '@nxg-org/mineflayer-physics-util': 1.7.13
       strict-event-emitter-types: 2.0.0
 
-  '@nxg-org/mineflayer-physics-util@1.7.11':
+  '@nxg-org/mineflayer-physics-util@1.7.13':
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.3
 
@@ -12774,7 +12779,7 @@ snapshots:
       flatmap: 0.0.3
       long: 5.2.3
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
       mkdirp: 2.1.6
       node-gzip: 1.1.2
       node-rsa: 1.1.1
@@ -12792,7 +12797,7 @@ snapshots:
       sanitize-filename: 1.6.3
       typed-emitter: 1.4.0
       uuid-1345: 1.0.2
-      vec3: 0.1.8
+      vec3: 0.1.10
       yaml: 2.4.1
       yargs: 17.7.2
     transitivePeerDependencies:
@@ -12810,7 +12815,7 @@ snapshots:
       flatmap: 0.0.3
       long: 5.2.3
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
       mkdirp: 2.1.6
       node-gzip: 1.1.2
       node-rsa: 1.1.1
@@ -12828,7 +12833,7 @@ snapshots:
       sanitize-filename: 1.6.3
       typed-emitter: 1.4.0
       uuid-1345: 1.0.2
-      vec3: 0.1.8
+      vec3: 0.1.10
       yaml: 2.4.1
       yargs: 17.7.2
     transitivePeerDependencies:
@@ -12984,6 +12989,8 @@ snapshots:
 
   apache-md5@1.1.8: {}
 
+  apl-image-packer@1.1.0: {}
+
   app-root-dir@1.0.2: {}
 
   aproba@2.0.0:
@@ -13033,7 +13040,7 @@ snapshots:
       define-properties: 1.2.1
       es-abstract: 1.23.9
       es-object-atoms: 1.1.1
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       is-string: 1.1.1
 
   array-union@2.1.0: {}
@@ -13047,28 +13054,28 @@ snapshots:
       es-abstract: 1.23.9
       es-errors: 1.3.0
       es-object-atoms: 1.1.1
-      es-shim-unscopables: 1.0.2
+      es-shim-unscopables: 1.1.0
 
   array.prototype.flat@1.3.3:
     dependencies:
       call-bind: 1.0.8
       define-properties: 1.2.1
       es-abstract: 1.23.9
-      es-shim-unscopables: 1.0.2
+      es-shim-unscopables: 1.1.0
 
   array.prototype.flatmap@1.3.3:
     dependencies:
       call-bind: 1.0.8
       define-properties: 1.2.1
       es-abstract: 1.23.9
-      es-shim-unscopables: 1.0.2
+      es-shim-unscopables: 1.1.0
 
   array.prototype.toreversed@1.1.2:
     dependencies:
       call-bind: 1.0.8
       define-properties: 1.2.1
       es-abstract: 1.23.9
-      es-shim-unscopables: 1.0.2
+      es-shim-unscopables: 1.1.0
 
   array.prototype.tosorted@1.1.4:
     dependencies:
@@ -13076,7 +13083,7 @@ snapshots:
       define-properties: 1.2.1
       es-abstract: 1.23.9
       es-errors: 1.3.0
-      es-shim-unscopables: 1.0.2
+      es-shim-unscopables: 1.1.0
 
   arraybuffer.prototype.slice@1.0.4:
     dependencies:
@@ -13085,7 +13092,7 @@ snapshots:
       define-properties: 1.2.1
       es-abstract: 1.23.9
       es-errors: 1.3.0
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       is-array-buffer: 3.0.5
 
   arraybuffer.slice@0.0.7:
@@ -13517,22 +13524,22 @@ snapshots:
   cachedir@2.4.0:
     optional: true
 
-  call-bind-apply-helpers@1.0.1:
+  call-bind-apply-helpers@1.0.2:
     dependencies:
       es-errors: 1.3.0
       function-bind: 1.1.2
 
   call-bind@1.0.8:
     dependencies:
-      call-bind-apply-helpers: 1.0.1
+      call-bind-apply-helpers: 1.0.2
       es-define-property: 1.0.1
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       set-function-length: 1.2.2
 
   call-bound@1.0.3:
     dependencies:
-      call-bind-apply-helpers: 1.0.1
-      get-intrinsic: 1.2.7
+      call-bind-apply-helpers: 1.0.2
+      get-intrinsic: 1.3.0
 
   callsites@3.1.0: {}
 
@@ -14266,7 +14273,7 @@ snapshots:
       prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
       prismarine-registry: 1.11.0
       random-seed: 0.3.0
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   diff-match-patch@1.0.5: {}
 
@@ -14347,7 +14354,7 @@ snapshots:
 
   dunder-proto@1.0.1:
     dependencies:
-      call-bind-apply-helpers: 1.0.1
+      call-bind-apply-helpers: 1.0.2
       es-errors: 1.3.0
       gopd: 1.2.0
 
@@ -14531,7 +14538,7 @@ snapshots:
       es-set-tostringtag: 2.1.0
       es-to-primitive: 1.3.0
       function.prototype.name: 1.1.8
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       get-proto: 1.0.1
       get-symbol-description: 1.1.0
       globalthis: 1.0.4
@@ -14582,7 +14589,7 @@ snapshots:
       es-errors: 1.3.0
       es-set-tostringtag: 2.1.0
       function-bind: 1.1.2
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       globalthis: 1.0.4
       gopd: 1.2.0
       has-property-descriptors: 1.0.2
@@ -14603,11 +14610,11 @@ snapshots:
   es-set-tostringtag@2.1.0:
     dependencies:
       es-errors: 1.3.0
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       has-tostringtag: 1.0.2
       hasown: 2.0.2
 
-  es-shim-unscopables@1.0.2:
+  es-shim-unscopables@1.1.0:
     dependencies:
       hasown: 2.0.2
 
@@ -15427,9 +15434,9 @@ snapshots:
 
   get-func-name@2.0.2: {}
 
-  get-intrinsic@1.2.7:
+  get-intrinsic@1.3.0:
     dependencies:
-      call-bind-apply-helpers: 1.0.1
+      call-bind-apply-helpers: 1.0.2
       es-define-property: 1.0.1
       es-errors: 1.3.0
       es-object-atoms: 1.1.1
@@ -15465,7 +15472,7 @@ snapshots:
     dependencies:
       call-bound: 1.0.3
       es-errors: 1.3.0
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
 
   get-tsconfig@4.7.2:
     dependencies:
@@ -15931,7 +15938,7 @@ snapshots:
     dependencies:
       call-bind: 1.0.8
       call-bound: 1.0.3
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
 
   is-arrayish@0.2.1: {}
 
@@ -15986,7 +15993,7 @@ snapshots:
   is-data-view@1.0.2:
     dependencies:
       call-bound: 1.0.3
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       is-typed-array: 1.1.15
 
   is-date-object@1.1.0:
@@ -16135,7 +16142,7 @@ snapshots:
   is-weakset@2.0.4:
     dependencies:
       call-bound: 1.0.3
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
 
   is-windows@1.0.2: {}
 
@@ -16193,7 +16200,7 @@ snapshots:
     dependencies:
       define-data-property: 1.1.4
       es-object-atoms: 1.1.1
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       get-proto: 1.0.1
       has-symbols: 1.1.0
       set-function-name: 2.0.2
@@ -16682,16 +16689,17 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  mc-assets@0.2.34:
+  mc-assets@0.2.37:
     dependencies:
+      apl-image-packer: 1.1.0
       zod: 3.24.1
 
-  mcraft-fun-mineflayer@0.0.3(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)):
+  mcraft-fun-mineflayer@0.1.7(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/dde528c876fd4e84a3c9635d900fba5a3918905a(encoding@0.1.13)):
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
-      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      mineflayer: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/dde528c876fd4e84a3c9635d900fba5a3918905a(encoding@0.1.13)
       prismarine-item: 1.16.0
       ws: 8.18.0
     transitivePeerDependencies:
@@ -16999,7 +17007,7 @@ snapshots:
       - '@types/react'
       - react
 
-  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13):
+  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13):
     dependencies:
       '@types/node-rsa': 1.1.4
       '@types/readable-stream': 4.0.12
@@ -17046,7 +17054,7 @@ snapshots:
   minecrafthawkeye@1.3.6:
     dependencies:
       detect-collisions: 7.0.5
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   mineflayer-item-map-downloader@https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824(patch_hash=bck55yjvd4wrgz46x7o4vfur5q)(encoding@0.1.13):
     dependencies:
@@ -17064,12 +17072,12 @@ snapshots:
       prismarine-item: 1.16.0
       prismarine-nbt: 2.5.0
       prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   mineflayer@4.25.0(encoding@0.1.13):
     dependencies:
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)
       prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
       prismarine-chat: 1.10.1
@@ -17084,16 +17092,16 @@ snapshots:
       prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
       protodef: 1.18.0
       typed-emitter: 1.4.0
-      vec3: 0.1.8
+      vec3: 0.1.10
     transitivePeerDependencies:
       - encoding
       - supports-color
 
-  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/400ceb2bd0ff8d67d488d48c9dc94da5e6fcdc1a(encoding@0.1.13):
+  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/dde528c876fd4e84a3c9635d900fba5a3918905a(encoding@0.1.13):
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.7.11
+      '@nxg-org/mineflayer-physics-util': 1.7.13
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)
       prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
       prismarine-chat: 1.10.1
@@ -17108,7 +17116,7 @@ snapshots:
       prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
       protodef: 1.18.0
       typed-emitter: 1.4.0
-      vec3: 0.1.8
+      vec3: 0.1.10
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -17566,7 +17574,7 @@ snapshots:
 
   own-keys@1.0.1:
     dependencies:
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       object-keys: 1.1.1
       safe-push-apply: 1.0.0
 
@@ -17896,7 +17904,7 @@ snapshots:
       prismarine-registry: 1.11.0
       smart-buffer: 4.2.0
       uint4: 0.1.2
-      vec3: 0.1.8
+      vec3: 0.1.10
       xxhash-wasm: 0.4.2
     transitivePeerDependencies:
       - minecraft-data
@@ -17906,14 +17914,14 @@ snapshots:
       prismarine-chat: 1.10.1
       prismarine-item: 1.16.0
       prismarine-registry: 1.11.0
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   prismarine-entity@2.5.0:
     dependencies:
       prismarine-chat: 1.10.1
       prismarine-item: 1.16.0
       prismarine-registry: 1.11.0
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   prismarine-item@1.16.0:
     dependencies:
@@ -17928,7 +17936,7 @@ snapshots:
     dependencies:
       minecraft-data: 3.83.1
       prismarine-nbt: 2.5.0
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   prismarine-provider-anvil@https://codeload.github.com/zardoy/prismarine-provider-anvil/tar.gz/1d548fac63fe977c8281f0a9a522b37e4d92d0b7(minecraft-data@3.83.1):
     dependencies:
@@ -17937,7 +17945,7 @@ snapshots:
       prismarine-nbt: 2.5.0
       prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
       uint4: 0.1.2
-      vec3: 0.1.8
+      vec3: 0.1.10
     transitivePeerDependencies:
       - minecraft-data
 
@@ -17965,7 +17973,7 @@ snapshots:
       prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
       prismarine-nbt: 2.5.0
       prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   prismarine-windows@2.9.0:
     dependencies:
@@ -17975,7 +17983,7 @@ snapshots:
 
   prismarine-world@https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c:
     dependencies:
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   process-nextick-args@2.0.1: {}
 
@@ -18523,7 +18531,7 @@ snapshots:
       es-abstract: 1.23.9
       es-errors: 1.3.0
       es-object-atoms: 1.1.1
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       get-proto: 1.0.1
       which-builtin-type: 1.2.1
 
@@ -18724,7 +18732,7 @@ snapshots:
     dependencies:
       call-bind: 1.0.8
       call-bound: 1.0.3
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       has-symbols: 1.1.0
       isarray: 2.0.5
 
@@ -18860,7 +18868,7 @@ snapshots:
       define-data-property: 1.1.4
       es-errors: 1.3.0
       function-bind: 1.1.2
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       gopd: 1.2.0
       has-property-descriptors: 1.0.2
 
@@ -18935,14 +18943,14 @@ snapshots:
     dependencies:
       call-bound: 1.0.3
       es-errors: 1.3.0
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       object-inspect: 1.13.3
 
   side-channel-weakmap@1.0.2:
     dependencies:
       call-bound: 1.0.3
       es-errors: 1.3.0
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       object-inspect: 1.13.3
       side-channel-map: 1.0.1
 
@@ -19305,7 +19313,7 @@ snapshots:
       es-abstract: 1.23.9
       es-errors: 1.3.0
       es-object-atoms: 1.1.1
-      get-intrinsic: 1.2.7
+      get-intrinsic: 1.3.0
       gopd: 1.2.0
       has-symbols: 1.1.0
       internal-slot: 1.1.0
@@ -19979,7 +19987,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vec3@0.1.8: {}
+  vec3@0.1.10: {}
 
   verror@1.10.0:
     dependencies:

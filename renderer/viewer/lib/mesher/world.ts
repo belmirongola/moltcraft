@@ -5,7 +5,7 @@ import { Vec3 } from 'vec3'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import moreBlockDataGeneratedJson from '../moreBlockDataGenerated.json'
 import legacyJson from '../../../../src/preflatMap.json'
-import { defaultMesherConfig } from './shared'
+import { defaultMesherConfig, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey } from './shared'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 
 const ignoreAoBlocks = Object.keys(moreBlockDataGeneratedJson.noOcclusions)
@@ -39,7 +39,6 @@ export type WorldBlock = Omit<Block, 'position'> & {
   _properties?: Record<string, any>
 }
 
-
 export class World {
   config = defaultMesherConfig
   Chunk: typeof import('prismarine-chunk/types/index').PCChunk
@@ -48,6 +47,9 @@ export class World {
   biomeCache: { [id: number]: mcData.Biome }
   preflat: boolean
   erroredBlockModel?: BlockModelPartsResolved
+  customBlockModels = new Map<string, CustomBlockModels>() // chunkKey -> blockModels
+  sentBlockStateModels = new Set<string>()
+  blockStateModelInfo = new Map<string, BlockStateModelInfo>()
 
   constructor (version) {
     this.Chunk = Chunks(version) as any
@@ -122,10 +124,12 @@ export class World {
     return this.getColumn(Math.floor(pos.x / 16) * 16, Math.floor(pos.z / 16) * 16)
   }
 
-  getBlock (pos: Vec3, blockProvider?, attr?): WorldBlock | null {
+  getBlock (pos: Vec3, blockProvider?: WorldBlockProvider, attr?: { hadErrors?: boolean }): WorldBlock | null {
     // for easier testing
     if (!(pos instanceof Vec3)) pos = new Vec3(...pos as [number, number, number])
     const key = columnKey(Math.floor(pos.x / 16) * 16, Math.floor(pos.z / 16) * 16)
+    const blockPosKey = `${pos.x},${pos.y},${pos.z}`
+    const modelOverride = this.customBlockModels.get(key)?.[blockPosKey]
 
     const column = this.columns[key]
     // null column means chunk not loaded
@@ -135,10 +139,15 @@ export class World {
     const locInChunk = posInChunk(loc)
     const stateId = column.getBlockStateId(locInChunk)
 
-    if (!this.blockCache[stateId]) {
+    const cacheKey = getBlockAssetsCacheKey(stateId, modelOverride)
+
+    if (!this.blockCache[cacheKey]) {
       const b = column.getBlock(locInChunk) as unknown as WorldBlock
+      if (modelOverride) {
+        b.name = modelOverride
+      }
       b.isCube = isCube(b.shapes)
-      this.blockCache[stateId] = b
+      this.blockCache[cacheKey] = b
       Object.defineProperty(b, 'position', {
         get () {
           throw new Error('position is not reliable, use pos parameter instead of block.position')
@@ -163,7 +172,7 @@ export class World {
       }
     }
 
-    const block = this.blockCache[stateId]
+    const block: WorldBlock = this.blockCache[cacheKey]
 
     if (block.models === undefined && blockProvider) {
       if (!attr) throw new Error('attr is required')
@@ -188,15 +197,41 @@ export class World {
           }
         }
 
-        block.models = blockProvider.getAllResolvedModels0_1({
-          name: block.name,
-          properties: props,
-        }, this.preflat)! // fixme! this is a hack (also need a setting for all versions)
-        if (!block.models!.length) {
+        const useFallbackModel = !!(this.preflat || modelOverride)
+        const issues = [] as string[]
+        const resolvedModelNames = [] as string[]
+        const resolvedConditions = [] as string[]
+        block.models = blockProvider.getAllResolvedModels0_1(
+          {
+            name: block.name,
+            properties: props,
+          },
+          useFallbackModel,
+          issues,
+          resolvedModelNames,
+          resolvedConditions
+        )!
+
+        // Track block state model info
+        if (!this.sentBlockStateModels.has(cacheKey)) {
+          this.blockStateModelInfo.set(cacheKey, {
+            cacheKey,
+            issues,
+            modelNames: resolvedModelNames,
+            conditions: resolvedConditions
+          })
+        }
+
+        if (!block.models.length) {
           if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
             console.debug('[mesher] block to render not found', block.name, props)
           }
           block.models = null
+        }
+
+        if (block.models && modelOverride) {
+          const model = block.models[0]
+          block.transparent = model[0]?.['transparent'] ?? block.transparent
         }
       } catch (err) {
         this.erroredBlockModel ??= blockProvider.getAllResolvedModels0_1({ name: 'errored', properties: {} })
@@ -210,6 +245,7 @@ export class World {
     if (block.name === 'flowing_lava') block.name = 'lava'
     if (block.name === 'bubble_column') block.name = 'water' // TODO need to distinguish between water and bubble column
     // block.position = loc // it overrides position of all currently loaded blocks
+    //@ts-expect-error
     block.biome = this.biomeCache[column.getBiome(locInChunk)] ?? this.biomeCache[1] ?? this.biomeCache[0]
     if (block.name === 'redstone_ore') block.transparent = false
     return block

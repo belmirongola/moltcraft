@@ -88,8 +88,7 @@ export class SmoothSwitcher {
     onCancelled?: () => void
   ): void {
     if (this.isTransitioning) {
-      onCancelled?.()
-      this.animationController.forceFinish()
+      this.animationController.forceFinish(false)
     }
 
     this.transitioningToStateName = stateName ?? ''
@@ -116,7 +115,7 @@ export class SmoothSwitcher {
         })
         .start()
       return group
-    })
+    }, onCancelled)
   }
 
   /**

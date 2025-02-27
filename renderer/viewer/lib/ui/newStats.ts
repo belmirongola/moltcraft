@@ -15,7 +15,7 @@ export const addNewStat = (id: string, width = 80, x = rightOffset, y = lastY) =
   pane.style.padding = '2px'
   pane.style.fontFamily = 'monospace'
   pane.style.fontSize = '12px'
-  pane.style.zIndex = '10000'
+  pane.style.zIndex = '100'
   pane.style.pointerEvents = 'none'
   document.body.appendChild(pane)
   stats[id] = pane

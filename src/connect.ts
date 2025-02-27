@@ -23,6 +23,9 @@ export type ConnectOptions = {
   peerOptions?: any
   viewerWsConnect?: string
   saveServerToHistory?: boolean
+
+  /** Will enable local replay server */
+  worldStateFileContents?: string
 }
 
 export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVersionSelect) => {

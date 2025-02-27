@@ -207,7 +207,8 @@ export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false, full
     // is item
     return {
       texture: itemTexture.type,
-      slice: itemTexture.slice
+      slice: itemTexture.slice,
+      modelName: itemModelName
     }
   } else {
     // is block

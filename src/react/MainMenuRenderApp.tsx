@@ -75,7 +75,7 @@ export const mainMenuState = proxy({
 let disableAnimation = false
 export default () => {
   const haveModals = useSnapshot(activeModalStack).length
-  const { gameLoaded, appLoaded, appConfig } = useSnapshot(miscUiState)
+  const { gameLoaded, appLoaded, appConfig, singleplayerAvailable } = useSnapshot(miscUiState)
 
   const noDisplay = haveModals || gameLoaded || !appLoaded
 
@@ -118,6 +118,7 @@ export default () => {
   return <Transition in={!noDisplay} timeout={disableAnimation ? 0 : 100} mountOnEnter unmountOnExit>
     {(state) => <div style={{ transition: state === 'exiting' || disableAnimation ? '' : '100ms opacity ease-in', ...state === 'entered' ? { opacity: 1 } : { opacity: 0 } }}>
       <MainMenu
+        singleplayerAvailable={singleplayerAvailable}
         connectToServerAction={() => showModal({ reactType: 'serversList' })}
         singleplayerAction={async () => {
           const oldFormatSave = fs.existsSync('./world/level.dat')

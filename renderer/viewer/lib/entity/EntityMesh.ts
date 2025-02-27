@@ -2,15 +2,14 @@ import * as THREE from 'three'
 import { OBJLoader } from 'three-stdlib'
 import huskPng from 'mc-assets/dist/other-textures/latest/entity/zombie/husk.png'
 import { Vec3 } from 'vec3'
+import arrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/arrow.png'
 import spectralArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/spectral_arrow.png'
 import tippedArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/tipped_arrow.png'
 import { WorldRendererCommon } from '../worldrendererCommon'
+import { loadTexture } from '../utils'
 import entities from './entities.json'
 import { externalModels } from './objModels'
 import externalTexturesJson from './externalTextures.json'
-// import { loadTexture } from globalThis.isElectron ? '../utils.electron.js' : '../utils';
-
-const { loadTexture } = globalThis.isElectron ? require('../utils.electron.js') : require('../utils')
 
 interface ElemFace {
   dir: [number, number, number]
@@ -152,7 +151,8 @@ function addCube (
   sameTextureForAllFaces = false,
   texWidth = 64,
   texHeight = 64,
-  mirror = false
+  mirror = false,
+  errors: string[] = []
 ): void {
   const cubeRotation = new THREE.Euler(0, 0, 0)
   if (cube.rotation) {
@@ -175,6 +175,14 @@ function addCube (
         u = (cube.uv[0] + dot(pos[3] ? u1 : u0, cube.size)) / texWidth
         v = (cube.uv[1] + dot(pos[4] ? v1 : v0, cube.size)) / texHeight
       }
+      // if (isNaN(u) || isNaN(v)) {
+      //   errors.push(`NaN u: ${u}, v: ${v}`)
+      //   continue
+      // }
+      // if (u < 0 || u > 1 || v < 0 || v > 1) {
+      //   errors.push(`u: ${u}, v: ${v} out of range`)
+      //   continue
+      // }
 
       const posX = eastOrWest && mirror ? pos[0] ^ 1 : pos[0]
       const posY = pos[1]
@@ -215,22 +223,24 @@ function addCube (
 }
 
 export function getMesh (
-  worldRenderer: WorldRendererCommon,
+  worldRenderer: WorldRendererCommon | undefined,
   texture: string,
   jsonModel: JsonModel,
-  overrides: EntityOverrides = {}
+  overrides: EntityOverrides = {},
+  debugFlags: EntityDebugFlags = {}
 ): THREE.SkinnedMesh {
   let textureWidth = jsonModel.texturewidth ?? 64
   let textureHeight = jsonModel.textureheight ?? 64
-  let textureOffset
+  let textureOffset: number[] | undefined
   const useBlockTexture = texture.startsWith('block:')
-  const blocksTexture = worldRenderer.material.map!
+  const blocksTexture = worldRenderer?.material.map
   if (useBlockTexture) {
+    if (!worldRenderer) throw new Error('worldRenderer is required for block textures')
     const blockName = texture.slice(6)
     const textureInfo = worldRenderer.blocksAtlasParser!.getTextureInfo(blockName)
     if (textureInfo) {
-      textureWidth = blocksTexture.image.width
-      textureHeight = blocksTexture.image.height
+      textureWidth = blocksTexture!.image.width
+      textureHeight = blocksTexture!.image.height
       textureOffset = [textureInfo.u, textureInfo.v]
     } else {
       console.error(`Unknown block ${blockName}`)
@@ -274,7 +284,12 @@ export function getMesh (
 
     if (jsonBone.cubes) {
       for (const cube of jsonBone.cubes) {
-        addCube(geoData, i, bone, cube, useBlockTexture, textureWidth, textureHeight, jsonBone.mirror)
+        const errors: string[] = []
+        addCube(geoData, i, bone, cube, useBlockTexture, textureWidth, textureHeight, jsonBone.mirror, errors)
+        if (errors.length) {
+          debugFlags.errors ??= []
+          debugFlags.errors.push(...errors.map(error => `Bone ${jsonBone.name}: ${error}`))
+        }
       }
     }
     i++
@@ -307,12 +322,12 @@ export function getMesh (
 
   if (textureOffset) {
     // todo(memory) dont clone
-    const loadedTexture = blocksTexture.clone()
+    const loadedTexture = blocksTexture!.clone()
     loadedTexture.offset.set(textureOffset[0], textureOffset[1])
     loadedTexture.needsUpdate = true
     material.map = loadedTexture
   } else {
-    loadTexture(texture, loadedTexture => {
+    void loadTexture(texture, loadedTexture => {
       if (material.map) {
         // texture is already loaded
         return
@@ -323,54 +338,65 @@ export function getMesh (
       loadedTexture.wrapS = THREE.RepeatWrapping
       loadedTexture.wrapT = THREE.RepeatWrapping
       material.map = loadedTexture
-      const actualWidth = loadedTexture.image?.width
+    }, () => {
+      // This callback runs after the texture is fully loaded
+      const actualWidth = material.map!.image.width
       if (actualWidth && textureWidth !== actualWidth) {
-        loadedTexture.repeat.x = textureWidth / actualWidth
+        material.map!.repeat.x = textureWidth / actualWidth
       }
-      const actualHeight = loadedTexture.image?.height
+      const actualHeight = material.map!.image.height
       if (actualHeight && textureHeight !== actualHeight) {
-        loadedTexture.repeat.y = textureHeight / actualHeight
+        material.map!.repeat.y = textureHeight / actualHeight
       }
+      material.needsUpdate = true
     })
   }
 
   return mesh
 }
 
-export const knownNotHandled: string[] = [
-  'area_effect_cloud', 'block_display',
-  'chest_boat', 'end_crystal',
-  'falling_block', 'furnace_minecart',
-  'giant', 'glow_item_frame',
-  'glow_squid', 'illusioner',
-  'interaction', 'item',
-  'item_display', 'item_frame',
-  'lightning_bolt', 'marker',
-  'painting', 'spawner_minecart',
-  'spectral_arrow', 'tnt',
-  'trader_llama', 'zombie_horse'
+export const rendererSpecialHandled = ['item_frame', 'item', 'player']
+
+type EntityMapping = {
+  pattern: string | RegExp
+  target: string
+}
+
+const temporaryMappings: EntityMapping[] = [
+  // Exact matches
+  { pattern: 'furnace_minecart', target: 'minecart' },
+  { pattern: 'spawner_minecart', target: 'minecart' },
+  { pattern: 'chest_minecart', target: 'minecart' },
+  { pattern: 'hopper_minecart', target: 'minecart' },
+  { pattern: 'command_block_minecart', target: 'minecart' },
+  { pattern: 'tnt_minecart', target: 'minecart' },
+  { pattern: 'glow_item_frame', target: 'item_frame' },
+  { pattern: 'glow_squid', target: 'squid' },
+  { pattern: 'trader_llama', target: 'llama' },
+  { pattern: 'chest_boat', target: 'boat' },
+  { pattern: 'spectral_arrow', target: 'arrow' },
+  { pattern: 'husk', target: 'zombie' },
+  { pattern: 'zombie_horse', target: 'horse' },
+  { pattern: 'donkey', target: 'horse' },
+  { pattern: 'skeleton_horse', target: 'horse' },
+  { pattern: 'mule', target: 'horse' },
+  { pattern: 'ocelot', target: 'cat' },
+  // Regex patterns
+  { pattern: /_minecraft$/, target: 'minecraft' },
+  { pattern: /_boat$/, target: 'boat' },
+  { pattern: /_raft$/, target: 'boat' },
+  { pattern: /_horse$/, target: 'horse' },
+  { pattern: /_zombie$/, target: 'zombie' },
+  { pattern: /_arrow$/, target: 'zombie' },
 ]
 
-export const temporaryMap: Record<string, string> = {
-  'furnace_minecart': 'minecart',
-  'spawner_minecart': 'minecart',
-  'chest_minecart': 'minecart',
-  'hopper_minecart': 'minecart',
-  'command_block_minecart': 'minecart',
-  'tnt_minecart': 'minecart',
-  'glow_item_frame': 'item_frame',
-  'glow_squid': 'squid',
-  'trader_llama': 'llama',
-  'chest_boat': 'boat',
-  'spectral_arrow': 'arrow',
-  'husk': 'zombie',
-  'zombie_horse': 'horse',
-  'donkey': 'horse',
-  'skeleton_horse': 'horse',
-  'mule': 'horse',
-  'ocelot': 'cat',
-  // 'falling_block': 'block',
-  // 'lightning_bolt': 'lightning',
+function getEntityMapping (type: string): string | undefined {
+  for (const mapping of temporaryMappings) {
+    if (typeof mapping.pattern === 'string') {
+      if (mapping.pattern === type) return mapping.target
+    } else if (mapping.pattern.test(type)) { return mapping.target }
+  }
+  return undefined
 }
 
 const getEntity = (name: string) => {
@@ -379,13 +405,15 @@ const getEntity = (name: string) => {
 
 const scaleEntity: Record<string, number> = {
   zombie: 1.85,
-  husk: 1.85
+  husk: 1.85,
+  arrow: 0.0025
 }
 
 const offsetEntity: Record<string, Vec3> = {
   zombie: new Vec3(0, 1, 0),
   husk: new Vec3(0, 1, 0),
   boat: new Vec3(0, -1, 0),
+  arrow: new Vec3(0, -0.9, 0)
 }
 
 interface EntityGeometry {
@@ -395,39 +423,51 @@ interface EntityGeometry {
   }>;
 }
 
+export type EntityDebugFlags = {
+  type?: 'obj' | 'bedrock'
+  tempMap?: string
+  textureMap?: boolean
+  errors?: string[]
+  isHardcodedTexture?: boolean
+}
+
 export class EntityMesh {
   mesh: THREE.Object3D
 
   constructor (
     version: string,
     type: string,
-    worldRenderer: WorldRendererCommon,
-    overrides: EntityOverrides = {}
+    worldRenderer?: WorldRendererCommon,
+    overrides: EntityOverrides = {},
+    debugFlags: EntityDebugFlags = {}
   ) {
     const originalType = type
-    const mappedValue = temporaryMap[type]
-    if (mappedValue) type = mappedValue
+    const mappedValue = getEntityMapping(type)
+    if (mappedValue) {
+      type = mappedValue
+      debugFlags.tempMap = mappedValue
+    }
 
     if (externalModels[type]) {
       const objLoader = new OBJLoader()
-      let texturePath = externalTexturesJson[type]
-      if (originalType === 'zombie_horse') {
-        texturePath = `textures/${version}/entity/horse/horse_zombie.png`
+      const texturePathMap = {
+        'zombie_horse': `textures/${version}/entity/horse/horse_zombie.png`,
+        'husk': huskPng,
+        'skeleton_horse': `textures/${version}/entity/horse/horse_skeleton.png`,
+        'donkey': `textures/${version}/entity/horse/donkey.png`,
+        'mule': `textures/${version}/entity/horse/mule.png`,
+        'ocelot': `textures/${version}/entity/cat/ocelot.png`,
+        'arrow': arrowTexture,
+        'spectral_arrow': spectralArrowTexture,
+        'tipped_arrow': tippedArrowTexture
       }
-      if (originalType === 'husk') {
-        texturePath = huskPng
+      const tempTextureMap = texturePathMap[originalType] || texturePathMap[type]
+      if (tempTextureMap) {
+        debugFlags.textureMap = true
       }
-      if (originalType === 'skeleton_horse') {
-        texturePath = `textures/${version}/entity/horse/horse_skeleton.png`
-      }
-      if (originalType === 'donkey') {
-        texturePath = `textures/${version}/entity/horse/donkey.png`
-      }
-      if (originalType === 'mule') {
-        texturePath = `textures/${version}/entity/horse/mule.png`
-      }
-      if (originalType === 'ocelot') {
-        texturePath = `textures/${version}/entity/cat/ocelot.png`
+      const texturePath = tempTextureMap || externalTexturesJson[type]
+      if (externalTexturesJson[type]) {
+        debugFlags.isHardcodedTexture = true
       }
       if (!texturePath) throw new Error(`No texture for ${type}`)
       const texture = new THREE.TextureLoader().load(texturePath)
@@ -439,7 +479,7 @@ export class EntityMesh {
         alphaTest: 0.1
       })
       const obj = objLoader.parse(externalModels[type])
-      const scale = scaleEntity[originalType]
+      const scale = scaleEntity[originalType] || scaleEntity[type]
       if (scale) obj.scale.set(scale, scale, scale)
       const offset = offsetEntity[originalType]
       if (offset) obj.position.set(offset.x, offset.y, offset.z)
@@ -456,20 +496,22 @@ export class EntityMesh {
         }
       })
       this.mesh = obj
+      debugFlags.type = 'obj'
       return
     }
 
-    // if (originalType === 'arrow') {
-    //   overrides.textures = {
-    //     'default': arrowTexture,
-    //     ...overrides.textures,
-    //   }
-    // }
+    if (originalType === 'arrow') {
+      // overrides.textures = {
+      //   'default': testArrow,
+      //   ...overrides.textures,
+      // }
+    }
 
     const e = getEntity(type)
     if (!e) {
-      if (knownNotHandled.includes(type)) return
-      throw new Error(`Unknown entity ${type}`)
+      // if (knownNotHandled.includes(type)) return
+      // throw new Error(`Unknown entity ${type}`)
+      return
     }
 
     this.mesh = new THREE.Object3D()
@@ -481,7 +523,8 @@ export class EntityMesh {
         texture.endsWith('.png') || texture.startsWith('data:image/') || texture.startsWith('block:')
           ? texture : texture + '.png',
         jsonModel,
-        overrides)
+        overrides,
+        debugFlags)
       mesh.name = `geometry_${name}`
       this.mesh.add(mesh)
 
@@ -491,10 +534,11 @@ export class EntityMesh {
       skeletonHelper.visible = false
       this.mesh.add(skeletonHelper)
     }
+    debugFlags.type = 'bedrock'
   }
 
   static getStaticData (name: string): { boneNames: string[] } {
-    name = temporaryMap[name] || name
+    name = getEntityMapping(name) || name
     if (externalModels[name]) {
       return {
         boneNames: [] // todo

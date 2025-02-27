@@ -24,7 +24,7 @@ import { Viewer } from './viewer'
 import { getBlockMeshFromModel } from './holdingBlock'
 import { ItemSpecificContextProperties } from './basePlayerState'
 import { loadSkinImage, getLookupUrl, stevePngUrl, steveTexture } from './utils/skins'
-const { loadTexture } = globalThis.isElectron ? require('./utils.electron.js') : require('./utils')
+import { loadTexture } from './utils'
 
 export const TWEEN_DURATION = 120
 
@@ -225,10 +225,11 @@ export class Entities extends EventEmitter {
     su?: number;
     sv?: number;
     size?: number;
+    modelName?: string;
   } | {
     resolvedModel: BlockModel
     modelName: string
-  })
+  } | undefined)
 
   get entitiesByName (): Record<string, SceneEntity[]> {
     const byName: Record<string, SceneEntity[]> = {}
@@ -348,7 +349,8 @@ export class Entities extends EventEmitter {
     }
 
     if (typeof skinUrl !== 'string') throw new Error('Invalid skin url')
-    void this.loadAndApplySkin(entityId, skinUrl).then(() => {
+    const renderEars = this.viewer.world.config.renderEars || username === 'deadmau5'
+    void this.loadAndApplySkin(entityId, skinUrl, renderEars).then(() => {
       if (capeUrl) {
         if (capeUrl === true && username) {
           capeUrl = getLookupUrl(username, 'cape')
@@ -371,7 +373,7 @@ export class Entities extends EventEmitter {
     }
   }
 
-  private async loadAndApplySkin (entityId: string | number, skinUrl: string) {
+  private async loadAndApplySkin (entityId: string | number, skinUrl: string, renderEars: boolean) {
     let playerObject = this.getPlayerObject(entityId)
     if (!playerObject) return
 
@@ -382,35 +384,46 @@ export class Entities extends EventEmitter {
       if (!playerObject) return
 
       let skinTexture: THREE.Texture
+      let skinCanvas: HTMLCanvasElement
       if (skinUrl === stevePngUrl) {
         skinTexture = await steveTexture
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) throw new Error('Failed to get context')
+        ctx.drawImage(skinTexture.image, 0, 0)
+        skinCanvas = canvas
       } else {
-        const { canvas: skinCanvas, image } = await loadSkinImage(skinUrl)
+        const { canvas, image } = await loadSkinImage(skinUrl)
         playerCustomSkinImage = image
-        skinTexture = new THREE.CanvasTexture(skinCanvas)
+        skinTexture = new THREE.CanvasTexture(canvas)
+        skinCanvas = canvas
       }
 
       skinTexture.magFilter = THREE.NearestFilter
       skinTexture.minFilter = THREE.NearestFilter
       skinTexture.needsUpdate = true
       playerObject.skin.map = skinTexture as any
-      playerObject.skin.modelType = inferModelType(skinTexture.image)
+      playerObject.skin.modelType = inferModelType(skinCanvas)
 
-      const earsCanvas = document.createElement('canvas')
-      if (playerCustomSkinImage) {
+      let earsCanvas: HTMLCanvasElement | undefined
+      if (!playerCustomSkinImage) {
+        renderEars = false
+      } else if (renderEars) {
+        earsCanvas = document.createElement('canvas')
         loadEarsToCanvasFromSkin(earsCanvas, playerCustomSkinImage)
+        renderEars = !this.isCanvasBlank(earsCanvas)
       }
-      if (this.isCanvasBlank(earsCanvas)) {
-        playerObject.ears.map = null
-        playerObject.ears.visible = false
-      } else {
-        const earsTexture = new THREE.CanvasTexture(earsCanvas)
+      if (renderEars) {
+        const earsTexture = new THREE.CanvasTexture(earsCanvas!)
         earsTexture.magFilter = THREE.NearestFilter
         earsTexture.minFilter = THREE.NearestFilter
         earsTexture.needsUpdate = true
         //@ts-expect-error
         playerObject.ears.map = earsTexture
         playerObject.ears.visible = true
+      } else {
+        playerObject.ears.map = null
+        playerObject.ears.visible = false
       }
       this.onSkinUpdate?.()
     } catch (error) {
@@ -486,8 +499,10 @@ export class Entities extends EventEmitter {
     return typeof component === 'string' ? component : component.text ?? ''
   }
 
-  getItemMesh (item, specificProps: ItemSpecificContextProperties) {
+  getItemMesh (item, specificProps: ItemSpecificContextProperties, previousModel?: string) {
     const textureUv = this.getItemUv?.(item, specificProps)
+    if (previousModel && previousModel === textureUv?.modelName) return undefined
+
     if (textureUv && 'resolvedModel' in textureUv) {
       const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
       if (specificProps['minecraft:display_context'] === 'ground') {
@@ -502,6 +517,7 @@ export class Entities extends EventEmitter {
         isBlock: true,
         itemsTexture: null,
         itemsTextureFlipped: null,
+        modelName: textureUv.modelName,
       }
     }
 
@@ -543,6 +559,7 @@ export class Entities extends EventEmitter {
         isBlock: false,
         itemsTexture,
         itemsTextureFlipped,
+        modelName: textureUv.modelName,
       }
     }
   }
@@ -702,7 +719,13 @@ export class Entities extends EventEmitter {
       }
     }
     // ---
-    // not player
+    // set baby size
+    if (meta.baby) {
+      e.scale.set(0.5, 0.5, 0.5)
+    } else {
+      e.scale.set(1, 1, 1)
+    }
+    // entity specific meta
     const textDisplayMeta = getSpecificEntityMetadata('text_display', entity)
     const displayTextRaw = textDisplayMeta?.text || meta.custom_name_visible && meta.custom_name
     const displayText = this.parseEntityLabel(displayTextRaw)
@@ -894,7 +917,7 @@ export class Entities extends EventEmitter {
 
     mapMesh.rotation.set(0, Math.PI, 0)
     entityMesh.add(mapMesh)
-    let isInvisible = false
+    let isInvisible = true
     entityMesh.traverseVisible(c => {
       if (c.name === 'geometry_frame') {
         isInvisible = false

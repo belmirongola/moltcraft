@@ -12,6 +12,10 @@ export const defaultMesherConfig = {
   disableSignsMapsSupport: false
 }
 
+export type CustomBlockModels = {
+  [blockPosKey: string]: string // blockPosKey is "x,y,z" -> model name
+}
+
 export type MesherConfig = typeof defaultMesherConfig
 
 export type MesherGeometryOutput = {
@@ -36,6 +40,18 @@ export type MesherGeometryOutput = {
   highestBlocks: Map<string, HighestBlockInfo>
   hadErrors: boolean
   blocksCount: number
+  customBlockModels?: CustomBlockModels
 }
 
 export type HighestBlockInfo = { y: number, stateId: number | undefined, biomeId: number | undefined }
+
+export type BlockStateModelInfo = {
+  cacheKey: string
+  issues: string[]
+  modelNames: string[]
+  conditions: string[]
+}
+
+export const getBlockAssetsCacheKey = (stateId: number, modelNameOverride?: string) => {
+  return modelNameOverride ? `${stateId}:${modelNameOverride}` : String(stateId)
+}

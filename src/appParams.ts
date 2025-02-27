@@ -1,3 +1,5 @@
+import type { AppConfig } from './globalState'
+
 const qsParams = new URLSearchParams(window.location?.search ?? '')
 
 export type AppQsParams = {
@@ -39,6 +41,15 @@ export type AppQsParams = {
   suggest_save?: string
   noPacketsValidation?: string
   testCrashApp?: string
+
+  // Replay params
+  replayFilter?: string
+  replaySpeed?: string
+  replayFileUrl?: string
+  replayValidateClient?: string
+  replayStopOnError?: string
+  replaySkipMissingOnTimeout?: string
+  replayPacketsSenderDelay?: string
 }
 
 export type AppQsParamsArray = {
@@ -52,12 +63,16 @@ type AppQsParamsArrayTransformed = {
   [k in keyof AppQsParamsArray]: string[]
 }
 
+const initialAppConfig = process.env.INLINED_APP_CONFIG as AppConfig ?? {}
+
 export const appQueryParams = new Proxy<AppQsParams>({} as AppQsParams, {
   get (target, property) {
     if (typeof property !== 'string') {
-      return null
+      return undefined
     }
-    return qsParams.get(property)
+    const qsParam = qsParams.get(property)
+    if (qsParam) return qsParam
+    return initialAppConfig.appParams?.[property]
   },
 })
 
@@ -66,9 +81,21 @@ export const appQueryParamsArray = new Proxy({} as AppQsParamsArrayTransformed, 
     if (typeof property !== 'string') {
       return null
     }
-    return qsParams.getAll(property)
+    const qsParam = qsParams.getAll(property)
+    if (qsParam.length) return qsParam
+    return initialAppConfig.appParams?.[property] ?? []
   },
 })
+
+export function updateQsParam (name: keyof AppQsParams, value: string | undefined) {
+  const url = new URL(window.location.href)
+  if (value) {
+    url.searchParams.set(name, value)
+  } else {
+    url.searchParams.delete(name)
+  }
+  window.history.replaceState({}, '', url.toString())
+}
 
 // Helper function to check if a specific query parameter exists
 export const hasQueryParam = (param: keyof AppQsParams) => qsParams.has(param)

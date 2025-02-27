@@ -10,5 +10,15 @@
       "ip": "grim.mcraft.fun",
       "version": "1.19.4"
     }
+  ],
+  "pauseLinks": [
+    [
+      {
+        "type": "github"
+      },
+      {
+        "type": "discord"
+      }
+    ]
   ]
 }

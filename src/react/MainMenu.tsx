@@ -24,6 +24,7 @@ interface Props {
   bottomRightLinks?: string
   versionText?: string
   onVersionTextClick?: () => void
+  singleplayerAvailable?: boolean
 }
 
 const httpsRegex = /^https?:\/\//
@@ -41,7 +42,8 @@ export default ({
   versionStatus,
   versionTitle,
   onVersionStatusClick,
-  bottomRightLinks
+  bottomRightLinks,
+  singleplayerAvailable = true
 }: Props) => {
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -107,6 +109,7 @@ export default ({
             style={{ width: 150 }}
             {...singleplayerLongPress}
             data-test-id='singleplayer-button'
+            disabled={!singleplayerAvailable}
             initialTooltip={{
               content: 'Create worlds and play offline',
               placement: 'left',
@@ -183,7 +186,7 @@ export default ({
               </div>
             })}
           </div>
-          <span>A Minecraft client in the browser!</span>
+          <span>A Minecraft client clone in the browser!</span>
         </span>
       </div>
     </div>

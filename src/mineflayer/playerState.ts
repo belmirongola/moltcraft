@@ -115,7 +115,7 @@ export class PlayerStateManager implements IPlayerState {
   }
 
   getEyeHeight (): number {
-    return bot.controlState.sneak ? 1.27 : bot.entity?.['eyeHeight'] ?? 1.62
+    return bot.controlState.sneak ? 1.27 : 1.62
   }
 
   isOnGround (): boolean {

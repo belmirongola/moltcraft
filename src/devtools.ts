@@ -146,3 +146,17 @@ Object.defineProperty(window, 'debugToggle', {
     console.log('Enabled debug for', v)
   }
 })
+
+customEvents.on('gameLoaded', () => {
+  window.holdingBlock = (viewer.world as WorldRendererThree).holdingBlock
+})
+
+window.clearStorage = (...keysToKeep: string[]) => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && !keysToKeep.includes(key)) {
+      localStorage.removeItem(key)
+    }
+  }
+  return `Cleared ${localStorage.length - keysToKeep.length} items from localStorage. Kept: ${keysToKeep.join(', ')}`
+}

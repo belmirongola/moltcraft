@@ -12,16 +12,6 @@ export default ({ message, fallbackColor, className }: {
 }) => {
   const messageJson = useMemo(() => {
     if (!message) return null
-    // const transformIfNbt = (x) => {
-    //   if (typeof x === 'object' && x?.type) return nbt.simplify(x) as Record<string, any>
-    //   // if (Array.isArray(x)) return x.map(transformIfNbt)
-    //   // if (typeof x === 'object') return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, transformIfNbt(v)]))
-    //   return x
-    // }
-    // if (typeof message === 'object' && message.text?.text?.type) {
-    //   message.text.text = transformIfNbt(message.text.text)
-    //   message.text.extra = transformIfNbt(message.text.extra)
-    // }
     try {
       const texts = formatMessage(typeof message === 'string' ? fromFormattedString(message) : message)
       return texts.map(text => {

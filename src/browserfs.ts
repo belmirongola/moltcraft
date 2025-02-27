@@ -10,22 +10,45 @@ import { fsState, loadSave } from './loadSave'
 import { installResourcepackPack, installTexturePackFromHandle, updateTexturePackInstalledState } from './resourcePack'
 import { miscUiState } from './globalState'
 import { setLoadingScreenStatus } from './appStatus'
-const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive') // disable type checking
+import { VALID_REPLAY_EXTENSIONS, openFile } from './packetsReplay/replayPackets'
+import { getFixedFilesize } from './downloadAndOpenFile'
+import { packetsReplayState } from './react/state/packetsReplayState'
+import { createFullScreenProgressReporter } from './core/progressReporter'
+import { showNotification } from './react/NotificationProvider'
+const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive')
 
 browserfs.install(window)
 const defaultMountablePoints = {
-  '/world': { fs: 'LocalStorage' }, // will be removed in future
   '/data': { fs: 'IndexedDB' },
   '/resourcepack': { fs: 'InMemory' }, // temporary storage for currently loaded resource pack
+  '/temp': { fs: 'InMemory' }
+}
+const fallbackMountablePoints = {
+  '/resourcepack': { fs: 'InMemory' }, // temporary storage for downloaded server resource pack
+  '/temp': { fs: 'InMemory' }
 }
 browserfs.configure({
   fs: 'MountableFileSystem',
   options: defaultMountablePoints,
 }, async (e) => {
-  // todo disable singleplayer button
-  if (e) throw e
+  if (e) {
+    browserfs.configure({
+      fs: 'MountableFileSystem',
+      options: fallbackMountablePoints,
+    }, async (e2) => {
+      if (e2) {
+        showNotification('Unknown FS error, cannot continue', e2.message, true)
+        throw e2
+      }
+      showNotification('Failed to access device storage', `Check you have free space. ${e.message}`, true)
+      miscUiState.appLoaded = true
+      miscUiState.singleplayerAvailable = false
+    })
+    return
+  }
   await updateTexturePackInstalledState()
   miscUiState.appLoaded = true
+  miscUiState.singleplayerAvailable = true
 })
 
 export const forceCachedDataPaths = {}
@@ -621,22 +644,33 @@ export const openFilePicker = (specificCase?: 'resourcepack') => {
   if (!picker) {
     picker = document.createElement('input')
     picker.type = 'file'
-    picker.accept = '.zip'
+    picker.accept = specificCase ? '.zip' : [...VALID_REPLAY_EXTENSIONS, '.zip'].join(',')
 
     picker.addEventListener('change', () => {
       const file = picker.files?.[0]
       picker.value = ''
       if (!file) return
-      if (!file.name.endsWith('.zip')) {
-        const doContinue = confirm(`Are you sure ${file.name.slice(-20)} is .zip file? Only .zip files are supported. Continue?`)
-        if (!doContinue) return
-      }
       if (specificCase === 'resourcepack') {
-        void installResourcepackPack(file).catch((err) => {
+        if (!file.name.endsWith('.zip')) {
+          const doContinue = confirm(`Are you sure ${file.name.slice(-20)} is .zip file? ONLY .zip files are supported. Continue?`)
+          if (!doContinue) return
+        }
+        void installResourcepackPack(file, createFullScreenProgressReporter()).catch((err) => {
           setLoadingScreenStatus(err.message, true)
         })
       } else {
-        void openWorldZip(file)
+        // eslint-disable-next-line no-lonely-if
+        if (VALID_REPLAY_EXTENSIONS.some(ext => file.name.endsWith(ext)) || file.name.startsWith('packets-replay')) {
+          void file.text().then(contents => {
+            openFile({
+              contents,
+              filename: file.name,
+              filesize: file.size
+            })
+          })
+        } else {
+          void openWorldZip(file)
+        }
       }
     })
     picker.hidden = true

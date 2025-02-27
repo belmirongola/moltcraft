@@ -6,6 +6,7 @@ import './Chat.css'
 import { isIos, reactKeyForMessage } from './utils'
 import Button from './Button'
 import { pixelartIcons } from './PixelartIcon'
+import { useScrollBehavior } from './hooks/useScrollBehavior'
 
 export type Message = {
   parts: MessageFormatPart[],
@@ -69,6 +70,7 @@ export default ({
   placeholder
 }: Props) => {
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
+  const [isInputFocused, setIsInputFocused] = useState(false)
 
   const [completePadText, setCompletePadText] = useState('')
   const completeRequestValue = useRef('')
@@ -77,22 +79,10 @@ export default ({
 
   const chatInput = useRef<HTMLInputElement>(null!)
   const chatMessages = useRef<HTMLDivElement>(null)
-  const openedChatWasAtBottom = useRef(false)
-  const wasAtBottomBeforeOpen = useRef(false)
   const chatHistoryPos = useRef(sendHistoryRef.current.length)
   const inputCurrentlyEnteredValue = useRef('')
 
-  const isAtBottom = () => {
-    if (!chatMessages.current) return true
-    const { scrollTop, scrollHeight, clientHeight } = chatMessages.current
-    return Math.abs(scrollHeight - clientHeight - scrollTop) < 1
-  }
-
-  const scrollToBottom = () => {
-    if (chatMessages.current) {
-      chatMessages.current.scrollTop = chatMessages.current.scrollHeight
-    }
-  }
+  const { scrollToBottom } = useScrollBehavior(chatMessages, { messages, opened })
 
   const setSendHistory = (newHistory: string[]) => {
     sendHistoryRef.current = newHistory
@@ -117,6 +107,11 @@ export default ({
     }, 0)
   }
 
+  const auxInputFocus = (fireKey: string) => {
+    chatInput.current.focus()
+    chatInput.current.dispatchEvent(new KeyboardEvent('keydown', { code: fireKey, bubbles: true }))
+  }
+
   useEffect(() => {
     // todo focus input on any keypress except tab
   }, [])
@@ -133,21 +128,32 @@ export default ({
       if (!usingTouch) {
         chatInput.current.focus()
       }
-      // Check if was at bottom before opening
-      wasAtBottomBeforeOpen.current = isAtBottom()
-      if (wasAtBottomBeforeOpen.current) {
-        scrollToBottom()
+
+      // Add keyboard event listener for letter keys and paste
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (['input', 'textarea', 'select'].includes(document.activeElement?.tagName.toLowerCase() ?? '')) return
+        // Check if it's a single character key (works with any layout) without modifiers except shift
+        const isSingleChar = e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey
+        // Check if it's paste command
+        const isPaste = e.code === 'KeyV' && (e.ctrlKey || e.metaKey)
+
+        if ((isSingleChar || isPaste) && document.activeElement !== chatInput.current) {
+          chatInput.current.focus()
+        }
       }
-      const unsubscribe = subscribe(chatInputValueGlobal, () => {
+
+      window.addEventListener('keydown', handleKeyDown)
+      const unsubscribeValtio = subscribe(chatInputValueGlobal, () => {
         if (!chatInputValueGlobal.value) return
         updateInputValue(chatInputValueGlobal.value)
         chatInputValueGlobal.value = ''
         chatInput.current.focus()
       })
-      return unsubscribe
-    }
-    if (!opened && chatMessages.current) {
-      scrollToBottom()
+
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown)
+        unsubscribeValtio()
+      }
     }
   }, [opened])
 
@@ -157,72 +163,6 @@ export default ({
       resetCompletionItems()
     }
   }, [opened])
-
-  useEffect(() => {
-    if ((!opened || (opened && openedChatWasAtBottom.current)) && chatMessages.current) {
-      openedChatWasAtBottom.current = false
-      // stay at bottom on messages changes only if we were at bottom
-      if (isAtBottom()) {
-        scrollToBottom()
-      }
-    }
-  }, [messages])
-
-  useMemo(() => {
-    if ((opened && chatMessages.current)) {
-      openedChatWasAtBottom.current = isAtBottom()
-    }
-  }, [messages])
-
-  // Add scroll handler to track scroll position
-  useEffect(() => {
-    const messagesEl = chatMessages.current
-    if (!messagesEl) return
-
-    const handleScroll = () => {
-      openedChatWasAtBottom.current = isAtBottom()
-    }
-
-    messagesEl.addEventListener('scroll', handleScroll)
-    return () => messagesEl.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  const auxInputFocus = (fireKey: string) => {
-    chatInput.current.focus()
-    chatInput.current.dispatchEvent(new KeyboardEvent('keydown', { code: fireKey, bubbles: true }))
-  }
-
-  const getDefaultCompleteValue = () => {
-    const raw = chatInput.current.value
-    return raw.slice(0, chatInput.current.selectionEnd ?? raw.length)
-  }
-  const getCompleteValue = (value = getDefaultCompleteValue()) => {
-    const valueParts = value.split(' ')
-    const lastLength = valueParts.at(-1)!.length
-    const completeValue = lastLength ? value.slice(0, -lastLength) : value
-    if (valueParts.length === 1 && value.startsWith('/')) return '/'
-    return completeValue
-  }
-
-  const fetchCompletions = async (implicit: boolean, inputValue = chatInput.current.value) => {
-    const completeValue = getCompleteValue(inputValue)
-    completeRequestValue.current = completeValue
-    resetCompletionItems()
-    const newItems = await fetchCompletionItems?.(implicit ? 'implicit' : 'explicit', completeValue, inputValue) ?? []
-    if (completeValue !== completeRequestValue.current) return
-    setCompletionItemsSource(newItems)
-    updateFilteredCompleteItems(newItems)
-  }
-
-  const updateFilteredCompleteItems = (sourceItems: string[]) => {
-    const newCompleteItems = sourceItems.filter(item => {
-      // this regex is imporatnt is it controls the word matching
-      const compareableParts = item.split(/[[\]{},_:]/)
-      const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
-      return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
-    })
-    setCompletionItems(newCompleteItems)
-  }
 
   const onMainInputChange = () => {
     const completeValue = getCompleteValue()
@@ -243,6 +183,41 @@ export default ({
     // }
   }
 
+  const fetchCompletions = async (implicit: boolean, inputValue = chatInput.current.value) => {
+    const completeValue = getCompleteValue(inputValue)
+    completeRequestValue.current = completeValue
+    resetCompletionItems()
+    const newItems = await fetchCompletionItems?.(implicit ? 'implicit' : 'explicit', completeValue, inputValue) ?? []
+    if (completeValue !== completeRequestValue.current) return
+    setCompletionItemsSource(newItems)
+    updateFilteredCompleteItems(newItems)
+  }
+
+  const updateFilteredCompleteItems = (sourceItems: string[] | Array<{ match: string, toolip: string }>) => {
+    const newCompleteItems = sourceItems
+      .map((item): string => (typeof item === 'string' ? item : item.match))
+      .filter(item => {
+        // this regex is imporatnt is it controls the word matching
+        // const compareableParts = item.split(/[[\]{},_:]/)
+        const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
+        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        return item.includes(lastWord)
+      })
+    setCompletionItems(newCompleteItems)
+  }
+
+  const getDefaultCompleteValue = () => {
+    const raw = chatInput.current.value
+    return raw.slice(0, chatInput.current.selectionEnd ?? raw.length)
+  }
+  const getCompleteValue = (value = getDefaultCompleteValue()) => {
+    const valueParts = value.split(' ')
+    const lastLength = valueParts.at(-1)!.length
+    const completeValue = lastLength ? value.slice(0, -lastLength) : value
+    if (valueParts.length === 1 && value.startsWith('/')) return '/'
+    return completeValue
+  }
+
   return (
     <>
       <div
@@ -261,12 +236,20 @@ export default ({
         {/* close button */}
         {usingTouch && <Button icon={pixelartIcons.close} onClick={() => onClose?.()} />}
         <div className="chat-input">
-          {completionItems?.length ? (
+          {isInputFocused && completionItems?.length ? (
             <div className="chat-completions">
               <div className="chat-completions-pad-text">{completePadText}</div>
               <div className="chat-completions-items">
                 {completionItems.map((item) => (
-                  <div key={item} onClick={() => acceptComplete(item)}>{item}</div>
+                  <div
+                    key={item}
+                    onMouseDown={(e) => {
+                      e.preventDefault() // Prevent blur before click
+                      acceptComplete(item)
+                    }}
+                  >
+                    {item}
+                  </div>
                 ))}
               </div>
             </div>
@@ -307,6 +290,8 @@ export default ({
               onChange={onMainInputChange}
               disabled={!!inputDisabled}
               placeholder={inputDisabled || placeholder}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
               onKeyDown={(e) => {
                 if (e.code === 'ArrowUp') {
                   if (chatHistoryPos.current === 0) return

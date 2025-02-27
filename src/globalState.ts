@@ -4,6 +4,7 @@ import { proxy, ref, subscribe } from 'valtio'
 import type { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import type { OptionsGroupType } from './optionsGuiScheme'
 import { appQueryParams } from './appParams'
+import { options, disabledSettings } from './optionsStorage'
 
 // todo: refactor structure with support of hideNext=false
 
@@ -120,8 +121,13 @@ export type AppConfig = {
   promoteServers?: Array<{ ip, description, version? }>
   mapsProvider?: string
 
+  appParams?: Record<string, any> // query string params
+
   defaultSettings?: Record<string, any>
+  forceSettings?: Record<string, boolean>
+  // hideSettings?: Record<string, boolean>
   allowAutoConnect?: boolean
+  pauseLinks?: Array<Array<Record<string, any>>>
 }
 
 export const miscUiState = proxy({
@@ -139,11 +145,30 @@ export const miscUiState = proxy({
   /** currently trying to load or loaded mc version, after all data is loaded */
   loadedDataVersion: null as string | null,
   appLoaded: false,
+  singleplayerAvailable: false,
   usingGamepadInput: false,
   appConfig: null as AppConfig | null,
   displaySearchInput: false,
   displayFullmap: false
 })
+
+export const loadAppConfig = (appConfig: AppConfig) => {
+  if (miscUiState.appConfig) {
+    Object.assign(miscUiState.appConfig, appConfig)
+  } else {
+    miscUiState.appConfig = appConfig
+  }
+
+  if (appConfig.forceSettings) {
+    for (const [key, value] of Object.entries(appConfig.forceSettings)) {
+      if (value) {
+        disabledSettings.value.delete(key)
+      } else {
+        disabledSettings.value.add(key)
+      }
+    }
+  }
+}
 
 export const isGameActive = (foregroundCheck: boolean) => {
   if (foregroundCheck && activeModalStack.length) return false
