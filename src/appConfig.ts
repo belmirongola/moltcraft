@@ -53,7 +53,7 @@ if (isBundledConfigUsed) {
   // console.warn('Failed to load optional app config.json', error)
   // return {}
     setLoadingScreenStatus('Failed to load app config.json', true)
-  }).then((config: AppConfig | {}) => {
+  }).then((config: AppConfig) => {
     loadAppConfig(config)
   })
 }
