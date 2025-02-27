@@ -11,7 +11,7 @@ window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
 }
 
 window.entityCursor = () => {
-  return bot.mouse.getCursorState
+  return bot.mouse.getCursorState().entity
 }
 
 // wanderer
