@@ -1,4 +1,4 @@
-import type { AppConfig } from './globalState'
+import type { AppConfig } from './appConfig'
 
 const qsParams = new URLSearchParams(window.location?.search ?? '')
 
