@@ -11,6 +11,7 @@ import './mineflayer/maps'
 import './mineflayer/cameraShake'
 import './shims/patchShims'
 import './mineflayer/java-tester/index'
+import './external'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad, renderSlot } from './inventoryWindows'
 import { RenderItem } from './mineflayer/items'
@@ -55,7 +56,8 @@ import {
   isGameActive,
   miscUiState,
   showModal,
-  gameAdditionalState
+  gameAdditionalState,
+  loadAppConfig
 } from './globalState'
 
 import { parseServerAddress } from './parseServerAddress'
@@ -110,7 +112,8 @@ import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
 import { LocalServer } from './customServer'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
-import { localRelayServerPlugin } from './mineflayer/plugins/localRelay'
+import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
+import { createFullScreenProgressReporter } from './core/progressReporter'
 
 window.debug = debug
 window.THREE = THREE
@@ -314,8 +317,9 @@ export async function connect (connectOptions: ConnectOptions) {
   console.log('using player username', username)
 
   hideCurrentScreens()
+  const progress = createFullScreenProgressReporter()
   const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
-  setLoadingScreenStatus(loggingInMsg)
+  progress.beginStage('connect', loggingInMsg)
 
   let ended = false
   let bot!: typeof __type_bot
@@ -401,38 +405,43 @@ export async function connect (connectOptions: ConnectOptions) {
   try {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
-    setLoadingScreenStatus('Downloading minecraft data')
-    await Promise.all([
-      downloadAllMinecraftData(), // download mc data before we can use minecraft-data at all
-      downloadOtherGameData()
-    ])
-    setLoadingScreenStatus(loggingInMsg)
+
+    await progress.executeWithMessage('Downloading minecraft data', 'download-mcdata', async () => {
+      await Promise.all([
+        downloadAllMinecraftData(),
+        downloadOtherGameData()
+      ])
+    })
+
     let dataDownloaded = false
     const downloadMcData = async (version: string) => {
       if (dataDownloaded) return
       dataDownloaded = true
-      // if (connectOptions.authenticatedAccount && (versionToNumber(version) < versionToNumber('1.19.4') || versionToNumber(version) >= versionToNumber('1.21'))) {
-      //   // todo support it (just need to fix .export crash)
-      //   throw new UserError('Microsoft authentication is only supported on 1.19.4 - 1.20.6 (at least for now)')
-      // }
 
-      await downloadMcDataOnConnect(version)
-      try {
-        // TODO! reload only after login packet (delay viewer display) so no unecessary reload after server one is isntalled
-        await resourcepackReload(version)
-      } catch (err) {
-        console.error(err)
-        const doContinue = confirm('Failed to apply texture pack. See errors in the console. Continue?')
-        if (!doContinue) {
-          throw err
+      await progress.executeWithMessage(
+        'Applying user-installed resource pack',
+        async () => {
+          await downloadMcDataOnConnect(version)
+          try {
+            await resourcepackReload(version)
+          } catch (err) {
+            console.error(err)
+            const doContinue = confirm('Failed to apply texture pack. See errors in the console. Continue?')
+            if (!doContinue) {
+              throw err
+            }
+          }
         }
-      }
-      const oldStatus = appStatusState.status
-      setLoadingScreenStatus('Loading minecraft assets')
-      viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
-      void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
-      miscUiState.loadedDataVersion = version
-      setLoadingScreenStatus(oldStatus)
+      )
+
+      await progress.executeWithMessage(
+        'Loading minecraft models',
+        async () => {
+          viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
+          void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
+          miscUiState.loadedDataVersion = version
+        }
+      )
     }
 
     let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
@@ -459,21 +468,24 @@ export async function connect (connectOptions: ConnectOptions) {
       // Client (class) of flying-squid (in server/login.js of mc-protocol): onLogin handler: skip most logic & go to loginClient() which assigns uuid and sends 'success' back to client (onLogin handler) and emits 'login' on the server (login.js in flying-squid handler)
       // flying-squid: 'login' -> player.login -> now sends 'login' event to the client (handled in many plugins in mineflayer) -> then 'update_health' is sent which emits 'spawn' in mineflayer
 
-      setLoadingScreenStatus('Starting local server')
       localServer = window.localServer = window.server = startLocalServer(serverOptions)
       // todo need just to call quit if started
       // loadingScreen.maybeRecoverable = false
       // init world, todo: do it for any async plugins
       if (!localServer.pluginsReady) {
-        await new Promise(resolve => {
-          localServer.once('pluginsReady', resolve)
-        })
+        await progress.executeWithMessage(
+          'Starting local server',
+          async () => {
+            await new Promise(resolve => {
+              localServer.once('pluginsReady', resolve)
+            })
+          }
+        )
       }
 
       localServer.on('newPlayer', (player) => {
-        // it's you!
         player.on('loadingStatus', (newStatus) => {
-          setLoadingScreenStatus(newStatus, false, false, true)
+          progress.setMessage(newStatus)
         })
       })
       flyingSquidEvents()
@@ -749,6 +761,17 @@ export async function connect (connectOptions: ConnectOptions) {
     window.pathfinder = pathfinder
   })
 
+  const start = Date.now()
+  let worldWasReady = false
+  void viewer.world.renderUpdateEmitter.on('update', () => {
+    // todo might not emit as servers simply don't send chunk if it's empty
+    if (!viewer.world.allChunksFinished || worldWasReady) return
+    worldWasReady = true
+    console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
+    viewer.render() // ensure the last state is rendered
+    document.dispatchEvent(new Event('cypress-world-ready'))
+  })
+
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
   bot.once(spawnEarlier ? 'forcedMove' : 'health', async () => {
@@ -764,11 +787,7 @@ export async function connect (connectOptions: ConnectOptions) {
     window.focus?.()
     errorAbortController.abort()
 
-    miscUiState.gameLoaded = true
-    miscUiState.loadedServerIndex = connectOptions.serverIndex ?? ''
-    customEvents.emit('gameLoaded')
     if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
-
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
     setLoadingScreenStatus('Placing blocks (starting viewer)')
@@ -820,6 +839,36 @@ export async function connect (connectOptions: ConnectOptions) {
     onGameLoad(() => {})
 
     if (appStatusState.isError) return
+
+    const waitForChunks = async () => {
+      const waitForChunks = options.waitForChunksRender === 'sp-only' ? !!singleplayer : options.waitForChunksRender
+      if (viewer.world.allChunksFinished || !waitForChunks) {
+        return
+      }
+
+      await progress.executeWithMessage(
+        'Loading chunks',
+        'chunks',
+        async () => {
+          await new Promise<void>(resolve => {
+            let wasFinished = false
+            void viewer.world.renderUpdateEmitter.on('update', () => {
+              if (wasFinished) return
+              if (viewer.world.allChunksFinished) {
+                wasFinished = true
+                resolve()
+              } else {
+                const perc = Math.round(Object.keys(viewer.world.finishedChunks).length / viewer.world.chunksLength * 100)
+                progress.reportProgress('chunks', perc / 100)
+              }
+            })
+          })
+        }
+      )
+    }
+
+    await waitForChunks()
+
     setTimeout(() => {
       if (appQueryParams.suggest_save) {
         showNotification('Suggestion', 'Save the world to keep your progress!', false, undefined, async () => {
@@ -833,17 +882,11 @@ export async function connect (connectOptions: ConnectOptions) {
       }
     }, 600)
 
+    miscUiState.gameLoaded = true
+    miscUiState.loadedServerIndex = connectOptions.serverIndex ?? ''
+    customEvents.emit('gameLoaded')
     setLoadingScreenStatus(undefined)
-    const start = Date.now()
-    let done = false
-    void viewer.world.renderUpdateEmitter.on('update', () => {
-      // todo might not emit as servers simply don't send chunk if it's empty
-      if (!viewer.world.allChunksFinished || done) return
-      done = true
-      console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
-      viewer.render() // ensure the last state is rendered
-      document.dispatchEvent(new Event('cypress-world-ready'))
-    })
+    progress.end()
   })
 
   if (singleplayer && connectOptions.serverOverrides.worldFolder) {
@@ -927,11 +970,13 @@ document.body.addEventListener('touchstart', (e) => {
 }, { passive: false })
 // #endregion
 
+loadAppConfig(process.env.INLINED_APP_CONFIG as AppConfig ?? {})
+// load maybe updated config on the server with updated params (just in case)
 void window.fetch('config.json').then(async res => res.json()).then(c => c, (error) => {
   console.warn('Failed to load optional app config.json', error)
   return {}
 }).then((config: AppConfig | {}) => {
-  miscUiState.appConfig = config
+  loadAppConfig(config)
 })
 
 // qs open actions

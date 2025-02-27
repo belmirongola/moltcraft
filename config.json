@@ -17,5 +17,15 @@
       "version": "1.20.3",
       "description": "Very nice a polite server. Must try for everyone!"
     }
+  ],
+  "pauseLinks": [
+    [
+      {
+        "type": "github"
+      },
+      {
+        "type": "discord"
+      }
+    ]
   ]
 }

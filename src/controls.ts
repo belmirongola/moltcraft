@@ -20,10 +20,11 @@ import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
 import { getItemFromBlock } from './chatUtils'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
-import { completeTexturePackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
+import { completeResourcepackPackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
 import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
 import { onCameraMove, onControInit } from './cameraRotationControls'
+import { createNotificationProgressReporter } from './core/progressReporter'
 
 
 export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
@@ -627,7 +628,7 @@ export const f3Keybinds: Array<{
       // TODO!
       if (resourcePackState.resourcePackInstalled || gameAdditionalState.usingServerResourcePack) {
         showNotification('Reloading textures...')
-        await completeTexturePackInstall('default', 'default', gameAdditionalState.usingServerResourcePack)
+        await completeResourcepackPackInstall('default', 'default', gameAdditionalState.usingServerResourcePack, createNotificationProgressReporter())
       }
     },
     mobileTitle: 'Reload Textures'
@@ -668,8 +669,8 @@ export const f3Keybinds: Array<{
       const proxyPing = await bot['pingProxy']()
       void showOptionsModal(`${username}: last known total latency (ping): ${playerPing}. Connected to ${lastConnectOptions.value?.proxy} with current ping ${proxyPing}. Player UUID: ${uuid}`, [])
     },
-    mobileTitle: 'Show Proxy & Ping Details',
-    enabled: () => !!lastConnectOptions.value?.proxy
+    mobileTitle: 'Show Player & Ping Details',
+    enabled: () => !lastConnectOptions.value?.singleplayer && !!bot.player
   },
   {
     action () {

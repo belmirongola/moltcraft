@@ -1,3 +1,5 @@
+import type { AppConfig } from './globalState'
+
 const qsParams = new URLSearchParams(window.location?.search ?? '')
 
 export type AppQsParams = {
@@ -61,12 +63,16 @@ type AppQsParamsArrayTransformed = {
   [k in keyof AppQsParamsArray]: string[]
 }
 
+const initialAppConfig = process.env.INLINED_APP_CONFIG as AppConfig ?? {}
+
 export const appQueryParams = new Proxy<AppQsParams>({} as AppQsParams, {
   get (target, property) {
     if (typeof property !== 'string') {
       return undefined
     }
-    return qsParams.get(property)
+    const qsParam = qsParams.get(property)
+    if (qsParam) return qsParam
+    return initialAppConfig.appParams?.[property]
   },
 })
 
@@ -75,7 +81,9 @@ export const appQueryParamsArray = new Proxy({} as AppQsParamsArrayTransformed, 
     if (typeof property !== 'string') {
       return null
     }
-    return qsParams.getAll(property)
+    const qsParam = qsParams.getAll(property)
+    if (qsParam.length) return qsParam
+    return initialAppConfig.appParams?.[property] ?? []
   },
 })
 

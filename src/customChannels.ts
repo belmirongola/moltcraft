@@ -8,7 +8,10 @@ customEvents.on('mineflayerBotCreated', async () => {
       resolve(true)
     })
   })
+  registerBlockModelsChannel()
+})
 
+const registerBlockModelsChannel = () => {
   const CHANNEL_NAME = 'minecraft-web-client:blockmodels'
 
   const packetStructure = [
@@ -72,4 +75,35 @@ customEvents.on('mineflayerBotCreated', async () => {
   })
 
   console.debug(`registered custom channel ${CHANNEL_NAME} channel`)
-})
+}
+
+const registeredJeiChannel = () => {
+  const CHANNEL_NAME = 'minecraft-web-client:jei'
+  // id - string, categoryTitle - string, items - string (json array)
+  const packetStructure = [
+    'container',
+    [
+      {
+        name: 'id',
+        type: 'pstring',
+      },
+      {
+        name: 'categoryTitle',
+        type: 'pstring',
+      },
+      {
+        name: 'items',
+        type: 'pstring',
+      },
+    ]
+  ]
+
+  bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
+
+  bot._client.on(CHANNEL_NAME as any, (data) => {
+    const { id, categoryTitle, items } = data
+    // ...
+  })
+
+  console.debug(`registered custom channel ${CHANNEL_NAME} channel`)
+}

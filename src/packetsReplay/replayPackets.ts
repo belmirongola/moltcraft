@@ -1,7 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import { createServer, ServerClient } from 'minecraft-protocol'
 import { ParsedReplayPacket, parseReplayContents } from 'mcraft-fun-mineflayer/build/packetsLogger'
-import { WorldStateHeader, PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraft-fun-mineflayer/build/worldState'
+import { PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraft-fun-mineflayer/build/worldState'
 import MinecraftData from 'minecraft-data'
 import { LocalServer } from '../customServer'
 import { UserError } from '../mineflayer/userError'

@@ -64,7 +64,7 @@ async function handleDroppedFile (file: File) {
     return
   }
   if (file.name.endsWith('.mca')) {
-    const tempPath = '/data/temp.mca'
+    const tempPath = '/temp/temp.mca'
     try {
       await fs.promises.writeFile(tempPath, Buffer.from(await file.arrayBuffer()) as any)
       const region = new RegionFile(tempPath)

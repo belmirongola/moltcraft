@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, miscUiState } from '../globalState'
 import { guessProblem } from '../errorLoadingScreenHelpers'
 import type { ConnectOptions } from '../connect'
-import { downloadPacketsReplay, packetsReplaceSessionState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
+import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
 import { getProxyDetails } from '../microsoftAuthflow'
-import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/localRelay'
+import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/packetsRecording'
 import AppStatus from './AppStatus'
 import DiveTransition from './DiveTransition'
 import { useDidUpdateEffect } from './utils'
@@ -56,7 +56,7 @@ export const reconnectReload = () => {
 export default () => {
   const lastState = useRef(JSON.parse(JSON.stringify(appStatusState)))
   const currentState = useSnapshot(appStatusState)
-  const { active: replayActive } = useSnapshot(packetsReplaceSessionState)
+  const { active: replayActive } = useSnapshot(packetsRecordingState)
 
   const isOpen = useIsModalActive('app-status')
 
@@ -147,7 +147,7 @@ export default () => {
         <>
           {displayAuthButton && <Button label='Authenticate' onClick={authReconnectAction} />}
           {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={reconnect} />}
-          {replayActive && <Button label={`Download Packets Replay ${replayLogger.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
+          {replayActive && <Button label={`Download Packets Replay ${replayLogger?.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
           {lastAutoCapturedPackets && <Button label={`Inspect Last ${lastAutoCapturedPackets} Packets`} onClick={() => downloadAutoCapturedPackets()} />}
         </>
       }

@@ -4,6 +4,7 @@ import { getResourcePackNames, installResourcepackPack, resourcePackState, updat
 import { setLoadingScreenStatus } from './appStatus'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 import { VALID_REPLAY_EXTENSIONS, openFile } from './packetsReplay/replayPackets'
+import { createFullScreenProgressReporter } from './core/progressReporter'
 
 export const getFixedFilesize = (bytes: number) => {
   return prettyBytes(bytes, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -92,7 +93,7 @@ const inner = async () => {
   })).arrayBuffer()
   if (texturepack) {
     const name = mapUrl.slice(mapUrl.lastIndexOf('/') + 1).slice(-30)
-    await installResourcepackPack(buffer, name)
+    await installResourcepackPack(buffer, createFullScreenProgressReporter(), name)
   } else {
     await openWorldZip(buffer)
   }
