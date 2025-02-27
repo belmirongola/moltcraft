@@ -94,7 +94,7 @@ function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.Web
   function updateBreakAnimation (block: Block | undefined, stage: number | null) {
     hideBreakAnimation()
     if (!state.blockBreakMesh) return // todo
-    if (!stage || !block) return
+    if (stage === null || !block) return
 
     const mergedShape = bot.mouse.getMergedCursorShape(block)
     if (!mergedShape) return
@@ -180,21 +180,9 @@ const domListeners = (bot: Bot) => {
     if (e.isTrusted && !document.pointerLockElement && !isCypress()) return
     if (!isGameActive(true)) return
 
-    const { entity } = bot.mouse.getCursorState()
-
-    if (entity) {
-      // todo! isntead attack entity only once and rm workaround
-      if (e.button === 0) {
-        bot.leftClick()
-      } else if (e.button === 1) {
-        bot.rightClick()
-      }
-      return
-    }
-
     if (e.button === 0) {
       bot.leftClickStart()
-    } else if (e.button === 1) {
+    } else if (e.button === 2) {
       bot.rightClickStart()
     }
   })
@@ -202,7 +190,7 @@ const domListeners = (bot: Bot) => {
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) {
       bot.leftClickEnd()
-    } else if (e.button === 1) {
+    } else if (e.button === 2) {
       bot.rightClickEnd()
     }
   })

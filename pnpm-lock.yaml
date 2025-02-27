@@ -359,8 +359,8 @@ importers:
         specifier: github:zardoy/mineflayer
         version: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)
       mineflayer-mouse:
-        specifier: ^0.0.3
-        version: 0.0.3(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
+        specifier: ^0.0.4
+        version: 0.0.4(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -6805,8 +6805,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
 
-  mineflayer-mouse@0.0.3:
-    resolution: {integrity: sha512-ESXb0WRtTtI98U/N0RAr9GOLM8+7GD3+mUUhV4VKrK9kUdIxsUfEOVM5/uvcsU3K+FnZi3clHxewR2T31G/JTQ==}
+  mineflayer-mouse@0.0.4:
+    resolution: {integrity: sha512-55GqQhJWCXnOnm30uOjtI7nsawPb0kA3cAv6a5n1NJjTWFR6hzMkiRT6xGLYrvYhdf6Er3nsE2Ok/Aysa/jtFQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer-pathfinder@2.4.4:
@@ -15643,7 +15643,7 @@ snapshots:
 
   estree-walker@3.0.3:
     dependencies:
-      '@types/estree': 1.0.5
+      '@types/estree': 1.0.6
 
   esutils@2.0.3: {}
 
@@ -17772,7 +17772,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-mouse@0.0.3(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1):
+  mineflayer-mouse@0.0.4(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1):
     dependencies:
       change-case: 5.4.4
       debug: 4.4.0(supports-color@8.1.1)
