@@ -12,14 +12,15 @@ interface Props {
   progress: { current: number; total: number }
   speed: number
   defaultFilter?: string
-  customButtons: { button1: boolean; button2: boolean }
+  customButtons: Readonly<Record<string, { state: boolean; label: string; tooltip?: string }>>
   onPlayPause?: (isPlaying: boolean) => void
   onRestart?: () => void
   onSpeedChange?: (speed: number) => void
   onFilterChange: (filter: string) => void
-  onCustomButtonToggle: (button: 'button1' | 'button2') => void
+  onCustomButtonToggle: (buttonId: string) => void
   clientPacketsAutocomplete: string[]
   serverPacketsAutocomplete: string[]
+  style?: React.CSSProperties
 }
 
 export default function ReplayPanel ({
@@ -36,7 +37,8 @@ export default function ReplayPanel ({
   onFilterChange,
   onCustomButtonToggle,
   clientPacketsAutocomplete,
-  serverPacketsAutocomplete
+  serverPacketsAutocomplete,
+  style
 }: Props) {
   const [filter, setFilter] = useState(defaultFilter)
   const { filtered: filteredPackets, hiddenCount } = filterPackets(packets.slice(-500), filter)
@@ -60,7 +62,8 @@ export default function ReplayPanel ({
       display: 'flex',
       flexDirection: 'column',
       gap: '12px',
-      color: DARK_COLORS.text
+      color: DARK_COLORS.text,
+      ...style
     }}>
       <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{replayName || 'Unnamed Replay'}</div>
       <div style={{ fontSize: '8px', color: '#888888', marginTop: '-8px' }}>Integrated server emulation. Testing client...</div>
@@ -139,22 +142,24 @@ export default function ReplayPanel ({
           }}
         />
 
-        {[1, 2].map(num => (
+        {Object.entries(customButtons).map(([buttonId, { state, label, tooltip }]) => (
           <button
-            key={num}
-            onClick={() => onCustomButtonToggle(`button${num}` as 'button1' | 'button2')}
+            key={buttonId}
+            onClick={() => onCustomButtonToggle(buttonId)}
+            title={tooltip}
             style={{
               padding: '4px 8px',
               borderRadius: '4px',
               border: `1px solid ${DARK_COLORS.border}`,
-              background: customButtons[`button${num}`]
-                ? (num === 1 ? DARK_COLORS.client : DARK_COLORS.server)
+              background: state
+                ? DARK_COLORS.client
                 : DARK_COLORS.input,
               color: DARK_COLORS.text,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minWidth: '32px'
             }}
           >
-            {num}
+            {label}
           </button>
         ))}
       </div>

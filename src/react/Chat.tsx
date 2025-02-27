@@ -194,12 +194,13 @@ export default ({
 
   const updateFilteredCompleteItems = (sourceItems: string[] | Array<{ match: string, toolip: string }>) => {
     const newCompleteItems = sourceItems
-      .map(item => (typeof item === 'string' ? item : item.match))
+      .map((item): string => (typeof item === 'string' ? item : item.match))
       .filter(item => {
-      // this regex is imporatnt is it controls the word matching
-        const compareableParts = item.split(/[[\]{},_:]/)
+        // this regex is imporatnt is it controls the word matching
+        // const compareableParts = item.split(/[[\]{},_:]/)
         const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
-        return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        return item.includes(lastWord)
       })
     setCompletionItems(newCompleteItems)
   }

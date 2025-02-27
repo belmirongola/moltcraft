@@ -150,6 +150,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   debugStopGeometryUpdate = false
 
   @worldCleanup()
+  freeFlyMode = false
+  @worldCleanup()
+  freeFlyState = {
+    yaw: 0,
+    pitch: 0,
+    position: new Vec3(0, 0, 0)
+  }
+  @worldCleanup()
   itemsRenderer: ItemsRenderer | undefined
 
   protocolCustomBlocks = new Map<string, CustomBlockModels>()

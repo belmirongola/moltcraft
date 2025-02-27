@@ -210,7 +210,8 @@ viewer.entities.getItemUv = (item, specificProps) => {
       const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
       return {
         u, v, su, sv,
-        texture: textureThree
+        texture: textureThree,
+        modelName: renderInfo.modelName
       }
     }
 
@@ -771,7 +772,9 @@ export async function connect (connectOptions: ConnectOptions) {
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
     setLoadingScreenStatus('Placing blocks (starting viewer)')
-    localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+    if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
+      localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+    }
     connectOptions.onSuccessfulPlay?.()
     if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
       lockUrl()

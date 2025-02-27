@@ -172,7 +172,7 @@ export class World {
       }
     }
 
-    const block = this.blockCache[cacheKey]
+    const block: WorldBlock = this.blockCache[cacheKey]
 
     if (block.models === undefined && blockProvider) {
       if (!attr) throw new Error('attr is required')
@@ -222,11 +222,16 @@ export class World {
           })
         }
 
-        if (!block.models!.length) {
+        if (!block.models.length) {
           if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
             console.debug('[mesher] block to render not found', block.name, props)
           }
           block.models = null
+        }
+
+        if (block.models && modelOverride) {
+          const model = block.models[0]
+          block.transparent = model[0]?.['transparent'] ?? block.transparent
         }
       } catch (err) {
         this.erroredBlockModel ??= blockProvider.getAllResolvedModels0_1({ name: 'errored', properties: {} })
@@ -240,6 +245,7 @@ export class World {
     if (block.name === 'flowing_lava') block.name = 'lava'
     if (block.name === 'bubble_column') block.name = 'water' // TODO need to distinguish between water and bubble column
     // block.position = loc // it overrides position of all currently loaded blocks
+    //@ts-expect-error
     block.biome = this.biomeCache[column.getBiome(locInChunk)] ?? this.biomeCache[1] ?? this.biomeCache[0]
     if (block.name === 'redstone_ore') block.transparent = false
     return block

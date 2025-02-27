@@ -1,12 +1,17 @@
 import { useRef, useState } from 'react'
 import { PacketData } from '../../ReplayPanel'
 import { useScrollBehavior } from '../../hooks/useScrollBehavior'
+import { ClientOnMap } from '../../../generatedServerPackets'
 import { DARK_COLORS } from './constants'
 
 const formatters: Record<string, (data: any) => string> = {
   position: (data) => `x:${data.x.toFixed(2)} y:${data.y.toFixed(2)} z:${data.z.toFixed(2)}`,
-  chat: (data) => data.message,
-  // Add more formatters as needed
+  // chat: (data) => data,
+  map_chunk (data: ClientOnMap['map_chunk'] | any) {
+    const sizeOfChunk = data.chunkData?.length
+    const blockEntitiesCount = data.blockEntities?.length
+    return `x:${data.x} z:${data.z} C:${sizeOfChunk} E:${blockEntitiesCount}`
+  },
 }
 
 const getPacketIcon = (name: string): string => {

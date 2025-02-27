@@ -41,7 +41,7 @@ const botInit = () => {
     //   }
     // }
     if (name === 'settings') {
-      data['viewDistance'] = Math.min(data['viewDistance'], 3)
+      data['viewDistance'] = Math.max(data['viewDistance'], 3)
     }
     return clientWrite(name, data)
   }

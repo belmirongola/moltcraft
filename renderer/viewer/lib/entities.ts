@@ -225,10 +225,11 @@ export class Entities extends EventEmitter {
     su?: number;
     sv?: number;
     size?: number;
+    modelName?: string;
   } | {
     resolvedModel: BlockModel
     modelName: string
-  })
+  } | undefined)
 
   get entitiesByName (): Record<string, SceneEntity[]> {
     const byName: Record<string, SceneEntity[]> = {}
@@ -498,8 +499,10 @@ export class Entities extends EventEmitter {
     return typeof component === 'string' ? component : component.text ?? ''
   }
 
-  getItemMesh (item, specificProps: ItemSpecificContextProperties) {
+  getItemMesh (item, specificProps: ItemSpecificContextProperties, previousModel?: string) {
     const textureUv = this.getItemUv?.(item, specificProps)
+    if (previousModel && previousModel === textureUv?.modelName) return undefined
+
     if (textureUv && 'resolvedModel' in textureUv) {
       const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
       if (specificProps['minecraft:display_context'] === 'ground') {
@@ -514,6 +517,7 @@ export class Entities extends EventEmitter {
         isBlock: true,
         itemsTexture: null,
         itemsTextureFlipped: null,
+        modelName: textureUv.modelName,
       }
     }
 
@@ -555,6 +559,7 @@ export class Entities extends EventEmitter {
         isBlock: false,
         itemsTexture,
         itemsTextureFlipped,
+        modelName: textureUv.modelName,
       }
     }
   }

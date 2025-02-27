@@ -3,6 +3,7 @@ import { PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraf
 import { Bot } from 'mineflayer'
 import CircularBuffer from 'flying-squid/dist/circularBuffer'
 import { PacketsLogger } from 'mcraft-fun-mineflayer/build/packetsLogger'
+import { lastConnectOptions } from '../../react/AppStatusProvider'
 
 export const localRelayServerPlugin = (bot: Bot) => {
   bot.loadPlugin(
@@ -55,7 +56,7 @@ export const downloadAutoCapturedPackets = () => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${bot.username}-auto-captured-packets.txt`
+  a.download = `${lastConnectOptions.value?.server ?? 'unknown-server'}-${lastConnectOptions.value?.username ?? 'unknown-username'}-auto-captured-packets.txt`
   a.click()
   URL.revokeObjectURL(url)
 }

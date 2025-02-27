@@ -52,13 +52,27 @@ export class SoundMap {
   private readonly existingResourcePackPaths: Set<string>
   private activeResourcePackBasePath: string | undefined
   private activeResourcePackSoundsJson: ResourcePackSoundsJson | undefined
+  noVersionIdMapping = false
 
   constructor (
     private readonly soundData: SoundMapData,
     private readonly version: string
   ) {
-    const allSoundsMajor = versionsMapToMajor(soundData.allSoundsMap)
-    const soundsMap = allSoundsMajor[versionToMajor(version)] ?? Object.values(allSoundsMajor)[0]
+    // First try exact version match
+    let soundsMap = soundData.allSoundsMap[this.version]
+
+    if (!soundsMap) {
+      // If no exact match, try major version
+      const allSoundsMajor = versionsMapToMajor(soundData.allSoundsMap)
+      soundsMap = allSoundsMajor[versionToMajor(version)]
+
+      if (!soundsMap) {
+        // If still no match, use first available mapping
+        soundsMap = Object.values(allSoundsMajor)[0]
+      }
+
+      this.noVersionIdMapping = true
+    }
 
     // Create both mappings
     this.soundsIdToName = {}

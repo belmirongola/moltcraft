@@ -41,7 +41,6 @@ customEvents.on('mineflayerBotCreated', async () => {
 
   bot._client.on(CHANNEL_NAME as any, (data) => {
     const { worldName, x, y, z, model } = data
-    console.debug('Received model data:', { worldName, x, y, z, model })
 
     const chunkX = Math.floor(x / 16) * 16
     const chunkZ = Math.floor(z / 16) * 16

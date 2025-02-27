@@ -55,6 +55,9 @@ export default function FilterInput ({
           value={value}
           onChange={e => onChange(e.target.value)}
           onFocus={() => setShowAutocomplete(true)}
+          onBlur={() => {
+            setTimeout(() => setShowAutocomplete(false), 200)
+          }}
           onKeyDown={e => {
             if (!showAutocomplete) {
               if (e.key === 'Tab') {
@@ -94,7 +97,7 @@ export default function FilterInput ({
             top: '100%',
             left: 0,
             right: 0,
-            background: DARK_COLORS.bg,
+            backgroundColor: DARK_COLORS.bg,
             border: `1px solid ${DARK_COLORS.border}`,
             borderRadius: '4px',
             marginTop: '4px',
@@ -109,7 +112,7 @@ export default function FilterInput ({
                 style={{
                   padding: '4px 8px',
                   cursor: 'pointer',
-                  background: index === selectedIndex ? DARK_COLORS.hover : 'transparent',
+                  backgroundColor: index === selectedIndex ? DARK_COLORS.hover : DARK_COLORS.bg,
                   color: isClient ? DARK_COLORS.client : DARK_COLORS.server
                 }}
               >

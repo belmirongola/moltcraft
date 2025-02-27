@@ -2,6 +2,7 @@
 
 import { Vec3 } from 'vec3'
 import { proxy, subscribe } from 'valtio'
+import * as THREE from 'three'
 
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
@@ -127,6 +128,23 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) return
+
+  if (viewer.world.freeFlyMode) {
+    // Create movement vector from input
+    const direction = new THREE.Vector3(0, 0, 0)
+    if (vector.z !== undefined) direction.z = vector.z
+    if (vector.x !== undefined) direction.x = vector.x
+
+    // Apply camera rotation to movement direction
+    direction.applyQuaternion(viewer.camera.quaternion)
+
+    // Update freeFlyState position with normalized direction
+    const moveSpeed = 1
+    direction.multiplyScalar(moveSpeed)
+    viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
+    return
+  }
+
   // gamepadIndex will be used for splitscreen in future
   const coordToAction = [
     ['z', -1, 'forward'],
@@ -333,10 +351,20 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
-        bot.setControlState('jump', pressed)
+        if (viewer.world.freeFlyMode) {
+          const moveSpeed = 0.5
+          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
+        } else {
+          bot.setControlState('jump', pressed)
+        }
         break
       case 'general.sneak':
-        setSneaking(pressed)
+        if (viewer.world.freeFlyMode) {
+          const moveSpeed = 0.5
+          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
+        } else {
+          setSneaking(pressed)
+        }
         break
       case 'general.sprint':
         // todo add setting to change behavior

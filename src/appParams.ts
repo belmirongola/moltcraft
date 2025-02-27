@@ -45,6 +45,9 @@ export type AppQsParams = {
   replaySpeed?: string
   replayFileUrl?: string
   replayValidateClient?: string
+  replayStopOnError?: string
+  replaySkipMissingOnTimeout?: string
+  replayPacketsSenderDelay?: string
 }
 
 export type AppQsParamsArray = {
@@ -75,6 +78,16 @@ export const appQueryParamsArray = new Proxy({} as AppQsParamsArrayTransformed, 
     return qsParams.getAll(property)
   },
 })
+
+export function updateQsParam (name: keyof AppQsParams, value: string | undefined) {
+  const url = new URL(window.location.href)
+  if (value) {
+    url.searchParams.set(name, value)
+  } else {
+    url.searchParams.delete(name)
+  }
+  window.history.replaceState({}, '', url.toString())
+}
 
 // Helper function to check if a specific query parameter exists
 export const hasQueryParam = (param: keyof AppQsParams) => qsParams.has(param)
