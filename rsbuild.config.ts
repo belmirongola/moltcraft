@@ -72,7 +72,7 @@ const appConfig = defineConfig({
             'process.env.RELEASE_LINK': JSON.stringify(releaseLink),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
             'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
-            'process.env.INLINED_APP_CONFIG': JSON.stringify(configJson),
+            'process.env.INLINED_APP_CONFIG': JSON.stringify(configJson.configSource === 'bundled' ? configJson : null),
         },
     },
     server: {
@@ -109,7 +109,9 @@ const appConfig = defineConfig({
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
                     }
 
-                    fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
+                    if (configJson.configSource === 'remote') {
+                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
+                    }
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
                     }

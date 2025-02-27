@@ -50,7 +50,6 @@ import initializePacketsReplay from './packetsReplay/packetsReplayLegacy'
 
 import { initVR } from './vr'
 import {
-  AppConfig,
   activeModalStack,
   activeModalStacks,
   hideModal,
@@ -59,7 +58,6 @@ import {
   miscUiState,
   showModal,
   gameAdditionalState,
-  loadAppConfig
 } from './globalState'
 
 import { parseServerAddress } from './parseServerAddress'
@@ -915,8 +913,9 @@ export async function connect (connectOptions: ConnectOptions) {
 const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
 
 listenGlobalEvents()
-watchValue(miscUiState, async s => {
-  if (s.appLoaded) { // fs ready
+const unsubscribe = watchValue(miscUiState, async s => {
+  if (s.fsReady && s.appConfig) {
+    unsubscribe()
     if (reconnectOptions) {
       sessionStorage.removeItem('reconnectOptions')
       if (Date.now() - reconnectOptions.timestamp < 1000 * 60 * 2) {
@@ -976,15 +975,6 @@ document.body.addEventListener('touchstart', (e) => {
   }
 }, { passive: false })
 // #endregion
-
-loadAppConfig(process.env.INLINED_APP_CONFIG as AppConfig ?? {})
-// load maybe updated config on the server with updated params (just in case)
-void window.fetch('config.json').then(async res => res.json()).then(c => c, (error) => {
-  console.warn('Failed to load optional app config.json', error)
-  return {}
-}).then((config: AppConfig | {}) => {
-  loadAppConfig(config)
-})
 
 // qs open actions
 if (!reconnectOptions) {

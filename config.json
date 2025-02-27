@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "configSource": "bundled",
   "defaultHost": "<from-proxy>",
   "defaultProxy": "proxy.mcraft.fun",
   "mapsProvider": "https://maps.mcraft.fun/",
