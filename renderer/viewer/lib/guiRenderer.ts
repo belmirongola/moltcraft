@@ -69,8 +69,8 @@ export const getNonFullBlocksModels = () => {
             && arrEqual(resolvedModel['display'].gui.translation, standardGuiDisplay.translation)
             && arrEqual(resolvedModel['display'].gui.scale, standardGuiDisplay.scale)
         } else {
-          // resolvedModel['display'] ??= {}
-          // resolvedModel['display']['gui'] = standardGuiDisplay
+          resolvedModel['display'] ??= {}
+          resolvedModel['display']['gui'] = standardGuiDisplay
         }
 
         addModelIfNotFullblock(name, resolvedModel)
@@ -106,10 +106,7 @@ export const getNonFullBlocksModels = () => {
 }
 
 // customEvents.on('gameLoaded', () => {
-//   console.time('getNonFullBlocksModels')
 //   const res = getNonFullBlocksModels()
-
-//   console.timeEnd('getNonFullBlocksModels')
 // })
 
 const RENDER_SIZE = 64
@@ -192,10 +189,10 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
 
     const patchMissingTextures = () => {
       for (const element of model.elements ?? []) {
-        for (const face of Object.values(element.faces)) {
+        for (const [faceName, face] of Object.entries(element.faces)) {
           if (face.texture.startsWith('#')) {
+            missingTextures.add(`${modelName} ${faceName}: ${face.texture}`)
             face.texture = 'block/unknown'
-            missingTextures.add(`${modelName}: ${face.texture}`)
           }
         }
       }
@@ -258,12 +255,3 @@ export const generateGuiAtlas = async () => {
   await generateAtlas({ ...blockImages, ...itemImages })
   // await generateAtlas(blockImages)
 }
-
-// Example usage:
-/*
-const modelData = {
-    // Your item model JSON here
-}
-const resources = // Your resource manager instance
-const imageUrl = await generateItemPreview(modelData, resources)
-*/
