@@ -20,7 +20,6 @@ const defaultOptions = {
   localUsername: 'wanderer',
   mouseSensX: 50,
   mouseSensY: -1,
-  // mouseInvertX: false,
   chatWidth: 320,
   chatHeight: 180,
   chatScale: 100,
@@ -56,10 +55,12 @@ const defaultOptions = {
   serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
   showHand: true,
   viewBobbing: true,
+  displayRecordButton: true,
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
   serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
   customChannels: false,
   packetsReplayAutoStart: false,
+  preciseMouseInput: false,
   // todo ui setting, maybe enable by default?
   waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
 

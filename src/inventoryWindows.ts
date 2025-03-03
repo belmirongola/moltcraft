@@ -20,6 +20,7 @@ import { currentScaling } from './scaleInterface'
 import { getItemDescription } from './itemsDescriptions'
 import { MessageFormatPart } from './chatUtils'
 import { GeneralInputItem, getItemMetadata, getItemNameRaw, RenderItem } from './mineflayer/items'
+import { getItemModelName } from './resourcesManager'
 
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
@@ -174,14 +175,18 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false, fullBlockModelSupport = false): {
+export type ResolvedItemModelRender = {
+  modelName: string,
+}
+
+export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = false, fullBlockModelSupport = false): {
   texture: string,
   blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
   scale?: number,
   slice?: number[],
   modelName?: string
 } | undefined => {
-  let itemModelName = slot.name
+  let itemModelName = model.modelName
   const originalItemName = itemModelName
   const isItem = loadedData.itemsByName[itemModelName]
 
@@ -190,15 +195,12 @@ export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false, full
   // #endregion
 
 
-  const { customModel } = getItemMetadata(slot)
-  if (customModel) {
-    itemModelName = customModel
-  }
-
   let itemTexture
   try {
     assertDefined(viewer.world.itemsRenderer)
-    itemTexture = viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport) ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
+    itemTexture =
+      viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
+      ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
     itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
@@ -228,23 +230,15 @@ const getItemName = (slot: Item | RenderItem | null) => {
   return text.join('')
 }
 
-export const renderSlotExternal = (slot) => {
-  const data = renderSlot(slot)
-  if (!data) return
-  return {
-    imageDataUrl: data.texture === 'invsprite' ? undefined : getImage({ path: data.texture })?.src,
-    sprite: data.slice && data.texture !== 'invsprite' ? data.slice.map(x => x * 2) : data.slice,
-    displayName: getItemName(slot) ?? slot.displayName,
-  }
-}
-
 const mapSlots = (slots: Array<RenderItem | Item | null>) => {
   return slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
     try {
-      const slotCustomProps = renderSlot(slot, i === bot.inventory.hotbarStart + bot.quickBarSlot)
+      const debugIsQuickbar = i === bot.inventory.hotbarStart + bot.quickBarSlot
+      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', })
+      const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
       const itemCustomName = getItemName(slot)
       Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error

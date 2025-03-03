@@ -3,7 +3,6 @@ import { subscribe, useSnapshot } from 'valtio'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { options } from '../optionsStorage'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
-import worldInteractions from '../worldInteractions'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
 import { pointerLock, isInRealGameSession } from '../utils'
 import { handleMovementStickDelta, joystickPointer } from './TouchAreasControls'
@@ -152,7 +151,7 @@ function GameInteractionOverlayInner ({
         virtualClickActive = false
       } else if (!capturedPointer.active.activateCameraMove && (Date.now() - capturedPointer.active.time < touchStartBreakingBlockMs)) {
         document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
-        worldInteractions.update()
+        bot.mouse.update()
         document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
       }
 

@@ -15,7 +15,7 @@ import './external'
 import './appConfig'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad, renderSlot } from './inventoryWindows'
-import { RenderItem } from './mineflayer/items'
+import { GeneralInputItem, RenderItem } from './mineflayer/items'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
@@ -40,8 +40,6 @@ import mineflayer from 'mineflayer'
 import { WorldDataEmitter, Viewer } from 'renderer/viewer'
 import pathfinder from 'mineflayer-pathfinder'
 import { Vec3 } from 'vec3'
-
-import worldInteractions from './worldInteractions'
 
 import * as THREE from 'three'
 import MinecraftData from 'minecraft-data'
@@ -105,21 +103,20 @@ import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from './viewerConnector'
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
-import { updateCursor } from './cameraRotationControls'
-import { pingServerVersion } from './mineflayer/minecraft-protocol-extra'
 import { playerState, PlayerStateManager } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
+import mouse from './mineflayer/plugins/mouse'
 import { LocalServer } from './customServer'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
-import { localRelayServerPlugin } from './mineflayer/plugins/localRelay'
+import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createFullScreenProgressReporter } from './core/progressReporter'
+import { getItemModelName } from './resourcesManager'
 
 window.debug = debug
 window.THREE = THREE
-window.worldInteractions = worldInteractions
 window.beforeRenderFrame = []
 
 // ACTUAL CODE
@@ -184,19 +181,13 @@ viewer.entities.getItemUv = (item, specificProps) => {
     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
     if (!name) throw new Error(`Item not found: ${idOrName}`)
 
-    const itemSelector = playerState.getItemSelector({
-      ...specificProps
-    })
-    const model = getItemDefinition(viewer.world.itemsDefinitionsStore, {
+    const model = getItemModelName({
+      ...item,
       name,
-      version: viewer.world.texturesVersion!,
-      properties: itemSelector
-    })?.model ?? name
+    } as GeneralInputItem, specificProps)
 
     const renderInfo = renderSlot({
-      ...item,
-      nbt: null,
-      name: model,
+      modelName: model,
     }, false, true)
 
     if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
@@ -704,6 +695,7 @@ export async function connect (connectOptions: ConnectOptions) {
   if (connectOptions.server) {
     bot.loadPlugin(ping)
   }
+  bot.loadPlugin(mouse)
   if (!localReplaySession) {
     bot.loadPlugin(localRelayServerPlugin)
   }
@@ -753,8 +745,6 @@ export async function connect (connectOptions: ConnectOptions) {
   onBotCreate()
 
   bot.once('login', () => {
-    worldInteractions.initBot()
-
     setLoadingScreenStatus('Loading world')
 
     const mcData = MinecraftData(bot.version)
@@ -813,8 +803,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
     const worldView = window.worldView = new WorldDataEmitter(bot.world, renderDistance, center)
     watchOptionsAfterWorldViewInit()
-
-    bot.on('physicsTick', () => updateCursor())
 
     void initVR()
     initMotionTracking()

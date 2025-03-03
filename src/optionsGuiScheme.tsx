@@ -11,7 +11,7 @@ import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
 import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
-import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay/packetsReplayLegacy'
+import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showOptionsModal } from './react/SelectOption'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
@@ -462,18 +462,18 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        const { active } = useSnapshot(packetsReplaceSessionState)
+        const { active } = useSnapshot(packetsRecordingState)
         return <Button
           inScreen
           onClick={() => {
-            packetsReplaceSessionState.active = !active
+            packetsRecordingState.active = !active
           }}
         >{active ? 'Stop' : 'Start'} Packets Replay Logging</Button>
       },
     },
     {
       custom () {
-        const { active, hasRecordedPackets } = useSnapshot(packetsReplaceSessionState)
+        const { active, hasRecordedPackets } = useSnapshot(packetsRecordingState)
         return <Button
           disabled={!hasRecordedPackets}
           inScreen

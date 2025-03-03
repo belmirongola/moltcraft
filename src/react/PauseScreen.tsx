@@ -23,7 +23,8 @@ import { setLoadingScreenStatus } from '../appStatus'
 import { closeWan, openToWanAndCopyJoinLink, getJoinLink } from '../localServerMultiplayer'
 import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../browserfs'
 import { appQueryParams } from '../appParams'
-import { downloadPacketsReplay, packetsReplaceSessionState } from '../packetsReplay/packetsReplayLegacy'
+import { downloadPacketsReplay, packetsRecordingState } from '../packetsReplay/packetsReplayLegacy'
+import { options } from '../optionsStorage'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import Button from './Button'
@@ -158,7 +159,8 @@ export default () => {
   const activeModalStackSnap = useSnapshot(activeModalStack)
   const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
   const { noConnection } = useSnapshot(gameAdditionalState)
-  const { active: packetsReplaceActive, hasRecordedPackets: packetsReplaceHasRecordedPackets } = useSnapshot(packetsReplaceSessionState)
+  const { active: packetsReplaceActive, hasRecordedPackets: packetsReplaceHasRecordedPackets } = useSnapshot(packetsRecordingState)
+  const { displayRecordButton } = useSnapshot(options)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -225,19 +227,19 @@ export default () => {
 
   if (!isModalActive) return null
 
-  const pauseLinks: any[] = []
+  const pauseLinks: React.ReactNode[] = []
   const pauseLinksConfig = miscUiState.appConfig?.pauseLinks
   if (pauseLinksConfig) {
-    for (const row of pauseLinksConfig) {
-      const rowButtons: any[] = []
+    for (const [i, row] of pauseLinksConfig.entries()) {
+      const rowButtons: React.ReactNode[] = []
       for (const button of row) {
         const style = { width: (204 / row.length - (row.length > 1 ? 4 : 0)) + 'px' }
         if (button.type === 'discord') {
-          rowButtons.push(<DiscordButton style={style} text={button.text}/>)
+          rowButtons.push(<DiscordButton key={i} style={style} text={button.text}/>)
         } else if (button.type === 'github') {
-          rowButtons.push(<Button className="button" style={style} onClick={() => openGithub()}>{button.text ?? 'GitHub'}</Button>)
+          rowButtons.push(<Button key={i} className="button" style={style} onClick={() => openGithub()}>{button.text ?? 'GitHub'}</Button>)
         } else if (button.type === 'url' && button.text) {
-          rowButtons.push(<Button className="button" style={style} onClick={() => openURL(button.url)}>{button.text}</Button>)
+          rowButtons.push(<Button key={i} className="button" style={style} onClick={() => openURL(button.url)}>{button.text}</Button>)
         }
       }
       pauseLinks.push(<div className={styles.row}>{rowButtons}</div>)
@@ -245,22 +247,26 @@ export default () => {
   }
 
   return <Screen title='Game Menu'>
-    <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)', display: 'flex', gap: '5px' }}>
+    <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
       <Button
         icon="pixelarticons:folder"
         onClick={async () => openWorldActions()}
       />
-      <Button
-        icon={packetsReplaceActive ? 'pixelarticons:debug-stop' : 'pixelarticons:circle'}
-        onClick={() => {
-          packetsReplaceSessionState.active = !packetsReplaceSessionState.active
-        }}
-      />
-      {packetsReplaceHasRecordedPackets && (
-        <Button
-          icon="pixelarticons:download"
-          onClick={async () => downloadPacketsReplay()}
-        />
+      {displayRecordButton && (
+        <>
+          <Button
+            icon={packetsReplaceActive ? 'pixelarticons:debug-stop' : 'pixelarticons:circle'}
+            onClick={() => {
+              packetsRecordingState.active = !packetsRecordingState.active
+            }}
+          />
+          {packetsReplaceHasRecordedPackets && (
+            <Button
+              icon="pixelarticons:download"
+              onClick={async () => downloadPacketsReplay()}
+            />
+          )}
+        </>
       )}
     </div>
     <ErrorBoundary renderError={() => <div>error</div>}>

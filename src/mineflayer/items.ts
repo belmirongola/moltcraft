@@ -19,6 +19,7 @@ export type RenderItem = Pick<import('prismarine-item').Item, 'name' | 'displayN
 export type GeneralInputItem = Pick<import('prismarine-item').Item, 'name' | 'nbt'> & {
   components?: RenderSlotComponent[],
   displayName?: string
+  modelResolved?: boolean
 }
 
 type JsonString = string

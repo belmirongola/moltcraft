@@ -5,7 +5,7 @@ import CircularBuffer from 'flying-squid/dist/circularBuffer'
 import { PacketsLogger } from 'mcraft-fun-mineflayer/build/packetsLogger'
 import { subscribe } from 'valtio'
 import { lastConnectOptions } from '../../react/AppStatusProvider'
-import { packetsReplaceSessionState } from '../../packetsReplay/packetsReplayLegacy'
+import { packetsRecordingState } from '../../packetsReplay/packetsReplayLegacy'
 import { packetsReplayState } from '../../react/state/packetsReplayState'
 
 const AUTO_CAPTURE_PACKETS_COUNT = 30
@@ -44,7 +44,7 @@ export const localRelayServerPlugin = (bot: Bot) => {
   let position = 0
   bot._client.on('writePacket' as any, (name, params) => {
     circularBuffer!.add({ name, state: bot._client.state, params, isFromServer: false, timestamp: Date.now() })
-    if (packetsReplaceSessionState.active) {
+    if (packetsRecordingState.active) {
       packetsReplayState.packetsPlayback.push({
         name,
         data: params,
@@ -58,7 +58,7 @@ export const localRelayServerPlugin = (bot: Bot) => {
   bot._client.on('packet', (data, { name }) => {
     if (name === 'map_chunk') data = { x: data.x, z: data.z }
     circularBuffer!.add({ name, state: bot._client.state, params: data, isFromServer: true, timestamp: Date.now() })
-    if (packetsReplaceSessionState.active) {
+    if (packetsRecordingState.active) {
       packetsReplayState.packetsPlayback.push({
         name,
         data,
@@ -74,13 +74,13 @@ export const localRelayServerPlugin = (bot: Bot) => {
 }
 
 const upPacketsReplayPanel = () => {
-  if (packetsReplaceSessionState.active && bot) {
+  if (packetsRecordingState.active && bot) {
     packetsReplayState.isOpen = true
     packetsReplayState.replayName = 'Recording all packets for ' + bot.username
   }
 }
 
-subscribe(packetsReplaceSessionState, () => {
+subscribe(packetsRecordingState, () => {
   upPacketsReplayPanel()
 })
 

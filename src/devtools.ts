@@ -3,7 +3,6 @@
 import fs from 'fs'
 import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { enable, disable, enabled } from 'debug'
-import { getEntityCursor } from './worldInteractions'
 
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
   const newPos = bot.blockAtCursor(5)?.position.offset(x, y, z)
@@ -11,8 +10,8 @@ window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
   return bot.world.getBlock(newPos)
 }
 
-window.cursorEntity = () => {
-  return getEntityCursor()
+window.entityCursor = () => {
+  return bot.mouse.getCursorState().entity
 }
 
 // wanderer

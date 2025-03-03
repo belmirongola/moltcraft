@@ -2,7 +2,7 @@ import { proxy } from 'valtio'
 import { PacketsLogger } from 'mcraft-fun-mineflayer/build/packetsLogger'
 import { options } from '../optionsStorage'
 
-export const packetsReplaceSessionState = proxy({
+export const packetsRecordingState = proxy({
   active: options.packetsReplayAutoStart,
   hasRecordedPackets: false
 })
@@ -38,13 +38,13 @@ export default () => {
   customEvents.on('mineflayerBotCreated', () => {
     replayLogger = new PacketsLogger({ minecraftVersion: bot.version })
     replayLogger.contents = ''
-    packetsReplaceSessionState.hasRecordedPackets = false
+    packetsRecordingState.hasRecordedPackets = false
     const handleServerPacket = (data, { name, state = bot._client.state }) => {
-      if (!packetsReplaceSessionState.active) {
+      if (!packetsRecordingState.active) {
         return
       }
       replayLogger!.log(true, { name, state }, processPacketData(data))
-      packetsReplaceSessionState.hasRecordedPackets = true
+      packetsRecordingState.hasRecordedPackets = true
     }
     bot._client.on('packet', handleServerPacket)
     bot._client.on('packet_name' as any, (name, data) => {
@@ -52,11 +52,11 @@ export default () => {
     })
 
     bot._client.on('writePacket' as any, (name, data) => {
-      if (!packetsReplaceSessionState.active) {
+      if (!packetsRecordingState.active) {
         return
       }
       replayLogger!.log(false, { name, state: bot._client.state }, processPacketData(data))
-      packetsReplaceSessionState.hasRecordedPackets = true
+      packetsRecordingState.hasRecordedPackets = true
     })
   })
 }

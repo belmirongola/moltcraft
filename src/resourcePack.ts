@@ -314,7 +314,8 @@ export const getResourcepackTiles = async (type: 'blocks' | 'items' | 'armor', e
 const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) => {
   viewer.world.customBlockStates = {}
   viewer.world.customModels = {}
-  const usedTextures = new Set<string>()
+  const usedBlockTextures = new Set<string>()
+  const usedItemTextures = new Set<string>()
   const basePath = await getActiveResourcepackBasePath()
   if (!basePath) return
   progressReporter.beginStage('read-resource-pack-blockstates-and-models', 'Reading resource pack blockstates and models')
@@ -328,8 +329,9 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
       if (file.endsWith('.json')) {
         const contents = await fs.promises.readFile(filePath, 'utf8')
         let name = file.replace('.json', '')
+        const isBlock = path.endsWith('block')
         if (type === 'models') {
-          name = `${path.endsWith('block') ? 'block' : 'item'}/${name}`
+          name = `${isBlock ? 'block' : 'item'}/${name}`
         }
         const parsed = JSON.parse(contents)
         if (namespaceDir === 'minecraft') {
@@ -341,7 +343,11 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
             if (typeof texturePath !== 'string') continue
             if (texturePath.startsWith('#')) continue
             if (!texturePath.includes(':')) texturePath = `minecraft:${texturePath}`
-            usedTextures.add(texturePath as string)
+            if (isBlock) {
+              usedBlockTextures.add(texturePath as string)
+            } else {
+              usedItemTextures.add(texturePath as string)
+            }
           }
         }
       }
@@ -369,7 +375,10 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
     viewer.world.customBlockStates = undefined
     viewer.world.customModels = undefined
   }
-  return { usedTextures }
+  return {
+    usedBlockTextures,
+    usedItemTextures
+  }
 }
 
 const downloadAndUseResourcePack = async (url: string, progressReporter: ProgressReporter): Promise<void> => {
@@ -517,9 +526,9 @@ const updateTextures = async (progressReporter = createConsoleLogProgressReporte
   const origBlocksFiles = Object.keys(viewer.world.sourceData.blocksAtlases.latest.textures)
   const origItemsFiles = Object.keys(viewer.world.sourceData.itemsAtlases.latest.textures)
   const origArmorFiles = Object.keys(armorTextures)
-  const { usedTextures: extraBlockTextures = new Set<string>() } = await prepareBlockstatesAndModels(progressReporter) ?? {}
-  const blocksData = await getResourcepackTiles('blocks', [...origBlocksFiles, ...extraBlockTextures], progressReporter)
-  const itemsData = await getResourcepackTiles('items', origItemsFiles, progressReporter)
+  const { usedBlockTextures, usedItemTextures } = await prepareBlockstatesAndModels(progressReporter) ?? {}
+  const blocksData = await getResourcepackTiles('blocks', [...origBlocksFiles, ...usedBlockTextures ?? []], progressReporter)
+  const itemsData = await getResourcepackTiles('items', [...origItemsFiles, ...usedItemTextures ?? []], progressReporter)
   const armorData = await getResourcepackTiles('armor', origArmorFiles, progressReporter)
   await updateAllReplacableTextures()
   viewer.world.customTextures = {}
