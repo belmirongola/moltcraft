@@ -30,6 +30,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
+        env:
+          CONFIG_JSON_SOURCE: BUNDLED
       - run: pnpm build-storybook
       - name: Copy playground files
         run: |

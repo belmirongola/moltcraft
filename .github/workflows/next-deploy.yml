@@ -32,6 +32,8 @@ jobs:
           echo "{\"latestTag\": \"$(git rev-parse --short $GITHUB_SHA)\", \"isCommit\": true}" > assets/release.json
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          CONFIG_JSON_SOURCE: BUNDLED
       - run: pnpm build-storybook
       - name: Copy playground files
         run: |
