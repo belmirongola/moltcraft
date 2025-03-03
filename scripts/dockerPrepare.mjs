@@ -4,9 +4,27 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { execSync } from 'child_process'
 
-// write release tag
+// Get repository from git config
+const getGitRepository = () => {
+    try {
+        const gitConfig = fs.readFileSync('.git/config', 'utf8')
+        const originUrlMatch = gitConfig.match(/\[remote "origin"\][\s\S]*?url = .*?github\.com[:/](.*?)(\.git)?\n/m)
+        if (originUrlMatch) {
+            return originUrlMatch[1]
+        }
+    } catch (err) {
+        console.warn('Failed to read git repository from config:', err)
+    }
+    return null
+}
+
+// write release tag and repository info
 const commitShort = execSync('git rev-parse --short HEAD').toString().trim()
-fs.writeFileSync('./assets/release.json', JSON.stringify({ latestTag: `${commitShort} (docker)` }), 'utf8')
+const repository = getGitRepository()
+fs.writeFileSync('./assets/release.json', JSON.stringify({
+    latestTag: `${commitShort} (docker)`,
+    repository
+}), 'utf8')
 
 const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'))
 delete packageJson.optionalDependencies
