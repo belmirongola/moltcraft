@@ -1,4 +1,4 @@
-import { disabledSettings, options } from './optionsStorage'
+import { disabledSettings, options, qsOptions } from './optionsStorage'
 import { miscUiState } from './globalState'
 import { setLoadingScreenStatus } from './appStatus'
 
@@ -34,7 +34,7 @@ export const loadAppConfig = (appConfig: AppConfig) => {
       if (value) {
         disabledSettings.value.add(key)
         // since the setting is forced, we need to set it to that value
-        if (appConfig.defaultSettings?.[key]) {
+        if (appConfig.defaultSettings?.[key] && !qsOptions[key]) {
           options[key] = appConfig.defaultSettings[key]
         }
       } else {
