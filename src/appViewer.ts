@@ -2,10 +2,11 @@ import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
 import { IPlayerState } from 'renderer/viewer/lib/basePlayerState'
 import { subscribeKey } from 'valtio/utils'
 import { defaultWorldRendererConfig, WorldRendererConfig } from 'renderer/viewer/lib/worldrendererCommon'
-import { PlayerStateManager } from './mineflayer/playerState'
+import { Vec3 } from 'vec3'
+import { playerState, PlayerStateManager } from './mineflayer/playerState'
 import { createNotificationProgressReporter, ProgressReporter } from './core/progressReporter'
 import { setLoadingScreenStatus } from './appStatus'
-import { activeModalStack } from './globalState'
+import { activeModalStack, miscUiState } from './globalState'
 import { options } from './optionsStorage'
 
 export interface GraphicsBackendConfig {
@@ -29,6 +30,7 @@ export interface DisplayWorldOptions {
   resourcesManager: ResourcesManager
   worldView: WorldDataEmitter
   inWorldRenderingConfig: WorldRendererConfig
+  playerState: IPlayerState
 }
 
 export type GraphicsBackendLoader = (options: GraphicsBackendOptions) => GraphicsBackend
@@ -40,8 +42,7 @@ export interface GraphicsBackend {
   startWorld: (options: DisplayWorldOptions) => void
   disconnect: () => void
 
-  startRender: () => void
-  stopRender: () => void
+  setRendering: (rendering: boolean) => void
 
   getRenderer: () => string
   getDebugOverlay: () => {
@@ -49,12 +50,14 @@ export interface GraphicsBackend {
     right?: Record<string, string>
     left?: Record<string, string>
   }
+  updateCamera: (pos: Vec3 | null, yaw: number, pitch: number) => void
+  setRoll: (roll: number) => void
 }
 
 export class AppViewer {
   resourcesManager: ResourcesManager
   worldView: WorldDataEmitter
-  playerState = new PlayerStateManager()
+  // playerState: IPlayerState
   readonly config: GraphicsBackendConfig = {
     ...defaultGraphicsBackendConfig,
     powerPreference: options.gpuPreference === 'default' ? undefined : options.gpuPreference
@@ -65,6 +68,7 @@ export class AppViewer {
     args: any[]
   }
   inWorldRenderingConfig: WorldRendererConfig = defaultWorldRendererConfig
+  lastCamUpdate = 0
 
   loadBackend (loader: GraphicsBackendLoader, loadResourcesVersion?: string) {
     if (this.backend) {
@@ -92,6 +96,7 @@ export class AppViewer {
   }
 
   startPanorama () {
+    if (options.disableAssets) return
     if (this.backend) {
       this.backend.startPanorama()
     }
@@ -106,11 +111,14 @@ export class AppViewer {
 
   startWorld (world, renderDistance, startPosition) {
     this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
+    window.worldView = this.worldView
+    // this.playerState = new PlayerStateManager()
     if (this.backend) {
       this.backend.startWorld({
         resourcesManager: this.resourcesManager,
         worldView: this.worldView,
-        inWorldRenderingConfig: this.inWorldRenderingConfig
+        inWorldRenderingConfig: this.inWorldRenderingConfig,
+        playerState
       })
     }
     this.queuedDisplay = { method: 'startWorld', args: [options] }
@@ -131,13 +139,16 @@ window.appViewer = appViewer
 class ResourcesManager {
 }
 
-subscribeKey(activeModalStack, 'length', () => {
+const modalStackUpdate = () => {
+  if (activeModalStack.length === 0 && !miscUiState.gameLoaded) {
+    // tood reset backend
+    appViewer.startPanorama()
+  }
+
   if (appViewer.backend) {
     const hasAppStatus = activeModalStack.some(m => m.reactType === 'app-status')
-    if (hasAppStatus) {
-      appViewer.backend.stopRender()
-    } else {
-      appViewer.backend.startRender()
-    }
+    appViewer.backend.setRendering(!hasAppStatus)
   }
-})
+}
+subscribeKey(activeModalStack, 'length', modalStackUpdate)
+modalStackUpdate()

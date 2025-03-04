@@ -52,18 +52,8 @@ class CameraShake {
       }
     }
 
-    // Apply roll in camera's local space to maintain consistent left/right roll
-    const { camera } = viewer
-    const rollQuat = new THREE.Quaternion()
-    rollQuat.setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(this.rollAngle))
-
-    // Get camera's current rotation
-    const camQuat = new THREE.Quaternion()
-    camera.getWorldQuaternion(camQuat)
-
-    // Apply roll after camera rotation
-    const finalQuat = camQuat.multiply(rollQuat)
-    camera.setRotationFromQuaternion(finalQuat)
+    // Apply roll to camera
+    appViewer.backend?.setRoll(this.rollAngle)
   }
 
   private easeOut (t: number): number {
@@ -77,6 +67,10 @@ class CameraShake {
 
 let cameraShake: CameraShake
 
+customEvents.on('hurtAnimation', () => {
+  cameraShake.shakeFromDamage()
+})
+
 customEvents.on('mineflayerBotCreated', () => {
   if (!cameraShake) {
     cameraShake = new CameraShake()
@@ -84,10 +78,6 @@ customEvents.on('mineflayerBotCreated', () => {
       cameraShake.update()
     })
   }
-
-  customEvents.on('hurtAnimation', () => {
-    cameraShake.shakeFromDamage()
-  })
 
   bot._client.on('hurt_animation', () => {
     customEvents.emit('hurtAnimation')

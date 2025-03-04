@@ -2,32 +2,28 @@ import EventEmitter from 'events'
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
-import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
+import { DisplayWorldOptions, GraphicsBackendOptions } from '../../../src/appViewer'
 import { Entities } from './entities'
-import { Primitives } from './primitives'
 import { WorldRendererThree } from './worldrendererThree'
-import { WorldRendererCommon, WorldRendererConfig, defaultWorldRendererConfig } from './worldrendererCommon'
-import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
-import { addNewStat } from './ui/newStats'
+import { WorldRendererCommon } from './worldrendererCommon'
+import { setBlockPosition } from './mesher/standaloneRenderer'
 import { getMyHand } from './hand'
-import { IPlayerState, BasePlayerState } from './basePlayerState'
 import { CameraBobbing } from './cameraBobbing'
+import { WorldDataEmitter } from './worldDataEmitter'
 
-export class Viewer {
+export class ThreeJsWorldRenderer {
   scene: THREE.Scene
   ambientLight: THREE.AmbientLight
   directionalLight: THREE.DirectionalLight
   world: WorldRendererCommon
   entities: Entities
   // primitives: Primitives
-  domElement: HTMLCanvasElement
-  playerHeight = 1.62
   threeJsWorld: WorldRendererThree
   cameraObjectOverride?: THREE.Object3D // for xr
   audioListener: THREE.AudioListener
   renderingUntilNoUpdates = false
-  processEntityOverrides = (e, overrides) => overrides
   private readonly cameraBobbing: CameraBobbing
+  private cameraRoll = 0
 
   get camera () {
     return this.world.camera
@@ -37,21 +33,17 @@ export class Viewer {
     this.world.camera = camera
   }
 
-  constructor (public renderer: THREE.WebGLRenderer, worldConfig = defaultWorldRendererConfig, public playerState: IPlayerState = new BasePlayerState()) {
-    // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
-    THREE.ColorManagement.enabled = false
-    renderer.outputColorSpace = THREE.LinearSRGBColorSpace
-
+  constructor (public renderer: THREE.WebGLRenderer, private readonly worldOptionsHolder: DisplayWorldOptions) {
     this.scene = new THREE.Scene()
     this.scene.matrixAutoUpdate = false // for perf
-    this.threeJsWorld = new WorldRendererThree(this.scene, this.renderer, worldConfig, this.playerState)
+    this.threeJsWorld = new WorldRendererThree(this.scene, this.renderer, this.worldOptionsHolder)
     this.setWorld()
     this.resetScene()
     this.entities = new Entities(this)
     // this.primitives = new Primitives(this.scene, this.camera)
     this.cameraBobbing = new CameraBobbing()
 
-    this.domElement = renderer.domElement
+    this.connect(this.worldOptionsHolder.worldView)
   }
 
   setWorld () {
@@ -142,7 +134,7 @@ export class Viewer {
   }
 
   updateEntity (e) {
-    this.entities.update(e, this.processEntityOverrides(e, {
+    this.entities.update(e, {
       rotation: {
         head: {
           x: e.headPitch ?? e.pitch,
@@ -150,12 +142,26 @@ export class Viewer {
           z: 0
         }
       }
-    }))
+    })
+  }
+
+  setCameraRoll (roll: number) {
+    this.cameraRoll = roll
+    const rollQuat = new THREE.Quaternion()
+    rollQuat.setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(roll))
+
+    // Get camera's current rotation
+    const camQuat = new THREE.Quaternion()
+    this.camera.getWorldQuaternion(camQuat)
+
+    // Apply roll after camera rotation
+    const finalQuat = camQuat.multiply(rollQuat)
+    this.camera.setRotationFromQuaternion(finalQuat)
   }
 
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
     const cam = this.cameraObjectOverride || this.camera
-    const yOffset = this.playerState.getEyeHeight()
+    const yOffset = this.worldOptionsHolder.playerState.getEyeHeight()
 
     this.world.camera = cam as THREE.PerspectiveCamera
     this.world.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
@@ -192,13 +198,11 @@ export class Viewer {
 
   addChunksBatchWaitTime = 200
 
-  connect (worldEmitter: EventEmitter) {
+  connect (worldView: WorldDataEmitter) {
+    const worldEmitter = worldView
+
     worldEmitter.on('entity', (e) => {
       this.updateEntity(e)
-    })
-
-    worldEmitter.on('primitive', (p) => {
-      // this.updatePrimitive(p)
     })
 
     let currentLoadChunkBatch = null as {
@@ -300,5 +304,8 @@ export class Viewer {
 
   async waitForChunksToRender () {
     await this.world.waitForChunksToRender()
+  }
+
+  dispose () {
   }
 }

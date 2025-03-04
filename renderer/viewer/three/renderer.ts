@@ -36,8 +36,11 @@ export class DocumentRenderer {
       })
     } catch (err) {
       initOptions.displayCriticalError(new Error(`Failed to create WebGL context, not possible to render (restart browser): ${err.message}`))
+      throw err
     }
+    this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace
     this.updatePixelRatio()
+    this.updateSize()
     this.addToPage()
 
     this.stats = new TopRightStats(this.canvas, this.config.statsVisible)
@@ -52,6 +55,10 @@ export class DocumentRenderer {
       pixelRatio = 1 // webgl1 has issues with high pixel ratio (sometimes screen is clipped)
     }
     this.renderer.setPixelRatio(pixelRatio)
+  }
+
+  updateSize () {
+    this.renderer.setSize(window.innerWidth, window.innerHeight)
   }
 
   private addToPage () {
@@ -89,13 +96,6 @@ export class DocumentRenderer {
 
       if (this.paused) return
 
-      let sizeChanged = false
-      if (this.previousWindowWidth !== window.innerWidth || this.previousWindowHeight !== window.innerHeight) {
-        this.previousWindowWidth = window.innerWidth
-        this.previousWindowHeight = window.innerHeight
-        sizeChanged = true
-      }
-
       // Handle FPS limiting
       if (this.config.fpsLimit) {
         const now = performance.now()
@@ -107,6 +107,14 @@ export class DocumentRenderer {
         }
 
         this.lastRenderTime = now - (elapsed % fpsInterval)
+      }
+
+      let sizeChanged = false
+      if (this.previousWindowWidth !== window.innerWidth || this.previousWindowHeight !== window.innerHeight) {
+        this.previousWindowWidth = window.innerWidth
+        this.previousWindowHeight = window.innerHeight
+        this.updateSize()
+        sizeChanged = true
       }
 
       this.preRender()

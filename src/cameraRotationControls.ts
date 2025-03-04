@@ -37,7 +37,7 @@ export const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
   const maxPitch = 0.5 * Math.PI
   const minPitch = -0.5 * Math.PI
 
-  viewer.world.lastCamUpdate = Date.now()
+  appViewer.lastCamUpdate = Date.now()
 
   if (viewer.world.freeFlyMode) {
     // Update freeFlyState directly

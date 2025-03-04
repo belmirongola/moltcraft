@@ -6,6 +6,7 @@ import * as tweenJs from '@tweenjs/tween.js'
 import { BloomPass, RenderPass, UnrealBloomPass, EffectComposer, WaterPass, GlitchPass, LineSegmentsGeometry, Wireframe, LineMaterial } from 'three-stdlib'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
 import { renderSign } from '../sign-renderer'
+import { DisplayWorldOptions, GraphicsBackendOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from './simpleUtils'
 import { WorldRendererCommon, WorldRendererConfig } from './worldrendererCommon'
 import { disposeObject } from './threeJsUtils'
@@ -27,6 +28,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraSectionPos: Vec3 = new Vec3(0, 0, 0)
   holdingBlock: HoldingBlock
   holdingBlockLeft: HoldingBlock
+  cameraRoll = 0
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -36,8 +38,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public config: WorldRendererConfig, public playerState: IPlayerState) {
-    super(config)
+  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public worldOptionsHolder: DisplayWorldOptions) {
+    super(worldOptionsHolder.inWorldRenderingConfig)
+    const { playerState } = worldOptionsHolder
+
     this.starField = new StarField(scene)
     this.holdingBlock = new HoldingBlock(playerState, this.config)
     this.holdingBlockLeft = new HoldingBlock(playerState, this.config, true)
@@ -454,6 +458,20 @@ export class WorldRendererThree extends WorldRendererCommon {
     } catch (err) {
       console.warn('Failed to get renderer info', err)
     }
+  }
+
+  setCameraRoll (roll: number) {
+    this.cameraRoll = roll
+    const rollQuat = new THREE.Quaternion()
+    rollQuat.setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(roll))
+
+    // Get camera's current rotation
+    const camQuat = new THREE.Quaternion()
+    this.camera.getWorldQuaternion(camQuat)
+
+    // Apply roll after camera rotation
+    const finalQuat = camQuat.multiply(rollQuat)
+    this.camera.setRotationFromQuaternion(finalQuat)
   }
 }
 

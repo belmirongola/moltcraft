@@ -1,26 +1,35 @@
 import * as THREE from 'three'
+import { Vec3 } from 'vec3'
 import { GraphicsBackendLoader, GraphicsBackend, GraphicsBackendOptions, DisplayWorldOptions } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
+import { ThreeJsWorldRenderer } from '../lib/viewer'
 import { WorldRendererThree } from '../lib/worldrendererThree'
 import { DocumentRenderer } from './renderer'
 import { PanoramaRenderer } from './panorama'
+
+// https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
+THREE.ColorManagement.enabled = false
 
 const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOptions) => {
   // Private state
   const documentRenderer = new DocumentRenderer(options)
   globalThis.renderer = documentRenderer.renderer
-  let panoramaRenderer: PanoramaRenderer | null = null
 
-  // Private methods
+  let panoramaRenderer: PanoramaRenderer | null = null
+  let worldRenderer: ThreeJsWorldRenderer | null = null
+
   const startPanorama = () => {
+    if (worldRenderer) return
     if (!panoramaRenderer) {
       panoramaRenderer = new PanoramaRenderer(documentRenderer)
       void panoramaRenderer.start()
     }
   }
 
-  const updateResources = async (version: string, progressReporter: ProgressReporter): Promise<void> => {
+  let version = ''
+  const updateResources = async (ver: string, progressReporter: ProgressReporter): Promise<void> => {
     // Implementation for updating resources will be added here
+    version = ver
   }
 
   const startWorld = (options: DisplayWorldOptions) => {
@@ -28,6 +37,8 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
       panoramaRenderer.dispose()
       panoramaRenderer = null
     }
+    worldRenderer = new ThreeJsWorldRenderer(documentRenderer.renderer, options)
+    void worldRenderer.setVersion(version)
   }
 
   const disconnect = () => {
@@ -38,14 +49,11 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
     if (documentRenderer) {
       documentRenderer.dispose()
     }
-  }
 
-  const startRender = () => {
-    documentRenderer.setPaused(false)
-  }
-
-  const stopRender = () => {
-    documentRenderer.setPaused(true)
+    if (worldRenderer) {
+      worldRenderer.dispose()
+      worldRenderer = null
+    }
   }
 
   const renderer = WorldRendererThree.getRendererInfo(documentRenderer.renderer) ?? '...'
@@ -58,11 +66,18 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
     updateResources,
     startWorld,
     disconnect,
-    startRender,
-    stopRender,
+    setRendering (rendering) {
+      documentRenderer.setPaused(!rendering)
+    },
     getRenderer: () => renderer,
     getDebugOverlay: () => ({
-    })
+    }),
+    updateCamera (pos: Vec3 | null, yaw: number, pitch: number) {
+      worldRenderer?.setFirstPersonCamera(pos, yaw, pitch)
+    },
+    setRoll (roll: number) {
+      worldRenderer?.setCameraRoll(roll)
+    }
   }
 
   return backend

@@ -5,6 +5,7 @@ import { EventEmitter } from 'events'
 import { generateSpiralMatrix, ViewRect } from 'flying-squid/dist/utils'
 import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
+import { proxy } from 'valtio'
 import { getItemFromBlock } from '../../../src/chatUtils'
 import { delayedIterator } from '../../playground/shared'
 import { playerState } from '../../../src/mineflayer/playerState'
@@ -25,6 +26,11 @@ export class WorldDataEmitter extends EventEmitter {
   keepChunksDistance = 0
   addWaitTime = 1
   isPlayground = false
+
+  public reactive = proxy({
+    cursorBlock: null as Vec3 | null,
+    cursorBlockBreakingStage: null as number | null,
+  })
 
   constructor (public world: typeof __type_bot['world'], public viewDistance: number, position: Vec3 = new Vec3(0, 0, 0)) {
     super()

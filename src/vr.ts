@@ -191,8 +191,8 @@ export async function initVR () {
       rotSnapReset = true
     }
 
-    // viewer.setFirstPersonCamera(null, yawOffset, 0)
-    viewer.setFirstPersonCamera(null, bot.entity.yaw, bot.entity.pitch)
+    // appViewer.backend?.updateCamera(null, yawOffset, 0)
+    appViewer.backend?.updateCamera(null, bot.entity.yaw, bot.entity.pitch)
 
     // todo restore this logic (need to preserve ability to move camera)
     // const xrCamera = renderer.xr.getCamera()

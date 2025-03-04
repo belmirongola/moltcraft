@@ -14,13 +14,24 @@ const panoramaFiles = [
 export class PanoramaRenderer {
   private readonly camera: THREE.PerspectiveCamera
   private readonly scene: THREE.Scene
+  private readonly ambientLight: THREE.AmbientLight
+  private readonly directionalLight: THREE.DirectionalLight
   private panoramaGroup: THREE.Object3D | null = null
-  private readonly documentRenderer: DocumentRenderer
   private time = 0
 
-  constructor (documentRenderer: DocumentRenderer) {
-    this.documentRenderer = documentRenderer
+  constructor (private readonly documentRenderer: DocumentRenderer) {
     this.scene = new THREE.Scene()
+
+    // Add ambient light
+    this.ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
+    this.scene.add(this.ambientLight)
+
+    // Add directional light
+    this.directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
+    this.directionalLight.position.set(1, 1, 0.5).normalize()
+    this.directionalLight.castShadow = true
+    this.scene.add(this.directionalLight)
+
     this.camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.05, 1000)
     this.camera.position.set(0, 0, 0)
     this.camera.rotation.set(0, 0, 0)
@@ -51,7 +62,7 @@ export class PanoramaRenderer {
 
     // Add squids
     for (let i = 0; i < 20; i++) {
-      const m = new EntityMesh('1.16.4', 'squid', this.documentRenderer.world).mesh
+      const m = new EntityMesh('1.16.4', 'squid').mesh
       m.position.set(Math.random() * 30 - 15, Math.random() * 20 - 10, Math.random() * 10 - 17)
       m.rotation.set(0, Math.PI + Math.random(), -Math.PI / 4, 'ZYX')
       const v = Math.random() * 0.01
@@ -65,26 +76,15 @@ export class PanoramaRenderer {
     this.scene.add(group)
     this.panoramaGroup = group
 
-    // Override renderer's render method
-    const originalRender = this.documentRenderer.render.bind(this.documentRenderer)
-    this.documentRenderer.render = () => {
-      if (this.panoramaGroup) {
-        this.documentRenderer.renderer.render(this.scene, this.camera)
-      } else {
-        originalRender()
+    this.documentRenderer.render = (sizeChanged = false) => {
+      if (sizeChanged) {
+        this.camera.aspect = window.innerWidth / window.innerHeight
       }
-    }
-  }
-
-  stop () {
-    if (this.panoramaGroup) {
-      this.scene.remove(this.panoramaGroup)
-      this.panoramaGroup = null
+      this.documentRenderer.renderer.render(this.scene, this.camera)
     }
   }
 
   dispose () {
-    this.stop()
     this.scene.clear()
   }
 }

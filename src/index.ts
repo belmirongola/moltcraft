@@ -35,7 +35,6 @@ import downloadAndOpenFile from './downloadAndOpenFile'
 import fs from 'fs'
 import net from 'net'
 import mineflayer from 'mineflayer'
-import { WorldDataEmitter } from 'renderer/viewer'
 import pathfinder from 'mineflayer-pathfinder'
 import { Vec3 } from 'vec3'
 
@@ -62,10 +61,6 @@ import {
 import { parseServerAddress } from './parseServerAddress'
 import { setLoadingScreenStatus } from './appStatus'
 import { isCypress } from './standaloneUtils'
-
-import {
-  removePanorama
-} from './panorama'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
@@ -106,7 +101,7 @@ import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
-import { createFullScreenProgressReporter } from './core/progressReporter'
+import { createConsoleLogProgressReporter, createFullScreenProgressReporter } from './core/progressReporter'
 import { getItemModelName } from './resourcesManager'
 import { appViewer } from './appViewer'
 import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
@@ -210,30 +205,10 @@ function listenGlobalEvents () {
   })
 }
 
-let listeners = [] as Array<{ target, event, callback }>
-let cleanupFunctions = [] as Array<() => void>
-// only for dom listeners (no removeAllListeners)
-// todo refactor them out of connect fn instead
-const registerListener: import('./utilsTs').RegisterListener = (target, event, callback) => {
-  target.addEventListener(event, callback)
-  listeners.push({ target, event, callback })
-}
-const removeAllListeners = () => {
-  for (const { target, event, callback } of listeners) {
-    target.removeEventListener(event, callback)
-  }
-  for (const cleanupFunction of cleanupFunctions) {
-    cleanupFunction()
-  }
-  cleanupFunctions = []
-  listeners = []
-}
-
 export async function connect (connectOptions: ConnectOptions) {
   if (miscUiState.gameLoaded) return
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
-  removePanorama()
 
   const { singleplayer } = connectOptions
   const p2pMultiplayer = !!connectOptions.peerId
@@ -276,8 +251,8 @@ export async function connect (connectOptions: ConnectOptions) {
   const destroyAll = () => {
     if (ended) return
     ended = true
-    viewer.resetAll()
     progress.end()
+    // dont reset viewer so we can still do debugging
     localServer = window.localServer = window.server = undefined
     gameAdditionalState.viewerConnection = false
 
@@ -294,7 +269,6 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     resetStateAfterDisconnect()
     cleanFs()
-    removeAllListeners()
   }
   const cleanFs = () => {
     if (singleplayer && !fsState.inMemorySave) {
@@ -387,8 +361,9 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Loading minecraft models',
         async () => {
-          viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
-          void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
+          // viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
+          // void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
+          void appViewer.updateResources(version, createConsoleLogProgressReporter())
           miscUiState.loadedDataVersion = version
         }
       )
@@ -740,7 +715,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
-    setLoadingScreenStatus('Placing blocks (starting viewer)')
+    progress.setMessage('Placing blocks (starting viewer)')
     if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
       localStorage.lastConnectOptions = JSON.stringify(connectOptions)
     }
@@ -753,34 +728,30 @@ export async function connect (connectOptions: ConnectOptions) {
       bot.chat(`/login ${connectOptions.autoLoginPassword}`)
     }
 
+
     console.log('bot spawned - starting viewer')
-
-    const center = bot.entity.position
-
-    const worldView = window.worldView = new WorldDataEmitter(bot.world, renderDistance, center)
+    appViewer.startWorld(bot.world, renderDistance, bot.entity.position)
     watchOptionsAfterWorldViewInit()
 
     void initVR()
     initMotionTracking()
 
-    // Link WorldDataEmitter and Viewer
-    viewer.connect(worldView)
-    worldView.listenToBot(bot)
-    void worldView.init(bot.entity.position)
+    appViewer.worldView.listenToBot(bot)
+    void appViewer.worldView.init(bot.entity.position)
 
     dayCycle()
 
     // Bot position callback
     function botPosition () {
-      viewer.world.lastCamUpdate = Date.now()
+      appViewer.lastCamUpdate = Date.now()
       // this might cause lag, but not sure
-      viewer.setFirstPersonCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
-      void worldView.updatePosition(bot.entity.position)
+      appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
+      void appViewer.worldView.updatePosition(bot.entity.position)
     }
     bot.on('move', botPosition)
     botPosition()
 
-    setLoadingScreenStatus('Setting callbacks')
+    progress.setMessage('Setting callbacks')
 
     onGameLoad(() => {})
 
