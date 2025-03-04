@@ -5,9 +5,6 @@ import fs from 'fs'
 import * as THREE from 'three'
 import { subscribeKey } from 'valtio/utils'
 import { EntityMesh } from 'renderer/viewer/lib/entity/EntityMesh'
-import { fromTexturePackPath, resourcePackState } from './resourcePack'
-import { options, watchValue } from './optionsStorage'
-import { miscUiState } from './globalState'
 
 let panoramaCubeMap
 let shouldDisplayPanorama = false
@@ -47,28 +44,9 @@ const updateResourcePackSupportPanorama = async () => {
   }
 }
 
-watchValue(miscUiState, m => {
-  if (m.appLoaded) {
-    // Also adds panorama on app load here
-    watchValue(resourcePackState, async (s) => {
-      const oldState = panoramaUsesResourcePack
-      const newState = s.resourcePackInstalled && (await updateResourcePackSupportPanorama(), panoramaUsesResourcePack)
-      if (newState === oldState) return
-      removePanorama()
-      void addPanoramaCubeMap()
-    })
-  }
-})
-
-subscribeKey(miscUiState, 'loadedDataVersion', () => {
-  if (miscUiState.loadedDataVersion) removePanorama()
-  else void addPanoramaCubeMap()
-})
-
 // Menu panorama background
 // TODO-low use abort controller
 export async function addPanoramaCubeMap () {
-  if (panoramaCubeMap || miscUiState.loadedDataVersion || options.disableAssets) return
   shouldDisplayPanorama = true
 
   let time = 0
@@ -118,14 +96,4 @@ export async function addPanoramaCubeMap () {
 
   viewer.scene.add(group)
   panoramaCubeMap = group
-}
-
-export function removePanorama () {
-  shouldDisplayPanorama = false
-  if (!panoramaCubeMap) return
-  viewer.camera.fov = options.fov
-  viewer.camera.near = 0.1
-  viewer.camera.updateProjectionMatrix()
-  viewer.scene.remove(panoramaCubeMap)
-  panoramaCubeMap = null
 }

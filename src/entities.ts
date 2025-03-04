@@ -1,5 +1,5 @@
 import { Entity } from 'prismarine-entity'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import tracker from '@nxg-org/mineflayer-tracker'
 import { loader as autoJumpPlugin } from '@nxg-org/mineflayer-auto-jump'
 import { subscribeKey } from 'valtio/utils'

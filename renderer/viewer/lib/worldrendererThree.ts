@@ -27,7 +27,6 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraSectionPos: Vec3 = new Vec3(0, 0, 0)
   holdingBlock: HoldingBlock
   holdingBlockLeft: HoldingBlock
-  rendererDevice = '...'
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -39,7 +38,6 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public config: WorldRendererConfig, public playerState: IPlayerState) {
     super(config)
-    this.rendererDevice = `${WorldRendererThree.getRendererInfo(this.renderer)} powered by three.js r${THREE.REVISION}`
     this.starField = new StarField(scene)
     this.holdingBlock = new HoldingBlock(playerState, this.config)
     this.holdingBlockLeft = new HoldingBlock(playerState, this.config, true)

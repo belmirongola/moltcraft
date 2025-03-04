@@ -1,4 +1,4 @@
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 
 type IdMap = Record<string, number>
 

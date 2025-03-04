@@ -1,4 +1,4 @@
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 
 export default () => {
   let i = 0

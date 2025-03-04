@@ -33,12 +33,17 @@ export const worldCleanup = buildCleanupDecorator('resetWorld')
 
 export const defaultWorldRendererConfig = {
   showChunkBorders: false,
-  numWorkers: 4,
+  mesherWorkers: 4,
   isPlayground: false,
   renderEars: true,
   // game renderer setting actually
   showHand: false,
-  viewBobbing: false
+  viewBobbing: false,
+  extraBlockRenderers: true,
+  clipWorldBelowY: undefined as number | undefined,
+  smoothLighting: true,
+  enableLighting: true,
+  starfield: true
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -182,7 +187,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   snapshotInitialValues () { }
 
-  initWorkers (numWorkers = this.config.numWorkers) {
+  initWorkers (numWorkers = this.config.mesherWorkers) {
     // init workers
     for (let i = 0; i < numWorkers + 1; i++) {
       // Node environment needs an absolute path, but browser needs the url of the file

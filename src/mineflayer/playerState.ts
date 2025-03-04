@@ -40,7 +40,7 @@ export class PlayerStateManager implements IPlayerState {
     return this.instance
   }
 
-  private constructor () {
+  constructor () {
     this.updateState = this.updateState.bind(this)
     customEvents.on('mineflayerBotCreated', () => {
       this.ready = false

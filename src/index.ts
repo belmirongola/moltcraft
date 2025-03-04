@@ -14,14 +14,13 @@ import './mineflayer/java-tester/index'
 import './external'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad, renderSlot } from './inventoryWindows'
-import { GeneralInputItem, RenderItem } from './mineflayer/items'
+import { GeneralInputItem } from './mineflayer/items'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
 import { Duplex } from 'stream'
 
 import './scaleInterface'
-import { initWithRenderer } from './topRightStats'
 import PrismarineBlock from 'prismarine-block'
 import PrismarineItem from 'prismarine-item'
 
@@ -36,7 +35,7 @@ import downloadAndOpenFile from './downloadAndOpenFile'
 import fs from 'fs'
 import net from 'net'
 import mineflayer from 'mineflayer'
-import { WorldDataEmitter, Viewer } from 'renderer/viewer'
+import { WorldDataEmitter } from 'renderer/viewer'
 import pathfinder from 'mineflayer-pathfinder'
 import { Vec3 } from 'vec3'
 
@@ -67,7 +66,6 @@ import { isCypress } from './standaloneUtils'
 import {
   removePanorama
 } from './panorama'
-import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
@@ -83,38 +81,35 @@ import { fsState } from './loadSave'
 import { watchFov } from './rendererUtils'
 import { loadInMemorySave } from './react/SingleplayerProvider'
 
-import { ua } from './react/utils'
 import { possiblyHandleStateVariable } from './googledrive'
 import flyingSquidEvents from './flyingSquidEvents'
-import { hideNotification, notificationProxy, showNotification } from './react/NotificationProvider'
+import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
-import { ViewerWrapper } from 'renderer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
 import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import packetsPatcher from './mineflayer/plugins/packetsPatcher'
 import { mainMenuState } from './react/MainMenuRenderApp'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import './mobileShim'
 import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from './viewerConnector'
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
-import { playerState, PlayerStateManager } from './mineflayer/playerState'
+import { playerState } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
-import { LocalServer } from './customServer'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createFullScreenProgressReporter } from './core/progressReporter'
 import { getItemModelName } from './resourcesManager'
+import { appViewer } from './appViewer'
+import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
 
 window.debug = debug
 window.THREE = THREE
@@ -131,105 +126,65 @@ initializePacketsReplay()
 packetsPatcher()
 onAppLoad()
 
-// Create three.js context, add to page
-let renderer: THREE.WebGLRenderer
-try {
-  renderer = new THREE.WebGLRenderer({
-    powerPreference: options.gpuPreference,
-    preserveDrawingBuffer: true,
-    logarithmicDepthBuffer: true,
-  })
-} catch (err) {
-  console.error(err)
-  throw new Error(`Failed to create WebGL context, not possible to render (restart browser): ${err.message}`)
-}
-
-// renderer.localClippingEnabled = true
-initWithRenderer(renderer.domElement)
-const renderWrapper = new ViewerWrapper(renderer.domElement, renderer)
-renderWrapper.addToPage()
-watchValue(options, (o) => {
-  renderWrapper.renderInterval = o.frameLimit ? 1000 / o.frameLimit : 0
-  renderWrapper.renderIntervalUnfocused = o.backgroundRendering === '5fps' ? 1000 / 5 : o.backgroundRendering === '20fps' ? 1000 / 20 : undefined
-})
-
-const isFirefox = ua.getBrowser().name === 'Firefox'
-if (isFirefox) {
-  // set custom property
-  document.body.style.setProperty('--thin-if-firefox', 'thin')
-}
-
-const isIphone = ua.getDevice().model === 'iPhone' // todo ipad?
-
-if (isIphone) {
-  document.documentElement.style.setProperty('--hud-bottom-max', '21px') // env-safe-aria-inset-bottom
-}
-
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
-// Create viewer
-const viewer: import('renderer/viewer/lib/viewer').Viewer = new Viewer(renderer, undefined, playerState)
-window.viewer = viewer
-Object.defineProperty(window, 'world', {
-  get () {
-    return viewer.world
-  },
-})
+appViewer.loadBackend(createGraphicsBackend)
+
 // todo unify
-viewer.entities.getItemUv = (item, specificProps) => {
-  const idOrName = item.itemId ?? item.blockId
-  try {
-    const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
-    if (!name) throw new Error(`Item not found: ${idOrName}`)
+// viewer.entities.getItemUv = (item, specificProps) => {
+//   const idOrName = item.itemId ?? item.blockId
+//   try {
+//     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
+//     if (!name) throw new Error(`Item not found: ${idOrName}`)
 
-    const model = getItemModelName({
-      ...item,
-      name,
-    } as GeneralInputItem, specificProps)
+//     const model = getItemModelName({
+//       ...item,
+//       name,
+//     } as GeneralInputItem, specificProps)
 
-    const renderInfo = renderSlot({
-      modelName: model,
-    }, false, true)
+//     const renderInfo = renderSlot({
+//       modelName: model,
+//     }, false, true)
 
-    if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
+//     if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
 
-    const textureThree = renderInfo.texture === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
-    const img = textureThree.image
+//     const textureThree = renderInfo.texture === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
+//     const img = textureThree.image
 
-    if (renderInfo.blockData) {
-      return {
-        resolvedModel: renderInfo.blockData.resolvedModel,
-        modelName: renderInfo.modelName!
-      }
-    }
-    if (renderInfo.slice) {
-      // Get slice coordinates from either block or item texture
-      const [x, y, w, h] = renderInfo.slice
-      const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
-      return {
-        u, v, su, sv,
-        texture: textureThree,
-        modelName: renderInfo.modelName
-      }
-    }
+//     if (renderInfo.blockData) {
+//       return {
+//         resolvedModel: renderInfo.blockData.resolvedModel,
+//         modelName: renderInfo.modelName!
+//       }
+//     }
+//     if (renderInfo.slice) {
+//       // Get slice coordinates from either block or item texture
+//       const [x, y, w, h] = renderInfo.slice
+//       const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
+//       return {
+//         u, v, su, sv,
+//         texture: textureThree,
+//         modelName: renderInfo.modelName
+//       }
+//     }
 
-    throw new Error(`Invalid render info for item ${name}`)
-  } catch (err) {
-    reportError?.(err)
-    // Return default UV coordinates for missing texture
-    return {
-      u: 0,
-      v: 0,
-      su: 16 / viewer.world.material.map!.image.width,
-      sv: 16 / viewer.world.material.map!.image.width,
-      texture: viewer.world.material.map!
-    }
-  }
-}
+//     throw new Error(`Invalid render info for item ${name}`)
+//   } catch (err) {
+//     reportError?.(err)
+//     // Return default UV coordinates for missing texture
+//     return {
+//       u: 0,
+//       v: 0,
+//       su: 16 / viewer.world.material.map!.image.width,
+//       sv: 16 / viewer.world.material.map!.image.width,
+//       texture: viewer.world.material.map!
+//     }
+//   }
+// }
 
-viewer.entities.entitiesOptions = {
-  fontFamily: 'mojangles'
-}
+// viewer.entities.entitiesOptions = {
+//   fontFamily: 'mojangles'
+// }
 watchOptionsAfterViewerInit()
 
 function hideCurrentScreens () {
@@ -326,7 +281,6 @@ export async function connect (connectOptions: ConnectOptions) {
     localServer = window.localServer = window.server = undefined
     gameAdditionalState.viewerConnection = false
 
-    renderWrapper.postRender = () => { }
     if (bot) {
       bot.end()
       // ensure mineflayer plugins receive this event for cleanup
@@ -808,10 +762,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
     void initVR()
     initMotionTracking()
-
-    renderWrapper.postRender = () => {
-      viewer.setFirstPersonCamera(null, bot.entity.yaw, bot.entity.pitch)
-    }
 
     // Link WorldDataEmitter and Viewer
     viewer.connect(worldView)

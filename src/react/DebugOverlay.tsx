@@ -34,12 +34,11 @@ export default () => {
   const [blockL, setBlockL] = useState(0)
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
-  const [entitiesCount, setEntitiesCount] = useState('0')
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
-  const { rendererDevice } = viewer.world
+  const rendererDevice = appViewer.backend?.getRenderer() ?? 'No render backend'
 
   const quadsDescription = [
     'north (towards negative Z)',
@@ -106,8 +105,7 @@ export default () => {
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
-      setCursorBlock(bot.blockAtCursor(5))
-      setEntitiesCount(`${viewer.entities.entitiesRenderingCount} (${Object.values(bot.entities).length})`)
+      setCursorBlock(bot.mouse.getCursorState().cursorBlock)
     }, 100)
 
     // @ts-expect-error
@@ -136,7 +134,7 @@ export default () => {
   return <>
     <div className={`debug-left-side ${styles['debug-left-side']}`}>
       <p>Prismarine Web Client ({bot.version})</p>
-      <p>E: {entitiesCount}</p>
+      {appViewer.backend?.getDebugOverlay().entitiesString && <p>E: {appViewer.backend.getDebugOverlay().entitiesString}</p>}
       <p>{dimension}</p>
       <div className={styles.empty} />
       <p>XYZ: {pos.x.toFixed(3)} / {pos.y.toFixed(3)} / {pos.z.toFixed(3)}</p>
@@ -149,7 +147,7 @@ export default () => {
       <p>Biome: minecraft:{loadedData.biomesArray[biomeId]?.name ?? 'unknown biome'}</p>
       <p>Day: {day}</p>
       <div className={styles.empty} />
-      {Object.entries(customEntries.current).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
+      {Object.entries(appViewer.backend?.getDebugOverlay().left ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
 
     <div className={`debug-right-side ${styles['debug-right-side']}`}>
@@ -193,6 +191,7 @@ export default () => {
           </>
         )
       })()}
+      {Object.entries(appViewer.backend?.getDebugOverlay().right ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
   </>
 }
