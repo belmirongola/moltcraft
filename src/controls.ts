@@ -916,8 +916,15 @@ window.addEventListener('keydown', (e) => {
 
 // #region experimental debug things
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyL' && e.altKey) {
+  if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     console.clear()
+  }
+  if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (sessionStorage.delayLoadUntilFocus) {
+      sessionStorage.removeItem('delayLoadUntilFocus')
+    } else {
+      sessionStorage.setItem('delayLoadUntilFocus', 'true')
+    }
   }
 })
 // #endregion

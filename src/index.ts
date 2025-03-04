@@ -207,6 +207,17 @@ function listenGlobalEvents () {
 
 export async function connect (connectOptions: ConnectOptions) {
   if (miscUiState.gameLoaded) return
+
+  if (sessionStorage.delayLoadUntilFocus) {
+    await new Promise(resolve => {
+      if (document.hasFocus()) {
+        resolve(undefined)
+      } else {
+        window.addEventListener('focus', resolve)
+      }
+    })
+  }
+
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
 
