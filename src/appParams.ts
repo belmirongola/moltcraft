@@ -1,4 +1,4 @@
-import type { AppConfig } from './globalState'
+import type { AppConfig } from './appConfig'
 
 const qsParams = new URLSearchParams(window.location?.search ?? '')
 
@@ -63,7 +63,8 @@ type AppQsParamsArrayTransformed = {
   [k in keyof AppQsParamsArray]: string[]
 }
 
-const initialAppConfig = process.env.INLINED_APP_CONFIG as AppConfig ?? {}
+globalThis.process ??= {} as any
+const initialAppConfig = process?.env?.INLINED_APP_CONFIG as AppConfig ?? {}
 
 export const appQueryParams = new Proxy<AppQsParams>({} as AppQsParams, {
   get (target, property) {

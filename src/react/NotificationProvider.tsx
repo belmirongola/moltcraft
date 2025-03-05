@@ -60,10 +60,13 @@ export default () => {
   // }, [])
   const scale = useAppScale()
 
-  return <div style={{
-    transform: `scale(${scale})`,
-    transformOrigin: 'top right',
-  }}>
+  return <div
+    className='notification-container'
+    style={{
+      // transform: `scale(${scale})`,
+      // transformOrigin: 'top right',
+    }}
+  >
     <Notification
       action={action}
       type={type}

@@ -207,6 +207,7 @@ const App = () => {
             <SignInMessageProvider />
             <NoModalFoundProvider />
             <PacketsReplayProvider />
+            <NotificationProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>
@@ -214,7 +215,6 @@ const App = () => {
             </div>
             <div />
             <DebugEdges />
-            <NotificationProvider />
           </RobustPortal>
         </ButtonAppProvider>
       </div>
