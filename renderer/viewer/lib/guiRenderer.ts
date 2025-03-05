@@ -85,7 +85,12 @@ export const getNonFullBlocksModels = () => {
         }
       }
       if (!blockModelsResolved[name] && item.tints && resolvedModel) {
-        itemsModelsResolved[name] = resolvedModel
+        resolvedModel['tints'] = item.tints
+        if (resolvedModel.elements) {
+          blockModelsResolved[name] = resolvedModel
+        } else {
+          itemsModelsResolved[name] = resolvedModel
+        }
       }
     }
   }
@@ -139,6 +144,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
   const PREVIEW_DEFINITION = new BlockDefinition({ '': { model: PREVIEW_ID.toString() } }, undefined)
 
   let modelData: any
+  let currentModelName: string | undefined
   const resources: ItemRendererResources = {
     getBlockModel (id) {
       if (id.equals(PREVIEW_ID)) {
@@ -156,8 +162,17 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
       return new Map()
     },
     getItemModel (id) {
+      // const isSpecial = currentModelName === 'shield' || currentModelName === 'conduit' || currentModelName === 'trident'
+      const isSpecial = false
       if (id.equals(PREVIEW_ID)) {
-        return ItemModel.fromJson({ type: 'minecraft:model', model: PREVIEW_ID.toString() })
+        return ItemModel.fromJson({
+          type: isSpecial ? 'minecraft:special' : 'minecraft:model',
+          model: isSpecial ? {
+            type: currentModelName,
+          } : PREVIEW_ID.toString(),
+          base: PREVIEW_ID.toString(),
+          tints: modelData?.tints,
+        })
       }
       return null
     },
@@ -199,8 +214,10 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
       }
     }
     patchMissingTextures()
+    // TODO eggs
 
     modelData = model
+    currentModelName = modelName
     resetGLContext(gl)
     if (!modelData) continue
     renderer.setItem(item, { display_context: 'gui' })
