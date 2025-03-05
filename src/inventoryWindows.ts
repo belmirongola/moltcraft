@@ -41,7 +41,7 @@ export const onGameLoad = (onLoad) => {
   version = bot.version
 
   const checkIfLoaded = () => {
-    if (!viewer.world.itemsAtlasParser) return
+    if (!appViewer.resourcesManager.itemsAtlasParser) return
     if (!allImagesLoadedState.value) {
       onLoad?.()
     }
@@ -50,7 +50,7 @@ export const onGameLoad = (onLoad) => {
       allImagesLoadedState.value = true
     }, 0)
   }
-  viewer.world.renderUpdateEmitter.on('textureDownloaded', checkIfLoaded)
+  appViewer.resourcesManager.on('assetsTexturesUpdated', checkIfLoaded)
   checkIfLoaded()
 
   PrismarineItem = PItem(version)

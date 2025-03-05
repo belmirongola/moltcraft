@@ -143,7 +143,7 @@ export default (bot: Bot) => {
   bot.loadPlugin(createMouse({}))
 
   domListeners(bot)
-  createDisplayManager(bot, viewer.scene, viewer.renderer)
+  // createDisplayManager(bot, viewer.scene, viewer.renderer)
 
   otherListeners()
 }

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
+import { proxy } from 'valtio'
 import { GraphicsBackendLoader, GraphicsBackend, GraphicsBackendOptions, DisplayWorldOptions } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
 import { ThreeJsWorldRenderer } from '../lib/viewer'
@@ -18,6 +19,11 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
   let panoramaRenderer: PanoramaRenderer | null = null
   let worldRenderer: ThreeJsWorldRenderer | null = null
 
+  const worldState = proxy({
+    chunksLoaded: 0,
+    chunksTotal: 0
+  })
+
   const startPanorama = () => {
     if (worldRenderer) return
     if (!panoramaRenderer) {
@@ -28,7 +34,6 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
 
   let version = ''
   const updateResources = async (ver: string, progressReporter: ProgressReporter): Promise<void> => {
-    // Implementation for updating resources will be added here
     version = ver
   }
 
@@ -49,7 +54,6 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
     if (documentRenderer) {
       documentRenderer.dispose()
     }
-
     if (worldRenderer) {
       worldRenderer.dispose()
       worldRenderer = null
@@ -77,7 +81,8 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
     },
     setRoll (roll: number) {
       worldRenderer?.setCameraRoll(roll)
-    }
+    },
+    worldState
   }
 
   return backend

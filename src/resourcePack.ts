@@ -14,6 +14,7 @@ import { appReplacableResources, resourcesContentOriginal } from './generated/re
 import { gameAdditionalState, miscUiState } from './globalState'
 import { watchUnloadForCleanup } from './gameUnload'
 import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
+import { appViewer } from './appViewer'
 
 export const resourcePackState = proxy({
   resourcePackInstalled: false,
@@ -312,8 +313,8 @@ export const getResourcepackTiles = async (type: 'blocks' | 'items' | 'armor', e
 }
 
 const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) => {
-  viewer.world.customBlockStates = {}
-  viewer.world.customModels = {}
+  appViewer.resourcesManager.customBlockStates = {}
+  appViewer.resourcesManager.customModels = {}
   const usedBlockTextures = new Set<string>()
   const usedItemTextures = new Set<string>()
   const basePath = await getActiveResourcepackBasePath()
@@ -360,9 +361,9 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
     const blockModelsPath = `${basePath}/assets/${namespaceDir}/models/block`
     const itemModelsPath = `${basePath}/assets/${namespaceDir}/models/item`
 
-    Object.assign(viewer.world.customBlockStates!, await readModelData(blockstatesPath, 'blockstates', namespaceDir))
-    Object.assign(viewer.world.customModels!, await readModelData(blockModelsPath, 'models', namespaceDir))
-    Object.assign(viewer.world.customModels!, await readModelData(itemModelsPath, 'models', namespaceDir))
+    Object.assign(appViewer.resourcesManager.customBlockStates!, await readModelData(blockstatesPath, 'blockstates', namespaceDir))
+    Object.assign(appViewer.resourcesManager.customModels!, await readModelData(blockModelsPath, 'models', namespaceDir))
+    Object.assign(appViewer.resourcesManager.customModels!, await readModelData(itemModelsPath, 'models', namespaceDir))
   }
 
   try {
@@ -372,8 +373,8 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
     }
   } catch (err) {
     console.error('Failed to read some of resource pack blockstates and models', err)
-    viewer.world.customBlockStates = undefined
-    viewer.world.customModels = undefined
+    appViewer.resourcesManager.customBlockStates = undefined
+    appViewer.resourcesManager.customModels = undefined
   }
   return {
     usedBlockTextures,
@@ -523,38 +524,39 @@ const repeatArr = (arr, i) => Array.from({ length: i }, () => arr)
 
 const updateTextures = async (progressReporter = createConsoleLogProgressReporter()) => {
   currentErrors = []
-  const origBlocksFiles = Object.keys(viewer.world.sourceData.blocksAtlases.latest.textures)
-  const origItemsFiles = Object.keys(viewer.world.sourceData.itemsAtlases.latest.textures)
+  const origBlocksFiles = Object.keys(appViewer.resourcesManager.sourceBlocksAtlases.latest.textures)
+  const origItemsFiles = Object.keys(appViewer.resourcesManager.sourceItemsAtlases.latest.textures)
   const origArmorFiles = Object.keys(armorTextures)
   const { usedBlockTextures, usedItemTextures } = await prepareBlockstatesAndModels(progressReporter) ?? {}
   const blocksData = await getResourcepackTiles('blocks', [...origBlocksFiles, ...usedBlockTextures ?? []], progressReporter)
   const itemsData = await getResourcepackTiles('items', [...origItemsFiles, ...usedItemTextures ?? []], progressReporter)
   const armorData = await getResourcepackTiles('armor', origArmorFiles, progressReporter)
   await updateAllReplacableTextures()
-  viewer.world.customTextures = {}
+  appViewer.resourcesManager.customTextures = {}
+
   if (blocksData) {
-    viewer.world.customTextures.blocks = {
+    appViewer.resourcesManager.customTextures.blocks = {
       tileSize: blocksData.firstTextureSize,
       textures: blocksData.textures
     }
   }
   if (itemsData) {
-    viewer.world.customTextures.items = {
+    appViewer.resourcesManager.customTextures.items = {
       tileSize: itemsData.firstTextureSize,
       textures: itemsData.textures
     }
   }
   if (armorData) {
-    viewer.world.customTextures.armor = {
+    appViewer.resourcesManager.customTextures.armor = {
       tileSize: armorData.firstTextureSize,
       textures: armorData.textures
     }
   }
 
-  if (viewer.world.active) {
-    await viewer.world.updateAssetsData()
-    if (viewer.world instanceof WorldRendererThree) {
-      viewer.world.rerenderAllChunks?.()
+  if (appViewer.backend) {
+    await appViewer.resourcesManager.updateAssetsData()
+    if (appViewer.backend instanceof WorldRendererThree) {
+      appViewer.backend.rerenderAllChunks?.()
     }
   }
 }

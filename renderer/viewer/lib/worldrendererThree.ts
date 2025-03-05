@@ -17,6 +17,8 @@ import { IPlayerState } from './basePlayerState'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
 
+const appViewer = undefined
+
 export class WorldRendererThree extends WorldRendererCommon {
   interactionLines: null | { blockPos; mesh } = null
   outputFormat = 'threeJs' as const
@@ -38,15 +40,15 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public worldOptionsHolder: DisplayWorldOptions) {
-    super(worldOptionsHolder.inWorldRenderingConfig)
-    const { playerState } = worldOptionsHolder
+  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public options: DisplayWorldOptions) {
+    super(options.resourcesManager, options.inWorldRenderingConfig)
+    const { playerState, inWorldRenderingConfig: config } = options
 
     this.starField = new StarField(scene)
-    this.holdingBlock = new HoldingBlock(playerState, this.config)
-    this.holdingBlockLeft = new HoldingBlock(playerState, this.config, true)
+    this.holdingBlock = new HoldingBlock(playerState, config)
+    this.holdingBlockLeft = new HoldingBlock(playerState, config, true)
 
-    this.renderUpdateEmitter.on('itemsTextureDownloaded', () => {
+    this.options.resourcesManager.on('assetsTexturesUpdated', () => {
       this.holdingBlock.ready = true
       this.holdingBlock.updateItem()
       this.holdingBlockLeft.ready = true
@@ -168,7 +170,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     object.name = 'chunk';
     (object as any).tilesCount = data.geometry.positions.length / 3 / 4;
     (object as any).blocksCount = data.geometry.blocksCount
-    if (!this.config.showChunkBorders) {
+    if (!this.options.inWorldRenderingConfig.showChunkBorders) {
       boxHelper.visible = false
     }
     // should not compute it once
@@ -225,15 +227,15 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
-    if (this.freeFlyMode) {
-      pos = this.freeFlyState.position
-      pitch = this.freeFlyState.pitch
-      yaw = this.freeFlyState.yaw
-    }
+    // if (this.freeFlyMode) {
+    //   pos = this.freeFlyState.position
+    //   pitch = this.freeFlyState.pitch
+    //   yaw = this.freeFlyState.yaw
+    // }
 
     if (pos) {
       new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
-      this.freeFlyState.position = pos
+      // this.freeFlyState.position = pos
     }
     this.camera.rotation.set(pitch, yaw, this.cameraRoll, 'ZYX')
   }
@@ -243,7 +245,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
     const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
-    if (this.config.showHand && !this.freeFlyMode) {
+    if (this.options.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
       this.holdingBlock.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
     }
@@ -347,7 +349,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateShowChunksBorder (value: boolean) {
-    this.config.showChunkBorders = value
+    this.options.inWorldRenderingConfig.showChunkBorders = value
     for (const object of Object.values(this.sectionObjects)) {
       for (const child of object.children) {
         if (child.name === 'helper') {

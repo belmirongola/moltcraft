@@ -372,7 +372,7 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Loading minecraft models',
         async () => {
-          // viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
+          appViewer.resourcesManager.sourceBlockStatesModels ??= await import('mc-assets/dist/blockStatesModels.json')
           // void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
           void appViewer.updateResources(version, createConsoleLogProgressReporter())
           miscUiState.loadedDataVersion = version
@@ -699,14 +699,14 @@ export async function connect (connectOptions: ConnectOptions) {
 
   const start = Date.now()
   let worldWasReady = false
-  void viewer.world.renderUpdateEmitter.on('update', () => {
-    // todo might not emit as servers simply don't send chunk if it's empty
-    if (!viewer.world.allChunksFinished || worldWasReady) return
-    worldWasReady = true
-    console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
-    viewer.render() // ensure the last state is rendered
-    document.dispatchEvent(new Event('cypress-world-ready'))
-  })
+  // void viewer.world.renderUpdateEmitter.on('update', () => {
+  //   // todo might not emit as servers simply don't send chunk if it's empty
+  //   if (!viewer.world.allChunksFinished || worldWasReady) return
+  //   worldWasReady = true
+  //   console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
+  //   viewer.render() // ensure the last state is rendered
+  //   document.dispatchEvent(new Event('cypress-world-ready'))
+  // })
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
