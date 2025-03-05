@@ -423,6 +423,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         config: this.mesherConfig,
       })
     }
+    if (!this.itemsAtlasParser) return
     this.renderUpdateEmitter.emit('textureDownloaded')
     console.log('texture loaded')
 

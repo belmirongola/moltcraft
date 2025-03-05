@@ -251,13 +251,13 @@ const getItemName = (slot: Item | RenderItem | null) => {
   return text.join('')
 }
 
-const mapSlots = (slots: Array<RenderItem | Item | null>) => {
+const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
   return slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
     try {
-      const slotCustomProps = renderSlot(slot, i === bot.inventory.hotbarStart + bot.quickBarSlot)
+      const slotCustomProps = renderSlot(slot, !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot)
       const itemCustomName = getItemName(slot)
       Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error
@@ -324,7 +324,7 @@ const upJei = (search: string) => {
     return new PrismarineItem(x.id, 1)
   }).filter(a => a !== null)
   lastWindow.pwindow.win.jeiSlotsPage = 0
-  lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots)
+  lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots, true)
 }
 
 export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {

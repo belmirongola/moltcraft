@@ -22,12 +22,32 @@ export const getNonFullBlocksModels = () => {
   const handledItemsWithDefinitions = new Set()
   const assetsParser = new AssetsParser(version, getLoadedBlockstatesStore(viewer.world.blockstatesModels), getLoadedModelsStore(viewer.world.blockstatesModels))
 
+  const standardGuiDisplay = {
+    'rotation': [
+      30,
+      225,
+      0
+    ],
+    'translation': [
+      0,
+      0,
+      0
+    ],
+    'scale': [
+      0.625,
+      0.625,
+      0.625
+    ]
+  }
+
   const arrEqual = (a: number[], b: number[]) => a.length === b.length && a.every((x, i) => x === b[i])
   const addModelIfNotFullblock = (name: string, model: BlockModelMcAssets) => {
     if (blockModelsResolved[name]) return
     if (!model?.elements?.length) return
     const isFullBlock = model.elements.length === 1 && arrEqual(model.elements[0].from, [0, 0, 0]) && arrEqual(model.elements[0].to, [16, 16, 16])
     if (isFullBlock) return
+    model['display'] ??= {}
+    model['display']['gui'] ??= standardGuiDisplay
     blockModelsResolved[name] = model
   }
 
@@ -45,32 +65,13 @@ export const getNonFullBlocksModels = () => {
         handledItemsWithDefinitions.add(name)
       }
       if (resolvedModel?.elements) {
-        const standardGuiDisplay = {
-          'rotation': [
-            30,
-            225,
-            0
-          ],
-          'translation': [
-            0,
-            0,
-            0
-          ],
-          'scale': [
-            0.625,
-            0.625,
-            0.625
-          ]
-        }
+
         let hasStandardDisplay = true
         if (resolvedModel['display']?.gui) {
           hasStandardDisplay =
             arrEqual(resolvedModel['display'].gui.rotation, standardGuiDisplay.rotation)
             && arrEqual(resolvedModel['display'].gui.translation, standardGuiDisplay.translation)
             && arrEqual(resolvedModel['display'].gui.scale, standardGuiDisplay.scale)
-        } else {
-          resolvedModel['display'] ??= {}
-          resolvedModel['display']['gui'] = standardGuiDisplay
         }
 
         addModelIfNotFullblock(name, resolvedModel)
@@ -78,7 +79,7 @@ export const getNonFullBlocksModels = () => {
         if (!blockModelsResolved[name] && !hasStandardDisplay) {
           fullBlocksWithNonStandardDisplay.push(name)
         }
-        const notSideLight = resolvedModel['gui_light'] !== 'side'
+        const notSideLight = resolvedModel['gui_light'] && resolvedModel['gui_light'] !== 'side'
         if (!hasStandardDisplay || notSideLight) {
           blockModelsResolved[name] = resolvedModel
         }
@@ -146,7 +147,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
       return null
     },
     getTextureUV (texture) {
-      return textureAtlas.getTextureUV(texture.toString().split('/')[1]! as any)
+      return textureAtlas.getTextureUV(texture.toString().slice(1).split('/').slice(1).join('/') as any)
     },
     getTextureAtlas () {
       return textureAtlas.getTextureAtlas()

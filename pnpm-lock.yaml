@@ -350,8 +350,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.41
-        version: 0.2.41
+        specifier: ^0.2.42
+        version: 0.2.42
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
@@ -6571,8 +6571,8 @@ packages:
   maxrects-packer@2.7.3:
     resolution: {integrity: sha512-bG6qXujJ1QgttZVIH4WDanhoJtvbud/xP/XPyf6A69C9RdA61BM4TomFALCq2nrTa+tARRIBB4LuIFsnUQU2wA==}
 
-  mc-assets@0.2.41:
-    resolution: {integrity: sha512-9gQyyykQ9JBx7W3AnqpsaN+Kio6ZxFrY44MIYvcHEsBhm1i21cnOl6gZ1ncVPVwzgWNx3lF6GRxRVCXeqYqnJA==}
+  mc-assets@0.2.42:
+    resolution: {integrity: sha512-j2D1RNYtB5Z9gFu9MVjyDBbiALI0mWZ3xW/A3PPefVAHm3HJ2T1vH+1XBov1spBGPl7u+Zo7mRXza3X0egbeOg==}
     engines: {node: '>=18.0.0'}
 
   mcraft-fun-mineflayer@0.1.7:
@@ -17367,7 +17367,7 @@ snapshots:
 
   maxrects-packer@2.7.3: {}
 
-  mc-assets@0.2.41:
+  mc-assets@0.2.42:
     dependencies:
       maxrects-packer: 2.7.3
       zod: 3.24.1
