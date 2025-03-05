@@ -93,7 +93,7 @@ const handleMessage = data => {
 
   switch (data.type) {
     case 'mesherData': {
-      setMesherData(data.blockstatesModels, data.blocksAtlas, data.config.outputFormat === 'webgpu')
+      setMesherData(data.blockstatesModels, data.blocksAtlas, data.config.outputFormat === 'webgpu', true, data.config.version)
       allDataReady = true
       workerIndex = data.workerIndex
 
