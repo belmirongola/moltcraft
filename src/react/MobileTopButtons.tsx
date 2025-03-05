@@ -33,6 +33,28 @@ export default () => {
   }
   const longPressEvent = useLongPress(onLongPress, () => {}, defaultOptions)
 
+
+  const onChatLongPress = () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+  }
+
+  const onChatClick = () => {
+    if (activeModalStack.at(-1)?.reactType === 'chat') {
+      hideCurrentModal()
+    } else {
+      showModal({ reactType: 'chat' })
+    }
+  }
+
+  const chatLongPressEvent = useLongPress(
+    onChatLongPress,
+    onChatClick,
+    {
+      shouldPreventDefault: true,
+      delay: 300,
+    }
+  )
+
   // ios note: just don't use <button>
   return <div ref={elRef} className={styles['mobile-top-btns']} id="mobile-top">
     <div
@@ -49,13 +71,10 @@ export default () => {
     >F3
     </div>
     <div
-      className={styles['chat-btn']} onPointerDown={(e) => {
-        e.stopPropagation()
-        if (activeModalStack.at(-1)?.reactType === 'chat') {
-          hideCurrentModal()
-        } else {
-          showModal({ reactType: 'chat' })
-        }
+      className={styles['chat-btn']}
+      {...chatLongPressEvent}
+      onPointerUp={(e) => {
+        document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab' }))
       }}
     />
     <div

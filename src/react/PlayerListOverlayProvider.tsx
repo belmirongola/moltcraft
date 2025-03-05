@@ -39,6 +39,10 @@ export default () => {
     bot.on('playerUpdated', () => requestUpdate())
     bot.on('playerJoined', () => requestUpdate())
     bot.on('playerLeft', () => requestUpdate())
+    const interval = setInterval(() => {
+      requestUpdate()
+    }, 1000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
