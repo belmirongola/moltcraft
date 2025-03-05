@@ -350,8 +350,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.37
-        version: 0.2.37
+        specifier: ^0.2.42
+        version: 0.2.42
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
@@ -3589,9 +3589,6 @@ packages:
     resolution: {integrity: sha512-FCAJojipPn0bXjuEpjOOOMN8FZDkxfWWp4JGN9mifU2IhxvKyXZYqpzPHdnTSUpmPDy+tsslB6Z1g+Vg6nVbYA==}
     engines: {node: '>=8'}
 
-  apl-image-packer@1.1.0:
-    resolution: {integrity: sha512-Pb1Q76cp8xpY8X4OqVrnk5v1/tB5kOtCzwgOnx8IxMNeekFh/eNUiUKeX5fvGNViZiLmuKAAQc5ICuBDspZ4cA==}
-
   app-root-dir@1.0.2:
     resolution: {integrity: sha512-jlpIfsOoNoafl92Sz//64uQHGSyMrD2vYG5d8o2a4qGvyNCvXur7bzIsWtAC/6flI2RYAp3kv8rsfBtaLm7w0g==}
 
@@ -6571,8 +6568,11 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  mc-assets@0.2.37:
-    resolution: {integrity: sha512-49tk3shwxsDoV0PrrbORZEKg613vUQPULgusWjXNl8JEma5y41LEo57D6q4aHliXsV3Gb9ThrkFf6hIb0WlY1Q==}
+  maxrects-packer@2.7.3:
+    resolution: {integrity: sha512-bG6qXujJ1QgttZVIH4WDanhoJtvbud/xP/XPyf6A69C9RdA61BM4TomFALCq2nrTa+tARRIBB4LuIFsnUQU2wA==}
+
+  mc-assets@0.2.42:
+    resolution: {integrity: sha512-j2D1RNYtB5Z9gFu9MVjyDBbiALI0mWZ3xW/A3PPefVAHm3HJ2T1vH+1XBov1spBGPl7u+Zo7mRXza3X0egbeOg==}
     engines: {node: '>=18.0.0'}
 
   mcraft-fun-mineflayer@0.1.8:
@@ -13609,8 +13609,6 @@ snapshots:
 
   apache-md5@1.1.8: {}
 
-  apl-image-packer@1.1.0: {}
-
   app-root-dir@1.0.2: {}
 
   aproba@2.0.0:
@@ -17367,9 +17365,11 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  mc-assets@0.2.37:
+  maxrects-packer@2.7.3: {}
+
+  mc-assets@0.2.42:
     dependencies:
-      apl-image-packer: 1.1.0
+      maxrects-packer: 2.7.3
       zod: 3.24.1
 
   mcraft-fun-mineflayer@0.1.8(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/748163e536abe94f3dc8ada7a542bcd689bbbf49(encoding@0.1.13)):
