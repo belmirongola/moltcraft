@@ -48,7 +48,7 @@ const updateResourcePackSupportPanorama = async () => {
 }
 
 watchValue(miscUiState, m => {
-  if (m.appLoaded) {
+  if (m.fsReady) {
     // Also adds panorama on app load here
     watchValue(resourcePackState, async (s) => {
       const oldState = panoramaUsesResourcePack

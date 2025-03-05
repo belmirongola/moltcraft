@@ -1,6 +1,7 @@
 import { saveServer } from './flyingSquidUtils'
 import { isGameActive, activeModalStack } from './globalState'
 import { options } from './optionsStorage'
+import { isInRealGameSession } from './utils'
 
 window.addEventListener('unload', (e) => {
   if (!window.justReloaded) {
@@ -25,6 +26,7 @@ window.addEventListener('beforeunload', (event) => {
   if (!isGameActive(true) && activeModalStack.at(-1)?.elem?.id !== 'chat') return
   if (sessionStorage.lastReload && !options.preventDevReloadWhilePlaying) return
   if (!options.closeConfirmation) return
+  if (!isInRealGameSession()) return
 
   // For major browsers doning only this is enough
   event.preventDefault()

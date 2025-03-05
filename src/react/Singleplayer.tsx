@@ -24,13 +24,14 @@ export interface WorldProps {
   detail?: string
   formattedTextOverride?: string
   worldNameRight?: string
+  worldNameRightGrayed?: string
   onFocus?: (name: string) => void
   onInteraction?(interaction: 'enter' | 'space')
   elemRef?: React.Ref<HTMLDivElement>
   offline?: boolean
 }
 
-const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
+const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, worldNameRightGrayed, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
   const timeRelativeFormatted = useMemo(() => {
     if (!lastPlayed) return ''
     const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -63,6 +64,7 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
       <div className={styles.world_title}>
         <div>{title}</div>
         <div className={styles.world_title_right}>
+          {worldNameRightGrayed && <span style={{ color: '#878787', fontSize: 8 }}>{worldNameRightGrayed}</span>}
           {offline ? (
             <span style={{ color: 'red', display: 'flex', alignItems: 'center', gap: 4 }}>
               <PixelartIcon iconName="signal-off" width={12} />

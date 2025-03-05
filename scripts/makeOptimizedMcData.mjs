@@ -138,9 +138,9 @@ const dataTypeBundling = {
   protocol: {
     raw: true
   },
-  sounds: {
-    arrKey: 'name'
-  }
+  // sounds: {
+  //   arrKey: 'name'
+  // }
 }
 
 const notBundling = [...dataTypes.keys()].filter(x => !Object.keys(dataTypeBundling).includes(x))

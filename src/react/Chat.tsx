@@ -131,6 +131,7 @@ export default ({
 
       // Add keyboard event listener for letter keys and paste
       const handleKeyDown = (e: KeyboardEvent) => {
+        if (['input', 'textarea', 'select'].includes(document.activeElement?.tagName.toLowerCase() ?? '')) return
         // Check if it's a single character key (works with any layout) without modifiers except shift
         const isSingleChar = e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey
         // Check if it's paste command
@@ -194,12 +195,13 @@ export default ({
 
   const updateFilteredCompleteItems = (sourceItems: string[] | Array<{ match: string, toolip: string }>) => {
     const newCompleteItems = sourceItems
-      .map(item => (typeof item === 'string' ? item : item.match))
+      .map((item): string => (typeof item === 'string' ? item : item.match))
       .filter(item => {
-      // this regex is imporatnt is it controls the word matching
-        const compareableParts = item.split(/[[\]{},_:]/)
+        // this regex is imporatnt is it controls the word matching
+        // const compareableParts = item.split(/[[\]{},_:]/)
         const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
-        return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        return item.includes(lastWord)
       })
     setCompletionItems(newCompleteItems)
   }

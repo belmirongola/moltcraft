@@ -44,3 +44,14 @@ export type MesherGeometryOutput = {
 }
 
 export type HighestBlockInfo = { y: number, stateId: number | undefined, biomeId: number | undefined }
+
+export type BlockStateModelInfo = {
+  cacheKey: string
+  issues: string[]
+  modelNames: string[]
+  conditions: string[]
+}
+
+export const getBlockAssetsCacheKey = (stateId: number, modelNameOverride?: string) => {
+  return modelNameOverride ? `${stateId}:${modelNameOverride}` : String(stateId)
+}

@@ -17,6 +17,7 @@ import { useCopyKeybinding } from './simpleHooks'
 import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList, StoreServerItem } from './serversStorage'
 
 type AdditionalDisplayData = {
+  textNameRightGrayed: string
   formattedText: string
   textNameRight: string
   icon?: string
@@ -143,9 +144,11 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
               let data
               if (isWebSocket) {
                 const pingResult = await getServerInfo(server.ip, undefined, undefined, true)
+                console.log('pingResult.fullInfo.description', pingResult.fullInfo.description)
                 data = {
-                  formattedText: `${pingResult.version} server with a direct websocket connection`,
+                  formattedText: pingResult.fullInfo.description,
                   textNameRight: `ws ${pingResult.latency}ms`,
+                  textNameRightGrayed: `${pingResult.fullInfo.players?.online ?? '??'}/${pingResult.fullInfo.players?.max ?? '??'}`,
                   offline: false
                 }
               } else {
@@ -364,6 +367,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         detail: (server.versionOverride ?? '') + ' ' + (server.usernameOverride ?? ''),
         formattedTextOverride: additional?.formattedText,
         worldNameRight: additional?.textNameRight ?? '',
+        worldNameRightGrayed: additional?.textNameRightGrayed ?? '',
         iconSrc: additional?.icon,
         offline: additional?.offline
       }

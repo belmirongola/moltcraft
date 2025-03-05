@@ -9,7 +9,10 @@ export default () => {
   const { currentTouch } = useSnapshot(miscUiState)
   const [bossBars, setBossBars] = useState(new Map<string, BossBarType>())
   const addBossBar = (bossBar: BossBarType) => {
-    setBossBars(prevBossBars => new Map(prevBossBars.set(bossBar.entityUUID, bossBar)))
+    setBossBars(prevBossBars => new Map(prevBossBars.set(bossBar.entityUUID, {
+      ...bossBar,
+      lastUpdated: Date.now()
+    })))
   }
 
   const removeBossBar = (bossBar: BossBarType) => {
@@ -25,8 +28,7 @@ export default () => {
       addBossBar(bossBar as BossBarType)
     })
     bot.on('bossBarUpdated', (bossBar) => {
-      removeBossBar(bossBar as BossBarType)
-      setTimeout(() => addBossBar(bossBar as BossBarType), 1)
+      addBossBar(bossBar as BossBarType)
     })
     bot.on('bossBarDeleted', (bossBar) => {
       removeBossBar(bossBar as BossBarType)
@@ -36,7 +38,7 @@ export default () => {
   return (
     <div className={`bossBars ${currentTouch ? 'mobile' : ''}`} id="bossBars">
       {[...bossBars.values()].map(bar => (
-        <BossBar key={bar.entityUUID} bar={bar} />
+        <BossBar key={`${bar.entityUUID}-${bar.lastUpdated}`} bar={bar} />
       ))}
     </div>
   )

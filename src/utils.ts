@@ -1,6 +1,7 @@
-import { isGameActive, miscUiState } from './globalState'
+import { gameAdditionalState, isGameActive, miscUiState } from './globalState'
 import { options } from './optionsStorage'
 import { notificationProxy, showNotification } from './react/NotificationProvider'
+import { packetsReplayState } from './react/state/packetsReplayState'
 
 export const goFullscreen = async (doToggle = false) => {
   if (!document.fullscreenElement) {
@@ -62,6 +63,10 @@ export const pointerLock = {
     }
     this.justHitEscape = false
   }
+}
+
+export const isInRealGameSession = () => {
+  return isGameActive(true) && !packetsReplayState.isOpen && !gameAdditionalState.viewerConnection
 }
 
 window.getScreenRefreshRate = getScreenRefreshRate

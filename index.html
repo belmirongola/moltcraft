@@ -38,8 +38,9 @@
           }
           // load error handling
           const onError = (errorOrMessage, log = false) => {
-            const message = errorOrMessage instanceof Error ? (errorOrMessage.stack ?? errorOrMessage.message) : errorOrMessage
+            let message = errorOrMessage instanceof Error ? (errorOrMessage.stack ?? errorOrMessage.message) : errorOrMessage
             if (log) console.log(message)
+            if (typeof message !== 'string') message = String(message)
             if (document.querySelector('.initial-loader') && document.querySelector('.initial-loader').querySelector('.title').textContent !== 'Error') {
               document.querySelector('.initial-loader').querySelector('.title').textContent = 'Error'
               const [errorMessage, ...errorStack] = message.split('\n')
