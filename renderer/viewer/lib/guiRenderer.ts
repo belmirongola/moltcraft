@@ -8,13 +8,15 @@ import { getLoadedBlockstatesStore, getLoadedModelsStore } from 'mc-assets/dist/
 import { makeTextureAtlas } from 'mc-assets/dist/atlasCreator'
 import { proxy, ref } from 'valtio'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
+import { versionToNumber } from '../prepare/utils'
 
 export const activeGuiAtlas = proxy({
   atlas: null as null | { json, image },
 })
 
 export const getNonFullBlocksModels = () => {
-  const version = viewer.world.texturesVersion ?? 'latest'
+  let version = viewer.world.texturesVersion ?? 'latest'
+  if (versionToNumber(version) < versionToNumber('1.13')) version = '1.13'
   const itemsDefinitions = viewer.world.itemsDefinitionsStore.data.latest
   const blockModelsResolved = {} as Record<string, any>
   const itemsModelsResolved = {} as Record<string, any>
