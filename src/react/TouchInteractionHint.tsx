@@ -3,7 +3,7 @@ import { useSnapshot } from 'valtio'
 import { options } from '../optionsStorage'
 import { activeModalStack } from '../globalState'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
-import styles from './InteractionHint.module.css'
+import styles from './TouchInteractionHint.module.css'
 import { useUsingTouch } from './utilsApp'
 
 export default () => {
@@ -30,7 +30,7 @@ export default () => {
     bot.on('physicsTick', update)
 
     return () => {
-      bot.removeListener('physicsTick', update)
+      bot?.removeListener('physicsTick', update)
     }
   }, [])
 
