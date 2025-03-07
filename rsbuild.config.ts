@@ -25,12 +25,14 @@ const disableServiceWorker = process.env.DISABLE_SERVICE_WORKER === 'true'
 let releaseTag
 let releaseLink
 let releaseChangelog
+let githubRepositoryFallback
 
 if (fs.existsSync('./assets/release.json')) {
     const releaseJson = JSON.parse(fs.readFileSync('./assets/release.json', 'utf8'))
     releaseTag = releaseJson.latestTag
     releaseLink = releaseJson.isCommit ? `/commit/${releaseJson.latestTag}` : `/releases/${releaseJson.latestTag}`
     releaseChangelog = releaseJson.changelog?.replace(/<!-- bump-type:[\w]+ -->/, '')
+    githubRepositoryFallback = releaseJson.repository
 }
 
 const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
@@ -40,6 +42,8 @@ try {
 if (dev) {
     configJson.defaultProxy = ':8080'
 }
+
+const configSource = process.env.CONFIG_JSON_SOURCE || 'REMOTE'
 
 // base options are in ./renderer/rsbuildSharedConfig.ts
 const appConfig = defineConfig({
@@ -66,13 +70,13 @@ const appConfig = defineConfig({
             'process.env.BUILD_VERSION': JSON.stringify(!dev ? buildingVersion : 'undefined'),
             'process.env.MAIN_MENU_LINKS': JSON.stringify(process.env.MAIN_MENU_LINKS),
             'process.env.GITHUB_URL':
-                JSON.stringify(`https://github.com/${process.env.GITHUB_REPOSITORY || `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`}`),
+                JSON.stringify(`https://github.com/${process.env.GITHUB_REPOSITORY || `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` || githubRepositoryFallback}`),
             'process.env.DEPS_VERSIONS': JSON.stringify({}),
             'process.env.RELEASE_TAG': JSON.stringify(releaseTag),
             'process.env.RELEASE_LINK': JSON.stringify(releaseLink),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
             'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
-            'process.env.INLINED_APP_CONFIG': JSON.stringify(configJson),
+            'process.env.INLINED_APP_CONFIG': JSON.stringify(configSource === 'BUNDLED' ? configJson : null),
         },
     },
     server: {
@@ -109,7 +113,9 @@ const appConfig = defineConfig({
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
                     }
 
-                    fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
+                    if (configSource === 'REMOTE') {
+                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
+                    }
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
                     }

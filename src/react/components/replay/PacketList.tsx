@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { processPacketDataForLogging } from 'mcraft-fun-mineflayer/build/packetsLogger'
 import { PacketData } from '../../ReplayPanel'
 import { useScrollBehavior } from '../../hooks/useScrollBehavior'
 import { ClientOnMap } from '../../../generatedServerPackets'
@@ -12,6 +13,7 @@ const formatters: Record<string, (data: any) => string> = {
     const blockEntitiesCount = data.blockEntities?.length
     return `x:${data.x} z:${data.z} C:${sizeOfChunk} E:${blockEntitiesCount}`
   },
+  default: (data) => processPacketDataForLogging(data)
 }
 
 const getPacketIcon = (name: string): string => {
@@ -115,7 +117,7 @@ export default function PacketList ({ packets, filter, maxHeight = 300 }: Props)
                     {packet.name}
                   </span>
                   <span style={{ color: DARK_COLORS.textDim, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {formatters[packet.name]?.(packet.data) ?? JSON.stringify(packet.data)}
+                    {formatters[packet.name]?.(packet.data) ?? formatters.default(packet.data)}
                   </span>
                 </div>
                 {expandedPacket === packet.position && (
@@ -123,14 +125,14 @@ export default function PacketList ({ packets, filter, maxHeight = 300 }: Props)
                     <div style={{ marginBottom: '8px' }}>
                       <strong>Data:</strong>
                       <pre style={{ margin: '4px 0', color: DARK_COLORS.textDim }}>
-                        {JSON.stringify(packet.data, null, 2)}
+                        {JSON.stringify(JSON.parse(formatters.default(packet.data)), null, 2)}
                       </pre>
                     </div>
                     {packet.actualVersion && (
                       <div>
                         <strong>Actual Version:</strong>
                         <pre style={{ margin: '4px 0', color: DARK_COLORS.textDim }}>
-                          {JSON.stringify(packet.actualVersion, null, 2)}
+                          {JSON.stringify(JSON.parse(formatters.default(packet.actualVersion)), null, 2)}
                         </pre>
                       </div>
                     )}

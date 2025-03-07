@@ -43,10 +43,6 @@ function prepareTints (tints) {
   })
 }
 
-function mod (x: number, n: number) {
-  return ((x % n) + n) % n
-}
-
 const calculatedBlocksEntries = Object.entries(legacyJson.clientCalculatedBlocks)
 export function preflatBlockCalculation (block: Block, world: World, position: Vec3) {
   const type = calculatedBlocksEntries.find(([name, blocks]) => blocks.includes(block.name))?.[0]
@@ -439,7 +435,16 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
   }
 }
 
-const isBlockWaterlogged = (block: Block) => block.getProperties().waterlogged === true || block.getProperties().waterlogged === 'true'
+const ALWAYS_WATERLOGGED = new Set([
+  'seagrass',
+  'tall_seagrass',
+  'kelp',
+  'kelp_plant',
+  'bubble_column'
+])
+const isBlockWaterlogged = (block: Block) => {
+  return block.getProperties().waterlogged === true || block.getProperties().waterlogged === 'true' || ALWAYS_WATERLOGGED.has(block.name)
+}
 
 let unknownBlockModel: BlockModelPartsResolved
 export function getSectionGeometry (sx, sy, sz, world: World) {

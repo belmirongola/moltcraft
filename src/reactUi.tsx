@@ -53,6 +53,7 @@ import MineflayerPluginConsole from './react/MineflayerPluginConsole'
 import { UIProvider } from './react/UIProvider'
 import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
+import TouchInteractionHint from './react/TouchInteractionHint'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -147,6 +148,7 @@ const InGameUi = () => {
       <PauseScreen />
       <MineflayerPluginHud />
       <MineflayerPluginConsole />
+      {showUI && <TouchInteractionHint />}
       <div style={{ display: showUI ? 'block' : 'none' }}>
         {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
         {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
@@ -209,6 +211,7 @@ const App = () => {
             <SignInMessageProvider />
             <NoModalFoundProvider />
             <PacketsReplayProvider />
+            <NotificationProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>
@@ -216,7 +219,6 @@ const App = () => {
             </div>
             <div />
             <DebugEdges />
-            <NotificationProvider />
           </RobustPortal>
         </ButtonAppProvider>
       </div>

@@ -85,15 +85,15 @@ const registeredJeiChannel = () => {
     [
       {
         name: 'id',
-        type: 'pstring',
+        type: ['pstring', { countType: 'i16' }]
       },
       {
         name: 'categoryTitle',
-        type: 'pstring',
+        type: ['pstring', { countType: 'i16' }]
       },
       {
         name: 'items',
-        type: 'pstring',
+        type: ['pstring', { countType: 'i16' }]
       },
     ]
   ]

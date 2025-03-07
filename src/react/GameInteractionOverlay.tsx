@@ -3,7 +3,6 @@ import { subscribe, useSnapshot } from 'valtio'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { options } from '../optionsStorage'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
-import worldInteractions from '../worldInteractions'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
 import { pointerLock, isInRealGameSession } from '../utils'
 import { handleMovementStickDelta, joystickPointer } from './TouchAreasControls'
@@ -151,9 +150,13 @@ function GameInteractionOverlayInner ({
         document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
         virtualClickActive = false
       } else if (!capturedPointer.active.activateCameraMove && (Date.now() - capturedPointer.active.time < touchStartBreakingBlockMs)) {
-        document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
-        worldInteractions.update()
-        document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
+        // single click action
+        const MOUSE_BUTTON_RIGHT = 2
+        const MOUSE_BUTTON_LEFT = 0
+        const gonnaAttack = !!bot.mouse.getCursorState().entity
+        document.dispatchEvent(new MouseEvent('mousedown', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
+        bot.mouse.update()
+        document.dispatchEvent(new MouseEvent('mouseup', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
       }
 
       if (screenTouches > 0) {

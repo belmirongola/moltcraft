@@ -35,6 +35,9 @@
     "web",
     "client"
   ],
+  "release": {
+    "attachReleaseFiles": "self-host.zip"
+  },
   "publish": {
     "preset": {
       "publishOnlyIfChanged": true,
@@ -81,7 +84,7 @@
     "mojangson": "^2.0.4",
     "net-browserify": "github:zardoy/prismarinejs-net-browserify",
     "node-gzip": "^1.1.2",
-    "mcraft-fun-mineflayer": "^0.1.7",
+    "mcraft-fun-mineflayer": "^0.1.8",
     "peerjs": "^1.5.0",
     "pixelarticons": "^1.8.1",
     "pretty-bytes": "^6.1.1",
@@ -145,7 +148,8 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "^0.2.37",
+    "mc-assets": "^0.2.42",
+    "mineflayer-mouse": "^0.0.7",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:GenerelSchwerz/mineflayer",
     "mineflayer-pathfinder": "^2.4.4",

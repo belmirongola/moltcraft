@@ -24,6 +24,7 @@ import { chunkPos } from './simpleUtils'
 import { HandItemBlock } from './holdingBlock'
 import { updateStatText } from './ui/newStats'
 import { WorldRendererThree } from './worldrendererThree'
+import { generateGuiAtlas } from './guiRenderer'
 
 function mod (x, n) {
   return ((x % n) + n) % n
@@ -354,6 +355,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
   }
 
+  async generateGuiTextures () {
+    await generateGuiAtlas()
+  }
+
   async updateAssetsData (resourcePackUpdate = false, prioritizeBlockTextures?: string[]) {
     const blocksAssetsParser = new AtlasParser(this.sourceData.blocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
     const itemsAssetsParser = new AtlasParser(this.sourceData.itemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
@@ -365,6 +370,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
 
     const customBlockTextures = Object.keys(this.customTextures.blocks?.textures ?? {})
+    const customItemTextures = Object.keys(this.customTextures.items?.textures ?? {})
     console.time('createBlocksAtlas')
     const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
       const texture = this.customTextures?.blocks?.textures[textureName]
@@ -376,8 +382,9 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       const texture = this.customTextures?.items?.textures[textureName]
       if (!texture) return
       return texture
-    }, this.customTextures?.items?.tileSize)
+    }, this.customTextures?.items?.tileSize, undefined, customItemTextures)
     console.timeEnd('createItemsAtlas')
+
     this.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
     this.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
 
@@ -417,8 +424,22 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         config: this.mesherConfig,
       })
     }
+    if (!this.itemsAtlasParser) return
+    const itemsTexture = await new THREE.TextureLoader().loadAsync(this.itemsAtlasParser.latestImage)
+    itemsTexture.magFilter = THREE.NearestFilter
+    itemsTexture.minFilter = THREE.NearestFilter
+    itemsTexture.flipY = false
+    viewer.entities.itemsTexture = itemsTexture
+    if (!this.itemsAtlasParser) return
+
     this.renderUpdateEmitter.emit('textureDownloaded')
-    console.log('texture loaded')
+
+    console.time('generateGuiTextures')
+    await this.generateGuiTextures()
+    console.timeEnd('generateGuiTextures')
+    if (!this.itemsAtlasParser) return
+    this.renderUpdateEmitter.emit('itemsTextureDownloaded')
+    console.log('textures loaded')
   }
 
   async downloadDebugAtlas (isItems = false) {

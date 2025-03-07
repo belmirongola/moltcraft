@@ -17,17 +17,30 @@ const convertedSounds = [] as string[]
 export async function loadSound (path: string, contents = path) {
   if (loadingSounds.includes(path)) return true
   loadingSounds.push(path)
-  const res = await window.fetch(contents)
-  if (!res.ok) {
-    const error = `Failed to load sound ${path}`
-    if (isCypress()) throw new Error(error)
-    else console.warn(error)
-    return
-  }
-  const data = await res.arrayBuffer()
 
-  sounds[path] = data
-  loadingSounds.splice(loadingSounds.indexOf(path), 1)
+  try {
+    audioContext ??= new window.AudioContext()
+
+    const res = await window.fetch(contents)
+    if (!res.ok) {
+      const error = `Failed to load sound ${path}`
+      if (isCypress()) throw new Error(error)
+      else console.warn(error)
+      return
+    }
+    const arrayBuffer = await res.arrayBuffer()
+
+    // Decode the audio data immediately
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    sounds[path] = audioBuffer
+    convertedSounds.push(path) // Mark as converted immediately
+
+    loadingSounds.splice(loadingSounds.indexOf(path), 1)
+  } catch (err) {
+    console.warn(`Failed to load sound ${path}:`, err)
+    loadingSounds.splice(loadingSounds.indexOf(path), 1)
+    if (isCypress()) throw err
+  }
 }
 
 export const loadOrPlaySound = async (url, soundVolume = 1, loadTimeout = 500) => {
@@ -51,13 +64,6 @@ export async function playSound (url, soundVolume = 1) {
   } catch (err) {
     reportWarningOnce('audioContext', 'Failed to create audio context. Some sounds will not play')
     return
-  }
-
-  for (const [soundName, sound] of Object.entries(sounds)) {
-    if (convertedSounds.includes(soundName)) continue
-    // eslint-disable-next-line no-await-in-loop
-    sounds[soundName] = await audioContext.decodeAudioData(sound)
-    convertedSounds.push(soundName)
   }
 
   const soundBuffer = sounds[url]

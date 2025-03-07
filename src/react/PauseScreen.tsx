@@ -232,14 +232,15 @@ export default () => {
   if (pauseLinksConfig) {
     for (const [i, row] of pauseLinksConfig.entries()) {
       const rowButtons: React.ReactNode[] = []
-      for (const button of row) {
+      for (const [k, button] of row.entries()) {
+        const key = `${i}-${k}`
         const style = { width: (204 / row.length - (row.length > 1 ? 4 : 0)) + 'px' }
         if (button.type === 'discord') {
-          rowButtons.push(<DiscordButton key={i} style={style} text={button.text}/>)
+          rowButtons.push(<DiscordButton key={key} style={style} text={button.text}/>)
         } else if (button.type === 'github') {
-          rowButtons.push(<Button key={i} className="button" style={style} onClick={() => openGithub()}>{button.text ?? 'GitHub'}</Button>)
+          rowButtons.push(<Button key={key} className="button" style={style} onClick={() => openGithub()}>{button.text ?? 'GitHub'}</Button>)
         } else if (button.type === 'url' && button.text) {
-          rowButtons.push(<Button key={i} className="button" style={style} onClick={() => openURL(button.url)}>{button.text}</Button>)
+          rowButtons.push(<Button key={key} className="button" style={style} onClick={() => openURL(button.url)}>{button.text}</Button>)
         }
       }
       pauseLinks.push(<div className={styles.row}>{rowButtons}</div>)

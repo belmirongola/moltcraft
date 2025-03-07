@@ -41,13 +41,13 @@ browserfs.configure({
         throw e2
       }
       showNotification('Failed to access device storage', `Check you have free space. ${e.message}`, true)
-      miscUiState.appLoaded = true
+      miscUiState.fsReady = true
       miscUiState.singleplayerAvailable = false
     })
     return
   }
   await updateTexturePackInstalledState()
-  miscUiState.appLoaded = true
+  miscUiState.fsReady = true
   miscUiState.singleplayerAvailable = true
 })
 
