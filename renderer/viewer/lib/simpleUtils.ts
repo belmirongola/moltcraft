@@ -33,3 +33,9 @@ export function sectionPos (pos: { x: number, y: number, z: number }) {
   const z = Math.floor(pos.z / 16)
   return [x, y, z]
 }
+// doesn't support snapshots
+
+export const toMajorVersion = version => {
+  const [a, b] = (String(version)).split('.')
+  return `${a}.${b}`
+}

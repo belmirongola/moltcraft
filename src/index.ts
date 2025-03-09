@@ -15,9 +15,8 @@ import './external'
 import './appConfig'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad, renderSlot } from './inventoryWindows'
-import { GeneralInputItem, RenderItem } from './mineflayer/items'
+import { GeneralInputItem } from './mineflayer/items'
 import initCollisionShapes from './getCollisionInteractionShapes'
-import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
 import { Duplex } from 'stream'
 
@@ -66,7 +65,6 @@ import { isCypress } from './standaloneUtils'
 import {
   removePanorama
 } from './panorama'
-import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
@@ -85,36 +83,33 @@ import { loadInMemorySave } from './react/SingleplayerProvider'
 import { ua } from './react/utils'
 import { possiblyHandleStateVariable } from './googledrive'
 import flyingSquidEvents from './flyingSquidEvents'
-import { hideNotification, notificationProxy, showNotification } from './react/NotificationProvider'
+import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
 import { ViewerWrapper } from 'renderer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
 import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
-import { ref, subscribe } from 'valtio'
+import { subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
-import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { updateServerConnectionHistory } from './react/serversStorage'
 import packetsPatcher from './mineflayer/plugins/packetsPatcher'
 import { mainMenuState } from './react/MainMenuRenderApp'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import './mobileShim'
 import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from './viewerConnector'
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
-import { playerState, PlayerStateManager } from './mineflayer/playerState'
-import { createClient, states } from 'minecraft-protocol'
+import { playerState } from './mineflayer/playerState'
+import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
-import { LocalServer } from './customServer'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createFullScreenProgressReporter } from './core/progressReporter'
 import { getItemModelName } from './resourcesManager'
-import EventEmitter from 'events'
+import { getProtocolClientGetter } from './protocolWorker/protocolMain'
 
 window.debug = debug
 window.THREE = THREE
@@ -557,123 +552,9 @@ export async function connect (connectOptions: ConnectOptions) {
       await downloadMcData(finalVersion)
     }
 
-    const copyPrimitiveValues = (obj: any, deep = false, ignoreKeys: string[] = []) => {
-      const copy = {} as Record<string, any>
-      for (const key in obj) {
-        if (ignoreKeys.includes(key)) continue
-        if (typeof obj[key] === 'object' && obj[key] !== null && deep) {
-          copy[key] = copyPrimitiveValues(obj[key])
-        } else if (typeof obj[key] === 'number' || typeof obj[key] === 'string' || typeof obj[key] === 'boolean') {
-          copy[key] = obj[key]
-        }
-      }
-      return copy
-    }
-
-    let clientResolved = false
-    // eslint-disable-next-line no-inner-declarations
-    function createMinecraftProtocolClient (this: any) {
-      if (!this.brand) return // brand is not resolved yet
-      if (bot?._client) return bot._client
-      if (singleplayer || p2pMultiplayer || localReplaySession) {
-        return undefined
-      }
-      if (clientResolved) throw new Error('Client already resolved')
-      clientResolved = true
-      const createClientOptions = copyPrimitiveValues(this, false, ['client'])
-      console.log('createClientOptions', createClientOptions)
-      const worker = new Worker(new URL('./protocolWorker.ts', import.meta.url))
-      // setTimeout(() => {
-      //   if (bot) {
-      //     bot.on('end', () => {
-      //       worker.terminate()
-      //     })
-      //   } else {
-      //     worker.terminate()
-      //   }
-      // })
-
-      worker.postMessage({
-        type: 'setProxy',
-        hostname: proxy.host,
-        port: proxy.port
-      })
-      worker.postMessage({
-        type: 'init',
-        options: createClientOptions
-      })
-      throw new Error('stop')
-
-      const eventEmitter = new EventEmitter() as any
-      eventEmitter.version = this.version
-
-      function redirectEvents (fromEmitter, toEmitter, events) {
-        for (const eventName of events) {
-          fromEmitter.on(eventName, () => {
-            toEmitter.emit(eventName)
-          })
-        }
-      }
-
-      // todo channels
-      redirectEvents(client, eventEmitter, 'connection listening playerJoin end'.split(' '))
-
-      client.on('packet', (data, packetMeta) => {
-        eventEmitter.emit('packet', data, packetMeta)
-        eventEmitter.emit(packetMeta.name, data, packetMeta)
-      })
-
-      const redirectMethodsToWorker = (names: string[]) => {
-        for (const name of names) {
-          eventEmitter[name] = async (...args: any[]) => {
-            await new Promise(resolve => {
-              setTimeout(resolve)
-            })
-            return client[name].bind(client)(...JSON.parse(JSON.stringify(args)))
-          }
-        }
-      }
-
-      // const redirectMethodsFromWorker = (names: string[]) => {
-      //   for (const name of names) {
-      //     client[name] = async (...args: any[]) => {
-      //       await new Promise(resolve => {
-      //         setTimeout(resolve)
-      //       })
-      //       eventEmitter[name](...JSON.parse(JSON.stringify(args)))
-      //     }
-      //   }
-      // }
-
-      redirectMethodsToWorker(['write', 'registerChannel', 'writeChannel'])
-
-      // client.on = eventEmitter.on
-      // client.once = eventEmitter.once
-      // client.emit = eventEmitter.emit
-      // client.off = eventEmitter.off
-      // client.addListener = eventEmitter.addListener
-      // client.removeListener = eventEmitter.removeListener
-      // client.removeAllListeners = eventEmitter.removeAllListeners
-      // client.listeners = eventEmitter.listeners
-      // client.listenerCount = eventEmitter.listenerCount
-      // client.eventNames = eventEmitter.eventNames
-      // client.getMaxListeners = eventEmitter.getMaxListeners
-      // client.setMaxListeners = eventEmitter.setMaxListeners
-      // client.prependListener = eventEmitter.prependListener
-      // client.prependOnceListener = eventEmitter.prependOnceListener
-
-
-      return new Proxy(eventEmitter, {
-        get (target, prop) {
-          if (!(prop in target)) {
-            // console.warn(`Accessing non-existent property "${String(prop)}" on event emitter`)
-          }
-          const value = target[prop]
-          return typeof value === 'function' ? value.bind(target) : value
-        }
-      })
-    }
     const brand = clientDataStream ? 'minecraft-web-client' : undefined
+    const createClient = getProtocolClientGetter(proxy)
+
     bot = mineflayer.createBot({
       host: server.host,
       port: server.port ? +server.port : undefined,
@@ -683,7 +564,7 @@ export async function connect (connectOptions: ConnectOptions) {
         stream: clientDataStream as any,
       } : {},
       ...singleplayer || p2pMultiplayer || localReplaySession ? {
-        // keepAlive: false,
+        keepAlive: false,
       } : {},
       ...singleplayer ? {
         version: serverOptions.version,
@@ -700,7 +581,10 @@ export async function connect (connectOptions: ConnectOptions) {
         signInMessageState.expiresOn = Date.now() + data.expires_in * 1000
       },
       get client () {
-        return createMinecraftProtocolClient.call(this)
+        if (clientDataStream || singleplayer || p2pMultiplayer || localReplaySession || connectOptions.viewerWsConnect) {
+          return undefined
+        }
+        return createClient.call(this)
       },
       sessionServer: authData?.sessionEndpoint?.toString(),
       // auth: connectOptions.authenticatedAccount ?  : undefined,

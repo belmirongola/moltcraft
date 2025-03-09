@@ -12,7 +12,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 // eslint-disable-next-line import/no-named-as-default
 import GUI from 'lil-gui'
 import _ from 'lodash'
-import { toMajorVersion } from '../../src/utils'
 import { WorldDataEmitter } from '../viewer'
 import { Viewer } from '../viewer/lib/viewer'
 import { BlockNames } from '../../src/mcDataTypes'

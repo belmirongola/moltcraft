@@ -1,3 +1,6 @@
+import { ref } from 'valtio'
+import { signInMessageState } from './react/SignInMessageProvider'
+
 export const getProxyDetails = async (proxyBaseUrl: string) => {
   if (!proxyBaseUrl.startsWith('http')) proxyBaseUrl = `${isPageSecure() ? 'https' : 'http'}://${proxyBaseUrl}`
   const url = `${proxyBaseUrl}/api/vm/net/connect`
@@ -103,6 +106,39 @@ export default async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => {
       connectingVersion = version
     }
   }
+}
+
+export const authFlowMainThread = async (worker, authData) => {
+  signInMessageState.abortController = ref(new AbortController())
+  worker.on('msaCode', (data) => {
+    authData.setOnMsaCodeCallback(data)
+  })
+  worker.on('version', (version) => {
+    authData.setConnectingVersion(version)
+  })
+  signInMessageState.code = ''
+  if (signInMessageState.shouldSaveToken) {
+    updateAuthenticatedAccountData(accounts => {
+      const existingAccount = accounts.find(a => a.username === client.username)
+      if (existingAccount) {
+        existingAccount.cachedTokens = { ...existingAccount.cachedTokens, ...newTokensCacheResult }
+      } else {
+        accounts.push({
+          username: client.username,
+          cachedTokens: { ...cachedTokens, ...newTokensCacheResult }
+        })
+      }
+      return accounts
+    })
+    updateDataAfterJoin = () => {
+      updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: client.username }), connectOptions.serverIndex)
+    }
+  } else {
+    updateDataAfterJoin = () => {
+      updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: undefined }), connectOptions.serverIndex)
+    }
+  }
+  setLoadingScreenStatus('Authentication successful. Logging in to server')
 }
 
 function isPageSecure (url = window.location.href) {

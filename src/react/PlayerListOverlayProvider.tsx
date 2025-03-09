@@ -30,7 +30,7 @@ export default () => {
     }
   }
 
-  useMemo(() => {
+  useEffect(() => {
     function requestUpdate () {
       // Placeholder for requestUpdate logic
       setPlayers(bot.players)
@@ -39,6 +39,7 @@ export default () => {
     bot.on('playerUpdated', () => requestUpdate())
     bot.on('playerJoined', () => requestUpdate())
     bot.on('playerLeft', () => requestUpdate())
+    requestUpdate()
     const interval = setInterval(() => {
       requestUpdate()
     }, 1000)

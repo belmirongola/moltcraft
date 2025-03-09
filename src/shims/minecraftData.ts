@@ -1,7 +1,7 @@
 import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { toMajorVersion } from 'renderer/viewer/lib/simpleUtils'
 import JsonOptimizer from '../optimizeJson'
 // import minecraftInitialDataJson from '../../generated/minecraft-initial-data.json'
-import { toMajorVersion } from '../utils'
 
 const customResolver = () => {
   const resolver = Promise.withResolvers()

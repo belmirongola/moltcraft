@@ -158,6 +158,7 @@
         "unicorn/prefer-ternary": "off",
         "unicorn/switch-case-braces": "off",
         "@typescript-eslint/consistent-type-definitions": "off",
+        "unicorn/relative-url-style": "off",
         "unicorn/explicit-length-check": "off",
         "unicorn/prefer-dom-node-append": "off",
         "typescript-eslint/no-confusing-void-expression": "off",
