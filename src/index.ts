@@ -104,7 +104,7 @@ import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from '
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 import { playerState, PlayerStateManager } from './mineflayer/playerState'
-import { states } from 'minecraft-protocol'
+import { createClient, states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
@@ -114,6 +114,7 @@ import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createFullScreenProgressReporter } from './core/progressReporter'
 import { getItemModelName } from './resourcesManager'
+import EventEmitter from 'events'
 
 window.debug = debug
 window.THREE = THREE
@@ -348,7 +349,7 @@ export async function connect (connectOptions: ConnectOptions) {
       })
     }
   }
-  let lastPacket = undefined as string | undefined
+  const lastPacket = undefined as string | undefined
   const onPossibleErrorDisconnect = () => {
     if (lastPacket && bot?._client && bot._client.state !== states.PLAY) {
       appStatusState.descriptionHint = `Last Server Packet: ${lastPacket}`
@@ -394,7 +395,7 @@ export async function connect (connectOptions: ConnectOptions) {
   }
 
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
-  let updateDataAfterJoin = () => { }
+  const updateDataAfterJoin = () => { }
   let localServer
   let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
   try {
@@ -556,15 +557,133 @@ export async function connect (connectOptions: ConnectOptions) {
       await downloadMcData(finalVersion)
     }
 
+    const copyPrimitiveValues = (obj: any, deep = false, ignoreKeys: string[] = []) => {
+      const copy = {} as Record<string, any>
+      for (const key in obj) {
+        if (ignoreKeys.includes(key)) continue
+        if (typeof obj[key] === 'object' && obj[key] !== null && deep) {
+          copy[key] = copyPrimitiveValues(obj[key])
+        } else if (typeof obj[key] === 'number' || typeof obj[key] === 'string' || typeof obj[key] === 'boolean') {
+          copy[key] = obj[key]
+        }
+      }
+      return copy
+    }
+
+    let clientResolved = false
+    // eslint-disable-next-line no-inner-declarations
+    function createMinecraftProtocolClient (this: any) {
+      if (!this.brand) return // brand is not resolved yet
+      if (bot?._client) return bot._client
+      if (singleplayer || p2pMultiplayer || localReplaySession) {
+        return undefined
+      }
+      if (clientResolved) throw new Error('Client already resolved')
+      clientResolved = true
+      const createClientOptions = copyPrimitiveValues(this, false, ['client'])
+      console.log('createClientOptions', createClientOptions)
+      const worker = new Worker(new URL('./protocolWorker.ts', import.meta.url))
+      // setTimeout(() => {
+      //   if (bot) {
+      //     bot.on('end', () => {
+      //       worker.terminate()
+      //     })
+      //   } else {
+      //     worker.terminate()
+      //   }
+      // })
+
+      worker.postMessage({
+        type: 'setProxy',
+        hostname: proxy.host,
+        port: proxy.port
+      })
+      worker.postMessage({
+        type: 'init',
+        options: createClientOptions
+      })
+      throw new Error('stop')
+
+      const eventEmitter = new EventEmitter() as any
+      eventEmitter.version = this.version
+
+      function redirectEvents (fromEmitter, toEmitter, events) {
+        for (const eventName of events) {
+          fromEmitter.on(eventName, () => {
+            toEmitter.emit(eventName)
+          })
+        }
+      }
+
+      // todo channels
+      redirectEvents(client, eventEmitter, 'connection listening playerJoin end'.split(' '))
+
+      client.on('packet', (data, packetMeta) => {
+        eventEmitter.emit('packet', data, packetMeta)
+        eventEmitter.emit(packetMeta.name, data, packetMeta)
+      })
+
+      const redirectMethodsToWorker = (names: string[]) => {
+        for (const name of names) {
+          eventEmitter[name] = async (...args: any[]) => {
+            await new Promise(resolve => {
+              setTimeout(resolve)
+            })
+            return client[name].bind(client)(...JSON.parse(JSON.stringify(args)))
+          }
+        }
+      }
+
+      // const redirectMethodsFromWorker = (names: string[]) => {
+      //   for (const name of names) {
+      //     client[name] = async (...args: any[]) => {
+      //       await new Promise(resolve => {
+      //         setTimeout(resolve)
+      //       })
+      //       eventEmitter[name](...JSON.parse(JSON.stringify(args)))
+      //     }
+      //   }
+      // }
+
+      redirectMethodsToWorker(['write', 'registerChannel', 'writeChannel'])
+
+      // client.on = eventEmitter.on
+      // client.once = eventEmitter.once
+      // client.emit = eventEmitter.emit
+      // client.off = eventEmitter.off
+      // client.addListener = eventEmitter.addListener
+      // client.removeListener = eventEmitter.removeListener
+      // client.removeAllListeners = eventEmitter.removeAllListeners
+      // client.listeners = eventEmitter.listeners
+      // client.listenerCount = eventEmitter.listenerCount
+      // client.eventNames = eventEmitter.eventNames
+      // client.getMaxListeners = eventEmitter.getMaxListeners
+      // client.setMaxListeners = eventEmitter.setMaxListeners
+      // client.prependListener = eventEmitter.prependListener
+      // client.prependOnceListener = eventEmitter.prependOnceListener
+
+
+      return new Proxy(eventEmitter, {
+        get (target, prop) {
+          if (!(prop in target)) {
+            // console.warn(`Accessing non-existent property "${String(prop)}" on event emitter`)
+          }
+          const value = target[prop]
+          return typeof value === 'function' ? value.bind(target) : value
+        }
+      })
+    }
+    const brand = clientDataStream ? 'minecraft-web-client' : undefined
     bot = mineflayer.createBot({
       host: server.host,
       port: server.port ? +server.port : undefined,
+      brand,
       version: finalVersion || false,
       ...clientDataStream ? {
         stream: clientDataStream as any,
       } : {},
       ...singleplayer || p2pMultiplayer || localReplaySession ? {
-        keepAlive: false,
+        // keepAlive: false,
       } : {},
       ...singleplayer ? {
         version: serverOptions.version,
@@ -580,48 +699,11 @@ export async function connect (connectOptions: ConnectOptions) {
         signInMessageState.link = data.verification_uri
         signInMessageState.expiresOn = Date.now() + data.expires_in * 1000
       },
+      get client () {
+        return createMinecraftProtocolClient.call(this)
+      },
       sessionServer: authData?.sessionEndpoint?.toString(),
-      auth: connectOptions.authenticatedAccount ? async (client, options) => {
-        authData!.setOnMsaCodeCallback(options.onMsaCode)
-        authData?.setConnectingVersion(client.version)
-        //@ts-expect-error
-        client.authflow = authData!.authFlow
-        try {
-          signInMessageState.abortController = ref(new AbortController())
-          await Promise.race([
-            protocolMicrosoftAuth.authenticate(client, options),
-            new Promise((_r, reject) => {
-              signInMessageState.abortController.signal.addEventListener('abort', () => {
-                reject(new UserError('Aborted by user'))
-              })
-            })
-          ])
-          if (signInMessageState.shouldSaveToken) {
-            updateAuthenticatedAccountData(accounts => {
-              const existingAccount = accounts.find(a => a.username === client.username)
-              if (existingAccount) {
-                existingAccount.cachedTokens = { ...existingAccount.cachedTokens, ...newTokensCacheResult }
-              } else {
-                accounts.push({
-                  username: client.username,
-                  cachedTokens: { ...cachedTokens, ...newTokensCacheResult }
-                })
-              }
-              return accounts
-            })
-            updateDataAfterJoin = () => {
-              updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: client.username }), connectOptions.serverIndex)
-            }
-          } else {
-            updateDataAfterJoin = () => {
-              updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: undefined }), connectOptions.serverIndex)
-            }
-          }
-          setLoadingScreenStatus('Authentication successful. Logging in to server')
-        } finally {
-          signInMessageState.code = ''
-        }
-      } : undefined,
+      // auth: connectOptions.authenticatedAccount ?  : undefined,
       username,
       viewDistance: renderDistance,
       checkTimeoutInterval: 240 * 1000,
@@ -677,16 +759,16 @@ export async function connect (connectOptions: ConnectOptions) {
         })
       }
       // socket setup actually can be delayed because of dns lookup
-      if (bot._client.socket) {
-        setupConnectHandlers()
-      } else {
-        const originalSetSocket = bot._client.setSocket.bind(bot._client)
-        bot._client.setSocket = (socket) => {
-          if (!bot) return
-          originalSetSocket(socket)
-          setupConnectHandlers()
-        }
-      }
+      // if (bot._client.socket) {
+      //   setupConnectHandlers()
+      // } else {
+      //   const originalSetSocket = bot._client.setSocket.bind(bot._client)
+      //   bot._client.setSocket = (socket) => {
+      //     if (!bot) return
+      //     originalSetSocket(socket)
+      //     setupConnectHandlers()
+      //   }
+      // }
 
     }
   } catch (err) {
@@ -720,7 +802,7 @@ export async function connect (connectOptions: ConnectOptions) {
   // bot.emit('kicked', '{"translate":"disconnect.genericReason","with":["Internal Exception: io.netty.handler.codec.EncoderException: com.viaversion.viaversion.exception.InformativeException: Please report this on the Via support Discord or open an issue on the relevant GitHub repository\\nPacket Type: SYSTEM_CHAT, Index: 1, Type: TagType, Data: [], Packet ID: 103, Source 0: com.viaversion.viabackwards.protocol.v1_20_3to1_20_2.Protocol1_20_3To1_20_2$$Lambda/0x00007f9930f63080"]}', false)
 
   const packetBeforePlay = (_, __, ___, fullBuffer) => {
-    lastPacket = fullBuffer.toString()
+    // lastPacket = fullBuffer.toString()
   }
   bot._client.on('packet', packetBeforePlay as any)
   const playStateSwitch = (newState) => {
@@ -767,6 +849,10 @@ export async function connect (connectOptions: ConnectOptions) {
     document.dispatchEvent(new Event('cypress-world-ready'))
   })
 
+  if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
+    localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+  }
+
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
   bot.once(spawnEarlier ? 'forcedMove' : 'health', async () => {
@@ -786,9 +872,6 @@ export async function connect (connectOptions: ConnectOptions) {
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
     setLoadingScreenStatus('Placing blocks (starting viewer)')
-    if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
-      localStorage.lastConnectOptions = JSON.stringify(connectOptions)
-    }
     connectOptions.onSuccessfulPlay?.()
     if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
       lockUrl()
