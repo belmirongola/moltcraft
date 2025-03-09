@@ -2,7 +2,9 @@ import React from 'react'
 import physicsUtilPkg from '@nxg-org/mineflayer-physics-util/package.json'
 import mineflayerPkg from 'mineflayer/package.json'
 import mcProtocolPkg from 'minecraft-protocol/package.json'
+import { useSnapshot } from 'valtio'
 import packageJson from '../../../package.json'
+import { miscUiState } from '../../globalState'
 
 const LibraryVersions: React.FC = () => {
   const versions = {
@@ -11,17 +13,22 @@ const LibraryVersions: React.FC = () => {
     'minecraft-protocol': mcProtocolPkg.version
   }
 
+  const { gameLoaded } = useSnapshot(miscUiState)
+
+  if (!gameLoaded) return null
+
   return (
     <div
       style={{
+        pointerEvents: 'none',
         position: 'fixed',
         left: 0,
         top: '300px',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
         color: 'white',
         padding: '10px',
         borderRadius: '0 5px 5px 0',
-        fontSize: '12px',
+        fontSize: '8px',
         zIndex: 1000
       }}
     >
