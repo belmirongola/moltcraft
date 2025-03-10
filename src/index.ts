@@ -17,7 +17,6 @@ import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad, renderSlot } from './inventoryWindows'
 import { GeneralInputItem } from './mineflayer/items'
 import initCollisionShapes from './getCollisionInteractionShapes'
-import microsoftAuthflow from './microsoftAuthflow'
 import { Duplex } from 'stream'
 
 import './scaleInterface'
@@ -288,8 +287,8 @@ export async function connect (connectOptions: ConnectOptions) {
 
   const { renderDistance: renderDistanceSingleplayer, multiplayerRenderDistance } = options
 
-  const parsedServer = parseServerAddress(connectOptions.server)
-  const server = { host: parsedServer.host, port: parsedServer.port }
+  const serverParsed = parseServerAddress(connectOptions.server)
+  const server = { host: serverParsed.host, port: serverParsed.port }
   if (connectOptions.proxy?.startsWith(':')) {
     connectOptions.proxy = `${location.protocol}//${location.hostname}${connectOptions.proxy}`
   }
@@ -297,12 +296,12 @@ export async function connect (connectOptions: ConnectOptions) {
     const https = connectOptions.proxy.startsWith('https://') || location.protocol === 'https:'
     connectOptions.proxy = `${connectOptions.proxy}:${https ? 443 : 80}`
   }
-  const parsedProxy = parseServerAddress(connectOptions.proxy, false)
-  const proxy = { host: parsedProxy.host, port: parsedProxy.port }
+  const proxyParsed = parseServerAddress(connectOptions.proxy, false)
+  const proxy = { host: proxyParsed.host, port: proxyParsed.port }
   let { username } = connectOptions
 
   if (connectOptions.server) {
-    console.log(`connecting to ${server.host}:${server.port ?? 25_565}`)
+    console.log(`connecting to ${serverParsed.serverIpFull}`)
   }
   console.log('using player username', username)
 
@@ -384,13 +383,12 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let clientDataStream: Duplex | undefined
 
-  if (connectOptions.server && !connectOptions.viewerWsConnect && !parsedServer.isWebSocket) {
+  if (connectOptions.server && !connectOptions.viewerWsConnect && !serverParsed.isWebSocket) {
     console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
     net['setProxy']({ hostname: proxy.host, port: proxy.port })
   }
 
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
-  const updateDataAfterJoin = () => { }
   let localServer
   let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
   try {
@@ -505,23 +503,11 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     setLoadingScreenStatus(initialLoadingText)
 
-    if (parsedServer.isWebSocket) {
+    if (serverParsed.isWebSocket) {
       clientDataStream = (await getWebsocketStream(server.host)).mineflayerStream
     }
 
-    let newTokensCacheResult = null as any
     const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
-    const authData = connectOptions.authenticatedAccount ? await microsoftAuthflow({
-      tokenCaches: cachedTokens,
-      proxyBaseUrl: connectOptions.proxy,
-      setProgressText (text) {
-        setLoadingScreenStatus(text)
-      },
-      setCacheResult (result) {
-        newTokensCacheResult = result
-      },
-      connectingServer: server.host
-    }) : undefined
 
     if (p2pMultiplayer) {
       clientDataStream = await connectToPeer(connectOptions.peerId!, connectOptions.peerOptions)
@@ -553,7 +539,7 @@ export async function connect (connectOptions: ConnectOptions) {
     }
 
     const brand = clientDataStream ? 'minecraft-web-client' : undefined
-    const createClient = getProtocolClientGetter(proxy)
+    const createClient = await getProtocolClientGetter(proxy, connectOptions, serverParsed.serverIpFull)
 
     bot = mineflayer.createBot({
       host: server.host,
@@ -575,18 +561,12 @@ export async function connect (connectOptions: ConnectOptions) {
         connect () { },
         Client: CustomChannelClient as any,
       } : {},
-      onMsaCode (data) {
-        signInMessageState.code = data.user_code
-        signInMessageState.link = data.verification_uri
-        signInMessageState.expiresOn = Date.now() + data.expires_in * 1000
-      },
       get client () {
         if (clientDataStream || singleplayer || p2pMultiplayer || localReplaySession || connectOptions.viewerWsConnect) {
           return undefined
         }
         return createClient.call(this)
       },
-      sessionServer: authData?.sessionEndpoint?.toString(),
       // auth: connectOptions.authenticatedAccount ?  : undefined,
       username,
       viewDistance: renderDistance,
@@ -760,7 +740,6 @@ export async function connect (connectOptions: ConnectOptions) {
     if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
       lockUrl()
     }
-    updateDataAfterJoin()
     if (connectOptions.autoLoginPassword) {
       bot.chat(`/login ${connectOptions.autoLoginPassword}`)
     }

@@ -1,5 +1,11 @@
 import EventEmitter from 'events'
+import { ClientOptions } from 'minecraft-protocol'
 import { appQueryParams } from '../appParams'
+import { ConnectOptions } from '../connect'
+import { setLoadingScreenStatus } from '../appStatus'
+import { authFlowMainThread, getAuthData } from './microsoftAuthflow'
+
+const debug = require('debug')('minecraft-protocol')
 
 const copyPrimitiveValues = (obj: any, deep = false, ignoreKeys: string[] = []) => {
   const copy = {} as Record<string, any>
@@ -14,14 +20,26 @@ const copyPrimitiveValues = (obj: any, deep = false, ignoreKeys: string[] = []) 
   return copy
 }
 
-export const getProtocolClientGetter = (proxy: { host: string, port?: string }) => {
+export const getProtocolClientGetter = async (proxy: { host: string, port?: string }, connectOptions: ConnectOptions, serverIp: string) => {
+  const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
+  const authData = connectOptions.authenticatedAccount ?
+    await getAuthData({
+      tokenCaches: cachedTokens,
+      proxyBaseUrl: connectOptions.proxy,
+      setProgressText (text) {
+        setLoadingScreenStatus(text)
+      },
+      connectingServer: serverIp.replace(/:25565$/, '')
+    })
+    : undefined
+
   function createMinecraftProtocolClient (this: any) {
     if (!this.brand) return // brand is not resolved yet
     if (bot?._client) return bot._client
-    // if (singleplayer || p2pMultiplayer || localReplaySession) {
-    //     return undefined
-    // }
-    const createClientOptions = copyPrimitiveValues(this, false, ['client'])
+    const createClientOptions = copyPrimitiveValues(this, false, ['client']) as ClientOptions
+
+    createClientOptions.sessionServer = authData?.sessionEndpoint.toString()
+
     const worker = new Worker(new URL('./protocolWorker.ts', import.meta.url))
     setTimeout(() => {
       if (bot) {
@@ -41,7 +59,8 @@ export const getProtocolClientGetter = (proxy: { host: string, port?: string }) 
     worker.postMessage({
       type: 'init',
       options: createClientOptions,
-      noPacketsValidation: appQueryParams.noPacketsValidation
+      noPacketsValidation: appQueryParams.noPacketsValidation,
+      useAuthFlow: !!authData
     })
 
     const eventEmitter = new EventEmitter() as any
@@ -71,6 +90,7 @@ export const getProtocolClientGetter = (proxy: { host: string, port?: string }) 
           }
 
           eventEmitter.state = packetMeta.state
+          debug(`RECV ${eventEmitter.state}:${packetMeta.name}`, packetData)
           eventEmitter.emit(packetMeta.name, packetData, packetMeta)
         }
       }
@@ -87,12 +107,19 @@ export const getProtocolClientGetter = (proxy: { host: string, port?: string }) 
 
           if (name === 'write') {
             eventEmitter.emit('writePacket', ...args)
+            debug(`SEND ${eventEmitter.state}:${name}`, ...args)
           }
         }
       }
     }
 
     redirectMethodsToWorker(['write', 'registerChannel', 'writeChannel'])
+
+    if (authData) {
+      void authFlowMainThread(worker, authData, connectOptions, (onJoin) => {
+        eventEmitter.on('login', onJoin)
+      })
+    }
 
     return eventEmitter
     // return new Proxy(eventEmitter, {

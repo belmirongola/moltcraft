@@ -336,9 +336,9 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     setUsername={setDefaultUsername}
     setQuickConnectIp={setQuickConnectIp}
     onProfileClick={async () => {
-      const username = await showOptionsModal('Select authenticated account to remove', authenticatedAccounts.map(a => a.username))
+      const username = await showOptionsModal('Select authenticated account to remove', authenticatedAccounts.map(a => a.username ?? '??'))
       if (!username) return
-      setAuthenticatedAccounts(authenticatedAccounts.filter(a => a.username !== username))
+      setAuthenticatedAccounts(authenticatedAccounts.filter(a => (a.username ?? '??') !== username))
     }}
     onWorldAction={(action, index) => {
       const server = serversList[index]

@@ -4,7 +4,7 @@ import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack,
 import { guessProblem } from '../errorLoadingScreenHelpers'
 import type { ConnectOptions } from '../connect'
 import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
-import { getProxyDetails } from '../microsoftAuthflow'
+import { getProxyDetails } from '../protocolWorker/microsoftAuthflow'
 import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/packetsRecording'
 import AppStatus from './AppStatus'
 import DiveTransition from './DiveTransition'

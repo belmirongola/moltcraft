@@ -48,11 +48,12 @@ export function updateServerConnectionHistory (ip: string, version?: string) {
   }
 }
 export const updateLoadedServerData = (callback: (data: StoreServerItem) => StoreServerItem, index = miscUiState.loadedServerIndex) => {
-  if (!index) index = miscUiState.loadedServerIndex
-  if (!index) return
+  if (index === undefined) index = miscUiState.loadedServerIndex
+  if (index === undefined) return
   // function assumes component is not mounted to avoid sync issues after save
   const servers = getInitialServersList()
   const server = servers[index]
+  if (!server) return
   servers[index] = callback(server)
   setNewServersList(servers)
 }
