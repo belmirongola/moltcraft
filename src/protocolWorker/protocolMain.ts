@@ -70,6 +70,7 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
       if (data.type === 'event') {
         eventEmitter.emit(data.event, ...data.args)
         if (data.event === 'packet') {
+          if (window.stopPacketsProcessing) return
           let [packetData, packetMeta] = data.args
 
           // restore transferred data
@@ -96,6 +97,10 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
       }
     })
 
+    eventEmitter.on('writePacket', (...args: any[]) => {
+      debug(`SEND ${eventEmitter.state}:${args[0]}`, ...args.slice(1))
+    })
+
     const redirectMethodsToWorker = (names: string[]) => {
       for (const name of names) {
         eventEmitter[name] = async (...args: any[]) => {
@@ -107,7 +112,6 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
 
           if (name === 'write') {
             eventEmitter.emit('writePacket', ...args)
-            debug(`SEND ${eventEmitter.state}:${name}`, ...args)
           }
         }
       }

@@ -23,6 +23,7 @@ const emitEvent = (event: string, ...args: any[]) => {
 }
 let client: Client
 const registeredChannels = [] as string[]
+let skipWriteLog = false
 
 const handlers = {
   setProxy (data: { hostname: string, port: number }) {
@@ -43,7 +44,16 @@ const handlers = {
       })
     }
 
+    const oldWrite = client.write
+    client.write = (...args) => {
+      if (!skipWriteLog) {
+        emitEvent('writePacket', ...args)
+      }
+      return oldWrite.apply(client, args)
+    }
+
     client.on('packet', (data, packetMeta, buffer, fullBuffer) => {
+      if (window.stopPacketsProcessing) return
       if (!noPacketsValidation) {
         validatePacket(packetMeta.name, data, fullBuffer, true)
       }
@@ -51,7 +61,11 @@ const handlers = {
     })
   },
   call (data: { name: string, args: any[] }) {
+    if (data.name === 'write') {
+      skipWriteLog = true
+    }
     client[data.name].bind(client)(...data.args)
+
     if (data.name === 'registerChannel' && !registeredChannels.includes(data.args[0])) {
       client.on(data.args[0], (...args: any[]) => {
         emitEvent(data.args[0], ...args)
