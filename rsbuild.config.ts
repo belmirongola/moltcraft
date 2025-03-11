@@ -208,7 +208,7 @@ const appConfig = defineConfig({
                             let html = fs.readFileSync(singleBuildHtml, 'utf8')
                             const verToMajor = (ver: string) => ver.split('.').slice(0, 2).join('.')
                             const supportedMajorVersions = [...new Set(supportedVersions.map(a => verToMajor(a)))].join(', ')
-                            html = `<!DOCTYPE html><!-- A true single file build with built-in server. All textures, assets and Minecraft data for ${supportedMajorVersions} inlined into one file. -->${html}`
+                            html = `<!DOCTYPE html><!-- MINECRAFT WEB CLIENT ${releaseTag} -->\n<!-- A true SINGLE FILE BUILD with built-in server -->\n<!-- All textures, assets and Minecraft data for ${supportedMajorVersions} inlined into one file. -->\n${html}`
 
                             const resizedImage = (await (sharp('./assets/favicon.png') as any).resize(64).toBuffer()).toString('base64')
                             html = html.replace('favicon.png', `data:image/png;base64,${resizedImage}`)
