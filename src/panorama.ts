@@ -52,23 +52,10 @@ const updateResourcePackSupportPanorama = async () => {
   }
 }
 
-watchValue(miscUiState, m => {
-  if (m.fsReady) {
-    // Also adds panorama on app load here
-    watchValue(resourcePackState, async (s) => {
-      const oldState = panoramaUsesResourcePack
-      const newState = s.resourcePackInstalled && (await updateResourcePackSupportPanorama(), panoramaUsesResourcePack)
-      if (newState === oldState) return
-      removePanorama()
-      void addPanoramaCubeMap()
-    })
-  }
-})
-
-subscribeKey(miscUiState, 'loadedDataVersion', () => {
-  if (miscUiState.loadedDataVersion) removePanorama()
-  else void addPanoramaCubeMap()
-})
+setTimeout(() => {
+  // after viewer is initialized
+  void addPanoramaCubeMap()
+}, 0)
 
 let unloadPanoramaCallbacks = [] as Array<() => void>
 
