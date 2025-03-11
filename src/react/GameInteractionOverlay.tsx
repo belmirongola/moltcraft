@@ -2,10 +2,9 @@ import { useRef, useEffect } from 'react'
 import { subscribe, useSnapshot } from 'valtio'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { options } from '../optionsStorage'
-import { activeModalStack, gameAdditionalState, isGameActive, miscUiState } from '../globalState'
-import worldInteractions from '../worldInteractions'
+import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
-import { pointerLock } from '../utils'
+import { pointerLock, isInRealGameSession } from '../utils'
 import { handleMovementStickDelta, joystickPointer } from './TouchAreasControls'
 
 /** after what time of holding the finger start breaking the block */
@@ -151,9 +150,13 @@ function GameInteractionOverlayInner ({
         document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
         virtualClickActive = false
       } else if (!capturedPointer.active.activateCameraMove && (Date.now() - capturedPointer.active.time < touchStartBreakingBlockMs)) {
-        document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
-        worldInteractions.update()
-        document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
+        // single click action
+        const MOUSE_BUTTON_RIGHT = 2
+        const MOUSE_BUTTON_LEFT = 0
+        const gonnaAttack = !!bot.mouse.getCursorState().entity
+        document.dispatchEvent(new MouseEvent('mousedown', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
+        bot.mouse.update()
+        document.dispatchEvent(new MouseEvent('mouseup', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
       }
 
       if (screenTouches > 0) {
@@ -291,7 +294,7 @@ export default function GameInteractionOverlay ({ zIndex }: { zIndex: number }) 
 
 subscribe(activeModalStack, () => {
   if (activeModalStack.length === 0) {
-    if (isGameActive(false) && !gameAdditionalState.viewerConnection) {
+    if (isInRealGameSession()) {
       void pointerLock.requestPointerLock()
     }
   } else {

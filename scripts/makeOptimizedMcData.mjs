@@ -145,9 +145,9 @@ const dataTypeBundling = {
   protocol: {
     raw: true
   },
-  sounds: {
-    arrKey: 'name'
-  }
+  // sounds: {
+  //   arrKey: 'name'
+  // }
 }
 
 function processRecipes (current, prev, getData, version) {
@@ -320,7 +320,7 @@ if (compressedOutput) {
   const mcAssets = JSON.stringify(require('mc-assets/dist/blockStatesModels.json'))
   fs.writeFileSync('./generated/mc-assets-compressed.js', `export default ${JSON.stringify(compressToBase64(mcAssets))}`, 'utf8')
 
-  const modelsObj = fs.readFileSync('./prismarine-viewer/viewer/lib/entity/exportedModels.js')
+  // const modelsObj = fs.readFileSync('./prismarine-renderer/viewer/lib/entity/exportedModels.js')
   // const models =
 }
 

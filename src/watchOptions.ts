@@ -75,7 +75,7 @@ export const watchOptionsAfterViewerInit = () => {
     viewer.world.mesherConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting;
     (viewer.world as WorldRendererThree).rerenderAllChunks()
   })
-  customEvents.on('gameLoaded', () => {
+  customEvents.on('mineflayerBotCreated', () => {
     viewer.world.mesherConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
   })
 
@@ -97,6 +97,7 @@ export const watchOptionsAfterWorldViewInit = () => {
     if (!worldView) return
     worldView.keepChunksDistance = o.keepChunksDistance
     viewer.world.config.renderEars = o.renderEars
+    viewer.world.config.showHand = o.showHand
     viewer.world.config.viewBobbing = o.viewBobbing
   })
 }

@@ -14,13 +14,14 @@ For building the project yourself / contributing, see [Development, Debugging & 
 
 - Open any zip world file or even folder in read-write mode!
 - Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
-- Integrated JS server capable of opening Java world saves in any way (folders, zip, web streaming, etc)
+- Integrated JS server clone capable of opening Java world saves in any way (folders, zip, web chunks streaming, etc)
 - Singleplayer mode with simple world generations!
 - Works offline
 - First-class touch (mobile) & controller support
 - First-class keybindings configuration
 - Advanced Resource pack support: Custom GUI, all textures. Server resource packs are supported with proper CORS configuration.
-- Builtin JEI with recipes & descriptions for every item (JEI is creative inventory replacement)
+- Builtin JEI with recipes & descriptions for almost every item (JEI is creative inventory replacement)
+- Custom protocol channel extensions (eg for custom block models in the world)
 - Play with friends over internet! (P2P is powered by Peer.js discovery servers)
 - ~~Google Drive support for reading / saving worlds back to the cloud~~
 - even even more!
@@ -143,6 +144,7 @@ General:
 
 - **`?setting=<setting_name>:<setting_value>`** - Set and lock the setting on load. You can set multiple settings by separating them with `&` e.g. `?setting=autoParkour:true&setting=renderDistance:4`
 - `?modal=<modal>` - Open specific modal on page load eg `keybindings`. Very useful on UI changes testing during dev. For path use `,` as separator. To get currently opened modal type this in the console: `activeModalStack.at(-1).reactType`
+- `?replayFileUrl=<url>` - Load and start a packet replay session from a URL with a integrated server. For debugging / previewing recorded sessions. The file must be CORS enabled.
 
 Server specific:
 

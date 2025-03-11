@@ -76,7 +76,7 @@ export default () => {
 
     if (!process.env.SINGLE_FILE_BUILD) {
       void import('./prosemirror-markdown').then(({ ProseMirrorView }) => {
-        setProseMirrorView(ProseMirrorView)
+        setProseMirrorView(() => ProseMirrorView)
       })
     }
   }, [])

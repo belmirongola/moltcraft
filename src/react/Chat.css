@@ -55,7 +55,8 @@ div.chat-wrapper {
   transform: none;
   top: 100%;
   padding-left: calc(env(safe-area-inset-left) / 2);
-  margin-top: 20px;
+  margin-top: 14px;
+  margin-left: 20px;
   /* input height */
 }
 

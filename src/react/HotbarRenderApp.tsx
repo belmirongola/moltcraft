@@ -7,8 +7,10 @@ import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
 import { getItemNameRaw } from '../mineflayer/items'
+import { isInRealGameSession } from '../utils'
 import MessageFormattedString from './MessageFormattedString'
 import SharedHudVars from './SharedHudVars'
+import { packetsReplayState } from './state/packetsReplayState'
 
 
 const ItemName = ({ itemKey }: { itemKey: string }) => {
@@ -147,7 +149,7 @@ const HotbarInner = () => {
     bot.on('heldItemChanged' as any, heldItemChanged)
 
     document.addEventListener('wheel', (e) => {
-      if (!isGameActive(true)) return
+      if (!isInRealGameSession()) return
       e.preventDefault()
       const newSlot = ((bot.quickBarSlot + Math.sign(e.deltaY)) % 9 + 9) % 9
       setSelectedSlot(newSlot)
@@ -157,7 +159,7 @@ const HotbarInner = () => {
     })
 
     document.addEventListener('keydown', (e) => {
-      if (!isGameActive(true)) return
+      if (!isInRealGameSession()) return
       const numPressed = +((/Digit(\d)/.exec(e.code))?.[1] ?? -1)
       if (numPressed < 1 || numPressed > 9) return
       setSelectedSlot(numPressed - 1)

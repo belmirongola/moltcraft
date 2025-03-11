@@ -1,7 +1,6 @@
 import { CSSProperties, PointerEvent, useEffect, useRef } from 'react'
 import { proxy, ref, useSnapshot } from 'valtio'
 import { contro } from '../controls'
-import worldInteractions from '../worldInteractions'
 import { options } from '../optionsStorage'
 import PixelartIcon from './PixelartIcon'
 import Button from './Button'
@@ -73,8 +72,9 @@ export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props)
     }[name]
     const holdDown = {
       action () {
+        if (!bot) return
         document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
-        worldInteractions.update()
+        bot.mouse.update()
       },
       sneak () {
         void contro.emit('trigger', {
@@ -84,8 +84,9 @@ export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props)
         active = bot?.getControlState('sneak')
       },
       break () {
+        if (!bot) return
         document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
-        worldInteractions.update()
+        bot.mouse.update()
         active = true
       },
       jump () {
@@ -108,8 +109,9 @@ export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props)
         active = bot?.getControlState('sneak')
       },
       break () {
+        if (!bot) return
         document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
-        worldInteractions.update()
+        bot.mouse.update()
         active = false
       },
       jump () {

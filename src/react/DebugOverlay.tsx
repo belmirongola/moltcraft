@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import type { Block } from 'prismarine-block'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
+import { getBlockAssetsCacheKey } from '../../renderer/viewer/lib/mesher/shared'
 import styles from './DebugOverlay.module.css'
 
 export default () => {
@@ -133,7 +134,7 @@ export default () => {
   if (!showDebug) return null
 
   return <>
-    <div className={styles['debug-left-side']}>
+    <div className={`debug-left-side ${styles['debug-left-side']}`}>
       <p>Prismarine Web Client ({bot.version})</p>
       <p>E: {entitiesCount}</p>
       <p>{dimension}</p>
@@ -151,7 +152,7 @@ export default () => {
       {Object.entries(customEntries.current).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
 
-    <div className={styles['debug-right-side']}>
+    <div className={`debug-right-side ${styles['debug-right-side']}`}>
       <p>Renderer: {rendererDevice}</p>
       <div className={styles.empty} />
       {cursorBlock ? (<>
@@ -172,6 +173,26 @@ export default () => {
       {cursorBlock ? (
         <p>Looking at: {cursorBlock.position.x} {cursorBlock.position.y} {cursorBlock.position.z}</p>
       ) : ''}
+      <div className={styles.empty} />
+      {cursorBlock && (() => {
+        const chunkKey = `${Math.floor(cursorBlock.position.x / 16) * 16},${Math.floor(cursorBlock.position.z / 16) * 16}`
+        const customBlockName = viewer.world.protocolCustomBlocks.get(chunkKey)?.[`${cursorBlock.position.x},${cursorBlock.position.y},${cursorBlock.position.z}`]
+        const cacheKey = getBlockAssetsCacheKey(cursorBlock.stateId, customBlockName)
+        const modelInfo = viewer.world.blockStateModelInfo.get(cacheKey)
+        return modelInfo && (
+          <>
+            {customBlockName && <p style={{ fontSize: 7, }}>Custom block: {customBlockName}</p>}
+            {modelInfo.issues.map((issue, i) => (
+              <p key={i} style={{ color: 'yellow', fontSize: 7, }}>{issue}</p>
+            ))}
+            {/* <p style={{ fontSize: 7, }}>Resolved models chain: {modelInfo.modelNames.join(' -> ')}</p> */}
+            <p style={{ fontSize: 7, }}>Resolved model: {modelInfo.modelNames[0] ?? '-'}</p>
+            <p style={{ fontSize: 7, whiteSpace: 'nowrap', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {modelInfo.conditions.join(', ')}
+            </p>
+          </>
+        )
+      })()}
     </div>
   </>
 }

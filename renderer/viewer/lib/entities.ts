@@ -24,7 +24,7 @@ import { Viewer } from './viewer'
 import { getBlockMeshFromModel } from './holdingBlock'
 import { ItemSpecificContextProperties } from './basePlayerState'
 import { loadSkinImage, getLookupUrl, stevePngUrl, steveTexture } from './utils/skins'
-const { loadTexture } = globalThis.isElectron ? require('./utils.electron.js') : require('./utils')
+import { loadTexture } from './utils'
 
 export const TWEEN_DURATION = 120
 
@@ -225,10 +225,11 @@ export class Entities extends EventEmitter {
     su?: number;
     sv?: number;
     size?: number;
+    modelName?: string;
   } | {
     resolvedModel: BlockModel
     modelName: string
-  })
+  } | undefined)
 
   get entitiesByName (): Record<string, SceneEntity[]> {
     const byName: Record<string, SceneEntity[]> = {}
@@ -383,28 +384,37 @@ export class Entities extends EventEmitter {
       if (!playerObject) return
 
       let skinTexture: THREE.Texture
+      let skinCanvas: HTMLCanvasElement
       if (skinUrl === stevePngUrl) {
         skinTexture = await steveTexture
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) throw new Error('Failed to get context')
+        ctx.drawImage(skinTexture.image, 0, 0)
+        skinCanvas = canvas
       } else {
-        const { canvas: skinCanvas, image } = await loadSkinImage(skinUrl)
+        const { canvas, image } = await loadSkinImage(skinUrl)
         playerCustomSkinImage = image
-        skinTexture = new THREE.CanvasTexture(skinCanvas)
+        skinTexture = new THREE.CanvasTexture(canvas)
+        skinCanvas = canvas
       }
 
       skinTexture.magFilter = THREE.NearestFilter
       skinTexture.minFilter = THREE.NearestFilter
       skinTexture.needsUpdate = true
       playerObject.skin.map = skinTexture as any
-      playerObject.skin.modelType = inferModelType(skinTexture.image)
+      playerObject.skin.modelType = inferModelType(skinCanvas)
 
-      let earsCanvas
-      if (renderEars && playerCustomSkinImage) {
+      let earsCanvas: HTMLCanvasElement | undefined
+      if (!playerCustomSkinImage) {
+        renderEars = false
+      } else if (renderEars) {
         earsCanvas = document.createElement('canvas')
         loadEarsToCanvasFromSkin(earsCanvas, playerCustomSkinImage)
         renderEars = !this.isCanvasBlank(earsCanvas)
       }
       if (renderEars) {
-        const earsTexture = new THREE.CanvasTexture(earsCanvas)
+        const earsTexture = new THREE.CanvasTexture(earsCanvas!)
         earsTexture.magFilter = THREE.NearestFilter
         earsTexture.minFilter = THREE.NearestFilter
         earsTexture.needsUpdate = true
@@ -489,15 +499,19 @@ export class Entities extends EventEmitter {
     return typeof component === 'string' ? component : component.text ?? ''
   }
 
-  getItemMesh (item, specificProps: ItemSpecificContextProperties) {
+  getItemMesh (item, specificProps: ItemSpecificContextProperties, previousModel?: string) {
     const textureUv = this.getItemUv?.(item, specificProps)
+    if (previousModel && previousModel === textureUv?.modelName) return undefined
+
     if (textureUv && 'resolvedModel' in textureUv) {
       const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
+      let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
-        const SCALE = 0.5
-        mesh.scale.set(SCALE, SCALE, SCALE)
-        mesh.position.set(0, 0.2, 0)
+        SCALE = 0.5
+      } else if (specificProps['minecraft:display_context'] === 'thirdperson') {
+        SCALE = 6
       }
+      mesh.scale.set(SCALE, SCALE, SCALE)
       const outerGroup = new THREE.Group()
       outerGroup.add(mesh)
       return {
@@ -505,6 +519,7 @@ export class Entities extends EventEmitter {
         isBlock: true,
         itemsTexture: null,
         itemsTextureFlipped: null,
+        modelName: textureUv.modelName,
       }
     }
 
@@ -541,11 +556,19 @@ export class Entities extends EventEmitter {
         new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
         material, materialFlipped,
       ])
+      let SCALE = 1
+      if (specificProps['minecraft:display_context'] === 'ground') {
+        SCALE = 0.5
+      } else if (specificProps['minecraft:display_context'] === 'thirdperson') {
+        SCALE = 6
+      }
+      mesh.scale.set(SCALE, SCALE, SCALE)
       return {
         mesh,
         isBlock: false,
         itemsTexture,
         itemsTextureFlipped,
+        modelName: textureUv.modelName,
       }
     }
   }
@@ -575,6 +598,9 @@ export class Entities extends EventEmitter {
     if (entity.delete) {
       if (!e) return
       if (e.additionalCleanup) e.additionalCleanup()
+      e.traverse(c => {
+        if (c['additionalCleanup']) c['additionalCleanup']()
+      })
       this.emit('remove', entity)
       this.viewer.scene.remove(e)
       disposeObject(e)
@@ -688,6 +714,8 @@ export class Entities extends EventEmitter {
 
     // check if entity has armor
     if (entity.equipment) {
+      this.addItemModel(e, 'left', entity.equipment[0])
+      this.addItemModel(e, 'right', entity.equipment[1])
       addArmorModel(e, 'feet', entity.equipment[2])
       addArmorModel(e, 'legs', entity.equipment[3], 2)
       addArmorModel(e, 'chest', entity.equipment[4])
@@ -705,7 +733,13 @@ export class Entities extends EventEmitter {
       }
     }
     // ---
-    // not player
+    // set baby size
+    if (meta.baby) {
+      e.scale.set(0.5, 0.5, 0.5)
+    } else {
+      e.scale.set(1, 1, 1)
+    }
+    // entity specific meta
     const textDisplayMeta = getSpecificEntityMetadata('text_display', entity)
     const displayTextRaw = textDisplayMeta?.text || meta.custom_name_visible && meta.custom_name
     const displayText = this.parseEntityLabel(displayTextRaw)
@@ -755,7 +789,7 @@ export class Entities extends EventEmitter {
               c.setRotationFromEuler(poseToEuler(armorStandMeta.body_pose))
             }
             break
-          case 'bone_leftarm':
+          case 'bone_rightarm':
             if (c.parent?.name !== 'bone_armor') {
               this.setVisible(c, hasArms)
             }
@@ -765,7 +799,7 @@ export class Entities extends EventEmitter {
               c.setRotationFromEuler(poseToEuler({ 'yaw': -10, 'pitch': -10, 'roll': 0 }))
             }
             break
-          case 'bone_rightarm':
+          case 'bone_leftarm':
             if (c.parent?.name !== 'bone_armor') {
               this.setVisible(c, hasArms)
             }
@@ -775,14 +809,14 @@ export class Entities extends EventEmitter {
               c.setRotationFromEuler(poseToEuler({ 'yaw': 10, 'pitch': -10, 'roll': 0 }))
             }
             break
-          case 'bone_leftleg':
+          case 'bone_rightleg':
             if (armorStandMeta.left_leg_pose) {
               c.setRotationFromEuler(poseToEuler(armorStandMeta.left_leg_pose))
             } else {
               c.setRotationFromEuler(poseToEuler({ 'yaw': -1, 'pitch': -1, 'roll': 0 }))
             }
             break
-          case 'bone_rightleg':
+          case 'bone_leftleg':
             if (armorStandMeta.right_leg_pose) {
               c.setRotationFromEuler(poseToEuler(armorStandMeta.right_leg_pose))
             } else {
@@ -832,9 +866,13 @@ export class Entities extends EventEmitter {
           })
           if (itemMesh) {
             itemMesh.mesh.position.set(0, 0, 0.43)
-            itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
+            if (itemMesh.isBlock) {
+              itemMesh.mesh.scale.set(0.25, 0.25, 0.25)
+            } else {
+              itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
+            }
             itemMesh.mesh.rotateY(Math.PI)
-            itemMesh.mesh.rotateZ(rotation * Math.PI / 4)
+            itemMesh.mesh.rotateZ(-rotation * Math.PI / 4)
             itemMesh.mesh.name = 'item'
             e.add(itemMesh.mesh)
           }
@@ -897,7 +935,7 @@ export class Entities extends EventEmitter {
 
     mapMesh.rotation.set(0, Math.PI, 0)
     entityMesh.add(mapMesh)
-    let isInvisible = false
+    let isInvisible = true
     entityMesh.traverseVisible(c => {
       if (c.name === 'geometry_frame') {
         isInvisible = false
@@ -929,6 +967,45 @@ export class Entities extends EventEmitter {
       texture.needsUpdate = true
     }
     return texture
+  }
+
+  addItemModel (entityMesh: SceneEntity, hand: 'left' | 'right', item: Item) {
+    const parentName = `bone_${hand}item`
+    // remove existing item
+    entityMesh.traverse(c => {
+      if (c.parent?.name.toLowerCase() === parentName) {
+        c.removeFromParent()
+        if (c['additionalCleanup']) c['additionalCleanup']()
+      }
+    })
+    if (!item) return
+
+    const itemObject = this.getItemMesh(item, {
+      'minecraft:display_context': 'thirdperson',
+    })
+    if (itemObject) {
+      entityMesh.traverse(c => {
+        if (c.name.toLowerCase() === parentName) {
+          const group = new THREE.Object3D()
+          group['additionalCleanup'] = () => {
+            // important: avoid texture memory leak and gpu slowdown
+            itemObject.itemsTexture?.dispose()
+            itemObject.itemsTextureFlipped?.dispose()
+          }
+          const itemMesh = itemObject.mesh
+          group.rotation.z = -Math.PI / 16
+          if (itemObject.isBlock) {
+            group.rotation.y = Math.PI / 4
+          } else {
+            itemMesh.rotation.z = -Math.PI / 4
+            group.rotation.y = Math.PI / 2
+            group.scale.multiplyScalar(2)
+          }
+          group.add(itemMesh)
+          c.add(group)
+        }
+      })
+    }
   }
 
   handleDamageEvent (entityId, damageAmount) {

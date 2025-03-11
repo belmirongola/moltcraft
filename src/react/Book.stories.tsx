@@ -2,7 +2,7 @@ import { Meta, Story } from '@storybook/react'
 import Book, { BookProps } from './Book'
 
 export default {
-  title: 'Components/Book',
+  title: 'Book',
   component: Book,
 } as Meta
 

@@ -38,8 +38,9 @@
           }
           // load error handling
           const onError = (errorOrMessage, log = false) => {
-            const message = errorOrMessage instanceof Error ? (errorOrMessage.stack ?? errorOrMessage.message) : errorOrMessage
+            let message = errorOrMessage instanceof Error ? (errorOrMessage.stack ?? errorOrMessage.message) : errorOrMessage
             if (log) console.log(message)
+            if (typeof message !== 'string') message = String(message)
             if (document.querySelector('.initial-loader') && document.querySelector('.initial-loader').querySelector('.title').textContent !== 'Error') {
               document.querySelector('.initial-loader').querySelector('.title').textContent = 'Error'
               const [errorMessage, ...errorStack] = message.split('\n')
@@ -127,15 +128,15 @@
         window.loadedPlugins[pluginName] = await import(script)
       }
     </script> -->
-    <title>Prismarine Web Client</title>
-    <link rel="canonical" href="https://mcraft.fun">
+    <title>Minecraft Web Client</title>
+    <!-- <link rel="canonical" href="https://mcraft.fun"> -->
     <meta name="description" content="Minecraft web client running in your browser">
     <meta name="keywords" content="Play, Minecraft, Online, Web, Java, Server, Single player, Javascript, PrismarineJS, Voxel, WebGL, Three.js">
     <meta name="date" content="2024-07-11" scheme="YYYY-MM-DD">
     <meta name="language" content="English">
     <meta name="theme-color" content="#349474">
     <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'>
-    <meta property="og:title" content="Prismarine Web Client" />
+    <meta property="og:title" content="Minecraft Web Client" />
     <meta property="og:type" content="website" />
     <meta name="format-detection" content="telephone=no">
   </head>

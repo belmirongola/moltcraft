@@ -13,7 +13,7 @@ export const pingServerVersion = async (ip: string, port?: number, mergeOptions:
     ...mergeOptions,
   }
   let latency = 0
-  let fullInfo = null
+  let fullInfo: any = null
   fakeClient.autoVersionHooks = [(res) => {
     latency = res.latency
     fullInfo = res

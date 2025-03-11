@@ -7,10 +7,11 @@ import { fileURLToPath } from 'url'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { build } from 'esbuild'
+import supportedVersions from '../src/supportedVersions.mjs'
 
 const __dirname = path.dirname(fileURLToPath(new URL(import.meta.url)))
 
-const targetedVersions = ['1.21.1', '1.20.6', '1.20.1', '1.19.2', '1.18.2', '1.17.1', '1.16.5', '1.15.2', '1.14.4', '1.13.2', '1.12.2', '1.11.2', '1.10.2', '1.9.4', '1.8.9']
+const targetedVersions = supportedVersions.reverse()
 
 /** @type {{name, size, hash}[]} */
 let prevSounds = null
@@ -145,6 +146,7 @@ const convertSounds = async () => {
   const convertSound = async (i) => {
     const proc = promisify(exec)(`${ffmpegExec} -i "${toConvert[i]}" -y -codec:a libmp3lame ${maintainBitrate ? '-qscale:a 2' : ''} "${toConvert[i].replace('.ogg', '.mp3')}"`)
     // pipe stdout to the console
+    //@ts-ignore
     proc.child.stdout.pipe(process.stdout)
     await proc
     console.log('converted to mp3', i, '/', toConvert.length, toConvert[i])
@@ -173,7 +175,11 @@ const writeSoundsMap = async () => {
   // const localTargetedVersions = targetedVersions.slice(0, 2)
   const localTargetedVersions = targetedVersions
   for (const targetedVersion of localTargetedVersions) {
-    const burgerData = await fetch(burgerDataUrl(targetedVersion)).then((r) => r.json())
+    const burgerData = await fetch(burgerDataUrl(targetedVersion)).then((r) => r.json()).catch((err) => {
+      console.error('error fetching burger data', targetedVersion, err)
+      return null
+    })
+    if (!burgerData) continue
     const allSoundsMap = getSoundsMap(burgerData)
     // console.log(Object.keys(sounds).length, 'ids')
     const outputIdMap = {}
@@ -240,6 +246,7 @@ const writeSoundsMap = async () => {
 const makeSoundsBundle = async () => {
   const allSoundsMap = JSON.parse(fs.readFileSync('./generated/sounds.json', 'utf8'))
   const allSoundsVersionedMap = JSON.parse(fs.readFileSync('./generated/soundsPathVersionsRemap.json', 'utf8'))
+  if (!process.env.REPO_SLUG) throw new Error('REPO_SLUG is not set')
 
   const allSoundsMeta = {
     format: 'mp3',

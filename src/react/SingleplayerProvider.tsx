@@ -91,6 +91,7 @@ export const readWorlds = (abortController: AbortController) => {
           iconSrc: iconBase64 ? `data:image/png;base64,${iconBase64}` : undefined,
           size,
           lastModified: levelDatStat.mtimeMs,
+          group: 'IndexedDB Memory Worlds'
         } satisfies WorldProps & { lastModified?: number }
       }))).filter((x, i) => {
         if (x.status === 'rejected') {
@@ -283,10 +284,10 @@ const Inner = () => {
   return <Singleplayer
     error={error}
     isReadonly={selectedProvider === 'google' && (googleDriveReadonly || !isGoogleProviderReady || !selectedGoogleId)}
-    providers={{
-      local: 'Local',
-      google: 'Google Drive',
-    }}
+    // providers={{
+    //   local: 'Local',
+    //   google: 'Google Drive',
+    // }}
     disabledProviders={[...isGoogleDriveAvailable() ? [] : ['google']]}
     worldData={worlds}
     providerActions={providerActions}

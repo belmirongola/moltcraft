@@ -12,19 +12,19 @@ import * as tweenJs from '@tweenjs/tween.js'
 import { fromTexturePackPath, resourcePackState } from './resourcePack'
 import { options, watchValue } from './optionsStorage'
 import { miscUiState } from './globalState'
-import { loadMinecraftData, preloadAllMcData } from './mcDataHelpers'
+import { loadMinecraftData } from './connect'
 
 let panoramaCubeMap
 let shouldDisplayPanorama = false
 let panoramaUsesResourcePack = null as boolean | null
 
 const panoramaFiles = [
-  'panorama_1.png', // WS
-  'panorama_3.png', // ES
-  'panorama_4.png', // Up
-  'panorama_5.png', // Down
-  'panorama_0.png', // NS
-  'panorama_2.png' // SS
+  'panorama_3.png', // right (+x)
+  'panorama_1.png', // left (-x)
+  'panorama_4.png', // top (+y)
+  'panorama_5.png', // bottom (-y)
+  'panorama_0.png', // front (+z)
+  'panorama_2.png', // back (-z)
 ]
 
 const panoramaResourcePackPath = 'assets/minecraft/textures/gui/title/background'
@@ -53,7 +53,7 @@ const updateResourcePackSupportPanorama = async () => {
 }
 
 watchValue(miscUiState, m => {
-  if (m.appLoaded) {
+  if (m.fsReady) {
     // Also adds panorama on app load here
     watchValue(resourcePackState, async (s) => {
       const oldState = panoramaUsesResourcePack
@@ -95,10 +95,24 @@ export async function addPanoramaCubeMap () {
   const loader = new THREE.TextureLoader()
   const panorMaterials = [] as THREE.MeshBasicMaterial[]
   for (const file of panoramaFiles) {
+    const texture = loader.load(await possiblyLoadPanoramaFromResourcePack(file))
+
+    // Instead of using repeat/offset to flip, we'll use the texture matrix
+    texture.matrixAutoUpdate = false
+    texture.matrix.set(
+      -1, 0, 1, 0, 1, 0, 0, 0, 1
+    )
+
+    texture.wrapS = THREE.ClampToEdgeWrapping // Changed from RepeatWrapping
+    texture.wrapT = THREE.ClampToEdgeWrapping // Changed from RepeatWrapping
+    texture.minFilter = THREE.LinearFilter
+    texture.magFilter = THREE.LinearFilter
+
     panorMaterials.push(new THREE.MeshBasicMaterial({
-      map: loader.load(await possiblyLoadPanoramaFromResourcePack(file)),
+      map: texture,
       transparent: true,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      depthWrite: false
     }))
   }
 
@@ -147,11 +161,10 @@ export function removePanorama () {
 }
 
 const initDemoWorld = async () => {
-  const version = '1.21.1'
-  preloadAllMcData()
-  console.time('load mc-data')
-  await loadMinecraftData(version)
-  console.timeEnd('load mc-data')
+  const version = '1.21.4'
+  console.time(`load ${version} mc-data`)
+  await loadMinecraftData(version, true)
+  console.timeEnd(`load ${version} mc-data`)
   if (miscUiState.gameLoaded) return
   console.time('load scene')
   const world = getSyncWorld(version)

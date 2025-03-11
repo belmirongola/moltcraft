@@ -1,13 +1,14 @@
 import { proxy } from 'valtio'
-import { PacketsLogger } from './packetsReplayBase'
-import { options } from './optionsStorage'
+import { PacketsLogger } from 'mcraft-fun-mineflayer/build/packetsLogger'
+import { options } from '../optionsStorage'
 
-export const packetsReplaceSessionState = proxy({
-  active: false,
+export const packetsRecordingState = proxy({
+  active: options.packetsReplayAutoStart,
   hasRecordedPackets: false
 })
 
-export const replayLogger = new PacketsLogger()
+// eslint-disable-next-line import/no-mutable-exports
+export let replayLogger: PacketsLogger | undefined
 
 const isBufferData = (data: any): boolean => {
   if (Buffer.isBuffer(data) || data instanceof Uint8Array) return true
@@ -35,14 +36,15 @@ const processPacketData = (data: any): any => {
 
 export default () => {
   customEvents.on('mineflayerBotCreated', () => {
+    replayLogger = new PacketsLogger({ minecraftVersion: bot.version })
     replayLogger.contents = ''
-    packetsReplaceSessionState.hasRecordedPackets = false
+    packetsRecordingState.hasRecordedPackets = false
     const handleServerPacket = (data, { name, state = bot._client.state }) => {
-      if (!packetsReplaceSessionState.active) {
+      if (!packetsRecordingState.active) {
         return
       }
-      replayLogger.log(true, { name, state }, processPacketData(data))
-      packetsReplaceSessionState.hasRecordedPackets = true
+      replayLogger!.log(true, { name, state }, processPacketData(data))
+      packetsRecordingState.hasRecordedPackets = true
     }
     bot._client.on('packet', handleServerPacket)
     bot._client.on('packet_name' as any, (name, data) => {
@@ -50,18 +52,18 @@ export default () => {
     })
 
     bot._client.on('writePacket' as any, (name, data) => {
-      if (!packetsReplaceSessionState.active) {
+      if (!packetsRecordingState.active) {
         return
       }
-      replayLogger.log(false, { name, state: bot._client.state }, processPacketData(data))
-      packetsReplaceSessionState.hasRecordedPackets = true
+      replayLogger!.log(false, { name, state: bot._client.state }, processPacketData(data))
+      packetsRecordingState.hasRecordedPackets = true
     })
   })
 }
 
 export const downloadPacketsReplay = async () => {
   const a = document.createElement('a')
-  a.href = `data:text/plain;charset=utf-8,${encodeURIComponent(replayLogger.contents)}`
+  a.href = `data:text/plain;charset=utf-8,${encodeURIComponent(replayLogger!.contents)}`
   a.download = `packets-replay-${new Date().toISOString()}.txt`
   a.click()
 }

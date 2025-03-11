@@ -33,3 +33,4 @@ export const setLoadingScreenStatus = function (status: string | undefined | nul
   appStatusState.status = status
   appStatusState.minecraftJsonMessage = minecraftJsonMessage ?? null
 }
+globalThis.setLoadingScreenStatus = setLoadingScreenStatus

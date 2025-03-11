@@ -4,7 +4,6 @@ import fs from 'fs'
 import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { enable, disable, enabled } from 'debug'
 import { Vec3 } from 'vec3'
-import { getEntityCursor } from './worldInteractions'
 
 window.Vec3 = Vec3
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
@@ -13,8 +12,8 @@ window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
   return bot.world.getBlock(newPos)
 }
 
-window.cursorEntity = () => {
-  return getEntityCursor()
+window.entityCursor = () => {
+  return bot.mouse.getCursorState().entity
 }
 
 // wanderer
@@ -148,3 +147,17 @@ Object.defineProperty(window, 'debugToggle', {
     console.log('Enabled debug for', v)
   }
 })
+
+customEvents.on('gameLoaded', () => {
+  window.holdingBlock = (viewer.world as WorldRendererThree).holdingBlock
+})
+
+window.clearStorage = (...keysToKeep: string[]) => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && !keysToKeep.includes(key)) {
+      localStorage.removeItem(key)
+    }
+  }
+  return `Cleared ${localStorage.length - keysToKeep.length} items from localStorage. Kept: ${keysToKeep.join(', ')}`
+}

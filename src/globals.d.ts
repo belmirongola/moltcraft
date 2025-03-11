@@ -21,7 +21,7 @@ declare const loadedData: import('minecraft-data').IndexedData & { sounds: Recor
 declare const customEvents: import('typed-emitter').default<{
   /** Singleplayer load requested */
   singleplayer (): void
-  digStart ()
+  digStart (): void
   gameLoaded (): void
   mineflayerBotCreated (): void
   search (q: string): void

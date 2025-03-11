@@ -1,4 +1,5 @@
-import { RefObject, useEffect, useRef } from 'react'
+import { RefObject, useEffect, useLayoutEffect, useRef } from 'react'
+import { pixelartIcons } from '../PixelartIcon'
 
 export const useScrollBehavior = (
   elementRef: RefObject<HTMLElement>,
@@ -10,13 +11,13 @@ export const useScrollBehavior = (
     opened?: boolean
   }
 ) => {
-  const wasAtBottomBeforeOpen = useRef(false)
-  const openedWasAtBottom = useRef(false)
+  const openedWasAtBottom = useRef(true) // before new messages
 
   const isAtBottom = () => {
     if (!elementRef.current) return true
     const { scrollTop, scrollHeight, clientHeight } = elementRef.current
-    return Math.abs(scrollHeight - clientHeight - scrollTop) < 1
+    const distanceFromBottom = Math.abs(scrollHeight - clientHeight - scrollTop)
+    return distanceFromBottom < 1
   }
 
   const scrollToBottom = () => {
@@ -39,31 +40,18 @@ export const useScrollBehavior = (
   }, [])
 
   // Handle opened state changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (opened) {
-      wasAtBottomBeforeOpen.current = isAtBottom()
-      if (wasAtBottomBeforeOpen.current) {
-        scrollToBottom()
-      }
-    } else if (elementRef.current) {
+      openedWasAtBottom.current = true
+    } else {
       scrollToBottom()
     }
   }, [opened])
 
   // Handle messages changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     if ((!opened || (opened && openedWasAtBottom.current)) && elementRef.current) {
-      openedWasAtBottom.current = false
-      if (isAtBottom()) {
-        scrollToBottom()
-      }
-    }
-  }, [messages])
-
-  // Update bottom state when messages change
-  useEffect(() => {
-    if (opened && elementRef.current) {
-      openedWasAtBottom.current = isAtBottom()
+      scrollToBottom()
     }
   }, [messages])
 

@@ -11,9 +11,11 @@ import './mineflayer/maps'
 import './mineflayer/cameraShake'
 import './shims/patchShims'
 import './mineflayer/java-tester/index'
+import './external'
+import './appConfig'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad, renderSlot } from './inventoryWindows'
-import { RenderItem } from './mineflayer/items'
+import { GeneralInputItem, RenderItem } from './mineflayer/items'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
@@ -36,17 +38,14 @@ import mineflayer from 'mineflayer'
 import { WorldDataEmitter, Viewer } from 'renderer/viewer'
 import pathfinder from 'mineflayer-pathfinder'
 
-import worldInteractions from './worldInteractions'
-
 import * as THREE from 'three'
 import MinecraftData from 'minecraft-data'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
-import initializePacketsReplay from './packetsReplay'
+import initializePacketsReplay from './packetsReplay/packetsReplayLegacy'
 
 import { initVR } from './vr'
 import {
-  AppConfig,
   activeModalStack,
   activeModalStacks,
   hideModal,
@@ -54,7 +53,7 @@ import {
   isGameActive,
   miscUiState,
   showModal,
-  gameAdditionalState
+  gameAdditionalState,
 } from './globalState'
 
 import { parseServerAddress } from './parseServerAddress'
@@ -88,30 +87,34 @@ import { saveToBrowserMemory } from './react/PauseScreen'
 import { ViewerWrapper } from 'renderer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
-import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
 import { versionToNumber } from 'renderer/viewer/prepare/utils'
-import packetsPatcher from './packetsPatcher'
+import packetsPatcher from './mineflayer/plugins/packetsPatcher'
 import { mainMenuState } from './react/MainMenuRenderApp'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import './mobileShim'
-import { preloadAllMcData } from './mcDataHelpers'
 import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from './viewerConnector'
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
-import { updateCursor } from './cameraRotationControls'
-import { pingServerVersion } from './mineflayer/minecraft-protocol-extra'
 import { playerState, PlayerStateManager } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
+import ping from './mineflayer/plugins/ping'
+import mouse from './mineflayer/plugins/mouse'
+import { LocalServer } from './customServer'
+import { startLocalReplayServer } from './packetsReplay/replayPackets'
+import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
+import { createFullScreenProgressReporter } from './core/progressReporter'
+import { getItemModelName } from './resourcesManager'
+import { importLargeData } from '../generated/large-data-aliases'
 
 window.debug = debug
 window.THREE = THREE
-window.worldInteractions = worldInteractions
 window.beforeRenderFrame = []
 
 // ACTUAL CODE
@@ -164,26 +167,25 @@ if (appQueryParams.testCrashApp === '2') throw new Error('test')
 // Create viewer
 const viewer: import('renderer/viewer/lib/viewer').Viewer = new Viewer(renderer, undefined, playerState)
 window.viewer = viewer
+Object.defineProperty(window, 'world', {
+  get () {
+    return viewer.world
+  },
+})
 // todo unify
 viewer.entities.getItemUv = (item, specificProps) => {
-  const idOrName = item.itemId ?? item.blockId
+  const idOrName = item.itemId ?? item.blockId ?? item.name
   try {
     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
     if (!name) throw new Error(`Item not found: ${idOrName}`)
 
-    const itemSelector = playerState.getItemSelector({
-      ...specificProps
-    })
-    const model = getItemDefinition(viewer.world.itemsDefinitionsStore, {
+    const model = getItemModelName({
+      ...item,
       name,
-      version: viewer.world.texturesVersion!,
-      properties: itemSelector
-    })?.model ?? name
+    } as GeneralInputItem, specificProps)
 
     const renderInfo = renderSlot({
-      ...item,
-      nbt: null,
-      name: model,
+      modelName: model,
     }, false, true)
 
     if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
@@ -203,7 +205,8 @@ viewer.entities.getItemUv = (item, specificProps) => {
       const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
       return {
         u, v, su, sv,
-        texture: textureThree
+        texture: textureThree,
+        modelName: renderInfo.modelName
       }
     }
 
@@ -306,8 +309,9 @@ export async function connect (connectOptions: ConnectOptions) {
   console.log('using player username', username)
 
   hideCurrentScreens()
+  const progress = createFullScreenProgressReporter()
   const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
-  setLoadingScreenStatus(loggingInMsg)
+  progress.beginStage('connect', loggingInMsg)
 
   let ended = false
   let bot!: typeof __type_bot
@@ -315,6 +319,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (ended) return
     ended = true
     viewer.resetAll()
+    progress.end()
     localServer = window.localServer = window.server = undefined
     gameAdditionalState.viewerConnection = false
 
@@ -389,44 +394,60 @@ export async function connect (connectOptions: ConnectOptions) {
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
   let updateDataAfterJoin = () => { }
   let localServer
+  let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
   try {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
-    setLoadingScreenStatus('Downloading minecraft data')
-    await Promise.all([
-      downloadAllMinecraftData(), // download mc data before we can use minecraft-data at all
-      downloadOtherGameData()
-    ])
-    setLoadingScreenStatus(loggingInMsg)
+
+    await progress.executeWithMessage('Downloading minecraft data', 'download-mcdata', async () => {
+      await Promise.all([
+        downloadAllMinecraftData(),
+        downloadOtherGameData()
+      ])
+    })
+
     let dataDownloaded = false
     const downloadMcData = async (version: string) => {
       if (dataDownloaded) return
       dataDownloaded = true
-      // if (connectOptions.authenticatedAccount && (versionToNumber(version) < versionToNumber('1.19.4') || versionToNumber(version) >= versionToNumber('1.21'))) {
-      //   // todo support it (just need to fix .export crash)
-      //   throw new UserError('Microsoft authentication is only supported on 1.19.4 - 1.20.6 (at least for now)')
-      // }
 
-      await downloadMcDataOnConnect(version)
-      try {
-        // TODO! reload only after login packet (delay viewer display) so no unecessary reload after server one is isntalled
-        await resourcepackReload(version)
-      } catch (err) {
-        console.error(err)
-        const doContinue = confirm('Failed to apply texture pack. See errors in the console. Continue?')
-        if (!doContinue) {
-          throw err
+      await progress.executeWithMessage(
+        'Applying user-installed resource pack',
+        async () => {
+          await loadMinecraftData(version)
+          try {
+            await resourcepackReload(version)
+          } catch (err) {
+            console.error(err)
+            const doContinue = confirm('Failed to apply texture pack. See errors in the console. Continue?')
+            if (!doContinue) {
+              throw err
+            }
+          }
         }
-      }
-      const oldStatus = appStatusState.status
-      setLoadingScreenStatus('Loading minecraft assets')
-      viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
-      void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
-      miscUiState.loadedDataVersion = version
-      setLoadingScreenStatus(oldStatus)
+      )
+
+      await progress.executeWithMessage(
+        'Loading minecraft models',
+        async () => {
+          viewer.world.blockstatesModels = await importLargeData('blockStatesModels')
+          void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
+          miscUiState.loadedDataVersion = version
+        }
+      )
     }
 
     let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
+
+    if (connectOptions.worldStateFileContents) {
+      try {
+        localReplaySession = startLocalReplayServer(connectOptions.worldStateFileContents)
+      } catch (err) {
+        console.error(err)
+        throw new UserError(`Failed to start local replay server: ${err}`)
+      }
+      finalVersion = localReplaySession.version
+    }
 
     if (singleplayer) {
       // SINGLEPLAYER EXPLAINER:
@@ -440,21 +461,24 @@ export async function connect (connectOptions: ConnectOptions) {
       // Client (class) of flying-squid (in server/login.js of mc-protocol): onLogin handler: skip most logic & go to loginClient() which assigns uuid and sends 'success' back to client (onLogin handler) and emits 'login' on the server (login.js in flying-squid handler)
       // flying-squid: 'login' -> player.login -> now sends 'login' event to the client (handled in many plugins in mineflayer) -> then 'update_health' is sent which emits 'spawn' in mineflayer
 
-      setLoadingScreenStatus('Starting local server')
       localServer = window.localServer = window.server = startLocalServer(serverOptions)
       // todo need just to call quit if started
       // loadingScreen.maybeRecoverable = false
       // init world, todo: do it for any async plugins
       if (!localServer.pluginsReady) {
-        await new Promise(resolve => {
-          localServer.once('pluginsReady', resolve)
-        })
+        await progress.executeWithMessage(
+          'Starting local server',
+          async () => {
+            await new Promise(resolve => {
+              localServer.once('pluginsReady', resolve)
+            })
+          }
+        )
       }
 
       localServer.on('newPlayer', (player) => {
-        // it's you!
         player.on('loadingStatus', (newStatus) => {
-          setLoadingScreenStatus(newStatus, false, false, true)
+          progress.setMessage(newStatus)
         })
       })
       flyingSquidEvents()
@@ -473,9 +497,11 @@ export async function connect (connectOptions: ConnectOptions) {
         const autoVersionSelect = await getServerInfo(server.host, server.port ? Number(server.port) : undefined, versionAutoSelect)
         finalVersion = autoVersionSelect.version
       }
-      initialLoadingText = `Connecting to server ${server.host} with version ${finalVersion}`
+      initialLoadingText = `Connecting to server ${server.host}:${server.port ?? 25_565} with version ${finalVersion}`
     } else if (connectOptions.viewerWsConnect) {
       initialLoadingText = `Connecting to Mineflayer WebSocket server ${connectOptions.viewerWsConnect}`
+    } else if (connectOptions.worldStateFileContents) {
+      initialLoadingText = `Loading local replay server`
     } else {
       initialLoadingText = 'We have no idea what to do'
     }
@@ -535,11 +561,15 @@ export async function connect (connectOptions: ConnectOptions) {
       ...clientDataStream ? {
         stream: clientDataStream as any,
       } : {},
-      ...singleplayer || p2pMultiplayer ? {
+      ...singleplayer || p2pMultiplayer || localReplaySession ? {
         keepAlive: false,
       } : {},
       ...singleplayer ? {
         version: serverOptions.version,
+        connect () { },
+        Client: CustomChannelClient as any,
+      } : {},
+      ...localReplaySession ? {
         connect () { },
         Client: CustomChannelClient as any,
       } : {},
@@ -605,15 +635,17 @@ export async function connect (connectOptions: ConnectOptions) {
       void handleCustomChannel()
     }
     customEvents.emit('mineflayerBotCreated')
-    if (singleplayer || p2pMultiplayer) {
-      // in case of p2pMultiplayer there is still flying-squid on the host side
-      const _supportFeature = bot.supportFeature
-      bot.supportFeature = ((feature) => {
-        if (unsupportedLocalServerFeatures.includes(feature)) {
-          return false
-        }
-        return _supportFeature(feature)
-      }) as typeof bot.supportFeature
+    if (singleplayer || p2pMultiplayer || localReplaySession) {
+      if (singleplayer || p2pMultiplayer) {
+        // in case of p2pMultiplayer there is still flying-squid on the host side
+        const _supportFeature = bot.supportFeature
+        bot.supportFeature = ((feature) => {
+          if (unsupportedLocalServerFeatures.includes(feature)) {
+            return false
+          }
+          return _supportFeature(feature)
+        }) as typeof bot.supportFeature
+      }
 
       bot.emit('inject_allowed')
       bot._client.emit('connect')
@@ -641,22 +673,6 @@ export async function connect (connectOptions: ConnectOptions) {
             })
           })
         })
-        let i = 0
-        //@ts-expect-error
-        bot.pingProxy = async () => {
-          const curI = ++i
-          return new Promise(resolve => {
-            //@ts-expect-error
-            bot._client.socket._ws.send(`ping:${curI}`)
-            const date = Date.now()
-            const onPong = (received) => {
-              if (received !== curI.toString()) return
-              bot._client.socket.off('pong' as any, onPong)
-              resolve(Date.now() - date)
-            }
-            bot._client.socket.on('pong' as any, onPong)
-          })
-        }
       }
       // socket setup actually can be delayed because of dns lookup
       if (bot._client.socket) {
@@ -675,6 +691,14 @@ export async function connect (connectOptions: ConnectOptions) {
     handleError(err)
   }
   if (!bot) return
+
+  if (connectOptions.server) {
+    bot.loadPlugin(ping)
+  }
+  bot.loadPlugin(mouse)
+  if (!localReplaySession) {
+    bot.loadPlugin(localRelayServerPlugin)
+  }
 
   const p2pConnectTimeout = p2pMultiplayer ? setTimeout(() => { throw new UserError('Spawn timeout. There might be error on the other side, check console.') }, 20_000) : undefined
 
@@ -720,21 +744,26 @@ export async function connect (connectOptions: ConnectOptions) {
   onBotCreate()
 
   bot.once('login', () => {
-    worldInteractions.initBot()
-
     setLoadingScreenStatus('Loading world')
+  })
+
+  const start = Date.now()
+  let worldWasReady = false
+  void viewer.world.renderUpdateEmitter.on('update', () => {
+    // todo might not emit as servers simply don't send chunk if it's empty
+    if (!viewer.world.allChunksFinished || worldWasReady) return
+    worldWasReady = true
+    console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
+    viewer.render() // ensure the last state is rendered
+    document.dispatchEvent(new Event('cypress-world-ready'))
   })
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
   bot.once(spawnEarlier ? 'forcedMove' : 'health', async () => {
     if (resourcePackState.isServerInstalling) {
-      setLoadingScreenStatus('Downloading resource pack')
       await new Promise<void>(resolve => {
         subscribe(resourcePackState, () => {
-          if (!resourcePackState.isServerDownloading) {
-            setLoadingScreenStatus('Installing resource pack')
-          }
           if (!resourcePackState.isServerInstalling) {
             resolve()
           }
@@ -743,17 +772,14 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     window.focus?.()
     errorAbortController.abort()
-    window.pathfinder = pathfinder
 
-    miscUiState.gameLoaded = true
-    miscUiState.loadedServerIndex = connectOptions.serverIndex ?? ''
-    customEvents.emit('gameLoaded')
     if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
-
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
     setLoadingScreenStatus('Placing blocks (starting viewer)')
-    localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+    if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
+      localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+    }
     connectOptions.onSuccessfulPlay?.()
     if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
       lockUrl()
@@ -769,8 +795,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
     const worldView = window.worldView = new WorldDataEmitter(bot.world, renderDistance, center)
     watchOptionsAfterWorldViewInit()
-
-    bot.on('physicsTick', () => updateCursor())
 
     void initVR()
     initMotionTracking()
@@ -801,6 +825,36 @@ export async function connect (connectOptions: ConnectOptions) {
     onGameLoad(() => {})
 
     if (appStatusState.isError) return
+
+    const waitForChunks = async () => {
+      const waitForChunks = options.waitForChunksRender === 'sp-only' ? !!singleplayer : options.waitForChunksRender
+      if (viewer.world.allChunksFinished || !waitForChunks) {
+        return
+      }
+
+      await progress.executeWithMessage(
+        'Loading chunks',
+        'chunks',
+        async () => {
+          await new Promise<void>(resolve => {
+            let wasFinished = false
+            void viewer.world.renderUpdateEmitter.on('update', () => {
+              if (wasFinished) return
+              if (viewer.world.allChunksFinished) {
+                wasFinished = true
+                resolve()
+              } else {
+                const perc = Math.round(Object.keys(viewer.world.finishedChunks).length / viewer.world.chunksLength * 100)
+                progress.reportProgress('chunks', perc / 100)
+              }
+            })
+          })
+        }
+      )
+    }
+
+    await waitForChunks()
+
     setTimeout(() => {
       if (appQueryParams.suggest_save) {
         showNotification('Suggestion', 'Save the world to keep your progress!', false, undefined, async () => {
@@ -814,24 +868,18 @@ export async function connect (connectOptions: ConnectOptions) {
       }
     }, 600)
 
+    miscUiState.gameLoaded = true
+    miscUiState.loadedServerIndex = connectOptions.serverIndex ?? ''
+    customEvents.emit('gameLoaded')
+    progress.end()
     setLoadingScreenStatus(undefined)
-    const start = Date.now()
-    let done = false
-    void viewer.world.renderUpdateEmitter.on('update', () => {
-      // todo might not emit as servers simply don't send chunk if it's empty
-      if (!viewer.world.allChunksFinished || done) return
-      done = true
-      console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
-      viewer.render() // ensure the last state is rendered
-      document.dispatchEvent(new Event('cypress-world-ready'))
-    })
   })
 
   if (singleplayer && connectOptions.serverOverrides.worldFolder) {
     fsState.saveLoaded = true
   }
 
-  if (!connectOptions.ignoreQs) {
+  if (!connectOptions.ignoreQs || process.env.NODE_ENV === 'development') {
     // todo cleanup
     customEvents.on('gameLoaded', () => {
       const commands = appQueryParamsArray.command ?? []
@@ -846,8 +894,9 @@ export async function connect (connectOptions: ConnectOptions) {
 const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
 
 listenGlobalEvents()
-watchValue(miscUiState, async s => {
-  if (s.appLoaded) { // fs ready
+const unsubscribe = watchValue(miscUiState, async s => {
+  if (s.fsReady && s.appConfig) {
+    unsubscribe()
     if (reconnectOptions) {
       sessionStorage.removeItem('reconnectOptions')
       if (Date.now() - reconnectOptions.timestamp < 1000 * 60 * 2) {
@@ -907,13 +956,6 @@ document.body.addEventListener('touchstart', (e) => {
   }
 }, { passive: false })
 // #endregion
-
-void window.fetch(process.env.INLINED_APP_CONFIG_JSON || 'config.json').then(async res => res.json()).then(c => c, (error) => {
-  console.warn('Failed to load optional app config.json', error)
-  return {}
-}).then((config: AppConfig | {}) => {
-  miscUiState.appConfig = config
-})
 
 // qs open actions
 if (!reconnectOptions) {

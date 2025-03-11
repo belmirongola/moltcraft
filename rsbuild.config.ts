@@ -36,13 +36,25 @@ const disableServiceWorker = process.env.DISABLE_SERVICE_WORKER === 'true'
 let releaseTag
 let releaseLink
 let releaseChangelog
+let githubRepositoryFallback
 
 if (fs.existsSync('./assets/release.json')) {
     const releaseJson = JSON.parse(fs.readFileSync('./assets/release.json', 'utf8'))
     releaseTag = releaseJson.latestTag
     releaseLink = releaseJson.isCommit ? `/commit/${releaseJson.latestTag}` : `/releases/${releaseJson.latestTag}`
     releaseChangelog = releaseJson.changelog?.replace(/<!-- bump-type:[\w]+ -->/, '')
+    githubRepositoryFallback = releaseJson.repository
 }
+
+const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
+try {
+    Object.assign(configJson, JSON.parse(fs.readFileSync('./config.local.json', 'utf8')))
+} catch (err) {}
+if (dev) {
+    configJson.defaultProxy = ':8080'
+}
+
+const configSource = (SINGLE_FILE_BUILD ? 'BUNDLED' : (process.env.CONFIG_JSON_SOURCE || 'REMOTE')) as 'BUNDLED' | 'REMOTE'
 
 const faviconPath = 'favicon.png'
 
@@ -121,13 +133,13 @@ const appConfig = defineConfig({
             'process.env.SINGLE_FILE_BUILD_MODE': JSON.stringify(process.env.SINGLE_FILE_BUILD),
             'process.platform': '"browser"',
             'process.env.GITHUB_URL':
-                JSON.stringify(`https://github.com/${process.env.GITHUB_REPOSITORY || `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`}`),
+                JSON.stringify(`https://github.com/${process.env.GITHUB_REPOSITORY || `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` || githubRepositoryFallback}`),
             'process.env.DEPS_VERSIONS': JSON.stringify({}),
             'process.env.RELEASE_TAG': JSON.stringify(releaseTag),
             'process.env.RELEASE_LINK': JSON.stringify(releaseLink),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
-            'process.env.INLINED_APP_CONFIG_JSON': JSON.stringify(process.env.INLINE_APP_CONFIG_JSON || SINGLE_FILE_BUILD ? `data:text/json;base64,${fs.readFileSync('./config.json', 'base64')}` : undefined),
             'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
+            'process.env.INLINED_APP_CONFIG': JSON.stringify(configSource === 'BUNDLED' ? configJson : null),
         },
     },
     server: {
@@ -165,15 +177,10 @@ const appConfig = defineConfig({
                     if (fs.existsSync('./assets/release.json')) {
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
                     }
-                    const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
-                    let configLocalJson = {}
-                    try {
-                        configLocalJson = JSON.parse(fs.readFileSync('./config.local.json', 'utf8'))
-                    } catch (err) {}
-                    if (dev) {
-                        configJson.defaultProxy = ':8080'
+
+                    if (configSource === 'REMOTE') {
+                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
                     }
-                    fs.writeFileSync('./dist/config.json', JSON.stringify({ ...configJson, ...configLocalJson }), 'utf8')
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
                     }

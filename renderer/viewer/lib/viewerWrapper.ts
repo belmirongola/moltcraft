@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { statsEnd, statsStart } from '../../../src/topRightStats'
+import { activeModalStack } from '../../../src/globalState'
 
 // wrapper for now
 export class ViewerWrapper {
@@ -77,8 +78,8 @@ export class ViewerWrapper {
   postRender = () => { }
   render (time: DOMHighResTimeStamp) {
     if (this.globalObject.stopLoop) return
-    for (const fn of beforeRenderFrame) fn()
     this.globalObject.requestAnimationFrame(this.render.bind(this))
+    if (activeModalStack.some(m => m.reactType === 'app-status')) return
     if (!viewer || this.globalObject.stopRender || this.renderer?.xr.isPresenting || (this.stopRenderOnBlur && !this.windowFocused)) return
     const renderInterval = (this.windowFocused ? this.renderInterval : this.renderIntervalUnfocused) ?? this.renderInterval
     if (renderInterval) {
@@ -91,6 +92,7 @@ export class ViewerWrapper {
         return
       }
     }
+    for (const fn of beforeRenderFrame) fn()
     this.preRender()
     statsStart()
     // ios bug: viewport dimensions are updated after the resize event
