@@ -55,4 +55,5 @@ if (require.main === module) {
     console.log('running...')
     const isCompressed = process.argv.includes('--compressed')
     genLargeDataAliases(isCompressed)
+    console.log('done generating large data aliases')
 }
