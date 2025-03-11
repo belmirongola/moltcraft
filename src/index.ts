@@ -23,8 +23,6 @@ import { Duplex } from 'stream'
 
 import './scaleInterface'
 import { initWithRenderer } from './topRightStats'
-import PrismarineBlock from 'prismarine-block'
-import PrismarineItem from 'prismarine-item'
 
 import { options, watchValue } from './optionsStorage'
 import './reactUi'
@@ -39,7 +37,6 @@ import net from 'net'
 import mineflayer from 'mineflayer'
 import { WorldDataEmitter, Viewer } from 'renderer/viewer'
 import pathfinder from 'mineflayer-pathfinder'
-import { Vec3 } from 'vec3'
 
 import * as THREE from 'three'
 import MinecraftData from 'minecraft-data'
@@ -90,7 +87,7 @@ import { saveToBrowserMemory } from './react/PauseScreen'
 import { ViewerWrapper } from 'renderer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
-import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
@@ -114,6 +111,7 @@ import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createFullScreenProgressReporter } from './core/progressReporter'
 import { getItemModelName } from './resourcesManager'
+import { importLargeData } from '../generated/large-data-aliases'
 
 window.debug = debug
 window.THREE = THREE
@@ -176,7 +174,7 @@ Object.defineProperty(window, 'world', {
 })
 // todo unify
 viewer.entities.getItemUv = (item, specificProps) => {
-  const idOrName = item.itemId ?? item.blockId
+  const idOrName = item.itemId ?? item.blockId ?? item.name
   try {
     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
     if (!name) throw new Error(`Item not found: ${idOrName}`)
@@ -416,7 +414,7 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Applying user-installed resource pack',
         async () => {
-          await downloadMcDataOnConnect(version)
+          await loadMinecraftData(version)
           try {
             await resourcepackReload(version)
           } catch (err) {
@@ -432,7 +430,7 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Loading minecraft models',
         async () => {
-          viewer.world.blockstatesModels = await import('mc-assets/dist/blockStatesModels.json')
+          viewer.world.blockstatesModels = await importLargeData('blockStatesModels')
           void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
           miscUiState.loadedDataVersion = version
         }
@@ -747,13 +745,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
   bot.once('login', () => {
     setLoadingScreenStatus('Loading world')
-
-    const mcData = MinecraftData(bot.version)
-    window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
-    window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
-    window.loadedData = mcData
-    window.Vec3 = Vec3
-    window.pathfinder = pathfinder
   })
 
   const start = Date.now()
@@ -880,8 +871,8 @@ export async function connect (connectOptions: ConnectOptions) {
     miscUiState.gameLoaded = true
     miscUiState.loadedServerIndex = connectOptions.serverIndex ?? ''
     customEvents.emit('gameLoaded')
-    setLoadingScreenStatus(undefined)
     progress.end()
+    setLoadingScreenStatus(undefined)
   })
 
   if (singleplayer && connectOptions.serverOverrides.worldFolder) {

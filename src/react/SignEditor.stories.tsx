@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { ProseMirrorView } from './prosemirror-markdown'
 
 import SignEditor from './SignEditor'
 
@@ -19,7 +20,7 @@ type Story = StoryObj<typeof SignEditor>
 export const Primary: Story = {
   args: {
     handleInput () {},
-    isWysiwyg: false
+    ProseMirrorView
   },
   parameters: {
     noScaling: true

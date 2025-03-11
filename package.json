@@ -9,7 +9,9 @@
     "start2": "run-p dev-rsbuild watch-mesher",
     "build": "pnpm build-other-workers && rsbuild build",
     "build-analyze": "BUNDLE_ANALYZE=true rsbuild build && pnpm build-other-workers",
-    "check-build": "tsx scripts/genShims.ts && tsc && pnpm build",
+    "build-single-file": "SINGLE_FILE_BUILD=true rsbuild build",
+    "prepare-project": "tsx scripts/genShims.ts && tsx scripts/makeOptimizedMcData.mjs && tsx scripts/genLargeDataAliases.ts",
+    "check-build": "pnpm prepare-project && tsc && pnpm build",
     "test:cypress": "cypress run",
     "test:cypress:open": "cypress open",
     "test-unit": "vitest",
@@ -36,7 +38,7 @@
     "client"
   ],
   "release": {
-    "attachReleaseFiles": "self-host.zip"
+    "attachReleaseFiles": "{self-host.zip,minecraft.html}"
   },
   "publish": {
     "preset": {
@@ -171,6 +173,7 @@
   "optionalDependencies": {
     "cypress": "^10.11.0",
     "cypress-plugin-snapshots": "^1.4.4",
+    "sharp": "^0.33.5",
     "systeminformation": "^5.21.22"
   },
   "browserslist": {

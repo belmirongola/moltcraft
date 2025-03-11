@@ -1,6 +1,6 @@
 {
-    "name": "Prismarine Web Client",
-    "short_name": "Prismarine Web Client",
+    "name": "Minecraft Web Client",
+    "short_name": "Minecraft Web Client",
     "scope": "./",
     "start_url": "./",
     "icons": [

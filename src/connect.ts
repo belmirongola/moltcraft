@@ -1,9 +1,15 @@
 // import { versionsByMinecraftVersion } from 'minecraft-data'
 // import minecraftInitialDataJson from '../generated/minecraft-initial-data.json'
-import { AuthenticatedAccount } from './react/serversStorage'
-import { downloadSoundsIfNeeded } from './sounds/botSoundSystem'
-import { options } from './optionsStorage'
+import MinecraftData from 'minecraft-data'
+import PrismarineBlock from 'prismarine-block'
+import PrismarineItem from 'prismarine-item'
+import pathfinder from 'mineflayer-pathfinder'
+import { importLargeData } from '../generated/large-data-aliases'
+import { miscUiState } from './globalState'
 import supportedVersions from './supportedVersions.mjs'
+import { options } from './optionsStorage'
+import { downloadSoundsIfNeeded } from './sounds/botSoundSystem'
+import { AuthenticatedAccount } from './react/serversStorage'
 
 export type ConnectOptions = {
   server?: string
@@ -38,7 +44,8 @@ export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVers
   return autoVersionSelect
 }
 
-export const downloadMcDataOnConnect = async (version: string) => {
+export const loadMinecraftData = async (version: string, importBlockstatesModels = false) => {
+  await window._LOAD_MC_DATA()
   // setLoadingScreenStatus(`Loading data for ${version}`)
   // // todo expose cache
   // // const initialDataVersion = Object.keys(minecraftInitialDataJson)[0]!
@@ -47,8 +54,16 @@ export const downloadMcDataOnConnect = async (version: string) => {
   // //   versionsByMinecraftVersion.pc[initialDataVersion]!.dataVersion!++
   // // }
 
-  // await window._MC_DATA_RESOLVER.promise // ensure data is loaded
-  // miscUiState.loadedDataVersion = version
+  const mcData = MinecraftData(version)
+  window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
+  window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
+  window.loadedData = mcData
+  window.pathfinder = pathfinder
+  miscUiState.loadedDataVersion = version
+
+  if (importBlockstatesModels) {
+    viewer.world.blockstatesModels = await importLargeData('blockStatesModels')
+  }
 }
 
 export const downloadAllMinecraftData = async () => {
