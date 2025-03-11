@@ -54,7 +54,7 @@ jobs:
           force_orphan: true
 
       - name: Build single-file version - minecraft.html
-        run: pnpm build-single-file
+        run: pnpm build-single-file && mv dist/single/index.html minecraft.html
       - name: Build self-host version
         run: pnpm build
       - name: Bundle server.js
