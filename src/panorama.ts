@@ -161,11 +161,15 @@ export function removePanorama () {
 }
 
 const initDemoWorld = async () => {
+  const abortController = new AbortController()
+  unloadPanoramaCallbacks.push(() => {
+    abortController.abort()
+  })
   const version = '1.21.4'
   console.time(`load ${version} mc-data`)
   await loadMinecraftData(version, true)
   console.timeEnd(`load ${version} mc-data`)
-  if (miscUiState.gameLoaded) return
+  if (abortController.signal.aborted) return
   console.time('load scene')
   const world = getSyncWorld(version)
   const PrismarineBlock = require('prismarine-block')
@@ -194,10 +198,11 @@ const initDemoWorld = async () => {
   const worldView = new WorldDataEmitter(world, 2, initPos)
   // worldView.addWaitTime = 0
   await viewer.world.setVersion(version)
+  if (abortController.signal.aborted) return
   viewer.connect(worldView)
   void worldView.init(initPos)
   await viewer.world.waitForChunksToRender()
-  const abortController = new AbortController()
+  if (abortController.signal.aborted) return
   // add small camera rotation to side on mouse move depending on absolute position of the cursor
   const { camera } = viewer
   const initX = camera.position.x
@@ -221,10 +226,6 @@ const initDemoWorld = async () => {
     camera.updateProjectionMatrix()
   }, {
     signal: abortController.signal
-  })
-
-  unloadPanoramaCallbacks.push(() => {
-    abortController.abort()
   })
 
   console.timeEnd('load scene')
