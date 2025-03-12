@@ -32,8 +32,7 @@ export default () => {
 
   useEffect(() => {
     function requestUpdate () {
-      // Placeholder for requestUpdate logic
-      setPlayers(bot.players)
+      setPlayers(bot?.players ?? {})
     }
 
     bot.on('playerUpdated', () => requestUpdate())

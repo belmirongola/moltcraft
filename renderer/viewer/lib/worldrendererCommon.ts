@@ -190,7 +190,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       // eslint-disable-next-line node/no-path-concat
       const src = typeof window === 'undefined' ? `${__dirname}/${workerName}` : workerName
 
-      const worker: any = new Worker(src)
+      let worker: any
+      if (process.env.SINGLE_FILE_BUILD) {
+        const workerCode = document.getElementById('mesher-worker-code')!.textContent!
+        const blob = new Blob([workerCode], { type: 'text/javascript' })
+        worker = new Worker(window.URL.createObjectURL(blob))
+      } else {
+        worker = new Worker(src)
+      }
       const handleMessage = (data) => {
         if (!this.active) return
         if (data.type !== 'geometry' || !this.debugStopGeometryUpdate) {
@@ -331,6 +338,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.version = version
     this.texturesVersion = texturesVersion
     this.resetWorld()
+
+    // for workers in single file build
+    if (document.readyState === 'loading') {
+      await new Promise(resolve => {
+        document.addEventListener('DOMContentLoaded', resolve)
+      })
+    }
+
     this.initWorkers()
     this.active = true
     this.mesherConfig.outputFormat = this.outputFormat

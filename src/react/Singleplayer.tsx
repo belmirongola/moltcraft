@@ -1,5 +1,5 @@
 import classNames from 'classnames'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 
 // todo optimize size
 import missingWorldPreview from 'mc-assets/dist/other-textures/latest/gui/presets/isles.png'
@@ -29,6 +29,21 @@ export interface WorldProps {
   onInteraction?(interaction: 'enter' | 'space')
   elemRef?: React.Ref<HTMLDivElement>
   offline?: boolean
+  group?: string
+}
+
+const GroupHeader = ({ name, count, expanded, onToggle }: { name: string, count: number, expanded: boolean, onToggle: () => void }) => {
+  return <div
+    className={styles.world_root}
+    style={{ background: 'none', cursor: 'pointer', height: 'auto', fontSize: '8px' }}
+    onClick={onToggle}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#bcbcbc' }}>
+      <span>{expanded ? '▼' : '▶'}</span>
+      <span>{name}</span>
+      <span>({count})</span>
+    </div>
+  </div>
 }
 
 const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, worldNameRightGrayed, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
@@ -159,6 +174,7 @@ export default ({
 
   const [search, setSearch] = useState('')
   const [focusedWorld, setFocusedWorld] = useState(defaultSelectedRow === undefined ? '' : worldData?.[defaultSelectedRow]?.name ?? '')
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     setFocusedWorld('')
@@ -178,6 +194,13 @@ export default ({
     setFocusedWorld(name)
   }
   const isSmallWidth = useIsSmallWidth()
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: prev[groupName] === undefined ? false : !prev[groupName]
+    }))
+  }
 
   return <div ref={containerRef} hidden={hidden}>
     <div className="dirt-bg" />
@@ -214,22 +237,42 @@ export default ({
           }
           {
             worldData
-              ? worldData.filter(data => data.title.toLowerCase().includes(search.toLowerCase())).map(({ name, size, detail, ...rest }, index) => (
-                <World
-                  {...rest}
-                  size={size}
-                  name={name}
-                  elemRef={el => { worldRefs.current[name] = el }}
-                  onFocus={row => onRowSelectHandler(row, index)}
-                  isFocused={focusedWorld === name}
-                  key={name}
-                  onInteraction={(interaction) => {
-                    if (interaction === 'enter') onWorldAction('load', name)
-                    else if (interaction === 'space') firstButton.current?.focus()
-                  }}
-                  detail={detail}
-                />
-              ))
+              ? (() => {
+                const filtered = worldData.filter(data => data.title.toLowerCase().includes(search.toLowerCase()))
+                const groups = filtered.reduce<Record<string, WorldProps[]>>((acc, world) => {
+                  const group = world.group || ''
+                  if (!acc[group]) acc[group] = []
+                  acc[group].push(world)
+                  return acc
+                }, {})
+
+                return Object.entries(groups).map(([groupName, worlds]) => (
+                  <React.Fragment key={groupName}>
+                    <GroupHeader
+                      name={groupName}
+                      count={worlds.length}
+                      expanded={expandedGroups[groupName] ?? true}
+                      onToggle={() => toggleGroup(groupName)}
+                    />
+                    {(expandedGroups[groupName] ?? true) && worlds.map(({ name, size, detail, ...rest }, index) => (
+                      <World
+                        {...rest}
+                        size={size}
+                        name={name}
+                        elemRef={el => { worldRefs.current[name] = el }}
+                        onFocus={row => onRowSelectHandler(row, index)}
+                        isFocused={focusedWorld === name}
+                        key={name}
+                        onInteraction={(interaction) => {
+                          if (interaction === 'enter') onWorldAction('load', name)
+                          else if (interaction === 'space') firstButton.current?.focus()
+                        }}
+                        detail={detail}
+                      />
+                    ))}
+                  </React.Fragment>
+                ))
+              })()
               : <div style={{
                 fontSize: 10,
                 color: error ? 'red' : 'lightgray',

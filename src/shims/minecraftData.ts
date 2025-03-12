@@ -1,6 +1,6 @@
 import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import { toMajorVersion } from 'renderer/viewer/lib/simpleUtils'
-import JsonOptimizer from '../optimizeJson'
+import { restoreMinecraftData } from '../optimizeJson'
 // import minecraftInitialDataJson from '../../generated/minecraft-initial-data.json'
 
 const customResolver = () => {
@@ -22,7 +22,7 @@ const optimizedDataResolver = customResolver()
 window._MC_DATA_RESOLVER = optimizedDataResolver
 window._LOAD_MC_DATA = async () => {
   if (optimizedDataResolver.resolvedData) return
-  optimizedDataResolver.resolve(await import('../../generated/minecraft-data-optimized.json'))
+  optimizedDataResolver.resolve(await importLargeData('mcData'))
 }
 
 // 30 seconds
@@ -53,7 +53,7 @@ const possiblyGetFromCache = (version: string) => {
 
       const data = optimizedDataResolver.resolvedData[dataType]
       if (data.__IS_OPTIMIZED__) {
-        allRestored[dataType] = JsonOptimizer.restoreData(data, version)
+        allRestored[dataType] = restoreMinecraftData(optimizedDataResolver.resolvedData, dataType, version)
       } else {
         allRestored[dataType] = data[version] ?? data[toMajorVersion(version)]
       }
