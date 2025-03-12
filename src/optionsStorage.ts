@@ -57,7 +57,7 @@ const defaultOptions = {
   viewBobbing: true,
   displayRecordButton: true,
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
-  serversAutoVersionSelect: '1.19.4' as 'auto' | 'latest' | '1.20.4' | string, // TODO! revert
+  serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string, // TODO! revert
   customChannels: false,
   packetsReplayAutoStart: false,
   preciseMouseInput: false,
