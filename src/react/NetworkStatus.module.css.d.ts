@@ -6,6 +6,7 @@ interface CssExports {
   dataRow: string;
   iconRow: string;
   ping: string;
+  stale: string;
   totalRow: string;
   websocket: string;
 }

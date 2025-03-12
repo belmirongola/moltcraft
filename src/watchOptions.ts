@@ -75,7 +75,7 @@ export const watchOptionsAfterViewerInit = () => {
     viewer.world.mesherConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting;
     (viewer.world as WorldRendererThree).rerenderAllChunks()
   })
-  customEvents.on('gameLoaded', () => {
+  customEvents.on('mineflayerBotCreated', () => {
     viewer.world.mesherConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
   })
 

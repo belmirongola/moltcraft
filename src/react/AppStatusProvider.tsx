@@ -1,10 +1,11 @@
 import { proxy, useSnapshot } from 'valtio'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, miscUiState } from '../globalState'
 import { guessProblem } from '../errorLoadingScreenHelpers'
 import type { ConnectOptions } from '../connect'
-import { downloadPacketsReplay, packetsReplaceSessionState, replayLogger } from '../packetsReplay'
+import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
 import { getProxyDetails } from '../microsoftAuthflow'
+import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/packetsRecording'
 import AppStatus from './AppStatus'
 import DiveTransition from './DiveTransition'
 import { useDidUpdateEffect } from './utils'
@@ -53,10 +54,18 @@ export const reconnectReload = () => {
 }
 
 export default () => {
-  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = useSnapshot(appStatusState)
-  const { active: replayActive } = useSnapshot(packetsReplaceSessionState)
+  const lastState = useRef(JSON.parse(JSON.stringify(appStatusState)))
+  const currentState = useSnapshot(appStatusState)
+  const { active: replayActive } = useSnapshot(packetsRecordingState)
 
   const isOpen = useIsModalActive('app-status')
+
+  if (isOpen) {
+    lastState.current = JSON.parse(JSON.stringify(currentState))
+  }
+
+  const usingState = isOpen ? currentState : lastState.current
+  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = usingState
 
   useDidUpdateEffect(() => {
     // todo play effect only when world successfully loaded
@@ -81,6 +90,7 @@ export default () => {
   useEffect(() => {
     const controller = new AbortController()
     window.addEventListener('keyup', (e) => {
+      if ('input textarea select'.split(' ').includes((e.target as HTMLElement).tagName?.toLowerCase() ?? '')) return
       if (activeModalStack.at(-1)?.reactType !== 'app-status') return
       if (e.code !== 'KeyR' || !lastConnectOptions.value) return
       reconnect()
@@ -105,10 +115,11 @@ export default () => {
     reconnect()
   }
 
+  const lastAutoCapturedPackets = getLastAutoCapturedPackets()
   return <DiveTransition open={isOpen}>
     <AppStatus
       status={status}
-      isError={isError || appStatusState.status === ''} // display back button if status is empty as probably our app is errored
+      isError={isError || status === ''} // display back button if status is empty as probably our app is errored // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
       showReconnect={showReconnect}
@@ -136,7 +147,8 @@ export default () => {
         <>
           {displayAuthButton && <Button label='Authenticate' onClick={authReconnectAction} />}
           {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={reconnect} />}
-          {replayActive && <Button label={`Download Packets Replay ${replayLogger.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
+          {replayActive && <Button label={`Download Packets Replay ${replayLogger?.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
+          {lastAutoCapturedPackets && <Button label={`Inspect Last ${lastAutoCapturedPackets} Packets`} onClick={() => downloadAutoCapturedPackets()} />}
         </>
       }
     >

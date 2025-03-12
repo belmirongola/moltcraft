@@ -2,7 +2,7 @@ import { useSnapshot } from 'valtio'
 import { noCase } from 'change-case'
 import { titleCase } from 'title-case'
 import { useMemo } from 'react'
-import { options, qsOptions } from '../optionsStorage'
+import { disabledSettings, options, qsOptions } from '../optionsStorage'
 import { hideAllModals, miscUiState } from '../globalState'
 import Button from './Button'
 import Slider from './Slider'
@@ -39,7 +39,7 @@ export type OptionMeta<T = any> = GeneralItem<T & string> & ({
 
 // todo not reactive
 const isLocked = (item: GeneralItem<any>) => {
-  return Object.keys(qsOptions).includes(item.id!)
+  return disabledSettings.value.has(item.id!)
 }
 
 const useCommonComponentsProps = (item: OptionMeta) => {

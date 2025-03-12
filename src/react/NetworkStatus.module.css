@@ -44,3 +44,7 @@
   grid-column: span 3;
   font-size: 7px;
 }
+
+.stale {
+  color: #ff4444;
+}

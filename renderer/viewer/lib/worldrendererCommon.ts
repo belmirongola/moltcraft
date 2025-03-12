@@ -19,11 +19,12 @@ import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBloc
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels } from './mesher/shared'
+import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { HandItemBlock } from './holdingBlock'
 import { updateStatText } from './ui/newStats'
 import { WorldRendererThree } from './worldrendererThree'
+import { generateGuiAtlas } from './guiRenderer'
 
 function mod (x, n) {
   return ((x % n) + n) % n
@@ -150,9 +151,20 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   debugStopGeometryUpdate = false
 
   @worldCleanup()
+  freeFlyMode = false
+  @worldCleanup()
+  freeFlyState = {
+    yaw: 0,
+    pitch: 0,
+    position: new Vec3(0, 0, 0)
+  }
+  @worldCleanup()
   itemsRenderer: ItemsRenderer | undefined
 
-  customBlockModels = new Map<string, CustomBlockModels>()
+  protocolCustomBlocks = new Map<string, CustomBlockModels>()
+
+  @worldCleanup()
+  blockStateModelInfo = new Map<string, BlockStateModelInfo>()
 
   abstract outputFormat: 'threeJs' | 'webgpu'
   worldBlockProvider: WorldBlockProvider
@@ -179,7 +191,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       // eslint-disable-next-line node/no-path-concat
       const src = typeof window === 'undefined' ? `${__dirname}/${workerName}` : workerName
 
-      const worker: any = new Worker(src)
+      let worker: any
+      if (process.env.SINGLE_FILE_BUILD) {
+        const workerCode = document.getElementById('mesher-worker-code')!.textContent!
+        const blob = new Blob([workerCode], { type: 'text/javascript' })
+        worker = new Worker(window.URL.createObjectURL(blob))
+      } else {
+        worker = new Worker(src)
+      }
       const handleMessage = (data) => {
         if (!this.active) return
         if (data.type !== 'geometry' || !this.debugStopGeometryUpdate) {
@@ -230,6 +249,12 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
             this.workersProcessAverageTimeCount++
             this.workersProcessAverageTime = ((this.workersProcessAverageTime * (this.workersProcessAverageTimeCount - 1)) + data.processTime) / this.workersProcessAverageTimeCount
             this.maxWorkersProcessTime = Math.max(this.maxWorkersProcessTime, data.processTime)
+          }
+        }
+
+        if (data.type === 'blockStateModelInfo') {
+          for (const [cacheKey, info] of Object.entries(data.info)) {
+            this.blockStateModelInfo.set(cacheKey, info)
           }
         }
       }
@@ -314,6 +339,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.version = version
     this.texturesVersion = texturesVersion
     this.resetWorld()
+
+    // for workers in single file build
+    if (document.readyState === 'loading') {
+      await new Promise(resolve => {
+        document.addEventListener('DOMContentLoaded', resolve)
+      })
+    }
+
     this.initWorkers()
     this.active = true
     this.mesherConfig.outputFormat = this.outputFormat
@@ -337,6 +370,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
   }
 
+  async generateGuiTextures () {
+    await generateGuiAtlas()
+  }
+
   async updateAssetsData (resourcePackUpdate = false, prioritizeBlockTextures?: string[]) {
     const blocksAssetsParser = new AtlasParser(this.sourceData.blocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
     const itemsAssetsParser = new AtlasParser(this.sourceData.itemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
@@ -348,15 +385,21 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
 
     const customBlockTextures = Object.keys(this.customTextures.blocks?.textures ?? {})
+    const customItemTextures = Object.keys(this.customTextures.items?.textures ?? {})
+    console.time('createBlocksAtlas')
     const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
       const texture = this.customTextures?.blocks?.textures[textureName]
       return blockTexturesChanges[textureName] ?? texture
     }, /* this.customTextures?.blocks?.tileSize */undefined, prioritizeBlockTextures, customBlockTextures)
+    console.timeEnd('createBlocksAtlas')
+    console.time('createItemsAtlas')
     const { atlas: itemsAtlas, canvas: itemsCanvas } = await itemsAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
       const texture = this.customTextures?.items?.textures[textureName]
       if (!texture) return
       return texture
-    }, this.customTextures?.items?.tileSize)
+    }, this.customTextures?.items?.tileSize, undefined, customItemTextures)
+    console.timeEnd('createItemsAtlas')
+
     this.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
     this.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
 
@@ -396,8 +439,31 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         config: this.mesherConfig,
       })
     }
+    if (!this.itemsAtlasParser) return
+    const itemsTexture = await new THREE.TextureLoader().loadAsync(this.itemsAtlasParser.latestImage)
+    itemsTexture.magFilter = THREE.NearestFilter
+    itemsTexture.minFilter = THREE.NearestFilter
+    itemsTexture.flipY = false
+    viewer.entities.itemsTexture = itemsTexture
+    if (!this.itemsAtlasParser) return
+
     this.renderUpdateEmitter.emit('textureDownloaded')
-    console.log('texture loaded')
+
+    console.time('generateGuiTextures')
+    await this.generateGuiTextures()
+    console.timeEnd('generateGuiTextures')
+    if (!this.itemsAtlasParser) return
+    this.renderUpdateEmitter.emit('itemsTextureDownloaded')
+    console.log('textures loaded')
+  }
+
+  async downloadDebugAtlas (isItems = false) {
+    const atlasParser = (isItems ? this.itemsAtlasParser : this.blocksAtlasParser)!
+    const dataUrl = await atlasParser.createDebugImage(true)
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `atlas-debug-${isItems ? 'items' : 'blocks'}.png`
+    a.click()
   }
 
   get worldMinYRender () {
@@ -417,7 +483,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.updateChunksStatsText()
 
     const chunkKey = `${x},${z}`
-    const customBlockModels = this.customBlockModels.get(chunkKey)
+    const customBlockModels = this.protocolCustomBlocks.get(chunkKey)
 
     for (const worker of this.workers) {
       worker.postMessage({
@@ -478,7 +544,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     const needAoRecalculation = true
     const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     const blockPosKey = `${pos.x},${pos.y},${pos.z}`
-    const customBlockModels = this.customBlockModels.get(chunkKey) || {}
+    const customBlockModels = this.protocolCustomBlocks.get(chunkKey) || {}
 
     for (const worker of this.workers) {
       worker.postMessage({

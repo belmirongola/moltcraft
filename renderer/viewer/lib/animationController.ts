@@ -5,9 +5,10 @@ export class AnimationController {
   private isAnimating = false
   private cancelRequested = false
   private completionCallbacks: Array<() => void> = []
+  private currentCancelCallback: (() => void) | null = null
 
   /** Main method */
-  async startAnimation (createAnimation: () => tweenJs.Group): Promise<void> {
+  async startAnimation (createAnimation: () => tweenJs.Group, onCancelled?: () => void): Promise<void> {
     if (this.isAnimating) {
       await this.cancelCurrentAnimation()
     }
@@ -15,6 +16,7 @@ export class AnimationController {
     return new Promise((resolve) => {
       this.isAnimating = true
       this.cancelRequested = false
+      this.currentCancelCallback = onCancelled ?? null
       this.currentAnimation = createAnimation()
 
       this.completionCallbacks.push(() => {
@@ -29,6 +31,12 @@ export class AnimationController {
   async cancelCurrentAnimation (): Promise<void> {
     if (!this.isAnimating) return
 
+    if (this.currentCancelCallback) {
+      const callback = this.currentCancelCallback
+      this.currentCancelCallback = null
+      callback()
+    }
+
     return new Promise((resolve) => {
       this.cancelRequested = true
       this.completionCallbacks.push(() => {
@@ -41,7 +49,7 @@ export class AnimationController {
     if (this.cancelRequested) this.forceFinish()
   }
 
-  forceFinish () {
+  forceFinish (callComplete = true) {
     if (!this.isAnimating) return
 
     if (this.currentAnimation) {
@@ -55,7 +63,9 @@ export class AnimationController {
 
     const callbacks = [...this.completionCallbacks]
     this.completionCallbacks = []
-    for (const cb of callbacks) cb()
+    if (callComplete) {
+      for (const cb of callbacks) cb()
+    }
   }
 
   /** Required method */

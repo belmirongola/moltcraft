@@ -26,7 +26,7 @@ setInterval(() => {
   } else {
     gameAdditionalState.poorConnection = false
   }
-  if (performance.now() - lastPacketTime < 1000) {
+  if (performance.now() - lastPacketTime < 2000) {
     gameAdditionalState.noConnection = false
     return
   }

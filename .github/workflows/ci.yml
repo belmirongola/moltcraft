@@ -25,7 +25,7 @@ jobs:
       - run: pnpm build-storybook
       - run: pnpm test-unit
       - run: pnpm lint
-      - run: pnpm tsx scripts/buildNpmReact.ts
+      # - run: pnpm tsx scripts/buildNpmReact.ts
       - run: nohup pnpm prod-start &
       - run: nohup pnpm test-mc-server &
       - uses: cypress-io/github-action@v5

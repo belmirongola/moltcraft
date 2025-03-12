@@ -70,6 +70,7 @@ export default ({
   placeholder
 }: Props) => {
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
+  const [isInputFocused, setIsInputFocused] = useState(false)
 
   const [completePadText, setCompletePadText] = useState('')
   const completeRequestValue = useRef('')
@@ -127,13 +128,32 @@ export default ({
       if (!usingTouch) {
         chatInput.current.focus()
       }
-      const unsubscribe = subscribe(chatInputValueGlobal, () => {
+
+      // Add keyboard event listener for letter keys and paste
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (['input', 'textarea', 'select'].includes(document.activeElement?.tagName.toLowerCase() ?? '')) return
+        // Check if it's a single character key (works with any layout) without modifiers except shift
+        const isSingleChar = e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey
+        // Check if it's paste command
+        const isPaste = e.code === 'KeyV' && (e.ctrlKey || e.metaKey)
+
+        if ((isSingleChar || isPaste) && document.activeElement !== chatInput.current) {
+          chatInput.current.focus()
+        }
+      }
+
+      window.addEventListener('keydown', handleKeyDown)
+      const unsubscribeValtio = subscribe(chatInputValueGlobal, () => {
         if (!chatInputValueGlobal.value) return
         updateInputValue(chatInputValueGlobal.value)
         chatInputValueGlobal.value = ''
         chatInput.current.focus()
       })
-      return unsubscribe
+
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown)
+        unsubscribeValtio()
+      }
     }
   }, [opened])
 
@@ -173,13 +193,16 @@ export default ({
     updateFilteredCompleteItems(newItems)
   }
 
-  const updateFilteredCompleteItems = (sourceItems: string[]) => {
-    const newCompleteItems = sourceItems.filter(item => {
-      // this regex is imporatnt is it controls the word matching
-      const compareableParts = item.split(/[[\]{},_:]/)
-      const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
-      return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
-    })
+  const updateFilteredCompleteItems = (sourceItems: string[] | Array<{ match: string, toolip: string }>) => {
+    const newCompleteItems = sourceItems
+      .map((item): string => (typeof item === 'string' ? item : item.match))
+      .filter(item => {
+        // this regex is imporatnt is it controls the word matching
+        // const compareableParts = item.split(/[[\]{},_:]/)
+        const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
+        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        return item.includes(lastWord)
+      })
     setCompletionItems(newCompleteItems)
   }
 
@@ -213,12 +236,20 @@ export default ({
         {/* close button */}
         {usingTouch && <Button icon={pixelartIcons.close} onClick={() => onClose?.()} />}
         <div className="chat-input">
-          {completionItems?.length ? (
+          {isInputFocused && completionItems?.length ? (
             <div className="chat-completions">
               <div className="chat-completions-pad-text">{completePadText}</div>
               <div className="chat-completions-items">
                 {completionItems.map((item) => (
-                  <div key={item} onClick={() => acceptComplete(item)}>{item}</div>
+                  <div
+                    key={item}
+                    onMouseDown={(e) => {
+                      e.preventDefault() // Prevent blur before click
+                      acceptComplete(item)
+                    }}
+                  >
+                    {item}
+                  </div>
                 ))}
               </div>
             </div>
@@ -259,6 +290,8 @@ export default ({
               onChange={onMainInputChange}
               disabled={!!inputDisabled}
               placeholder={inputDisabled || placeholder}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
               onKeyDown={(e) => {
                 if (e.code === 'ArrowUp') {
                   if (chatHistoryPos.current === 0) return

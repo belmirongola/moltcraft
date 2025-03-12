@@ -4,6 +4,8 @@ import { proxy, ref, subscribe } from 'valtio'
 import type { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import type { OptionsGroupType } from './optionsGuiScheme'
 import { appQueryParams } from './appParams'
+import { options, disabledSettings } from './optionsStorage'
+import { AppConfig } from './appConfig'
 
 // todo: refactor structure with support of hideNext=false
 
@@ -109,21 +111,6 @@ export const showContextmenu = (items: ContextMenuItem[], { clientX, clientY }) 
 
 // ---
 
-export type AppConfig = {
-  // defaultHost?: string
-  // defaultHostSave?: string
-  defaultProxy?: string
-  // defaultProxySave?: string
-  // defaultVersion?: string
-  peerJsServer?: string
-  peerJsServerFallback?: string
-  promoteServers?: Array<{ ip, description, version? }>
-  mapsProvider?: string
-
-  defaultSettings?: Record<string, any>
-  allowAutoConnect?: boolean
-}
-
 export const miscUiState = proxy({
   currentDisplayQr: null as string | null,
   currentTouch: null as boolean | null,
@@ -138,7 +125,8 @@ export const miscUiState = proxy({
   loadedServerIndex: '',
   /** currently trying to load or loaded mc version, after all data is loaded */
   loadedDataVersion: null as string | null,
-  appLoaded: false,
+  fsReady: false,
+  singleplayerAvailable: false,
   usingGamepadInput: false,
   appConfig: null as AppConfig | null,
   displaySearchInput: false,

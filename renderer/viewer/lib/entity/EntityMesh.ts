@@ -175,14 +175,14 @@ function addCube (
         u = (cube.uv[0] + dot(pos[3] ? u1 : u0, cube.size)) / texWidth
         v = (cube.uv[1] + dot(pos[4] ? v1 : v0, cube.size)) / texHeight
       }
-      if (isNaN(u) || isNaN(v)) {
-        errors.push(`NaN u: ${u}, v: ${v}`)
-        continue
-      }
-      if (u < 0 || u > 1 || v < 0 || v > 1) {
-        errors.push(`u: ${u}, v: ${v} out of range`)
-        continue
-      }
+      // if (isNaN(u) || isNaN(v)) {
+      //   errors.push(`NaN u: ${u}, v: ${v}`)
+      //   continue
+      // }
+      // if (u < 0 || u > 1 || v < 0 || v > 1) {
+      //   errors.push(`u: ${u}, v: ${v} out of range`)
+      //   continue
+      // }
 
       const posX = eastOrWest && mirror ? pos[0] ^ 1 : pos[0]
       const posY = pos[1]

@@ -4,7 +4,7 @@ import { CSSProperties, useState } from 'react'
 import Button from './Button'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 
-export const DiscordButton = () => {
+export const DiscordButton = ({ text, style }: { text?: string, style?: Record<string, any> }) => {
   const links: DropdownButtonItem[] = [
     {
       text: 'Support Official Server (mcraft.fun)',
@@ -16,7 +16,7 @@ export const DiscordButton = () => {
     }
   ]
 
-  return <DropdownButton text="Discord" links={links} />
+  return <DropdownButton text={text ?? 'Discord'} style={style} links={links} />
 }
 
 export type DropdownButtonItem = {
@@ -24,7 +24,7 @@ export type DropdownButtonItem = {
   clickHandler: () => void
 }
 
-export const DropdownButton = ({ text, links }: { text: string, links: DropdownButtonItem[] }) => {
+export const DropdownButton = ({ text, style, links }: { text: string, style?: Record<string, any>, links: DropdownButtonItem[] }) => {
   const [isOpen, setIsOpen] = useState(false)
   const { refs, floatingStyles } = useFloating({
     open: isOpen,
@@ -50,7 +50,7 @@ export const DropdownButton = ({ text, links }: { text: string, links: DropdownB
 
   return <>
     <Button
-      style={{ position: 'relative', width: '98px' }}
+      style={style ?? { position: 'relative', width: '98px' }}
       rootRef={refs.setReference}
       onClick={() => {
         setIsOpen(!isOpen)

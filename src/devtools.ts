@@ -3,16 +3,17 @@
 import fs from 'fs'
 import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { enable, disable, enabled } from 'debug'
-import { getEntityCursor } from './worldInteractions'
+import { Vec3 } from 'vec3'
 
+window.Vec3 = Vec3
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
   const newPos = bot.blockAtCursor(5)?.position.offset(x, y, z)
   if (!newPos) return
   return bot.world.getBlock(newPos)
 }
 
-window.cursorEntity = () => {
-  return getEntityCursor()
+window.entityCursor = () => {
+  return bot.mouse.getCursorState().entity
 }
 
 // wanderer

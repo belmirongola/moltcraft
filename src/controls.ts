@@ -2,13 +2,14 @@
 
 import { Vec3 } from 'vec3'
 import { proxy, subscribe } from 'valtio'
+import * as THREE from 'three'
 
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
-import { goFullscreen, pointerLock, reloadChunks } from './utils'
+import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
 import { openPlayerInventory } from './inventoryWindows'
 import { chatInputValueGlobal } from './react/Chat'
@@ -19,10 +20,11 @@ import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
 import { getItemFromBlock } from './chatUtils'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
-import { completeTexturePackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
+import { completeResourcepackPackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
 import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
 import { onCameraMove, onControInit } from './cameraRotationControls'
+import { createNotificationProgressReporter } from './core/progressReporter'
 
 
 export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
@@ -127,6 +129,23 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) return
+
+  if (viewer.world.freeFlyMode) {
+    // Create movement vector from input
+    const direction = new THREE.Vector3(0, 0, 0)
+    if (vector.z !== undefined) direction.z = vector.z
+    if (vector.x !== undefined) direction.x = vector.x
+
+    // Apply camera rotation to movement direction
+    direction.applyQuaternion(viewer.camera.quaternion)
+
+    // Update freeFlyState position with normalized direction
+    const moveSpeed = 1
+    direction.multiplyScalar(moveSpeed)
+    viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
+    return
+  }
+
   // gamepadIndex will be used for splitscreen in future
   const coordToAction = [
     ['z', -1, 'forward'],
@@ -333,10 +352,20 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
-        bot.setControlState('jump', pressed)
+        if (viewer.world.freeFlyMode) {
+          const moveSpeed = 0.5
+          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
+        } else {
+          bot.setControlState('jump', pressed)
+        }
         break
       case 'general.sneak':
-        setSneaking(pressed)
+        if (viewer.world.freeFlyMode) {
+          const moveSpeed = 0.5
+          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
+        } else {
+          setSneaking(pressed)
+        }
         break
       case 'general.sprint':
         // todo add setting to change behavior
@@ -599,7 +628,7 @@ export const f3Keybinds: Array<{
       // TODO!
       if (resourcePackState.resourcePackInstalled || gameAdditionalState.usingServerResourcePack) {
         showNotification('Reloading textures...')
-        await completeTexturePackInstall('default', 'default', gameAdditionalState.usingServerResourcePack)
+        await completeResourcepackPackInstall('default', 'default', gameAdditionalState.usingServerResourcePack, createNotificationProgressReporter())
       }
     },
     mobileTitle: 'Reload Textures'
@@ -640,8 +669,8 @@ export const f3Keybinds: Array<{
       const proxyPing = await bot['pingProxy']()
       void showOptionsModal(`${username}: last known total latency (ping): ${playerPing}. Connected to ${lastConnectOptions.value?.proxy} with current ping ${proxyPing}. Player UUID: ${uuid}`, [])
     },
-    mobileTitle: 'Show Proxy & Ping Details',
-    enabled: () => !!lastConnectOptions.value?.proxy
+    mobileTitle: 'Show Player & Ping Details',
+    enabled: () => !lastConnectOptions.value?.singleplayer && !!bot.player
   },
   {
     action () {
@@ -835,7 +864,7 @@ const selectItem = async () => {
 
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
-  if (gameAdditionalState.viewerConnection && !(e.target as HTMLElement).id.includes('ui-root')) return
+  if (!isInRealGameSession() && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
   // wheel click

@@ -75,19 +75,21 @@ export const mainMenuState = proxy({
 let disableAnimation = false
 export default () => {
   const haveModals = useSnapshot(activeModalStack).length
-  const { gameLoaded, appLoaded, appConfig } = useSnapshot(miscUiState)
+  const { gameLoaded, fsReady, appConfig, singleplayerAvailable } = useSnapshot(miscUiState)
 
-  const noDisplay = haveModals || gameLoaded || !appLoaded
+  const noDisplay = haveModals || gameLoaded || !fsReady
 
   useEffect(() => {
-    if (noDisplay && appLoaded) disableAnimation = true
+    if (noDisplay && fsReady) disableAnimation = true
   }, [noDisplay])
 
   const [versionStatus, setVersionStatus] = useState('')
   const [versionTitle, setVersionTitle] = useState('')
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.SINGLE_FILE_BUILD_MODE) {
+      setVersionStatus('(single file build)')
+    } else if (process.env.NODE_ENV === 'development') {
       setVersionStatus('(dev)')
     } else {
       fetch('./version.txt').then(async (f) => {
@@ -118,6 +120,7 @@ export default () => {
   return <Transition in={!noDisplay} timeout={disableAnimation ? 0 : 100} mountOnEnter unmountOnExit>
     {(state) => <div style={{ transition: state === 'exiting' || disableAnimation ? '' : '100ms opacity ease-in', ...state === 'entered' ? { opacity: 1 } : { opacity: 0 } }}>
       <MainMenu
+        singleplayerAvailable={singleplayerAvailable}
         connectToServerAction={() => showModal({ reactType: 'serversList' })}
         singleplayerAction={async () => {
           const oldFormatSave = fs.existsSync('./world/level.dat')

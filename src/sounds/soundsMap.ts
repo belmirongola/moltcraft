@@ -31,35 +31,92 @@ interface SoundEntry {
   volume: number
 }
 
+interface ResourcePackSoundEntry {
+  name: string
+  stream?: boolean
+  volume?: number
+}
+
+interface ResourcePackSound {
+  category: string
+  sounds: ResourcePackSoundEntry[]
+}
+
+interface ResourcePackSoundsJson {
+  [soundId: string]: ResourcePackSound
+}
+
 export class SoundMap {
   private readonly soundsPerName: Record<string, SoundEntry[]>
+  soundsIdToName: Record<string, string>
   private readonly existingResourcePackPaths: Set<string>
-  public activeResourcePackBasePath: string | undefined
+  private activeResourcePackBasePath: string | undefined
+  private activeResourcePackSoundsJson: ResourcePackSoundsJson | undefined
+  noVersionIdMapping = false
 
   constructor (
     private readonly soundData: SoundMapData,
     private readonly version: string
   ) {
-    const allSoundsMajor = versionsMapToMajor(soundData.allSoundsMap)
-    const soundsMap = allSoundsMajor[versionToMajor(version)] ?? Object.values(allSoundsMajor)[0]
-    this.soundsPerName = Object.fromEntries(
-      Object.entries(soundsMap).map(([id, soundsStr]) => {
-        const sounds = soundsStr.split(',').map(s => {
-          const [volume, name, weight] = s.split(';')
-          if (isNaN(Number(volume))) throw new Error('volume is not a number')
-          if (isNaN(Number(weight))) {
-            // debugger
-            throw new TypeError('weight is not a number')
-          }
-          return {
-            file: name,
-            weight: Number(weight),
-            volume: Number(volume)
-          }
-        })
-        return [id.split(';')[1], sounds]
+    // First try exact version match
+    let soundsMap = soundData.allSoundsMap[this.version]
+
+    if (!soundsMap) {
+      // If no exact match, try major version
+      const allSoundsMajor = versionsMapToMajor(soundData.allSoundsMap)
+      soundsMap = allSoundsMajor[versionToMajor(version)]
+
+      if (!soundsMap) {
+        // If still no match, use first available mapping
+        soundsMap = Object.values(allSoundsMajor)[0]
+      }
+
+      this.noVersionIdMapping = true
+    }
+
+    // Create both mappings
+    this.soundsIdToName = {}
+    this.soundsPerName = {}
+
+    for (const [id, soundsStr] of Object.entries(soundsMap)) {
+      const sounds = soundsStr.split(',').map(s => {
+        const [volume, name, weight] = s.split(';')
+        if (isNaN(Number(volume))) throw new Error('volume is not a number')
+        if (isNaN(Number(weight))) throw new TypeError('weight is not a number')
+        return {
+          file: name,
+          weight: Number(weight),
+          volume: Number(volume)
+        }
       })
-    )
+
+      const [idPart, namePart] = id.split(';')
+      this.soundsIdToName[idPart] = namePart
+
+      this.soundsPerName[namePart] = sounds
+    }
+  }
+
+  async updateActiveResourcePackBasePath (basePath: string | undefined) {
+    this.activeResourcePackBasePath = basePath
+    if (!basePath) {
+      this.activeResourcePackSoundsJson = undefined
+      return
+    }
+
+    let soundsJsonContent: string | undefined
+    try {
+      const soundsJsonPath = path.join(basePath, 'assets/minecraft/sounds.json')
+      soundsJsonContent = await fs.promises.readFile(soundsJsonPath, 'utf8')
+    } catch (err) {}
+    try {
+      if (soundsJsonContent) {
+        this.activeResourcePackSoundsJson = JSON.parse(soundsJsonContent)
+      }
+    } catch (err) {
+      console.warn('Failed to parse sounds.json from resourcepack', err)
+      this.activeResourcePackSoundsJson = undefined
+    }
   }
 
   async updateExistingResourcePackPaths () {
@@ -84,6 +141,38 @@ export class SoundMap {
   }
 
   async getSoundUrl (soundKey: string, volume = 1): Promise<{ url: string; volume: number } | undefined> {
+    // First check resource pack sounds.json
+    if (this.activeResourcePackSoundsJson && soundKey in this.activeResourcePackSoundsJson) {
+      const rpSound = this.activeResourcePackSoundsJson[soundKey]
+      // Pick a random sound from the resource pack
+      const sound = rpSound.sounds[Math.floor(Math.random() * rpSound.sounds.length)]
+      const soundVolume = sound.volume ?? 1
+
+      if (this.activeResourcePackBasePath) {
+        const tryFormat = async (format: string) => {
+          try {
+            const resourcePackPath = path.join(this.activeResourcePackBasePath!, `/assets/minecraft/sounds/${sound.name}.${format}`)
+            const fileData = await fs.promises.readFile(resourcePackPath)
+            return {
+              url: `data:audio/${format};base64,${fileData.toString('base64')}`,
+              volume: soundVolume * Math.max(Math.min(volume, 1), 0)
+            }
+          } catch (err) {
+            return null
+          }
+        }
+
+        const result = await tryFormat(this.soundData.soundsMeta.format)
+        if (result) return result
+
+        if (this.soundData.soundsMeta.format !== 'ogg') {
+          const oggResult = await tryFormat('ogg')
+          if (oggResult) return oggResult
+        }
+      }
+    }
+
+    // Fall back to vanilla sounds if no resource pack sound found
     const sounds = this.soundsPerName[soundKey]
     if (!sounds?.length) return undefined
 
@@ -97,29 +186,12 @@ export class SoundMap {
 
     const versionedSound = this.getVersionedSound(sound.file)
 
-    let url = this.soundData.soundsMeta.baseUrl.replace(/\/$/, '') +
+    const url = this.soundData.soundsMeta.baseUrl.replace(/\/$/, '') +
       (versionedSound ? `/${versionedSound}` : '') +
       '/minecraft/sounds/' +
       sound.file +
       '.' +
       this.soundData.soundsMeta.format
-
-    // Try loading from resource pack file first
-    if (this.activeResourcePackBasePath) {
-      const tryFormat = async (format: string) => {
-        try {
-          const resourcePackPath = path.join(this.activeResourcePackBasePath!, `/assets/minecraft/sounds/${sound.file}.${format}`)
-          const fileData = await fs.promises.readFile(resourcePackPath)
-          url = `data:audio/${format};base64,${fileData.toString('base64')}`
-          return true
-        } catch (err) {
-        }
-      }
-      const success = await tryFormat(this.soundData.soundsMeta.format)
-      if (!success && this.soundData.soundsMeta.format !== 'ogg') {
-        await tryFormat('ogg')
-      }
-    }
 
     return {
       url,
@@ -188,7 +260,6 @@ const blockSoundAliases: BlockSoundMap = {
   bamboo: 'grass',
   vine: 'grass',
   nether_sprouts: 'grass',
-  nether_wart: 'grass',
   twisting_vines: 'grass',
   weeping_vines: 'grass',
   sweet_berry_bush: 'grass',
@@ -203,6 +274,28 @@ const blockSoundAliases: BlockSoundMap = {
   azalea: 'grass',
   azalea_leaves: 'grass',
   flowering_azalea_leaves: 'grass',
+
+  // Dirt and ground blocks
+  dirt: 'gravel',
+  coarse_dirt: 'gravel',
+  podzol: 'gravel',
+  mycelium: 'gravel',
+  farmland: 'gravel',
+  dirt_path: 'gravel',
+  rooted_dirt: 'rooted_dirt',
+
+  // Crop blocks
+  wheat: 'crop',
+  potatoes: 'crop',
+  carrots: 'crop',
+  beetroots: 'crop',
+  melon_stem: 'crop',
+  pumpkin_stem: 'crop',
+  sweet_berries: 'crop',
+  cocoa: 'crop',
+  nether_wart: 'crop',
+  torchflower_crop: 'crop',
+  pitcher_crop: 'crop',
 
   // Stone-like blocks
   cobblestone: 'stone',
@@ -341,7 +434,6 @@ const blockSoundAliases: BlockSoundMap = {
   soul_lantern: 'lantern',
   pointed_dripstone: 'pointed_dripstone',
   dripstone_block: 'dripstone_block',
-  rooted_dirt: 'rooted_dirt',
   sculk_sensor: 'sculk_sensor',
   shroomlight: 'shroomlight'
 }

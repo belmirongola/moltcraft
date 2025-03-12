@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { parseServerAddress } from '../parseServerAddress'
 import { lastConnectOptions } from './AppStatusProvider'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
@@ -7,9 +7,28 @@ import styles from './NetworkStatus.module.css'
 export default () => {
   const [proxyPing, setProxyPing] = useState<number | null>(null)
   const [serverPing, setServerPing] = useState<number | null>(null)
+  const [isProxyStale, setIsProxyStale] = useState(false)
+  const [isServerStale, setIsServerStale] = useState(false)
+
+  const proxyTimeoutRef = useRef<NodeJS.Timeout>()
+  const serverTimeoutRef = useRef<NodeJS.Timeout>()
 
   const isWebSocket = useMemo(() => parseServerAddress(lastConnectOptions.value?.server).isWebSocket, [lastConnectOptions.value?.server])
   const serverIp = useMemo(() => lastConnectOptions.value?.server, [])
+
+  const setProxyPingWithTimeout = (ping: number | null) => {
+    setProxyPing(ping)
+    setIsProxyStale(false)
+    if (proxyTimeoutRef.current) clearTimeout(proxyTimeoutRef.current)
+    proxyTimeoutRef.current = setTimeout(() => setIsProxyStale(true), 1000)
+  }
+
+  const setServerPingWithTimeout = (ping: number | null) => {
+    setServerPing(ping)
+    setIsServerStale(false)
+    if (serverTimeoutRef.current) clearTimeout(serverTimeoutRef.current)
+    serverTimeoutRef.current = setTimeout(() => setIsServerStale(true), 1000)
+  }
 
   useEffect(() => {
     if (!serverIp) return
@@ -17,13 +36,15 @@ export default () => {
     const updatePing = async () => {
       const updateServerPing = async () => {
         const ping = await bot.pingServer()
-        if (ping) setServerPing(ping)
+        if (ping) {
+          setServerPingWithTimeout(ping)
+        }
       }
 
       const updateProxyPing = async () => {
         if (!isWebSocket) {
           const ping = await bot.pingProxy()
-          setProxyPing(ping)
+          setProxyPingWithTimeout(ping)
         }
       }
 
@@ -36,7 +57,11 @@ export default () => {
 
     void updatePing()
     const interval = setInterval(updatePing, 1000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      if (proxyTimeoutRef.current) clearTimeout(proxyTimeoutRef.current)
+      if (serverTimeoutRef.current) clearTimeout(serverTimeoutRef.current)
+    }
   }, [])
 
   if (!serverIp) return null
@@ -62,11 +87,13 @@ export default () => {
       <span className={styles.dataRow}>{username}</span>
       {!isWebSocket && (
         <>
-          <span className={`${styles.dataRow} ${styles.ping}`}>{proxyPing}ms</span>
+          <span className={`${styles.dataRow} ${styles.ping} ${isProxyStale ? styles.stale : ''}`}>{proxyPing}ms</span>
           <span className={styles.dataRow}>{proxyUrl}</span>
         </>
       )}
-      <span className={`${styles.dataRow} ${styles.ping}`}>{isWebSocket ? (pingTotal || '?') : (pingTotal ? pingTotal - (proxyPing ?? 0) : '...')}ms</span>
+      <span className={`${styles.dataRow} ${styles.ping} ${isServerStale ? styles.stale : ''}`}>
+        {isWebSocket ? (pingTotal || '?') : (pingTotal ? pingTotal - (proxyPing ?? 0) : '...')}ms
+      </span>
       <span className={styles.dataRow}>{serverIp}</span>
 
       <span className={styles.totalRow}>Ping: {pingTotal || '?'}ms</span>

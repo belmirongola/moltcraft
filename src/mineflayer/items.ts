@@ -19,6 +19,7 @@ export type RenderItem = Pick<import('prismarine-item').Item, 'name' | 'displayN
 export type GeneralInputItem = Pick<import('prismarine-item').Item, 'name' | 'nbt'> & {
   components?: RenderSlotComponent[],
   displayName?: string
+  modelResolved?: boolean
 }
 
 type JsonString = string
@@ -38,7 +39,7 @@ export const getItemMetadata = (item: GeneralInputItem) => {
 
     const customTextComponent = componentMap.get('custom_name') || componentMap.get('item_name')
     if (customTextComponent) {
-      customText = customTextComponent.data.value
+      customText = nbt.simplify(customTextComponent.data)
     }
     const customModelComponent = componentMap.get('item_model')
     if (customModelComponent) {
@@ -70,6 +71,9 @@ export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'>
   const { customText } = getItemMetadata(item as any)
   if (!customText) return
   try {
+    if (typeof customText === 'object') {
+      return customText
+    }
     const parsed = customText.startsWith('{') && customText.endsWith('}') ? mojangson.simplify(mojangson.parse(customText)) : fromFormattedString(customText)
     if (parsed.extra) {
       return parsed as Record<string, any>
@@ -78,7 +82,7 @@ export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'>
     }
   } catch (err) {
     return {
-      text: customText
+      text: JSON.stringify(customText)
     }
   }
 }

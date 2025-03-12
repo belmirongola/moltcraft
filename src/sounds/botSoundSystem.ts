@@ -7,6 +7,7 @@ import { miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import { loadOrPlaySound } from '../basicSounds'
 import { getActiveResourcepackBasePath, resourcePackState } from '../resourcePack'
+import { showNotification } from '../react/NotificationProvider'
 import { createSoundMap, SoundMap } from './soundsMap'
 import { musicSystem } from './musicSystem'
 
@@ -14,13 +15,14 @@ let soundMap: SoundMap | undefined
 
 const updateResourcePack = async () => {
   if (!soundMap) return
-  soundMap.activeResourcePackBasePath = await getActiveResourcepackBasePath() ?? undefined
+  // todo, rework to await
+  void soundMap.updateActiveResourcePackBasePath(await getActiveResourcepackBasePath() ?? undefined)
 }
 
 let musicInterval: ReturnType<typeof setInterval> | null = null
 
 subscribeKey(miscUiState, 'gameLoaded', async () => {
-  if (!miscUiState.gameLoaded || !loadedData.sounds) {
+  if (!miscUiState.gameLoaded) {
     stopMusicSystem()
     soundMap?.quit()
     return
@@ -28,7 +30,11 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
 
   console.log(`Loading sounds for version ${bot.version}. Resourcepack state: ${JSON.stringify(resourcePackState)}`)
   soundMap = createSoundMap(bot.version) ?? undefined
+  globalThis.soundMap = soundMap
   if (!soundMap) return
+  if (soundMap.noVersionIdMapping) {
+    showNotification('No sound ID mapping for this version', undefined, true)
+  }
   void updateResourcePack()
   startMusicSystem()
 
@@ -105,17 +111,16 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
     await playHardcodedSound(soundId, position, volume, pitch)
   })
 
-  bot.on('hardcodedSoundEffectHeard', async (soundIdNum, soundCategory, position, volume, pitch) => {
-    const fixOffset = versionToNumber('1.20.4') === versionToNumber(bot.version) ? -1 : 0
-    const soundKey = loadedData.sounds[soundIdNum + fixOffset]?.name
-    if (soundKey === undefined) return
-    await playGeneralSound(soundKey, position, volume, pitch)
-  })
-
   bot._client.on('sound_effect', async (packet) => {
     const soundResource = packet['soundEvent']?.resource as string | undefined
-    if (packet.soundId !== 0 || !soundResource) return
     const pos = new Vec3(packet.x / 8, packet.y / 8, packet.z / 8)
+    if (packet.soundId !== 0 || !soundResource) {
+      const soundKey = soundMap!.soundsIdToName[packet.soundId]
+      if (soundKey === undefined) return
+      await playGeneralSound(soundKey, pos, packet.volume, packet.pitch)
+      return
+    }
+
     await playHardcodedSound(soundResource.replace('minecraft:', ''), pos, packet.volume, packet.pitch)
   })
 

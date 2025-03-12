@@ -6,6 +6,7 @@ import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { MessageFormatPart } from '../chatUtils'
 import { chatInputValueGlobal } from './Chat'
 import './MessageFormatted.css'
+import { showOptionsModal } from './SelectOption'
 
 const hoverItemToText = (hoverEvent: MessageFormatPart['hoverEvent']) => {
   try {
@@ -42,17 +43,21 @@ const clickEventToProps = (clickEvent: MessageFormatPart['clickEvent']) => {
       }
     }
   }
-  if (clickEvent.action === 'open_url') {
+  if (clickEvent.action === 'open_url' || clickEvent.action === 'open_file') {
     return {
-      onClick () {
-        const confirm = window.confirm(`Open ${clickEvent.value}?`)
-        if (confirm) {
+      async onClick () {
+        const promptMessageText = `Open "${clickEvent.value}"?`
+        const confirm = await showOptionsModal(promptMessageText, ['Open', 'Copy'], {
+          cancel: true
+        })
+        if (confirm === 'Open') {
           openURL(clickEvent.value)
+        } else if (confirm === 'Copy') {
+          void navigator.clipboard.writeText(clickEvent.value)
         }
       }
     }
   }
-  //@ts-expect-error todo
   if (clickEvent.action === 'copy_to_clipboard') {
     return {
       onClick () {
@@ -71,6 +76,7 @@ export const MessagePart = ({ part, ...props }: { part: MessageFormatPart } & Co
   const hoverItemText = hoverMessageRaw && typeof hoverMessageRaw !== 'string' ? render(hoverMessageRaw).children.map(child => child.component.text).join('') : hoverMessageRaw
 
   const applyStyles = [
+    clickProps && messageFormatStylesMap.clickEvent,
     color ? colorF(color.toLowerCase()) + `; text-shadow: 1px 1px 0px ${getColorShadow(colorF(color.toLowerCase()).replace('color:', ''))}` : messageFormatStylesMap.white,
     italic && messageFormatStylesMap.italic,
     bold && messageFormatStylesMap.bold,
@@ -80,7 +86,7 @@ export const MessagePart = ({ part, ...props }: { part: MessageFormatPart } & Co
     obfuscated && messageFormatStylesMap.obfuscated
   ].filter(a => a !== false && a !== undefined).filter(Boolean)
 
-  return <span title={hoverItemText} style={parseInlineStyle(applyStyles.join(' '))} {...clickProps} {...props}>{text}</span>
+  return <span title={hoverItemText} style={parseInlineStyle(applyStyles.join(';'))} {...clickProps} {...props}>{text}</span>
 }
 
 export default ({ parts, className }: { parts: readonly MessageFormatPart[], className?: string }) => {
@@ -138,4 +144,5 @@ export const messageFormatStylesMap = {
   underlined: 'text-decoration:underline',
   italic: 'font-style:italic',
   obfuscated: 'filter:blur(2px)',
+  clickEvent: 'cursor:pointer',
 }
