@@ -1,7 +1,5 @@
-import { createLightEngineForSyncWorld, convertPrismarineBlockToWorldBlock, fillColumnWithZeroLight } from 'minecraft-lighting/src/prismarineShim'
-import { LightWorld } from 'minecraft-lighting/src/engine'
+import { LightWorld, createLightEngineForSyncWorld, convertPrismarineBlockToWorldBlock, fillColumnWithZeroLight } from 'minecraft-lighting'
 import { world } from 'prismarine-world'
-import { Chunk } from 'prismarine-world/types/world'
 
 let lightEngine: LightWorld | null = null
 export const getLightEngine = () => {
@@ -10,7 +8,7 @@ export const getLightEngine = () => {
 }
 
 export const createLightEngine = () => {
-  lightEngine = createLightEngineForSyncWorld(worldView!.world as world.WorldSync, loadedData, {
+  lightEngine = createLightEngineForSyncWorld(worldView!.world as unknown as world.WorldSync, loadedData, {
     minY: viewer.world.worldConfig.minY,
     height: viewer.world.worldConfig.worldHeight,
     enableSkyLight: false,
@@ -22,7 +20,7 @@ export const processLightChunk = async (x: number, z: number) => {
   const chunkX = Math.floor(x / 16)
   const chunkZ = Math.floor(z / 16)
   const engine = getLightEngine()
-  fillColumnWithZeroLight(worldView!.world as world.WorldSync, viewer.world.worldConfig.minY, viewer.world.worldConfig.worldHeight, chunkX, chunkZ)
+  fillColumnWithZeroLight(engine.externalWorld, chunkX, chunkZ)
   return engine.receiveUpdateColumn(chunkX, chunkZ)
 }
 

@@ -354,6 +354,9 @@ importers:
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
+      minecraft-lighting:
+        specifier: ^0.0.3
+        version: 0.0.3
       mineflayer:
         specifier: github:zardoy/mineflayer
         version: https://codeload.github.com/zardoy/mineflayer/tar.gz/4fa1af9964cab91315d8d1ae02615f3039638828(encoding@0.1.13)
@@ -6457,6 +6460,10 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8}
     version: 1.0.1
 
+  minecraft-lighting@0.0.3:
+    resolution: {integrity: sha512-JDxWOy/9mogn4AjJi8sPvY1BoHSLcTSZ9QntCNTtEtQlXMNRe5Wr+4z+apgOKLXDFaisZr+jPQRY8RyjV7lJyw==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
   minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76:
     resolution: {tarball: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76}
     version: 1.54.0
@@ -8882,6 +8889,9 @@ packages:
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
+
+  vec3@0.1.10:
+    resolution: {integrity: sha512-Sr1U3mYtMqCOonGd3LAN9iqy0qF6C+Gjil92awyK/i2OwiUo9bm7PnLgFpafymun50mOjnDcg4ToTgRssrlTcw==}
 
   vec3@0.1.8:
     resolution: {integrity: sha512-LfKrP625Bsg/Tj52YdYPsHmpsJuo+tc6fLxZxXjEo9k2xSspKlPvoYTHehykKhp1FvV9nm+XU3Ehej5/9tpDCg==}
@@ -14263,7 +14273,7 @@ snapshots:
       prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
       prismarine-registry: 1.11.0
       random-seed: 0.3.0
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   diff-match-patch@1.0.5: {}
 
@@ -16996,6 +17006,10 @@ snapshots:
       - '@types/react'
       - react
 
+  minecraft-lighting@0.0.3:
+    dependencies:
+      vec3: 0.1.10
+
   minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/e9eb551ba30ec2e742c49e6927be6402b413bb76(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13):
     dependencies:
       '@types/node-rsa': 1.1.4
@@ -17902,7 +17916,7 @@ snapshots:
       prismarine-chat: 1.10.1
       prismarine-item: 1.16.0
       prismarine-registry: 1.11.0
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   prismarine-item@1.16.0:
     dependencies:
@@ -17917,7 +17931,7 @@ snapshots:
     dependencies:
       minecraft-data: 3.83.1
       prismarine-nbt: 2.5.0
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   prismarine-provider-anvil@https://codeload.github.com/zardoy/prismarine-provider-anvil/tar.gz/1d548fac63fe977c8281f0a9a522b37e4d92d0b7(minecraft-data@3.83.1):
     dependencies:
@@ -17964,7 +17978,7 @@ snapshots:
 
   prismarine-world@https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c:
     dependencies:
-      vec3: 0.1.8
+      vec3: 0.1.10
 
   process-nextick-args@2.0.1: {}
 
@@ -19967,6 +19981,8 @@ snapshots:
       react: 18.2.0
 
   vary@1.1.2: {}
+
+  vec3@0.1.10: {}
 
   vec3@0.1.8: {}
 
