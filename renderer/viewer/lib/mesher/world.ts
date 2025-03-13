@@ -63,8 +63,8 @@ export class World {
       15,
       Math.max(
         column.getBlockLight(posInChunk(pos)),
-        Math.min(skyLight, column.getSkyLight(posInChunk(pos)))
-      ) + 2
+        // Math.min(skyLight, column.getSkyLight(posInChunk(pos)))
+      )
     )
     // lightsCache.set(key, result)
     if (result === 2 && [this.getBlock(pos)?.name ?? '', curBlockName].some(x => /_stairs|slab|glass_pane/.exec(x)) && !skipMoreChecks) { // todo this is obviously wrong

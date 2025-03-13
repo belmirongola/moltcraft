@@ -88,7 +88,7 @@ const defaultOptions = {
   showCursorBlockInSpectator: false,
   renderEntities: true,
   smoothLighting: true,
-  newVersionsLighting: false,
+  newVersionsLighting: true,
   chatSelect: true,
   autoJump: 'auto' as 'auto' | 'always' | 'never',
   autoParkour: false,
