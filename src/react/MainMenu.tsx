@@ -7,6 +7,7 @@ import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
 import useLongPress from './useLongPress'
+import PauseLinkButtons from './PauseLinkButtons'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -15,7 +16,6 @@ interface Props {
   singleplayerAction?: Action
   optionsAction?: Action
   githubAction?: Action
-  linksButton?: JSX.Element
   openFileAction?: Action
   mapsProvider?: string
   versionStatus?: string
@@ -35,7 +35,6 @@ export default ({
   singleplayerAction,
   optionsAction,
   githubAction,
-  linksButton,
   openFileAction,
   versionText,
   onVersionTextClick,
@@ -143,16 +142,7 @@ export default ({
           Options
         </Button>
         <div className={styles['menu-row']}>
-          <ButtonWithTooltip
-            initialTooltip={{
-              content: 'Report bugs or request features!',
-            }}
-            style={{ width: '98px' }}
-            onClick={githubAction}
-          >
-            GitHub
-          </ButtonWithTooltip>
-          {linksButton}
+          <PauseLinkButtons />
         </div>
       </div>
 
