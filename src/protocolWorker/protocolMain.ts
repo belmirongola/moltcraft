@@ -73,6 +73,9 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
           if (window.stopPacketsProcessing) return
           let [packetData, packetMeta] = data.args
 
+          // Start timing the packet processing
+          const startTime = performance.now()
+
           // restore transferred data
           if (packetData instanceof Uint8Array) {
             packetData = Buffer.from(packetData)
@@ -92,7 +95,46 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
 
           eventEmitter.state = packetMeta.state
           debug(`RECV ${eventEmitter.state}:${packetMeta.name}`, packetData)
+
+          // Initialize packet timing tracking if not exists
+          if (!window.packetTimings) {
+            window.packetTimings = {}
+          }
+
+          if (!window.packetTimings[packetMeta.name]) {
+            window.packetTimings[packetMeta.name] = {
+              total: 0,
+              count: 0,
+              avg: 0
+            }
+          }
+
           eventEmitter.emit(packetMeta.name, packetData, packetMeta)
+
+          // Calculate processing time
+          const processingTime = performance.now() - startTime
+          window.packetTimings[packetMeta.name].total += processingTime
+          window.packetTimings[packetMeta.name].count++
+          window.packetTimings[packetMeta.name].avg =
+            window.packetTimings[packetMeta.name].total / window.packetTimings[packetMeta.name].count
+
+          // Update packetsThreadBlocking every second
+          if (!window.lastStatsUpdate) {
+            window.lastStatsUpdate = Date.now()
+            setInterval(() => {
+              // Sort by total processing time
+              window.packetsThreadBlocking = Object.entries(window.packetTimings)
+                .sort(([, a], [, b]) => b.total - a.total)
+                .reduce((acc, [key, value]) => {
+                  acc[key] = value
+                  return acc
+                }, {})
+
+              // Reset timings for next interval
+              window.packetTimings = {}
+              window.lastStatsUpdate = Date.now()
+            }, 1000)
+          }
         }
       }
     })
