@@ -389,11 +389,26 @@ const downloadAndUseResourcePack = async (url: string, progressReporter: Progres
     progressReporter.beginStage('download-resource-pack', 'Downloading server resource pack')
     console.log('Downloading server resource pack', url)
     console.time('downloadServerResourcePack')
-    const response = await fetch(url).catch((err) => {
+
+    // Try direct URL first
+    let response = await fetch(url).catch((err) => {
       console.log(`Ensure server on ${url} support CORS which is not required for regular client, but is required for the web client`)
       console.error(err)
-      progressReporter.error('Failed to download resource pack: ' + err.message)
+      return null
     })
+
+    // If direct URL fails, try proxy URL
+    if (!response) {
+      const urlWithoutProtocol = url.replace(/^https?:\/\//, '')
+      const proxyUrl = `https://mcraft-proxy.vercel.app/0/${urlWithoutProtocol}`
+      console.log('Trying fallback proxy URL:', proxyUrl)
+      response = await fetch(proxyUrl).catch((err) => {
+        console.error('Proxy fetch also failed:', err)
+        progressReporter.error('Failed to download resource pack: ' + err.message)
+        return null
+      })
+    }
+
     console.timeEnd('downloadServerResourcePack')
     if (!response) return
 
