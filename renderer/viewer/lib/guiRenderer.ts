@@ -155,7 +155,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
       return null
     },
     getTextureUV (texture) {
-      return textureAtlas.getTextureUV(texture.toString().slice(1).split('/').slice(1).join('/') as any)
+      return textureAtlas.getTextureUV(texture.toString().replace('minecraft:', '').replace('block/', '').replace('item/', '').replace('blocks/', '').replace('items/', '') as any)
     },
     getTextureAtlas () {
       return textureAtlas.getTextureAtlas()

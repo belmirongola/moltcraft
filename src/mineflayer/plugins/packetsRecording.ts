@@ -93,6 +93,8 @@ declare module 'mineflayer' {
 export const getLastAutoCapturedPackets = () => circularBuffer?.size
 export const downloadAutoCapturedPackets = () => {
   const logger = new PacketsLogger({ minecraftVersion: lastConnectVersion })
+  logger.relativeTime = false
+  logger.formattedTime = true
   for (const packet of circularBuffer?.getLastElements() ?? []) {
     logger.log(packet.isFromServer, { name: packet.name, state: packet.state, time: packet.timestamp }, packet.params)
   }

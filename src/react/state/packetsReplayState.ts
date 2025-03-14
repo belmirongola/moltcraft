@@ -5,6 +5,7 @@ import { appQueryParams, updateQsParam } from '../../appParams'
 export const packetsReplayState = proxy({
   packetsPlayback: [] as PacketData[],
   isOpen: false,
+  isMinimized: false,
   replayName: '',
   isPlaying: false,
   progress: {
