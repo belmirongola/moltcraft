@@ -257,19 +257,19 @@ importers:
         version: 5.25.11
     devDependencies:
       '@rsbuild/core':
-        specifier: ^1.0.1-beta.9
+        specifier: 1.0.1-beta.9
         version: 1.0.1-beta.9
       '@rsbuild/plugin-node-polyfill':
-        specifier: ^1.0.3
+        specifier: 1.0.3
         version: 1.0.3(@rsbuild/core@1.0.1-beta.9)
       '@rsbuild/plugin-react':
-        specifier: ^1.0.1-beta.9
+        specifier: 1.0.1-beta.9
         version: 1.0.1-beta.9(@rsbuild/core@1.0.1-beta.9)
       '@rsbuild/plugin-type-check':
-        specifier: ^1.0.1-beta.9
+        specifier: 1.0.1-beta.9
         version: 1.0.1-beta.9(@rsbuild/core@1.0.1-beta.9)(esbuild@0.19.12)(typescript@5.5.4)
       '@rsbuild/plugin-typed-css-modules':
-        specifier: ^1.0.1
+        specifier: 1.0.1
         version: 1.0.1(@rsbuild/core@1.0.1-beta.9)
       '@storybook/addon-essentials':
         specifier: ^7.4.6
