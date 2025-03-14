@@ -579,7 +579,7 @@ export const guiOptionsScheme: {
                 defaultValue: true,
               },
             })
-            const fileName = `${data.profileName}-web-client-profile.json`
+            const fileName = `${data.profileName ? `${data.profileName}-` : ''}web-client-profile.json`
             const json = {
               _about: 'Minecraft Web Client (mcraft.fun) Profile',
               ...data.exportSettings ? {
