@@ -66,7 +66,7 @@ export const pointerLock = {
 }
 
 export const isInRealGameSession = () => {
-  return isGameActive(true) && !packetsReplayState.isOpen && !gameAdditionalState.viewerConnection
+  return isGameActive(true) && (!packetsReplayState.isOpen || packetsReplayState.isMinimized) && !gameAdditionalState.viewerConnection
 }
 
 window.getScreenRefreshRate = getScreenRefreshRate

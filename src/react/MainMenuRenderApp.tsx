@@ -8,7 +8,6 @@ import { setLoadingScreenStatus } from '../appStatus'
 import { openFilePicker, copyFilesAsync, mkdirRecursive, openWorldDirectory, removeFileRecursiveAsync } from '../browserfs'
 
 import MainMenu from './MainMenu'
-import { DiscordButton } from './DiscordButton'
 
 const isMainMenu = () => {
   return activeModalStack.length === 0 && !miscUiState.gameLoaded
@@ -145,7 +144,6 @@ export default () => {
         }}
         githubAction={() => openGithub()}
         optionsAction={() => openOptionsMenu('main')}
-        linksButton={<DiscordButton />}
         bottomRightLinks={process.env.MAIN_MENU_LINKS}
         openFileAction={e => {
           if (!!window.showDirectoryPicker && !e.shiftKey) {

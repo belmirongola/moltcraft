@@ -39,7 +39,7 @@ export const getItemMetadata = (item: GeneralInputItem) => {
 
     const customTextComponent = componentMap.get('custom_name') || componentMap.get('item_name')
     if (customTextComponent) {
-      customText = nbt.simplify(customTextComponent.data)
+      customText = typeof customTextComponent.data === 'string' ? customTextComponent.data : nbt.simplify(customTextComponent.data)
     }
     const customModelComponent = componentMap.get('item_model')
     if (customModelComponent) {

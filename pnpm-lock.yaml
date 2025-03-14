@@ -135,8 +135,8 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
       mcraft-fun-mineflayer:
-        specifier: ^0.1.8
-        version: 0.1.8(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/b56898490fb26dd78f532d916274b0e928953080(encoding@0.1.13))
+        specifier: ^0.1.10
+        version: 0.1.10(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/b56898490fb26dd78f532d916274b0e928953080(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
@@ -362,8 +362,8 @@ importers:
         specifier: github:GenerelSchwerz/mineflayer
         version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/b56898490fb26dd78f532d916274b0e928953080(encoding@0.1.13)
       mineflayer-mouse:
-        specifier: ^0.0.8
-        version: 0.0.8(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
+        specifier: ^0.1.0
+        version: 0.1.0(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -405,7 +405,7 @@ importers:
         version: 5.5.4
       vitest:
         specifier: ^0.34.6
-        version: 0.34.6(terser@5.31.3)
+        version: 0.34.6(playwright@1.51.0)(terser@5.31.3)
       yaml:
         specifier: ^2.3.2
         version: 2.4.1
@@ -5531,6 +5531,11 @@ packages:
     os: [darwin]
     deprecated: Upgrade to fsevents v2 to mitigate potential security issues
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -6690,9 +6695,9 @@ packages:
     resolution: {integrity: sha512-j2D1RNYtB5Z9gFu9MVjyDBbiALI0mWZ3xW/A3PPefVAHm3HJ2T1vH+1XBov1spBGPl7u+Zo7mRXza3X0egbeOg==}
     engines: {node: '>=18.0.0'}
 
-  mcraft-fun-mineflayer@0.1.8:
-    resolution: {integrity: sha512-jyJTihNHfeToBPwVs3QMKBlVcaCABJ25YN2eoIBQEVTRVFzaXh13XRpElphLzTMj1Q5XFYqufHtMoR4tsb08qQ==}
-    version: 0.1.8
+  mcraft-fun-mineflayer@0.1.10:
+    resolution: {integrity: sha512-KHzPts82I39nTDZlGwqJo1JXLwaIUHphBbmGWv7oYztUrq3iPiJDEIFgst0ROO/apjtHjzbCM9eb19qWw1JM3Q==}
+    version: 0.1.10
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     peerDependencies:
       '@roamhq/wrtc': '*'
@@ -6916,8 +6921,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
 
-  mineflayer-mouse@0.0.8:
-    resolution: {integrity: sha512-Y6TfclMjx7ndV+ISznJsQ4SMwzjhYvwvkj8kKBsQXx9/bG6fDtkgfnAroO/f2ppV52WNrtERQlVXYs35gHtIFg==}
+  mineflayer-mouse@0.1.0:
+    resolution: {integrity: sha512-NFfHASMo3iZOECoYOHVqGBFROVapzDJRlgANMiWnynO/oPUZkOJF6oRrcE33FCVHGlwMCT2S6N7TcqCYqF21Uw==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer-pathfinder@2.4.4:
@@ -7544,6 +7549,16 @@ packages:
 
   pkg-types@1.0.3:
     resolution: {integrity: sha512-nN7pYi0AQqJnoLPC9eHFQ8AcyaixBUOwvqc5TDnIKCMEE6I0y8P7OKA7fPexsXGCGxQDl/cmrLAp26LhcwxZ4A==}
+
+  playwright-core@1.51.0:
+    resolution: {integrity: sha512-x47yPE3Zwhlil7wlNU/iktF7t2r/URR3VLbH6EknJd/04Qc/PSJ0EY3CMXipmglLG+zyRxW6HNo2EGbKLHPWMg==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.51.0:
+    resolution: {integrity: sha512-442pTfGM0xxfCYxuBa/Pu6B2OqxqqaYq39JS8QDMGThUvIOCd6s0ANDog3uwA0cHavVlnTQzGCN7Id2YekDSXA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
@@ -13611,7 +13626,7 @@ snapshots:
       node-gzip: 1.1.2
       node-rsa: 1.1.1
       prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
-      prismarine-entity: 2.3.1
+      prismarine-entity: 2.5.0
       prismarine-item: 1.16.0
       prismarine-nbt: 2.5.0
       prismarine-provider-anvil: https://codeload.github.com/zardoy/prismarine-provider-anvil/tar.gz/1d548fac63fe977c8281f0a9a522b37e4d92d0b7(minecraft-data@3.83.1)
@@ -16267,6 +16282,9 @@ snapshots:
       nan: 2.18.0
     optional: true
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -17582,7 +17600,7 @@ snapshots:
       maxrects-packer: 2.7.3
       zod: 3.24.1
 
-  mcraft-fun-mineflayer@0.1.8(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/b56898490fb26dd78f532d916274b0e928953080(encoding@0.1.13)):
+  mcraft-fun-mineflayer@0.1.10(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/b56898490fb26dd78f532d916274b0e928953080(encoding@0.1.13)):
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
@@ -17952,10 +17970,11 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-mouse@0.0.8(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1):
+  mineflayer-mouse@0.1.0(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1):
     dependencies:
       change-case: 5.4.4
       debug: 4.4.0(supports-color@8.1.1)
+      prismarine-item: 1.16.0
       prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
       vitest: 3.0.7(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
     transitivePeerDependencies:
@@ -18716,6 +18735,16 @@ snapshots:
       jsonc-parser: 3.2.0
       mlly: 1.4.2
       pathe: 1.1.1
+
+  playwright-core@1.51.0:
+    optional: true
+
+  playwright@1.51.0:
+    dependencies:
+      playwright-core: 1.51.0
+    optionalDependencies:
+      fsevents: 2.3.2
+    optional: true
 
   pluralize@8.0.0: {}
 
@@ -21062,7 +21091,7 @@ snapshots:
       tsx: 4.7.0
       yaml: 2.4.1
 
-  vitest@0.34.6(terser@5.31.3):
+  vitest@0.34.6(playwright@1.51.0)(terser@5.31.3):
     dependencies:
       '@types/chai': 4.3.6
       '@types/chai-subset': 1.3.3
@@ -21088,6 +21117,8 @@ snapshots:
       vite: 4.5.3(@types/node@22.8.1)(terser@5.31.3)
       vite-node: 0.34.6(@types/node@22.8.1)(terser@5.31.3)
       why-is-node-running: 2.2.2
+    optionalDependencies:
+      playwright: 1.51.0
     transitivePeerDependencies:
       - less
       - lightningcss

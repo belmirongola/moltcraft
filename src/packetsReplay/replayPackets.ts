@@ -188,6 +188,10 @@ const mainPacketsReplayer = async (client: ServerClient, packets: ParsedReplayPa
       }
 
       if (packet.isFromServer) {
+        if (packet.params === null) {
+          console.warn('packet.params is null', packet)
+          continue
+        }
         playServerPacket(packet.name, packet.params)
         await new Promise(resolve => {
           setTimeout(resolve, packet.diff * packetsReplayState.speed + ADDITIONAL_DELAY * (packetsReplayState.customButtons.packetsSenderDelay.state ? 1 : 0))
@@ -216,6 +220,7 @@ const mainPacketsReplayer = async (client: ServerClient, packets: ParsedReplayPa
               setTimeout(resolve, 1000)
             })] : [])
           ])
+          clientsPacketsWaiter.stopWaiting()
           clientPackets = []
         }
       }
@@ -236,6 +241,7 @@ interface PacketsWaiterOptions {
 interface PacketsWaiter {
   addPacket(name: string, params: any): void
   waitForPackets(packets: string[]): Promise<void>
+  stopWaiting(): void
 }
 
 const createPacketsWaiter = (options: PacketsWaiterOptions = {}): PacketsWaiter => {
@@ -296,6 +302,11 @@ const createPacketsWaiter = (options: PacketsWaiterOptions = {}): PacketsWaiter 
         isWaiting = false
         packetHandler = null
       }
+    },
+    stopWaiting () {
+      isWaiting = false
+      packetHandler = null
+      queuedPackets.length = 0
     }
   }
 }
