@@ -308,7 +308,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
 
               server.lastJoined = Date.now()
               server.numConnects = (server.numConnects || 0) + 1
-              setNewServersList(serversListDisplay)
+              setNewServersList(newList)
             }
           }
         },
