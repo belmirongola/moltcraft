@@ -8,13 +8,14 @@ import { appQueryParams } from '../appParams'
 import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
 import { getServerInfo } from '../mineflayer/mc-protocol'
 import { parseServerAddress } from '../parseServerAddress'
-import ServersList from './ServersList'
+import ServersList, { getCurrentProxy } from './ServersList'
 import AddServerOrConnect, { BaseServerInfo } from './AddServerOrConnect'
 import { useDidUpdateEffect } from './utils'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import { useCopyKeybinding } from './simpleHooks'
 import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList, StoreServerItem } from './serversStorage'
+import { appStorage } from './appStorageProvider'
 
 type AdditionalDisplayData = {
   textNameRightGrayed: string
@@ -27,18 +28,6 @@ type AdditionalDisplayData = {
 const serversListQs = appQueryParams.serversList
 const proxyQs = appQueryParams.proxy
 
-const getInitialProxies = () => {
-  const proxies = [] as string[]
-  if (miscUiState.appConfig?.defaultProxy) {
-    proxies.push(miscUiState.appConfig.defaultProxy)
-  }
-  if (localStorage['proxy']) {
-    proxies.push(localStorage['proxy'])
-    localStorage.removeItem('proxy')
-  }
-  return proxies
-}
-
 // todo move to base
 const normalizeIp = (ip: string) => ip.replace(/https?:\/\//, '').replace(/\/(:|$)/, '')
 
@@ -46,42 +35,10 @@ const FETCH_DELAY = 100 // ms between each request
 const MAX_CONCURRENT_REQUESTS = 10
 
 const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersList?: string[] }) => {
-  const [proxies, setProxies] = useState<readonly string[]>(localStorage['proxies'] ? JSON.parse(localStorage['proxies']) : getInitialProxies())
-  const [selectedProxy, setSelectedProxy] = useState(proxyQs ?? localStorage.getItem('selectedProxy') ?? proxies?.[0] ?? '')
   const [serverEditScreen, setServerEditScreen] = useState<StoreServerItem | true | null>(null) // true for add
-  const [defaultUsername, _setDefaultUsername] = useState(localStorage['username'] ?? (`mcrafter${Math.floor(Math.random() * 1000)}`))
-  const [authenticatedAccounts, _setAuthenticatedAccounts] = useState<AuthenticatedAccount[]>(JSON.parse(localStorage['authenticatedAccounts'] || '[]'))
+  const { authenticatedAccounts } = useSnapshot(appStorage)
   const [quickConnectIp, setQuickConnectIp] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
-
-  // Save username to localStorage when component mounts if it doesn't exist
-  useEffect(() => {
-    if (!localStorage['username']) {
-      localStorage.setItem('username', defaultUsername)
-    }
-  }, [])
-
-  const setAuthenticatedAccounts = (newState: typeof authenticatedAccounts) => {
-    _setAuthenticatedAccounts(newState)
-    localStorage.setItem('authenticatedAccounts', JSON.stringify(newState))
-  }
-
-  const setDefaultUsername = (newState: typeof defaultUsername) => {
-    _setDefaultUsername(newState)
-    localStorage.setItem('username', newState)
-  }
-
-  const saveNewProxy = () => {
-    if (!selectedProxy || proxyQs) return
-    localStorage.setItem('selectedProxy', selectedProxy)
-  }
-
-  useEffect(() => {
-    if (proxies.length) {
-      localStorage.setItem('proxies', JSON.stringify(proxies))
-    }
-    saveNewProxy()
-  }, [proxies])
 
   const [serversList, setServersList] = useState<StoreServerItem[]>(() => (customServersList ? [] : getInitialServersList()))
   const [additionalData, setAdditionalData] = useState<Record<string, AdditionalDisplayData>>({})
@@ -236,8 +193,8 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   const editModalJsx = isEditScreenModal ? <AddServerOrConnect
     allowAutoConnect={miscUiState.appConfig?.allowAutoConnect}
     placeholders={{
-      proxyOverride: selectedProxy,
-      usernameOverride: defaultUsername,
+      proxyOverride: getCurrentProxy(),
+      usernameOverride: appStorage.username,
     }}
     parseQs={!serverEditScreen}
     onBack={() => {
@@ -262,9 +219,9 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     } : serverEditScreen}
     onQsConnect={(info) => {
       const connectOptions: ConnectOptions = {
-        username: info.usernameOverride || defaultUsername,
+        username: info.usernameOverride || appStorage.username || '',
         server: normalizeIp(info.ip),
-        proxy: info.proxyOverride || selectedProxy,
+        proxy: info.proxyOverride || getCurrentProxy(),
         botVersion: info.versionOverride,
         ignoreQs: true,
       }
@@ -304,11 +261,12 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       }
 
       const lastJoinedUsername = serversListSorted.find(s => s.usernameOverride)?.usernameOverride
-      let username = overrides.usernameOverride || defaultUsername
+      let username = overrides.usernameOverride || appStorage.username || ''
       if (!username) {
-        username = prompt('Username', lastJoinedUsername || '')
-        if (!username) return
-        setDefaultUsername(username)
+        const promptUsername = prompt('Enter username', lastJoinedUsername || '')
+        if (!promptUsername) return
+        username = promptUsername
+        appStorage.username = username
       }
       let authenticatedAccount: AuthenticatedAccount | true | undefined
       if (overrides.authenticatedAccountOverride) {
@@ -321,7 +279,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       const options = {
         username,
         server: normalizeIp(ip),
-        proxy: overrides.proxyOverride || selectedProxy,
+        proxy: overrides.proxyOverride || getCurrentProxy(),
         botVersion: overrides.versionOverride ?? /* legacy */ overrides['version'],
         ignoreQs: true,
         autoLoginPassword: server?.autoLogin?.[username],
@@ -355,13 +313,6 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
               setNewServersList(serversList)
             }
           }
-
-          // save new selected proxy (if new)
-          if (!proxies.includes(selectedProxy)) {
-            // setProxies([...proxies, selectedProxy])
-            localStorage.setItem('proxies', JSON.stringify([...proxies, selectedProxy]))
-          }
-          saveNewProxy()
         },
         serverIndex: shouldSave ? serversList.length.toString() : indexOrIp // assume last
       } satisfies ConnectOptions
@@ -369,13 +320,11 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       // qsOptions
     }}
     lockedEditing={!!customServersList}
-    username={defaultUsername}
-    setUsername={setDefaultUsername}
     setQuickConnectIp={setQuickConnectIp}
     onProfileClick={async () => {
       const username = await showOptionsModal('Select authenticated account to remove', authenticatedAccounts.map(a => a.username))
       if (!username) return
-      setAuthenticatedAccounts(authenticatedAccounts.filter(a => a.username !== username))
+      appStorage.authenticatedAccounts = authenticatedAccounts.filter(a => a.username !== username)
     }}
     onWorldAction={(action, index) => {
       const server = serversList[index]
@@ -410,27 +359,11 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         group: 'Your Servers'
       }
     })}
-    initialProxies={{
-      proxies,
-      selected: selectedProxy,
-    }}
-    updateProxies={({ proxies, selected }) => {
-      // new proxy is saved in joinServer
-      setProxies(proxies)
-      setSelectedProxy(selected)
-    }}
     hidden={hidden}
     onRowSelect={(_, i) => {
       setSelectedIndex(i)
     }}
     selectedRow={selectedIndex}
-    serverHistory={getServerConnectionHistory()
-      .sort((a, b) => b.numConnects - a.numConnects)
-      .map(server => ({
-        ip: server.ip,
-        versionOverride: server.version,
-        numConnects: server.numConnects
-      }))}
   />
   return <>
     {serversListJsx}

@@ -3,7 +3,7 @@ import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
 import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
-import { AppOptions, options } from './optionsStorage'
+import { AppOptions, getChangedSettings, options } from './optionsStorage'
 import Button from './react/Button'
 import { OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
@@ -12,10 +12,12 @@ import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
 import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
-import { showOptionsModal } from './react/SelectOption'
+import { showInputsModal, showOptionsModal } from './react/SelectOption'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
 import { createNotificationProgressReporter } from './core/progressReporter'
+import { customKeymaps } from './controls'
+import { appStorage } from './react/appStorageProvider'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -462,6 +464,11 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
+      }
+    },
+    {
+      custom () {
         const { active } = useSnapshot(packetsRecordingState)
         return <Button
           inScreen
@@ -521,8 +528,84 @@ export const guiOptionsScheme: {
       },
     },
   ],
+  'export-import': [
+    {
+      custom () {
+        return <Category>Export/Import Data</Category>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled={true}
+          onClick={() => {}}
+        >Import Data</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          onClick={async () => {
+            const data = await showInputsModal('Export Profile', {
+              profileName: {
+                type: 'text',
+              },
+              exportSettings: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              exportKeybindings: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              exportServers: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              saveUsernameAndProxy: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+            })
+            const fileName = `${data.profileName}-web-client-profile.json`
+            const json = {
+              _about: 'Minecraft Web Client (mcraft.fun) Profile',
+              ...data.exportSettings ? {
+                options: getChangedSettings(),
+              } : {},
+              ...data.exportKeybindings ? {
+                keybindings: customKeymaps,
+              } : {},
+              ...data.saveUsernameAndProxy ? {
+                username: appStorage.username,
+                proxy: appStorage.proxiesData?.selected,
+              } : {},
+            }
+          }}
+        >Export Data</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled
+        >Export Worlds</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled
+        >Export Resource Pack</Button>
+      }
+    }
+  ],
 }
-export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR'
+export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR' | 'export-import'
 
 const Category = ({ children }) => <div style={{
   fontSize: 9,
