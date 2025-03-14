@@ -2,13 +2,14 @@
 
 import { Vec3 } from 'vec3'
 import { proxy, subscribe } from 'valtio'
+import * as THREE from 'three'
 
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
-import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, loadedGameState, hideModal } from './globalState'
-import { goFullscreen, pointerLock, reloadChunks } from './utils'
+import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
+import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
 import { openPlayerInventory } from './inventoryWindows'
 import { chatInputValueGlobal } from './react/Chat'
@@ -19,9 +20,11 @@ import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
 import { getItemFromBlock } from './chatUtils'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
-import { completeTexturePackInstall, resourcePackState } from './resourcePack'
+import { completeResourcepackPackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
 import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
+import { onCameraMove, onControInit } from './cameraRotationControls'
+import { createNotificationProgressReporter } from './core/progressReporter'
 
 
 export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
@@ -50,7 +53,12 @@ export const contro = new ControMax({
       command: ['Slash'],
       swapHands: ['KeyF'],
       zoom: ['KeyC'],
-      selectItem: ['KeyH'] // default will be removed
+      selectItem: ['KeyH'], // default will be removed
+      rotateCameraLeft: [null],
+      rotateCameraRight: [null],
+      rotateCameraUp: [null],
+      rotateCameraDown: [null],
+      viewerConsole: ['Backquote']
     },
     ui: {
       toggleFullscreen: ['F11'],
@@ -92,6 +100,8 @@ export const contro = new ControMax({
 window.controMax = contro
 export type Command = CommandEventArgument<typeof contro['_commandsRaw']>['command']
 
+onControInit()
+
 updateBinds(customKeymaps)
 
 const updateDoPreventDefault = () => {
@@ -119,6 +129,23 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) return
+
+  if (viewer.world.freeFlyMode) {
+    // Create movement vector from input
+    const direction = new THREE.Vector3(0, 0, 0)
+    if (vector.z !== undefined) direction.z = vector.z
+    if (vector.x !== undefined) direction.x = vector.x
+
+    // Apply camera rotation to movement direction
+    direction.applyQuaternion(viewer.camera.quaternion)
+
+    // Update freeFlyState position with normalized direction
+    const moveSpeed = 1
+    direction.multiplyScalar(moveSpeed)
+    viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
+    return
+  }
+
   // gamepadIndex will be used for splitscreen in future
   const coordToAction = [
     ['z', -1, 'forward'],
@@ -245,6 +272,73 @@ const inModalCommand = (command: Command, pressed: boolean) => {
   }
 }
 
+// Camera rotation controls
+const cameraRotationControls = {
+  activeDirections: new Set<'left' | 'right' | 'up' | 'down'>(),
+  interval: null as ReturnType<typeof setInterval> | null,
+  config: {
+    speed: 1, // movement per interval
+    interval: 5 // ms between movements
+  },
+  movements: {
+    left: { movementX: -0.5, movementY: 0 },
+    right: { movementX: 0.5, movementY: 0 },
+    up: { movementX: 0, movementY: -0.5 },
+    down: { movementX: 0, movementY: 0.5 }
+  },
+  updateMovement () {
+    if (cameraRotationControls.activeDirections.size === 0) {
+      if (cameraRotationControls.interval) {
+        clearInterval(cameraRotationControls.interval)
+        cameraRotationControls.interval = null
+      }
+      return
+    }
+
+    if (!cameraRotationControls.interval) {
+      cameraRotationControls.interval = setInterval(() => {
+        // Combine all active movements
+        const movement = { movementX: 0, movementY: 0 }
+        for (const direction of cameraRotationControls.activeDirections) {
+          movement.movementX += cameraRotationControls.movements[direction].movementX
+          movement.movementY += cameraRotationControls.movements[direction].movementY
+        }
+
+        onCameraMove({
+          ...movement,
+          type: 'keyboardRotation',
+          stopPropagation () {}
+        })
+      }, cameraRotationControls.config.interval)
+    }
+  },
+  start (direction: 'left' | 'right' | 'up' | 'down') {
+    cameraRotationControls.activeDirections.add(direction)
+    cameraRotationControls.updateMovement()
+  },
+  stop (direction: 'left' | 'right' | 'up' | 'down') {
+    cameraRotationControls.activeDirections.delete(direction)
+    cameraRotationControls.updateMovement()
+  },
+  handleCommand (command: string, pressed: boolean) {
+    const directionMap = {
+      'general.rotateCameraLeft': 'left',
+      'general.rotateCameraRight': 'right',
+      'general.rotateCameraUp': 'up',
+      'general.rotateCameraDown': 'down'
+    } as const
+
+    const direction = directionMap[command]
+    if (direction) {
+      if (pressed) cameraRotationControls.start(direction)
+      else cameraRotationControls.stop(direction)
+      return true
+    }
+    return false
+  }
+}
+window.cameraRotationControls = cameraRotationControls
+
 const setSneaking = (state: boolean) => {
   gameAdditionalState.isSneaking = state
   bot.setControlState('sneak', state)
@@ -258,10 +352,20 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
-        bot.setControlState('jump', pressed)
+        if (viewer.world.freeFlyMode) {
+          const moveSpeed = 0.5
+          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
+        } else {
+          bot.setControlState('jump', pressed)
+        }
         break
       case 'general.sneak':
-        setSneaking(pressed)
+        if (viewer.world.freeFlyMode) {
+          const moveSpeed = 0.5
+          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
+        } else {
+          setSneaking(pressed)
+        }
         break
       case 'general.sprint':
         // todo add setting to change behavior
@@ -275,7 +379,6 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
         } else if (pressed) {
           setSneaking(!gameAdditionalState.isSneaking)
         }
-
         break
       case 'general.attackDestroy':
         document.dispatchEvent(new MouseEvent(pressed ? 'mousedown' : 'mouseup', { button: 0 }))
@@ -285,6 +388,12 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
         break
       case 'general.zoom':
         gameAdditionalState.isZooming = pressed
+        break
+      case 'general.rotateCameraLeft':
+      case 'general.rotateCameraRight':
+      case 'general.rotateCameraUp':
+      case 'general.rotateCameraDown':
+        cameraRotationControls.handleCommand(command, pressed)
         break
     }
   }
@@ -313,9 +422,11 @@ export function lockUrl () {
     newQs = `reconnect=1`
   } else if (lastConnectOptions.value?.server) {
     const qs = new URLSearchParams()
-    const { server, botVersion } = lastConnectOptions.value
-    qs.set('server', server)
+    const { server, botVersion, proxy, username } = lastConnectOptions.value
+    qs.set('ip', server)
     if (botVersion) qs.set('version', botVersion)
+    if (proxy) qs.set('proxy', proxy)
+    if (username) qs.set('username', username)
     newQs = String(qs.toString())
   }
 
@@ -368,6 +479,12 @@ contro.on('trigger', ({ command }) => {
       case 'general.toggleSneakOrDown':
       case 'general.sprint':
       case 'general.attackDestroy':
+      case 'general.rotateCameraLeft':
+      case 'general.rotateCameraRight':
+      case 'general.rotateCameraUp':
+      case 'general.rotateCameraDown':
+        // no-op
+        break
       case 'general.swapHands': {
         bot._client.write('entity_action', {
           entityId: bot.entity.id,
@@ -421,6 +538,11 @@ contro.on('trigger', ({ command }) => {
         break
       case 'general.zoom':
         break
+      case 'general.viewerConsole':
+        if (lastConnectOptions.value?.viewerWsConnect) {
+          showModal({ reactType: 'console' })
+        }
+        break
     }
   }
 
@@ -431,13 +553,18 @@ contro.on('trigger', ({ command }) => {
   if (command === 'ui.toggleFullscreen') {
     void goFullscreen(true)
   }
+})
 
-  if (command === 'ui.toggleMap') {
-    if (activeModalStack.at(-1)?.reactType === 'full-map') {
-      hideModal({ reactType: 'full-map' })
-    } else {
-      showModal({ reactType: 'full-map' })
-    }
+// show-hide Fullmap
+contro.on('trigger', ({ command }) => {
+  if (command !== 'ui.toggleMap') return
+  const isActive = isGameActive(true)
+  if (activeModalStack.at(-1)?.reactType === 'full-map') {
+    miscUiState.displayFullmap = false
+    hideModal({ reactType: 'full-map' })
+  } else if (isActive && !activeModalStack.length) {
+    miscUiState.displayFullmap = true
+    showModal({ reactType: 'full-map' })
   }
 })
 
@@ -448,7 +575,12 @@ contro.on('release', ({ command }) => {
 
 // hard-coded keybindings
 
-export const f3Keybinds = [
+export const f3Keybinds: Array<{
+  key?: string,
+  action: () => void,
+  mobileTitle: string
+  enabled?: () => boolean
+}> = [
   {
     key: 'KeyA',
     action () {
@@ -494,9 +626,9 @@ export const f3Keybinds = [
     key: 'KeyT',
     async action () {
       // TODO!
-      if (resourcePackState.resourcePackInstalled || loadedGameState.usingServerResourcePack) {
+      if (resourcePackState.resourcePackInstalled || gameAdditionalState.usingServerResourcePack) {
         showNotification('Reloading textures...')
-        await completeTexturePackInstall('default', 'default', loadedGameState.usingServerResourcePack)
+        await completeResourcepackPackInstall('default', 'default', gameAdditionalState.usingServerResourcePack, createNotificationProgressReporter())
       }
     },
     mobileTitle: 'Reload Textures'
@@ -537,7 +669,15 @@ export const f3Keybinds = [
       const proxyPing = await bot['pingProxy']()
       void showOptionsModal(`${username}: last known total latency (ping): ${playerPing}. Connected to ${lastConnectOptions.value?.proxy} with current ping ${proxyPing}. Player UUID: ${uuid}`, [])
     },
-    mobileTitle: 'Show Proxy & Ping Details'
+    mobileTitle: 'Show Player & Ping Details',
+    enabled: () => !lastConnectOptions.value?.singleplayer && !!bot.player
+  },
+  {
+    action () {
+      void copyServerResourcePackToRegular()
+    },
+    mobileTitle: 'Copy Server Resource Pack',
+    enabled: () => !!gameAdditionalState.usingServerResourcePack
   }
 ]
 
@@ -546,7 +686,7 @@ document.addEventListener('keydown', (e) => {
   if (!isGameActive(false)) return
   if (hardcodedPressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
-    if (keybind) {
+    if (keybind && (keybind.enabled?.() ?? true)) {
       keybind.action()
       e.stopPropagation()
     }
@@ -724,6 +864,7 @@ const selectItem = async () => {
 
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
+  if (!isInRealGameSession() && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
   // wheel click
@@ -736,11 +877,15 @@ addEventListener('mousedown', async (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') return
   if (activeModalStack.length) {
-    hideCurrentModal(undefined, () => {
-      if (!activeModalStack.length) {
-        pointerLock.justHitEscape = true
-      }
-    })
+    const hideAll = e.ctrlKey || e.metaKey
+    if (hideAll) {
+      hideAllModals()
+    } else {
+      hideCurrentModal()
+    }
+    if (activeModalStack.length === 0) {
+      pointerLock.justHitEscape = true
+    }
   } else if (pointerLock.hasPointerLock) {
     document.exitPointerLock?.()
     if (options.autoExitFullscreen) {

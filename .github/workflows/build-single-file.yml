@@ -1,0 +1,31 @@
+name: build-single-file
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-bundle:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build single-file version - minecraft.html
+        run: pnpm build-single-file && mv dist/single/index.html minecraft.html
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft.html
+          path: minecraft.html

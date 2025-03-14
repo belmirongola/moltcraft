@@ -4,14 +4,13 @@ import { showInventory } from 'minecraft-inventory-gui/web/ext.mjs'
 // import Dirt from 'mc-assets/dist/other-textures/latest/blocks/dirt.png'
 import { RecipeItem } from 'minecraft-data'
 import { flat, fromFormattedString } from '@xmcl/text-component'
-import mojangson from 'mojangson'
-import nbt from 'prismarine-nbt'
 import { splitEvery, equals } from 'rambda'
 import PItem, { Item } from 'prismarine-item'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
+import { BlockModel } from 'mc-assets'
+import { activeGuiAtlas } from 'renderer/viewer/lib/guiRenderer'
 import Generic95 from '../assets/generic_95.png'
 import { appReplacableResources } from './generated/resources'
 import { activeModalStack, hideCurrentModal, hideModal, miscUiState, showModal } from './globalState'
@@ -21,6 +20,8 @@ import { displayClientChat } from './botUtils'
 import { currentScaling } from './scaleInterface'
 import { getItemDescription } from './itemsDescriptions'
 import { MessageFormatPart } from './chatUtils'
+import { GeneralInputItem, getItemMetadata, getItemNameRaw, RenderItem } from './mineflayer/items'
+import { getItemModelName } from './resourcesManager'
 
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
@@ -36,18 +37,23 @@ export const allImagesLoadedState = proxy({
   value: false
 })
 
-let itemsRenderer: ItemsRenderer
+export const jeiCustomCategories = proxy({
+  value: [] as Array<{ id: string, categoryTitle: string, items: any[] }>
+})
+
 export const onGameLoad = (onLoad) => {
   allImagesLoadedState.value = false
   version = bot.version
 
   const checkIfLoaded = () => {
     if (!viewer.world.itemsAtlasParser) return
-    itemsRenderer = new ItemsRenderer(bot.version, viewer.world.blockstatesModels, viewer.world.itemsAtlasParser, viewer.world.blocksAtlasParser)
-    globalThis.itemsRenderer = itemsRenderer
-    if (allImagesLoadedState.value) return
-    onLoad?.()
-    allImagesLoadedState.value = true
+    if (!allImagesLoadedState.value) {
+      onLoad?.()
+    }
+    allImagesLoadedState.value = false
+    setTimeout(() => {
+      allImagesLoadedState.value = true
+    }, 0)
   }
   viewer.world.renderUpdateEmitter.on('textureDownloaded', checkIfLoaded)
   checkIfLoaded()
@@ -154,7 +160,10 @@ const getImageSrc = (path): string | HTMLImageElement => {
   return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
 }
 
-const getImage = ({ path = undefined as string | undefined, texture = undefined as string | undefined, blockData = undefined as any }, onLoad = () => { }) => {
+const getImage = ({ path = undefined as string | undefined, texture = undefined as string | undefined, blockData = undefined as any, image = undefined as HTMLImageElement | undefined }, onLoad = () => { }) => {
+  if (image) {
+    return image
+  }
   if (!path && !texture) throw new Error('Either pass path or texture')
   const loadPath = (blockData ? 'blocks' : path ?? texture)!
   if (loadedImagesCache.has(loadPath)) {
@@ -174,64 +183,74 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-type RenderSlot = Pick<import('prismarine-item').Item, 'name' | 'displayName' | 'durabilityUsed' | 'maxDurability' | 'enchants'>
-const renderSlot = (slot: RenderSlot, skipBlock = false): {
+export type ResolvedItemModelRender = {
+  modelName: string,
+}
+
+export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = false, fullBlockModelSupport = false): {
   texture: string,
-  blockData?: Record<string, { slice, path }>,
+  blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
   scale?: number,
-  slice?: number[]
+  slice?: number[],
+  modelName?: string,
+  image?: HTMLImageElement
 } | undefined => {
-  let itemName = slot.name
-  const isItem = loadedData.itemsByName[itemName]
+  let itemModelName = model.modelName
+  const originalItemName = itemModelName
+  const isItem = loadedData.itemsByName[itemModelName]
+
+  // #region normalize item name
+  if (versionToNumber(bot.version) < versionToNumber('1.13')) itemModelName = getRenamedData(isItem ? 'items' : 'blocks', itemModelName, bot.version, '1.13.1') as string
+  // #endregion
+
 
   let itemTexture
-  try {
-    if (versionToNumber(bot.version) < versionToNumber('1.13')) itemName = getRenamedData(isItem ? 'items' : 'blocks', itemName, bot.version, '1.13.1') as string
-    itemTexture = itemsRenderer.getItemTexture(itemName) ?? itemsRenderer.getItemTexture('item/missing_texture')!
-  } catch (err) {
-    itemTexture = itemsRenderer.getItemTexture('block/errored')!
-    inGameError(`Failed to render item ${itemName} on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.message}`)
+
+  if (!fullBlockModelSupport) {
+    const atlas = activeGuiAtlas.atlas?.json
+    // todo atlas holds all rendered blocks, not all possibly rendered item/block models, need to request this on demand instead (this is how vanilla works)
+    const item = atlas?.textures[itemModelName.replace('minecraft:', '').replace('block/', '').replace('blocks/', '').replace('item/', '').replace('items/', '').replace('_inventory', '').replace('_bottom', '')]
+    if (item) {
+      const x = item.u * atlas.width
+      const y = item.v * atlas.height
+      return {
+        texture: 'gui',
+        image: activeGuiAtlas.atlas!.image,
+        slice: [x, y, atlas.tileSize, atlas.tileSize],
+        scale: 0.25,
+      }
+    }
   }
+
+  try {
+    assertDefined(viewer.world.itemsRenderer)
+    itemTexture =
+      viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
+      ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
+  } catch (err) {
+    inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
+    itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
+  }
+
+
   if ('type' in itemTexture) {
     // is item
     return {
       texture: itemTexture.type,
-      slice: itemTexture.slice
+      slice: itemTexture.slice,
+      modelName: itemModelName
     }
   } else {
     // is block
     return {
       texture: 'blocks',
-      blockData: itemTexture
+      blockData: itemTexture,
+      modelName: itemModelName
     }
   }
 }
 
-type JsonString = string
-type PossibleItemProps = {
-  Damage?: number
-  display?: { Name?: JsonString } // {"text":"Knife","color":"white","italic":"true"}
-}
-export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null) => {
-  if (!item?.nbt) return
-  const itemNbt: PossibleItemProps = nbt.simplify(item.nbt)
-  const customName = itemNbt.display?.Name
-  if (!customName) return
-  try {
-    const parsed = customName.startsWith('{') && customName.endsWith('}') ? mojangson.simplify(mojangson.parse(customName)) : fromFormattedString(customName)
-    if (parsed.extra) {
-      return parsed as Record<string, any>
-    } else {
-      return parsed as MessageFormatPart
-    }
-  } catch (err) {
-    return {
-      text: customName
-    }
-  }
-}
-
-const getItemName = (slot: Item | null) => {
+const getItemName = (slot: Item | RenderItem | null) => {
   const parsed = getItemNameRaw(slot)
   if (!parsed) return
   // todo display full text renderer from sign renderer
@@ -239,24 +258,17 @@ const getItemName = (slot: Item | null) => {
   return text.join('')
 }
 
-export const renderSlotExternal = (slot) => {
-  const data = renderSlot(slot, true)
-  if (!data) return
-  return {
-    imageDataUrl: data.texture === 'invsprite' ? undefined : getImage({ path: data.texture })?.src,
-    sprite: data.slice && data.texture !== 'invsprite' ? data.slice.map(x => x * 2) : data.slice,
-    displayName: getItemName(slot) ?? slot.displayName,
-  }
-}
-
-const mapSlots = (slots: Array<RenderSlot | Item | null>) => {
-  return slots.map(slot => {
+const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
+  return slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
     try {
-      const slotCustomProps = renderSlot(slot)
-      Object.assign(slot, { ...slotCustomProps, displayName: ('nbt' in slot ? getItemName(slot) : undefined) ?? slot.displayName })
+      const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
+      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', })
+      const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
+      const itemCustomName = getItemName(slot)
+      Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error
       slot.toJSON = () => {
         // Allow to serialize slot to JSON as minecraft-inventory-gui creates icon property as cache (recursively)
@@ -316,12 +328,16 @@ const implementedContainersGuiMap = {
 const upJei = (search: string) => {
   search = search.toLowerCase()
   // todo fix pre flat
-  const matchedSlots = loadedData.itemsArray.map(x => {
+  const itemsArray = [
+    ...jeiCustomCategories.value.flatMap(x => x.items).filter(x => x !== null),
+    ...loadedData.itemsArray.filter(x => x.displayName.toLowerCase().includes(search)).map(item => new PrismarineItem(item.id, 1)).filter(x => x !== null)
+  ]
+  const matchedSlots = itemsArray.map(x => {
     if (!x.displayName.toLowerCase().includes(search)) return null
-    return new PrismarineItem(x.id, 1)
+    return x
   }).filter(a => a !== null)
   lastWindow.pwindow.win.jeiSlotsPage = 0
-  lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots)
+  lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots, true)
 }
 
 export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {
@@ -440,7 +456,15 @@ const openWindow = (type: string | undefined) => {
       inGameError(`Item for block ${slotItem.name} not found`)
       return
     }
-    const item = new PrismarineItem(itemId, isRightclick ? 64 : 1, slotItem.metadata)
+    const item = PrismarineItem.fromNotch({
+      ...slotItem,
+      itemId,
+      itemCount: isRightclick ? 64 : 1,
+      components: slotItem.components ?? [],
+      removeComponents: slotItem.removedComponents ?? [],
+      itemDamage: slotItem.metadata ?? 0,
+      nbt: slotItem.nbt,
+    })
     if (bot.game.gameMode === 'creative') {
       const freeSlot = bot.inventory.firstEmptyInventorySlot()
       if (freeSlot === null) return
@@ -450,16 +474,25 @@ const openWindow = (type: string | undefined) => {
     }
   }
 
-  // if (bot.game.gameMode !== 'spectator') {
-  lastWindow.pwindow.win.jeiSlotsPage = 0
-  // todo workaround so inventory opens immediately (though it still lags)
-  setTimeout(() => {
-    upJei('')
-  })
-  miscUiState.displaySearchInput = true
-  // } else {
-  //   lastWindow.pwindow.win.jeiSlots = []
-  // }
+  const isJeiEnabled = () => {
+    if (typeof options.jeiEnabled === 'boolean') return options.jeiEnabled
+    if (Array.isArray(options.jeiEnabled)) {
+      return options.jeiEnabled.includes(bot.game?.gameMode as any)
+    }
+    return false
+  }
+
+  if (isJeiEnabled()) {
+    lastWindow.pwindow.win.jeiSlotsPage = 0
+    // todo workaround so inventory opens immediately (though it still lags)
+    setTimeout(() => {
+      upJei('')
+    })
+    miscUiState.displaySearchInput = true
+  } else {
+    lastWindow.pwindow.win.jeiSlots = []
+    miscUiState.displaySearchInput = false
+  }
 
   if (type === undefined) {
     // player inventory

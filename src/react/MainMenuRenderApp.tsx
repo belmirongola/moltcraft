@@ -3,29 +3,67 @@ import { Transition } from 'react-transition-group'
 import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useState } from 'react'
 import { activeModalStack, miscUiState, openOptionsMenu, showModal } from '../globalState'
-import { openGithub, setLoadingScreenStatus } from '../utils'
+import { openGithub } from '../utils'
+import { setLoadingScreenStatus } from '../appStatus'
 import { openFilePicker, copyFilesAsync, mkdirRecursive, openWorldDirectory, removeFileRecursiveAsync } from '../browserfs'
 
 import MainMenu from './MainMenu'
 import { DiscordButton } from './DiscordButton'
 
+const isMainMenu = () => {
+  return activeModalStack.length === 0 && !miscUiState.gameLoaded
+}
+
 const refreshApp = async (failedUpdate = false) => {
-  const registration = await navigator.serviceWorker.getRegistration()
-  await registration?.unregister()
-  if (failedUpdate) {
-    await new Promise(resolve => {
-      setTimeout(resolve, 2000)
-    })
-  }
-  if (activeModalStack.length !== 0) return
-  if (failedUpdate) {
-    sessionStorage.justReloaded = false
-    // try to force bypass cache
-    location.search = '?update=true'
-  } else {
-    window.justReloaded = true
-    sessionStorage.justReloaded = true
-    window.location.reload()
+  try {
+    const registration = await navigator.serviceWorker.getRegistration()
+    if (registration) {
+      // First, disconnect all clients
+      const clients = await window.clients?.matchAll() || []
+      await Promise.all(clients.map(client => client.postMessage('SKIP_WAITING')))
+
+      // Force the waiting service worker to become active
+      if (registration.waiting) {
+        registration.waiting.postMessage('SKIP_WAITING')
+      }
+
+      // Add timeout to prevent infinite waiting
+      const unregisterPromise = registration.unregister()
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('SW unregister timeout')), 3000)
+      })
+
+      await Promise.race([unregisterPromise, timeoutPromise])
+        .catch(err => {
+          console.warn('SW unregister error:', err)
+          if (isMainMenu()) {
+            alert('Failed to unregister SW: ' + err)
+          }
+        })
+    }
+
+    if (failedUpdate) {
+      await new Promise(resolve => { setTimeout(resolve, 2000) })
+    }
+
+    if (!isMainMenu()) return
+
+    if (failedUpdate) {
+      sessionStorage.justReloaded = false
+      // try to force bypass cache
+      location.search = '?update=true'
+    } else {
+      window.justReloaded = true
+      sessionStorage.justReloaded = true
+      window.location.reload()
+    }
+  } catch (err) {
+    console.error('Failed to refresh app:', err)
+    if (!isMainMenu()) {
+      alert('Critical error on refreshApp: ' + err)
+      // Fallback to force reload if something goes wrong
+      window.location.reload()
+    }
   }
 }
 
@@ -37,19 +75,21 @@ export const mainMenuState = proxy({
 let disableAnimation = false
 export default () => {
   const haveModals = useSnapshot(activeModalStack).length
-  const { gameLoaded, appLoaded, appConfig } = useSnapshot(miscUiState)
+  const { gameLoaded, fsReady, appConfig, singleplayerAvailable } = useSnapshot(miscUiState)
 
-  const noDisplay = haveModals || gameLoaded || !appLoaded
+  const noDisplay = haveModals || gameLoaded || !fsReady
 
   useEffect(() => {
-    if (noDisplay && appLoaded) disableAnimation = true
+    if (noDisplay && fsReady) disableAnimation = true
   }, [noDisplay])
 
   const [versionStatus, setVersionStatus] = useState('')
   const [versionTitle, setVersionTitle] = useState('')
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.SINGLE_FILE_BUILD_MODE) {
+      setVersionStatus('(single file build)')
+    } else if (process.env.NODE_ENV === 'development') {
       setVersionStatus('(dev)')
     } else {
       fetch('./version.txt').then(async (f) => {
@@ -80,6 +120,7 @@ export default () => {
   return <Transition in={!noDisplay} timeout={disableAnimation ? 0 : 100} mountOnEnter unmountOnExit>
     {(state) => <div style={{ transition: state === 'exiting' || disableAnimation ? '' : '100ms opacity ease-in', ...state === 'entered' ? { opacity: 1 } : { opacity: 0 } }}>
       <MainMenu
+        singleplayerAvailable={singleplayerAvailable}
         connectToServerAction={() => showModal({ reactType: 'serversList' })}
         singleplayerAction={async () => {
           const oldFormatSave = fs.existsSync('./world/level.dat')
@@ -121,7 +162,7 @@ export default () => {
           await refreshApp()
         }}
         onVersionTextClick={async () => {
-          openGithub('/releases')
+          openGithub(process.env.RELEASE_LINK)
         }}
         versionText={process.env.RELEASE_TAG}
       />

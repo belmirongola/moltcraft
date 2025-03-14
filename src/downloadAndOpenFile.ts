@@ -1,17 +1,36 @@
 import prettyBytes from 'pretty-bytes'
 import { openWorldFromHttpDir, openWorldZip } from './browserfs'
-import { getResourcePackNames, installTexturePack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
-import { setLoadingScreenStatus } from './utils'
+import { getResourcePackNames, installResourcepackPack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
+import { setLoadingScreenStatus } from './appStatus'
+import { appQueryParams, appQueryParamsArray } from './appParams'
+import { VALID_REPLAY_EXTENSIONS, openFile } from './packetsReplay/replayPackets'
+import { createFullScreenProgressReporter } from './core/progressReporter'
 
 export const getFixedFilesize = (bytes: number) => {
   return prettyBytes(bytes, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const inner = async () => {
-  const qs = new URLSearchParams(window.location.search)
-  const mapUrlDir = qs.getAll('mapDir')
-  const mapUrlDirGuess = qs.get('mapDirGuess')
-  const mapUrlDirBaseUrl = qs.get('mapDirBaseUrl')
+  const { replayFileUrl } = appQueryParams
+  if (replayFileUrl) {
+    setLoadingScreenStatus('Downloading replay file...')
+    const response = await fetch(replayFileUrl)
+    const contentLength = response.headers?.get('Content-Length')
+    const size = contentLength ? +contentLength : undefined
+    const filename = replayFileUrl.split('/').pop()
+
+    const contents = await response.text()
+    openFile({
+      contents,
+      filename,
+      filesize: size
+    })
+    return true
+  }
+
+  const mapUrlDir = appQueryParamsArray.mapDir ?? []
+  const mapUrlDirGuess = appQueryParams.mapDirGuess
+  const mapUrlDirBaseUrl = appQueryParams.mapDirBaseUrl
   if (mapUrlDir.length) {
     await openWorldFromHttpDir(mapUrlDir, mapUrlDirBaseUrl ?? undefined)
     return true
@@ -20,8 +39,8 @@ const inner = async () => {
     // await openWorldFromHttpDir(undefined, mapUrlDirGuess)
     return true
   }
-  let mapUrl = qs.get('map')
-  const texturepack = qs.get('texturepack')
+  let mapUrl = appQueryParams.map
+  const { texturepack } = appQueryParams
   // fixme
   if (texturepack) mapUrl = texturepack
   if (!mapUrl) return false
@@ -74,7 +93,7 @@ const inner = async () => {
   })).arrayBuffer()
   if (texturepack) {
     const name = mapUrl.slice(mapUrl.lastIndexOf('/') + 1).slice(-30)
-    await installTexturePack(buffer, name)
+    await installResourcepackPack(buffer, createFullScreenProgressReporter(), name)
   } else {
     await openWorldZip(buffer)
   }

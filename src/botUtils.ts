@@ -1,4 +1,4 @@
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import * as nbt from 'prismarine-nbt'
 
 export const displayClientChat = (text: string) => {
@@ -21,6 +21,15 @@ export const displayClientChat = (text: string) => {
 }
 
 export const parseFormattedMessagePacket = (arg) => {
+  // if (typeof arg === 'string') {
+  //   try {
+  //     arg = JSON.parse(arg)
+  //     return {
+  //       formatted: arg,
+  //       plain: ''
+  //     }
+  //   } catch {}
+  // }
   if (typeof arg === 'object') {
     try {
       return {

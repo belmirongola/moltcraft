@@ -4,8 +4,11 @@ import { proxy, subscribe } from 'valtio/vanilla'
 // weird webpack configuration bug: it cant import valtio/utils in this file
 import { subscribeKey } from 'valtio/utils'
 import { omitObj } from '@zardoy/utils'
+import { appQueryParamsArray } from './appParams'
+import type { AppConfig } from './appConfig'
 
 const isDev = process.env.NODE_ENV === 'development'
+const initialAppConfig = process.env?.INLINED_APP_CONFIG as AppConfig ?? {}
 const defaultOptions = {
   renderDistance: 3,
   keepChunksDistance: 1,
@@ -17,7 +20,6 @@ const defaultOptions = {
   localUsername: 'wanderer',
   mouseSensX: 50,
   mouseSensY: -1,
-  // mouseInvertX: false,
   chatWidth: 320,
   chatHeight: 180,
   chatScale: 100,
@@ -25,6 +27,7 @@ const defaultOptions = {
   chatOpacityOpened: 100,
   messagesLimit: 200,
   volume: 50,
+  enableMusic: false,
   // fov: 70,
   fov: 75,
   guiScale: 3,
@@ -33,7 +36,8 @@ const defaultOptions = {
   touchButtonsOpacity: 80,
   touchButtonsPosition: 12,
   touchControlsPositions: getDefaultTouchControlsPositions(),
-  touchControlsType: 'classic' as 'classic' | 'joystick-buttons',
+  touchMovementType: 'modern' as 'modern' | 'classic',
+  touchInteractionType: 'classic' as 'classic' | 'buttons',
   gpuPreference: 'default' as 'default' | 'high-performance' | 'low-power',
   backgroundRendering: '20fps' as 'full' | '20fps' | '5fps',
   /** @unstable */
@@ -43,12 +47,23 @@ const defaultOptions = {
   unimplementedContainers: false,
   dayCycleAndLighting: true,
   loadPlayerSkins: true,
+  renderEars: true,
   lowMemoryMode: false,
   starfieldRendering: true,
   enabledResourcepack: null as string | null,
   useVersionsTextures: 'latest',
   serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
-  handDisplay: false,
+  showHand: true,
+  viewBobbing: true,
+  displayRecordButton: true,
+  packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
+  serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
+  customChannels: false,
+  packetsReplayAutoStart: false,
+  preciseMouseInput: false,
+  // todo ui setting, maybe enable by default?
+  waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
+  jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
 
   // antiAliasing: false,
 
@@ -80,7 +95,6 @@ const defaultOptions = {
   autoParkour: false,
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
   renderDebug: (isDev ? 'advanced' : 'basic') as 'none' | 'advanced' | 'basic',
-  autoVersionSelect: '1.20.4',
 
   // advanced bot options
   autoRespawn: false,
@@ -91,9 +105,10 @@ const defaultOptions = {
   wysiwygSignEditor: 'auto' as 'auto' | 'always' | 'never',
   showMinimap: 'never' as 'always' | 'singleplayer' | 'never',
   minimapOptimizations: true,
-  displayBossBars: false, // boss bar overlay was removed for some reason, enable safely
+  displayBossBars: true,
   disabledUiParts: [] as string[],
-  neighborChunkUpdates: true
+  neighborChunkUpdates: true,
+  highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
 }
 
 function getDefaultTouchControlsPositions () {
@@ -117,11 +132,17 @@ function getDefaultTouchControlsPositions () {
   } as Record<string, [number, number]>
 }
 
-const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')
+// const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')
+const qsOptionsRaw = appQueryParamsArray.setting ?? []
 export const qsOptions = Object.fromEntries(qsOptionsRaw.map(o => {
   const [key, value] = o.split(':')
   return [key, JSON.parse(value)]
 }))
+
+// Track which settings are disabled (controlled by QS or forced by config)
+export const disabledSettings = proxy({
+  value: new Set<string>(Object.keys(qsOptions))
+})
 
 const migrateOptions = (options: Partial<AppOptions & Record<string, any>>) => {
   if (options.highPerformanceGpu) {
@@ -134,15 +155,21 @@ const migrateOptions = (options: Partial<AppOptions & Record<string, any>>) => {
   if (options.touchControlsPositions?.jump === undefined) {
     options.touchControlsPositions!.jump = defaultOptions.touchControlsPositions.jump
   }
+  if (options.touchControlsType === 'joystick-buttons') {
+    options.touchInteractionType = 'buttons'
+  }
 
   return options
 }
 
 export type AppOptions = typeof defaultOptions
 
+// when opening html file locally in browser, localStorage is shared between all ever opened html files, so we try to avoid conflicts
+const localStorageKey = process.env?.SINGLE_FILE_BUILD ? 'minecraftWebClientOptions' : 'options'
 export const options: AppOptions = proxy({
   ...defaultOptions,
-  ...migrateOptions(JSON.parse(localStorage.options || '{}')),
+  ...initialAppConfig.defaultSettings,
+  ...migrateOptions(JSON.parse(localStorage[localStorageKey] || '{}')),
   ...qsOptions
 })
 
@@ -159,11 +186,12 @@ Object.defineProperty(window, 'debugChangedOptions', {
 })
 
 subscribe(options, () => {
-  const saveOptions = omitObj(options, ...Object.keys(qsOptions) as [any])
-  localStorage.options = JSON.stringify(saveOptions)
+  // Don't save disabled settings to localStorage
+  const saveOptions = omitObj(options, [...disabledSettings.value] as any)
+  localStorage[localStorageKey] = JSON.stringify(saveOptions)
 })
 
-type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T, isChanged: boolean) => void) => void
+type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T, isChanged: boolean) => void) => () => void
 
 export const watchValue: WatchValue = (proxy, callback) => {
   const watchedProps = new Set<string>()
@@ -173,10 +201,19 @@ export const watchValue: WatchValue = (proxy, callback) => {
       return Reflect.get(target, p, receiver)
     },
   }), false)
+  const unsubscribes = [] as Array<() => void>
   for (const prop of watchedProps) {
-    subscribeKey(proxy, prop, () => {
-      callback(proxy, true)
-    })
+    unsubscribes.push(
+      subscribeKey(proxy, prop, () => {
+        callback(proxy, true)
+      })
+    )
+  }
+
+  return () => {
+    for (const unsubscribe of unsubscribes) {
+      unsubscribe()
+    }
   }
 }
 

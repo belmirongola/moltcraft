@@ -6,7 +6,7 @@
   left: 50%;
   transform: translate(-50%);
   gap: 0 5px;
-  z-index: -1;
+  z-index: var(--has-modals-z, 7);
 }
 
 .pause-btn,

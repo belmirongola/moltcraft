@@ -19,7 +19,7 @@ import ScoreboardProvider from './react/ScoreboardProvider'
 import SignEditorProvider from './react/SignEditorProvider'
 import IndicatorEffectsProvider from './react/IndicatorEffectsProvider'
 import PlayerListOverlayProvider from './react/PlayerListOverlayProvider'
-import MinimapProvider from './react/MinimapProvider'
+import MinimapProvider, { DrawerAdapterImpl } from './react/MinimapProvider'
 import HudBarsProvider from './react/HudBarsProvider'
 import XPBarProvider from './react/XPBarProvider'
 import DebugOverlay from './react/DebugOverlay'
@@ -45,6 +45,14 @@ import SignInMessageProvider from './react/SignInMessageProvider'
 import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
+import DebugEdges from './react/DebugEdges'
+import GameInteractionOverlay from './react/GameInteractionOverlay'
+import MineflayerPluginHud from './react/MineflayerPluginHud'
+import MineflayerPluginConsole from './react/MineflayerPluginConsole'
+import { UIProvider } from './react/UIProvider'
+import { useAppScale } from './scaleInterface'
+import PacketsReplayProvider from './react/PacketsReplayProvider'
+import TouchInteractionHint from './react/TouchInteractionHint'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -100,28 +108,34 @@ const InGameComponent = ({ children }) => {
   return children
 }
 
+// for Fullmap and Minimap in InGameUi
+let adapter: DrawerAdapterImpl
+
 const InGameUi = () => {
   const { gameLoaded, showUI: showUIRaw } = useSnapshot(miscUiState)
   const { disabledUiParts, displayBossBars, showMinimap } = useSnapshot(options)
   const modalsSnapshot = useSnapshot(activeModalStack)
   const hasModals = modalsSnapshot.length > 0
   const showUI = showUIRaw || hasModals
-  const displayFullmap = modalsSnapshot.some(modal => modal.reactType === 'full-map')
+  const displayFullmap = modalsSnapshot.some(modal => modal.reactType === 'full-map') || true
   // bot can't be used here
 
   if (!gameLoaded || !bot || disabledUiParts.includes('*')) return
+
+  if (!adapter) adapter = new DrawerAdapterImpl(bot.entity.position)
 
   return <>
     <RobustPortal to={document.querySelector('#ui-root')}>
       {/* apply scaling */}
       <div style={{ display: showUI ? 'block' : 'none' }}>
+        <GameInteractionOverlay zIndex={7} />
         {!disabledUiParts.includes('death-screen') && <DeathScreenProvider />}
         {!disabledUiParts.includes('debug-overlay') && <DebugOverlay />}
         {!disabledUiParts.includes('mobile-top-buttons') && <MobileTopButtons />}
         {!disabledUiParts.includes('players-list') && <PlayerListOverlayProvider />}
         {!disabledUiParts.includes('chat') && <ChatProvider />}
         <SoundMuffler />
-        {showMinimap !== 'never' && <MinimapProvider displayMode='minimapOnly' />}
+        {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
         {!disabledUiParts.includes('title') && <TitleProvider />}
         {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
         {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
@@ -131,6 +145,9 @@ const InGameUi = () => {
       </div>
 
       <PauseScreen />
+      <MineflayerPluginHud />
+      <MineflayerPluginConsole />
+      {showUI && <TouchInteractionHint />}
       <div style={{ display: showUI ? 'block' : 'none' }}>
         {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
         {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
@@ -143,7 +160,7 @@ const InGameUi = () => {
       <DisplayQr />
     </PerComponentErrorBoundary>
     <RobustPortal to={document.body}>
-      {displayFullmap && <MinimapProvider displayMode='fullmapOnly' />}
+      {displayFullmap && <MinimapProvider adapter={adapter} displayMode='fullmapOnly' />}
       {/* because of z-index */}
       {showUI && <TouchControls />}
       <GlobalSearchInput />
@@ -163,44 +180,48 @@ const WidgetDisplay = ({ name, Component }) => {
 }
 
 const App = () => {
-  return <div>
-    <ButtonAppProvider>
-      <RobustPortal to={document.body}>
-        <div className='overlay-bottom-scaled'>
-          <InGameComponent>
-            <HeldMapUi />
-          </InGameComponent>
-        </div>
-        <div />
-      </RobustPortal>
-      <EnterFullscreenButton />
-      <InGameUi />
-      <RobustPortal to={document.querySelector('#ui-root')}>
-        <AllWidgets />
-        <SingleplayerProvider />
-        <CreateWorldProvider />
-        <AppStatusProvider />
-        <KeybindingsScreenProvider />
-        <SelectOption />
-        <ServersListProvider />
-        <OptionsRenderApp />
-        <MainMenuRenderApp />
-        <NotificationProvider />
-        <TouchAreasControlsProvider />
-        <SignInMessageProvider />
-        <NoModalFoundProvider />
-        {/* <GameHud>
-        </GameHud> */}
-      </RobustPortal>
-      <RobustPortal to={document.body}>
-        {/* todo correct mounting! */}
-        <div className='overlay-top-scaled'>
-          <GamepadUiCursor />
-        </div>
-        <div />
-      </RobustPortal>
-    </ButtonAppProvider>
-  </div>
+  const scale = useAppScale()
+  return (
+    <UIProvider scale={scale}>
+      <div>
+        <ButtonAppProvider>
+          <RobustPortal to={document.body}>
+            <div className='overlay-bottom-scaled'>
+              <InGameComponent>
+                <HeldMapUi />
+              </InGameComponent>
+            </div>
+            <div />
+          </RobustPortal>
+          <EnterFullscreenButton />
+          <InGameUi />
+          <RobustPortal to={document.querySelector('#ui-root')}>
+            <AllWidgets />
+            <SingleplayerProvider />
+            <CreateWorldProvider />
+            <AppStatusProvider />
+            <KeybindingsScreenProvider />
+            <SelectOption />
+            <ServersListProvider />
+            <OptionsRenderApp />
+            <MainMenuRenderApp />
+            <TouchAreasControlsProvider />
+            <SignInMessageProvider />
+            <NoModalFoundProvider />
+            <PacketsReplayProvider />
+            <NotificationProvider />
+          </RobustPortal>
+          <RobustPortal to={document.body}>
+            <div className='overlay-top-scaled'>
+              <GamepadUiCursor />
+            </div>
+            <div />
+            <DebugEdges />
+          </RobustPortal>
+        </ButtonAppProvider>
+      </div>
+    </UIProvider>
+  )
 }
 
 const PerComponentErrorBoundary = ({ children }) => {

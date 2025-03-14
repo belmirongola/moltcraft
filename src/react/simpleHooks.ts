@@ -1,9 +1,22 @@
 import { useUtilsEffect } from '@zardoy/react-util'
+import { useEffect, useState } from 'react'
 import { useMedia } from 'react-use'
 
 const SMALL_SCREEN_MEDIA = '@media (max-width: 440px)'
 export const useIsSmallWidth = () => {
   return useMedia(SMALL_SCREEN_MEDIA.replace('@media ', ''))
+}
+
+export const usePassesWindowDimensions = (minWidth: number | null = null, minHeight: number | null = null) => {
+  let media = '('
+  if (minWidth !== null) {
+    media += `min-width: ${minWidth}px, `
+  }
+  if (minHeight !== null) {
+    media += `min-height: ${minHeight}px, `
+  }
+  media += ')'
+  return useMedia(media)
 }
 
 export const useCopyKeybinding = (getCopyText: () => string | undefined) => {
@@ -24,4 +37,20 @@ export const useCopyKeybinding = (getCopyText: () => string | undefined) => {
       }
     }, { signal })
   }, [getCopyText])
+}
+
+export const useIsHashActive = (hash: `#${string}`) => {
+  const [isActive, setIsActive] = useState(false)
+
+  useEffect(() => {
+    const checkHash = () => {
+      setIsActive(location.hash === hash)
+    }
+    checkHash()
+    addEventListener('hashchange', checkHash)
+    return () => {
+      removeEventListener('hashchange', checkHash)
+    }
+  }, [])
+  return isActive
 }

@@ -1,11 +1,12 @@
 import fs from 'fs'
 import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useRef, useState } from 'react'
-import { loadScript } from 'prismarine-viewer/viewer/lib/utils'
+import { loadScript } from 'renderer/viewer/lib/utils'
 import { fsState, loadSave, longArrayToNumber, readLevelDat } from '../loadSave'
 import { googleDriveGetFileIdFromPath, mountExportFolder, mountGoogleDriveFolder, removeFileRecursiveAsync } from '../browserfs'
 import { hideCurrentModal, showModal } from '../globalState'
-import { haveDirectoryPicker, setLoadingScreenStatus } from '../utils'
+import { haveDirectoryPicker } from '../utils'
+import { setLoadingScreenStatus } from '../appStatus'
 import { exportWorld } from '../builtinCommands'
 import { googleProviderState, useGoogleLogIn, GoogleDriveProvider, isGoogleDriveAvailable, APP_ID } from '../googledrive'
 import Singleplayer, { WorldProps } from './Singleplayer'
@@ -90,6 +91,7 @@ export const readWorlds = (abortController: AbortController) => {
           iconSrc: iconBase64 ? `data:image/png;base64,${iconBase64}` : undefined,
           size,
           lastModified: levelDatStat.mtimeMs,
+          group: 'IndexedDB Memory Worlds'
         } satisfies WorldProps & { lastModified?: number }
       }))).filter((x, i) => {
         if (x.status === 'rejected') {
@@ -282,10 +284,10 @@ const Inner = () => {
   return <Singleplayer
     error={error}
     isReadonly={selectedProvider === 'google' && (googleDriveReadonly || !isGoogleProviderReady || !selectedGoogleId)}
-    providers={{
-      local: 'Local',
-      google: 'Google Drive',
-    }}
+    // providers={{
+    //   local: 'Local',
+    //   google: 'Google Drive',
+    // }}
     disabledProviders={[...isGoogleDriveAvailable() ? [] : ['google']]}
     worldData={worlds}
     providerActions={providerActions}
