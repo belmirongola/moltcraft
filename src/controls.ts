@@ -185,10 +185,10 @@ let lastCommandTrigger = null as { command: string, time: number } | null
 
 const secondActionActivationTimeout = 300
 const secondActionCommands = {
-  // 'general.jump' () {
-  //   // if (bot.game.gameMode === 'spectator') return
-  //   toggleFly()
-  // },
+  'general.jump' () {
+    // if (bot.game.gameMode === 'spectator') return
+    toggleFly()
+  },
   'general.forward' () {
     setSprinting(true)
   }
@@ -706,150 +706,40 @@ document.addEventListener('visibilitychange', (e) => {
   }
 })
 
-// #region creative fly
-// these controls are more like for gamemode 3
+const isFlying = () => (bot.entity as any).flying
 
-const makeInterval = (fn, interval) => {
-  const intervalId = setInterval(fn, interval)
-
-  const cleanup = () => {
-    clearInterval(intervalId)
-    cleanup.active = false
+const startFlying = (sendAbilities = true) => {
+  if (sendAbilities) {
+    bot._client.write('abilities', {
+      flags: 2,
+    })
   }
-  cleanup.active = true
-  return cleanup
+  (bot.entity as any).flying = true
 }
 
-// const isFlying = () => bot.physics.gravity === 0
-// let endFlyLoop: ReturnType<typeof makeInterval> | undefined
-
-// const currentFlyVector = new Vec3(0, 0, 0)
-// window.currentFlyVector = currentFlyVector
-
-// todo cleanup
-// const flyingPressedKeys = {
-//   down: false,
-//   up: false
-// }
-
-// const startFlyLoop = () => {
-//   if (!isFlying()) return
-//   endFlyLoop?.()
-
-//   endFlyLoop = makeInterval(() => {
-//     if (!bot) {
-//       endFlyLoop?.()
-//       return
-//     }
-
-//     bot.entity.position.add(currentFlyVector.clone().multiply(new Vec3(0, 0.5, 0)))
-//   }, 50)
-// }
-
-// todo we will get rid of patching it when refactor controls
-// let originalSetControlState
-// const patchedSetControlState = (action, state) => {
-//   if (!isFlying()) {
-//     return originalSetControlState(action, state)
-//   }
-
-//   const actionPerFlyVector = {
-//     jump: new Vec3(0, 1, 0),
-//     sneak: new Vec3(0, -1, 0),
-//   }
-
-//   const changeVec = actionPerFlyVector[action]
-//   if (!changeVec) {
-//     return originalSetControlState(action, state)
-//   }
-//   if (flyingPressedKeys[state === 'jump' ? 'up' : 'down'] === state) return
-//   const toAddVec = changeVec.scaled(state ? 1 : -1)
-//   for (const coord of ['x', 'y', 'z']) {
-//     if (toAddVec[coord] === 0) continue
-//     if (currentFlyVector[coord] === toAddVec[coord]) return
-//   }
-//   currentFlyVector.add(toAddVec)
-//   flyingPressedKeys[state === 'jump' ? 'up' : 'down'] = state
-// }
-
-// const startFlying = (sendAbilities = true) => {
-//   bot.entity['creativeFly'] = true
-//   if (sendAbilities) {
-//     bot._client.write('abilities', {
-//       flags: 2,
-//     })
-//   }
-//   // window.flyingSpeed will be removed
-//   bot.physics['airborneAcceleration'] = window.flyingSpeed ?? 0.1 // todo use abilities
-//   bot.entity.velocity = new Vec3(0, 0, 0)
-//   bot.creative.startFlying()
-//   startFlyLoop()
-// }
-
-// const endFlying = (sendAbilities = true) => {
-//   bot.entity['creativeFly'] = false
-//   if (bot.physics.gravity !== 0) return
-//   if (sendAbilities) {
-//     bot._client.write('abilities', {
-//       flags: 0,
-//     })
-//   }
-//   Object.assign(flyingPressedKeys, {
-//     up: false,
-//     down: false
-//   })
-//   currentFlyVector.set(0, 0, 0)
-//   bot.physics['airborneAcceleration'] = standardAirborneAcceleration
-//   bot.creative.stopFlying()
-//   endFlyLoop?.()
-// }
-
-const allowFlying = false
+const endFlying = (sendAbilities = true) => {
+  if (!isFlying()) return
+  if (sendAbilities) {
+    bot._client.write('abilities', {
+      flags: 0,
+    })
+  }
+  (bot.entity as any).flying = false
+}
 
 export const onBotCreate = () => {
-  // let wasSpectatorFlying = false
-  // bot._client.on('abilities', ({ flags }) => {
-  //   if (flags & 2) { // flying
-  //     toggleFly(true, false)
-  //   } else {
-  //     toggleFly(false, false)
-  //   }
-  //   allowFlying = !!(flags & 4)
-  // })
-  // const gamemodeCheck = () => {
-  //   if (bot.game.gameMode === 'spectator') {
-  //     toggleFly(true, false)
-  //     wasSpectatorFlying = true
-  //   } else if (wasSpectatorFlying) {
-  //     toggleFly(false, false)
-  //     wasSpectatorFlying = false
-  //   }
-  // }
-  // bot.on('game', () => {
-  //   gamemodeCheck()
-  // })
-  // bot.on('login', () => {
-  //   gamemodeCheck()
-  // })
 }
 
-// const standardAirborneAcceleration = 0.02
-// const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
-//   // if (bot.game.gameMode !== 'creative' && bot.game.gameMode !== 'spectator') return
-//   if (!allowFlying) return
-//   if (bot.setControlState !== patchedSetControlState) {
-//     originalSetControlState = bot.setControlState
-//     bot.setControlState = patchedSetControlState
-//   }
+const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
+  if (!bot.entity.canFly) return
 
-//   if (newState) {
-//     startFlying(sendAbilities)
-//   } else {
-//     endFlying(sendAbilities)
-//   }
-//   gameAdditionalState.isFlying = isFlying()
-// }
-// #endregion
+  if (newState) {
+    startFlying(sendAbilities)
+  } else {
+    endFlying(sendAbilities)
+  }
+  gameAdditionalState.isFlying = isFlying()
+}
 
 const selectItem = async () => {
   const block = bot.blockAtCursor(5)
