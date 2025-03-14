@@ -1,4 +1,4 @@
-import { proxy, subscribe } from 'valtio'
+import { proxy, ref, subscribe } from 'valtio'
 import { UserOverridesConfig } from 'contro-max/build/types/store'
 import { subscribeKey } from 'valtio/utils'
 import { CustomCommand } from './KeybindingsCustom'
@@ -43,6 +43,30 @@ const oldKeysAliases: Partial<Record<keyof StorageData, string>> = {
   serversHistory: 'serverConnectionHistory',
 }
 
+const migrateLegacyData = () => {
+  const proxies = localStorage.getItem('proxies')
+  const selectedProxy = localStorage.getItem('selectedProxy')
+  if (proxies && selectedProxy) {
+    appStorage.proxiesData = {
+      proxies: JSON.parse(proxies),
+      selected: selectedProxy,
+    }
+  }
+
+  const username = localStorage.getItem('username')
+  if (username && !username.startsWith('"')) {
+    appStorage.username = username
+  }
+
+  const serversHistoryLegacy = localStorage.getItem('serverConnectionHistory')
+  if (serversHistoryLegacy) {
+    appStorage.serversHistory = JSON.parse(serversHistoryLegacy)
+  }
+  localStorage.removeItem('proxies')
+  localStorage.removeItem('selectedProxy')
+  localStorage.removeItem('serverConnectionHistory')
+}
+
 const defaultStorageData: StorageData = {
   customCommands: undefined,
   username: undefined,
@@ -59,6 +83,7 @@ export const setDefaultDataOnConfigLoad = () => {
 }
 
 export const appStorage = proxy({ ...defaultStorageData })
+window.appStorage = appStorage
 
 // Restore data from localStorage
 for (const key of Object.keys(defaultStorageData)) {
@@ -67,7 +92,8 @@ for (const key of Object.keys(defaultStorageData)) {
   const storedValue = localStorage.getItem(prefixedKey) ?? (aliasedKey ? localStorage.getItem(aliasedKey) : undefined)
   if (storedValue) {
     try {
-      appStorage[key] = JSON.parse(storedValue)
+      const parsed = JSON.parse(storedValue)
+      appStorage[key] = parsed && typeof parsed === 'object' ? ref(parsed) : parsed
     } catch (e) {
       console.error(`Failed to parse stored value for ${key}:`, e)
     }
@@ -88,10 +114,16 @@ for (const key of Object.keys(appStorage)) {
   })
 }
 
-export const getStoredValue = <T extends keyof StorageData> (name: T): StorageData[T] => {
-  return appStorage[name]
+export const resetAppStorage = () => {
+  for (const key of Object.keys(appStorage)) {
+    appStorage[key as keyof StorageData] = defaultStorageData[key as keyof StorageData]
+  }
+
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith(localStoragePrefix)) {
+      localStorage.removeItem(key)
+    }
+  }
 }
 
-export const setStoredValue = <T extends keyof StorageData> (name: T, value: StorageData[T]) => {
-  appStorage[name] = value
-}
+migrateLegacyData()

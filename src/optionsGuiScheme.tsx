@@ -3,13 +3,13 @@ import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
 import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
-import { AppOptions, getChangedSettings, options } from './optionsStorage'
+import { AppOptions, getChangedSettings, options, resetOptions } from './optionsStorage'
 import Button from './react/Button'
 import { OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
 import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
-import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
+import { openFilePicker, resetLocalStorage } from './browserfs'
 import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
@@ -452,9 +452,19 @@ export const guiOptionsScheme: {
         return <Button
           inScreen
           onClick={() => {
-            if (confirm('Are you sure you want to reset all settings?')) resetLocalStorageWithoutWorld()
+            if (confirm('Are you sure you want to reset all settings?')) resetOptions()
           }}
-        >Reset all settings</Button>
+        >Reset settings</Button>
+      },
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          onClick={() => {
+            if (confirm('Are you sure you want to remove all data (settings, keybindings, servers, username, auth, proxies)?')) resetLocalStorage()
+          }}
+        >Remove all data</Button>
       },
     },
     {
