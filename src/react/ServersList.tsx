@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useSnapshot } from 'valtio'
 import { miscUiState } from '../globalState'
 import { appQueryParams } from '../appParams'
@@ -43,6 +43,7 @@ export default ({
   ...props
 }: Props) => {
   const snap = useSnapshot(appStorage)
+  const username = useMemo(() => getCurrentUsername(), [appQueryParams.username, appStorage.username])
   const [serverIp, setServerIp] = React.useState('')
   const [save, setSave] = React.useState(true)
   const [activeHighlight, setActiveHighlight] = React.useState(undefined as 'quick-connect' | 'server-list' | undefined)
@@ -135,7 +136,7 @@ export default ({
           <PixelartIcon iconName='user' styles={{ fontSize: 14, color: 'lightgray', marginLeft: 2 }} onClick={onProfileClick} />
           <Input
             rootStyles={{ width: 80 }}
-            value={snap.username ?? ''}
+            value={username}
             disabled={appQueryParams.username !== undefined}
             onChange={({ target: { value } }) => setUsername(value)}
             autoCorrect="off"
