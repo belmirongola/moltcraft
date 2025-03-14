@@ -24,6 +24,7 @@ export interface IPlayerState {
   getItemUsageTicks?(): number
   // isUsingItem?(): boolean
   getHeldItem?(isLeftHand: boolean): HandItemBlock | undefined
+  gameMode?: string
   username?: string
   onlineMode?: boolean
 

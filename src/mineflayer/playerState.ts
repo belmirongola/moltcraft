@@ -29,6 +29,10 @@ export class PlayerStateManager implements IPlayerState {
     return bot.player?.username ?? ''
   }
 
+  get gameMode () {
+    return bot.game?.gameMode
+  }
+
   reactive = proxy({
     playerSkin: undefined as string | undefined,
   })
