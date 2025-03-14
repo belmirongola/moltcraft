@@ -78,8 +78,8 @@ const defaultStorageData: StorageData = {
   serversList: undefined,
 }
 
-export const setDefaultDataOnConfigLoad = () => {
-  defaultStorageData.username = `mcrafter${Math.floor(Math.random() * 1000)}`
+export const setStorageDataOnAppConfigLoad = () => {
+  appStorage.username ??= `mcrafter${Math.floor(Math.random() * 1000)}`
 }
 
 export const appStorage = proxy({ ...defaultStorageData })
@@ -93,26 +93,32 @@ for (const key of Object.keys(defaultStorageData)) {
   if (storedValue) {
     try {
       const parsed = JSON.parse(storedValue)
-      appStorage[key] = parsed && typeof parsed === 'object' ? ref(parsed) : parsed
+      // appStorage[key] = parsed && typeof parsed === 'object' ? ref(parsed) : parsed
+      appStorage[key] = parsed
     } catch (e) {
       console.error(`Failed to parse stored value for ${key}:`, e)
     }
   }
 }
 
-// Subscribe to changes and save to localStorage
-for (const key of Object.keys(appStorage)) {
-  // eslint-disable-next-line @typescript-eslint/no-loop-func
-  subscribeKey(appStorage, key, () => {
-    const prefixedKey = `${localStoragePrefix}${key}`
-    const value = appStorage[key as keyof StorageData]
-    if (value === undefined) {
-      localStorage.removeItem(prefixedKey)
-    } else {
-      localStorage.setItem(prefixedKey, JSON.stringify(value))
-    }
-  })
+const saveKey = (key: keyof StorageData) => {
+  const prefixedKey = `${localStoragePrefix}${key}`
+  const value = appStorage[key]
+  if (value === undefined) {
+    localStorage.removeItem(prefixedKey)
+  } else {
+    localStorage.setItem(prefixedKey, JSON.stringify(value))
+  }
 }
+
+subscribe(appStorage, (ops) => {
+  for (const op of ops) {
+    const [type, path, value] = op
+    const key = path[0]
+    saveKey(key as keyof StorageData)
+  }
+})
+// Subscribe to changes and save to localStorage
 
 export const resetAppStorage = () => {
   for (const key of Object.keys(appStorage)) {

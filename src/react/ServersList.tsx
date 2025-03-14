@@ -136,6 +136,7 @@ export default ({
           <Input
             rootStyles={{ width: 80 }}
             value={snap.username ?? ''}
+            disabled={appQueryParams.username !== undefined}
             onChange={({ target: { value } }) => setUsername(value)}
             autoCorrect="off"
             autoCapitalize="off"

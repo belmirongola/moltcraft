@@ -1,7 +1,7 @@
 import { disabledSettings, options, qsOptions } from './optionsStorage'
 import { miscUiState } from './globalState'
 import { setLoadingScreenStatus } from './appStatus'
-import { setDefaultDataOnConfigLoad } from './react/appStorageProvider'
+import { setStorageDataOnAppConfigLoad } from './react/appStorageProvider'
 
 export type AppConfig = {
   // defaultHost?: string
@@ -44,7 +44,7 @@ export const loadAppConfig = (appConfig: AppConfig) => {
     }
   }
 
-  setDefaultDataOnConfigLoad()
+  setStorageDataOnAppConfigLoad()
 }
 
 export const isBundledConfigUsed = !!process.env.INLINED_APP_CONFIG

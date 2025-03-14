@@ -8,14 +8,14 @@ import { appQueryParams } from '../appParams'
 import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
 import { getServerInfo } from '../mineflayer/mc-protocol'
 import { parseServerAddress } from '../parseServerAddress'
-import ServersList, { getCurrentProxy } from './ServersList'
+import ServersList, { getCurrentProxy, getCurrentUsername } from './ServersList'
 import AddServerOrConnect, { BaseServerInfo } from './AddServerOrConnect'
 import { useDidUpdateEffect } from './utils'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import { useCopyKeybinding } from './simpleHooks'
-import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList, StoreServerItem } from './serversStorage'
-import { appStorage } from './appStorageProvider'
+import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList } from './serversStorage'
+import { appStorage, StoreServerItem } from './appStorageProvider'
 
 type AdditionalDisplayData = {
   textNameRightGrayed: string
@@ -26,7 +26,6 @@ type AdditionalDisplayData = {
 }
 
 const serversListQs = appQueryParams.serversList
-const proxyQs = appQueryParams.proxy
 
 // todo move to base
 const normalizeIp = (ip: string) => ip.replace(/https?:\/\//, '').replace(/\/(:|$)/, '')
@@ -40,8 +39,25 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   const [quickConnectIp, setQuickConnectIp] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const [serversList, setServersList] = useState<StoreServerItem[]>(() => (customServersList ? [] : getInitialServersList()))
-  const [additionalData, setAdditionalData] = useState<Record<string, AdditionalDisplayData>>({})
+  const { serversList: savedServersList } = useSnapshot(appStorage)
+
+  const serversListDisplay = useMemo(() => {
+    return (
+      customServersList
+        ? customServersList.map((row): StoreServerItem => {
+          const [ip, name] = row.split(' ')
+          const [_ip, _port, version] = ip.split(':')
+          return {
+            ip,
+            versionOverride: version,
+            name,
+          }
+        })
+        : [...getInitialServersList()]
+    )
+  }, [customServersList, savedServersList])
+
+  const [additionalServerData, setAdditionalServerData] = useState<Record<string, AdditionalDisplayData>>({})
 
   // Add keyboard handler for moving servers
   useEffect(() => {
@@ -49,49 +65,31 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       if (['input', 'textarea', 'select'].includes((e.target as HTMLElement)?.tagName?.toLowerCase())) return
       if (!e.shiftKey || selectedIndex === undefined) return
       if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+      if (customServersList) return
       e.preventDefault()
       e.stopImmediatePropagation()
 
       const newIndex = e.key === 'ArrowUp'
         ? Math.max(0, selectedIndex - 1)
-        : Math.min(serversList.length - 1, selectedIndex + 1)
+        : Math.min(serversListDisplay.length - 1, selectedIndex + 1)
 
       if (newIndex === selectedIndex) return
 
       // Move server in the list
-      const newList = [...serversList]
+      const newList = [...serversListDisplay]
       const oldItem = newList[selectedIndex]
       newList[selectedIndex] = newList[newIndex]
       newList[newIndex] = oldItem
 
-      setServersList(newList)
+      appStorage.serversList = newList
       setSelectedIndex(newIndex)
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedIndex, serversList])
+  }, [selectedIndex, serversListDisplay])
 
-  useEffect(() => {
-    if (customServersList) {
-      setServersList(customServersList.map(row => {
-        const [ip, name] = row.split(' ')
-        const [_ip, _port, version] = ip.split(':')
-        return {
-          ip,
-          versionOverride: version,
-          name,
-        }
-      }))
-    }
-  }, [customServersList])
-
-  useDidUpdateEffect(() => {
-    // save data only on user changes
-    setNewServersList(serversList)
-  }, [serversList])
-
-  const serversListSorted = useMemo(() => serversList.map((server, index) => ({ ...server, index })), [serversList])
+  const serversListSorted = useMemo(() => serversListDisplay.map((server, index) => ({ ...server, index })), [serversListDisplay])
   // by lastJoined
   // const serversListSorted = useMemo(() => {
   //   return serversList.map((server, index) => ({ ...server, index })).sort((a, b) => (b.lastJoined ?? 0) - (a.lastJoined ?? 0))
@@ -142,7 +140,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
                 data = await fetchServerStatus(server.ip/* , signal */) // DONT ADD SIGNAL IT WILL CRUSH JS RUNTIME
               }
               if (data) {
-                setAdditionalData(old => ({
+                setAdditionalServerData(old => ({
                   ...old,
                   [server.ip]: data
                 }))
@@ -181,7 +179,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   }, [isEditScreenModal])
 
   useCopyKeybinding(() => {
-    const item = serversList[selectedIndex]
+    const item = serversListDisplay[selectedIndex]
     if (!item) return
     let str = `${item.ip}`
     if (item.versionOverride) {
@@ -194,7 +192,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     allowAutoConnect={miscUiState.appConfig?.allowAutoConnect}
     placeholders={{
       proxyOverride: getCurrentProxy(),
-      usernameOverride: appStorage.username,
+      usernameOverride: getCurrentUsername(),
     }}
     parseQs={!serverEditScreen}
     onBack={() => {
@@ -204,12 +202,13 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       if (!serverEditScreen) return
       if (serverEditScreen === true) {
         const server: StoreServerItem = { ...info, lastJoined: Date.now() } // so it appears first
-        setServersList(old => [...old, server])
+        appStorage.serversList = [...(appStorage.serversList ?? []), server]
       } else {
-        const index = serversList.indexOf(serverEditScreen)
-        const { lastJoined } = serversList[index]
-        serversList[index] = { ...info, lastJoined }
-        setServersList([...serversList])
+        const index = appStorage.serversList?.indexOf(serverEditScreen)
+        if (index !== undefined) {
+          const { lastJoined } = appStorage.serversList![index]
+          appStorage.serversList![index] = { ...info, lastJoined }
+        }
       }
       setServerEditScreen(null)
     }}
@@ -219,7 +218,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     } : serverEditScreen}
     onQsConnect={(info) => {
       const connectOptions: ConnectOptions = {
-        username: info.usernameOverride || appStorage.username || '',
+        username: info.usernameOverride || getCurrentUsername() || '',
         server: normalizeIp(info.ip),
         proxy: info.proxyOverride || getCurrentProxy(),
         botVersion: info.versionOverride,
@@ -261,12 +260,11 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       }
 
       const lastJoinedUsername = serversListSorted.find(s => s.usernameOverride)?.usernameOverride
-      let username = overrides.usernameOverride || appStorage.username || ''
+      let username = overrides.usernameOverride || getCurrentUsername() || ''
       if (!username) {
         const promptUsername = prompt('Enter username', lastJoinedUsername || '')
         if (!promptUsername) return
         username = promptUsername
-        appStorage.username = username
       }
       let authenticatedAccount: AuthenticatedAccount | true | undefined
       if (overrides.authenticatedAccountOverride) {
@@ -286,8 +284,8 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         authenticatedAccount,
         saveServerToHistory: shouldSave,
         onSuccessfulPlay () {
-          if (shouldSave && !serversList.some(s => s.ip === ip)) {
-            const newServersList: StoreServerItem[] = [...serversList, {
+          if (shouldSave && !serversListDisplay.some(s => s.ip === ip)) {
+            const newServersList: StoreServerItem[] = [...serversListDisplay, {
               ip,
               lastJoined: Date.now(),
               versionOverride: overrides.versionOverride,
@@ -299,10 +297,10 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
 
           if (shouldSave === undefined) { // loading saved
             // find and update
-            const server = serversList.find(s => s.ip === ip)
+            const server = serversListDisplay.find(s => s.ip === ip)
             if (server) {
               // move to top
-              const newList = [...serversList]
+              const newList = [...serversListDisplay]
               const index = newList.indexOf(server)
               const thisItem = newList[index]
               newList.splice(index, 1)
@@ -310,11 +308,11 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
 
               server.lastJoined = Date.now()
               server.numConnects = (server.numConnects || 0) + 1
-              setNewServersList(serversList)
+              setNewServersList(serversListDisplay)
             }
           }
         },
-        serverIndex: shouldSave ? serversList.length.toString() : indexOrIp // assume last
+        serverIndex: shouldSave ? serversListDisplay.length.toString() : indexOrIp // assume last
       } satisfies ConnectOptions
       dispatchEvent(new CustomEvent('connect', { detail: options }))
       // qsOptions
@@ -327,14 +325,14 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       appStorage.authenticatedAccounts = authenticatedAccounts.filter(a => a.username !== username)
     }}
     onWorldAction={(action, index) => {
-      const server = serversList[index]
+      const server = serversListDisplay[index]
       if (!server) return
 
       if (action === 'edit') {
         setServerEditScreen(server)
       }
       if (action === 'delete') {
-        setServersList(old => old.filter(s => s !== server))
+        appStorage.serversList = appStorage.serversList!.filter(s => s !== server)
       }
     }}
     onGeneralAction={(action) => {
@@ -346,7 +344,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       }
     }}
     worldData={serversListSorted.map(server => {
-      const additional = additionalData[server.ip]
+      const additional = additionalServerData[server.ip]
       return {
         name: server.index.toString(),
         title: server.name || server.ip,
