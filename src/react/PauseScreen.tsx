@@ -35,6 +35,7 @@ import { showNotification } from './NotificationProvider'
 import { appStatusState, reconnectReload } from './AppStatusProvider'
 import NetworkStatus from './NetworkStatus'
 import PauseLinkButtons from './PauseLinkButtons'
+import { pixelartIcons } from './PixelartIcon'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -161,7 +162,7 @@ export default () => {
   const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
   const { noConnection } = useSnapshot(gameAdditionalState)
   const { active: packetsReplaceActive, hasRecordedPackets: packetsReplaceHasRecordedPackets } = useSnapshot(packetsRecordingState)
-  const { displayRecordButton } = useSnapshot(options)
+  const { displayRecordButton: displayPacketsButtons } = useSnapshot(options)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -234,7 +235,7 @@ export default () => {
         icon="pixelarticons:folder"
         onClick={async () => openWorldActions()}
       />
-      {displayRecordButton && (
+      {displayPacketsButtons && (
         <>
           <Button
             icon={packetsReplaceActive ? 'pixelarticons:debug-stop' : 'pixelarticons:circle'}
@@ -244,10 +245,14 @@ export default () => {
           />
           {packetsReplaceHasRecordedPackets && (
             <Button
-              icon="pixelarticons:download"
+              icon={pixelartIcons['briefcase-download']}
               onClick={async () => downloadPacketsReplay()}
             />
           )}
+          <Button
+            icon={pixelartIcons['download']}
+            onClick={async () => bot.downloadCurrentWorldState()}
+          />
         </>
       )}
     </div>
