@@ -10,6 +10,7 @@ import { versionToNumber } from 'renderer/viewer/common/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
 import { BlockModel } from 'mc-assets'
+import { activeGuiAtlas } from 'renderer/viewer/lib/guiRenderer'
 import Generic95 from '../assets/generic_95.png'
 import { appReplacableResources } from './generated/resources'
 import { activeModalStack, hideCurrentModal, hideModal, miscUiState, showModal } from './globalState'
@@ -155,7 +156,10 @@ const getImageSrc = (path): string | HTMLImageElement => {
   return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
 }
 
-const getImage = ({ path = undefined as string | undefined, texture = undefined as string | undefined, blockData = undefined as any }, onLoad = () => { }) => {
+const getImage = ({ path = undefined as string | undefined, texture = undefined as string | undefined, blockData = undefined as any, image = undefined as HTMLImageElement | undefined }, onLoad = () => { }) => {
+  if (image) {
+    return image
+  }
   if (!path && !texture) throw new Error('Either pass path or texture')
   const loadPath = (blockData ? 'blocks' : path ?? texture)!
   if (loadedImagesCache.has(loadPath)) {
@@ -184,7 +188,8 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
   blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
   scale?: number,
   slice?: number[],
-  modelName?: string
+  modelName?: string,
+  image?: HTMLImageElement
 } | undefined => {
   let itemModelName = model.modelName
   const originalItemName = itemModelName
@@ -196,6 +201,23 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
 
 
   let itemTexture
+
+  if (!fullBlockModelSupport) {
+    const atlas = activeGuiAtlas.atlas?.json
+    // todo atlas holds all rendered blocks, not all possibly rendered item/block models, need to request this on demand instead (this is how vanilla works)
+    const item = atlas?.textures[itemModelName.replace('minecraft:', '').replace('block/', '').replace('blocks/', '').replace('item/', '').replace('items/', '').replace('_inventory', '').replace('_bottom', '')]
+    if (item) {
+      const x = item.u * atlas.width
+      const y = item.v * atlas.height
+      return {
+        texture: 'gui',
+        image: activeGuiAtlas.atlas!.image,
+        slice: [x, y, atlas.tileSize, atlas.tileSize],
+        scale: 0.25,
+      }
+    }
+  }
+
   try {
     assertDefined(viewer.world.itemsRenderer)
     itemTexture =
@@ -205,6 +227,8 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
     itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
   }
+
+
   if ('type' in itemTexture) {
     // is item
     return {
@@ -230,13 +254,13 @@ const getItemName = (slot: Item | RenderItem | null) => {
   return text.join('')
 }
 
-const mapSlots = (slots: Array<RenderItem | Item | null>) => {
+const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
   return slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
     try {
-      const debugIsQuickbar = i === bot.inventory.hotbarStart + bot.quickBarSlot
+      const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
       const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', })
       const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
       const itemCustomName = getItemName(slot)
@@ -305,7 +329,7 @@ const upJei = (search: string) => {
     return new PrismarineItem(x.id, 1)
   }).filter(a => a !== null)
   lastWindow.pwindow.win.jeiSlotsPage = 0
-  lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots)
+  lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots, true)
 }
 
 export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {

@@ -5,7 +5,7 @@ import { proxy, subscribe } from 'valtio/vanilla'
 import { subscribeKey } from 'valtio/utils'
 import { omitObj } from '@zardoy/utils'
 import { appQueryParamsArray } from './appParams'
-import type { AppConfig } from './globalState'
+import type { AppConfig } from './appConfig'
 
 const isDev = process.env.NODE_ENV === 'development'
 const initialAppConfig = process.env?.INLINED_APP_CONFIG as AppConfig ?? {}
@@ -188,7 +188,7 @@ subscribe(options, () => {
   localStorage.options = JSON.stringify(saveOptions)
 })
 
-type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T, isChanged: boolean) => void) => void
+type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T, isChanged: boolean) => void) => () => void
 
 export const watchValue: WatchValue = (proxy, callback) => {
   const watchedProps = new Set<string>()
@@ -198,10 +198,19 @@ export const watchValue: WatchValue = (proxy, callback) => {
       return Reflect.get(target, p, receiver)
     },
   }), false)
+  const unsubscribes = [] as Array<() => void>
   for (const prop of watchedProps) {
-    subscribeKey(proxy, prop, () => {
-      callback(proxy, true)
-    })
+    unsubscribes.push(
+      subscribeKey(proxy, prop, () => {
+        callback(proxy, true)
+      })
+    )
+  }
+
+  return () => {
+    for (const unsubscribe of unsubscribes) {
+      unsubscribe()
+    }
   }
 }
 

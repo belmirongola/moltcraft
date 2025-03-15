@@ -95,7 +95,7 @@ export const watchOptionsAfterViewerInit = () => {
     appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
   })
 
-  customEvents.on('gameLoaded', () => {
+  customEvents.on('mineflayerBotCreated', () => {
     appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
   })
 

@@ -13,12 +13,14 @@ export interface ProgressReporter {
 
   setMessage (message: string): void
 
-  end (): void
+  end(): void
+  error(message: string): void
 }
 
 interface ReporterDisplayImplementation {
   setMessage (message: string): void
   end (): void
+  error(message: string): void
 }
 
 interface StageInfo {
@@ -124,6 +126,10 @@ const createProgressReporter = (implementation: ReporterDisplayImplementation): 
 
     get currentMessage () {
       return currentMessage
+    },
+
+    error (message: string): void {
+      implementation.error(message)
     }
   }
 
@@ -145,6 +151,11 @@ export const createFullScreenProgressReporter = (): ProgressReporter => {
       } else {
         setLoadingScreenStatus(fullScreenReporters.at(-1)!.currentMessage)
       }
+    },
+
+    error (message: string): void {
+      if (appStatusState.isError) return
+      setLoadingScreenStatus(message, true)
     }
   })
   fullScreenReporters.push(reporter)
@@ -162,6 +173,10 @@ export const createNotificationProgressReporter = (endMessage?: string): Progres
       } else {
         hideNotification()
       }
+    },
+
+    error (message: string): void {
+      showNotification(message, '', true, '', undefined, true)
     }
   })
 }
@@ -173,6 +188,10 @@ export const createConsoleLogProgressReporter = (group?: string): ProgressReport
     },
     end () {
       console.log(group ? `[${group}] done` : 'done')
+    },
+
+    error (message: string): void {
+      console.error(message)
     }
   })
 }
@@ -191,6 +210,10 @@ export const createWrappedProgressReporter = (reporter: ProgressReporter, messag
       if (message) {
         reporter.endStage(stage)
       }
+    },
+
+    error (message: string): void {
+      reporter.error(message)
     }
   })
 }
@@ -200,6 +223,8 @@ export const createNullProgressReporter = (): ProgressReporter => {
     setMessage (message: string) {
     },
     end () {
+    },
+    error (message: string) {
     }
   })
 }

@@ -30,6 +30,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
+        env:
+          CONFIG_JSON_SOURCE: BUNDLED
       - run: pnpm build-storybook
       - name: Copy playground files
         run: |
@@ -43,19 +45,36 @@ jobs:
         with:
           run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --prod
         id: deploy
-      - run: |
-          pnpx zardoy-release node --footer "This release URL: ${{ steps.deploy.outputs.stdout }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # has possible output: tag
-        id: release
-      # has output
+      # publish to github
       - run: cp vercel.json .vercel/output/static/vercel.json
       - uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .vercel/output/static
           force_orphan: true
+
+      - name: Build self-host version
+        run: pnpm build
+      - name: Bundle server.js
+        run: |
+          pnpm esbuild server.js --bundle --platform=node --outfile=bundled-server.js --define:process.env.NODE_ENV="'production'"
+
+      - name: Create zip package
+        run: |
+          mkdir -p package
+          cp -r dist package/
+          cp bundled-server.js package/server.js
+          cd package
+          zip -r ../self-host.zip .
+
+      - run: |
+          pnpx zardoy-release node --footer "This release URL: ${{ steps.deploy.outputs.stdout }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # has possible output: tag
+        id: release
+
+      # has output
       - name: Set publishing config
         run: pnpm config set '//registry.npmjs.org/:_authToken' "${NODE_AUTH_TOKEN}"
         env:

@@ -14,10 +14,11 @@ export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpec
   const itemSelector = playerState.getItemSelector({
     ...specificProps
   })
-  const model = getItemDefinition(viewer.world.itemsDefinitionsStore, {
+  const modelFromDef = getItemDefinition(viewer.world.itemsDefinitionsStore, {
     name: itemModelName,
     version: viewer.world.texturesVersion!,
     properties: itemSelector
-  })?.model ?? itemModelName
+  })?.model
+  const model = (modelFromDef === 'minecraft:special' ? undefined : modelFromDef) ?? itemModelName
   return model
 }

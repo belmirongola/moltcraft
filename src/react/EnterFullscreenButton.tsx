@@ -4,6 +4,7 @@ import { activeModalStack, miscUiState } from '../globalState'
 import Button from './Button'
 import { useUsingTouch } from './utilsApp'
 import { pixelartIcons } from './PixelartIcon'
+import { showNotification } from './NotificationProvider'
 
 const hideOnModals = new Set(['chat'])
 
@@ -33,8 +34,12 @@ export default () => {
       left: inMainMenu ? 35 : 5,
       width: 22,
     }}
-    onClick={() => {
-      void document.documentElement.requestFullscreen()
+    onClick={async () => {
+      try {
+        await document.documentElement.requestFullscreen()
+      } catch (err) {
+        showNotification(`${err.message ?? err}`, undefined, true)
+      }
     }}
   />
 }

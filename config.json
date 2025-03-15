@@ -7,6 +7,10 @@
   "peerJsServerFallback": "https://p2p.mcraft.fun",
   "promoteServers": [
     {
+      "ip": "ws://mcraft.ryzyn.xyz",
+      "version": "1.19.4"
+    },
+    {
       "ip": "ws://play.mcraft.fun"
     },
     {

@@ -15,6 +15,7 @@ import { buildCleanupDecorator } from './cleanupDecorator'
 import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { updateStatText } from './ui/newStats'
+import { generateGuiAtlas } from './guiRenderer'
 
 const appViewer = undefined
 
@@ -332,6 +333,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
   }
 
+  async generateGuiTextures () {
+    await generateGuiAtlas()
+  }
+
   async updateAssetsData () {
     const texture = await new THREE.TextureLoader().loadAsync(this.resourcesManager.blocksAtlasParser!.latestImage)
     texture.magFilter = THREE.NearestFilter
@@ -365,11 +370,15 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         config: this.mesherConfig,
       })
     }
-    const itemsTexture = await new THREE.TextureLoader().loadAsync(this.resourcesManager.itemsAtlasParser!.latestImage)
+    const itemsTexture = await new THREE.TextureLoader().loadAsync(this.itemsAtlasParser.latestImage)
     itemsTexture.magFilter = THREE.NearestFilter
     itemsTexture.minFilter = THREE.NearestFilter
     itemsTexture.flipY = false
     viewer.entities.itemsTexture = itemsTexture
+
+    this.renderUpdateEmitter.emit('textureDownloaded')
+    this.renderUpdateEmitter.emit('itemsTextureDownloaded')
+    console.log('textures loaded')
   }
 
   async downloadDebugAtlas (isItems = false) {

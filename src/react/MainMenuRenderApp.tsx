@@ -75,12 +75,12 @@ export const mainMenuState = proxy({
 let disableAnimation = false
 export default () => {
   const haveModals = useSnapshot(activeModalStack).length
-  const { gameLoaded, appLoaded, appConfig, singleplayerAvailable } = useSnapshot(miscUiState)
+  const { gameLoaded, fsReady, appConfig, singleplayerAvailable } = useSnapshot(miscUiState)
 
-  const noDisplay = haveModals || gameLoaded || !appLoaded
+  const noDisplay = haveModals || gameLoaded || !fsReady
 
   useEffect(() => {
-    if (noDisplay && appLoaded) disableAnimation = true
+    if (noDisplay && fsReady) disableAnimation = true
   }, [noDisplay])
 
   const [versionStatus, setVersionStatus] = useState('')

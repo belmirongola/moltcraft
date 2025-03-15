@@ -15,7 +15,7 @@ try {
 // Create our app
 const app = express()
 
-const isProd = process.argv.includes('--prod')
+const isProd = process.argv.includes('--prod') || process.env.NODE_ENV === 'production'
 app.use(compression())
 app.use(cors())
 app.use(netApi({ allowOrigin: '*' }))

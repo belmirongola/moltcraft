@@ -393,7 +393,7 @@ const downloadAndUseResourcePack = async (url: string, progressReporter: Progres
     const response = await fetch(url).catch((err) => {
       console.log(`Ensure server on ${url} support CORS which is not required for regular client, but is required for the web client`)
       console.error(err)
-      showNotification('Failed to download resource pack: ' + err.message)
+      progressReporter.error('Failed to download resource pack: ' + err.message)
     })
     console.timeEnd('downloadServerResourcePack')
     if (!response) return
@@ -426,6 +426,8 @@ const downloadAndUseResourcePack = async (url: string, progressReporter: Progres
       console.error(err)
       showNotification('Failed to install resource pack: ' + err.message)
     })
+  } catch (err) {
+    progressReporter.error('Could not install resource pack: ' + err.message)
   } finally {
     progressReporter.endStage('download-resource-pack')
     resourcePackState.isServerInstalling = false
