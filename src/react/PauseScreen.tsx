@@ -34,6 +34,8 @@ import { DiscordButton } from './DiscordButton'
 import { showNotification } from './NotificationProvider'
 import { appStatusState, reconnectReload } from './AppStatusProvider'
 import NetworkStatus from './NetworkStatus'
+import PauseLinkButtons from './PauseLinkButtons'
+import { pixelartIcons } from './PixelartIcon'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -160,7 +162,7 @@ export default () => {
   const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
   const { noConnection } = useSnapshot(gameAdditionalState)
   const { active: packetsReplaceActive, hasRecordedPackets: packetsReplaceHasRecordedPackets } = useSnapshot(packetsRecordingState)
-  const { displayRecordButton } = useSnapshot(options)
+  const { displayRecordButton: displayPacketsButtons } = useSnapshot(options)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -227,33 +229,13 @@ export default () => {
 
   if (!isModalActive) return null
 
-  const pauseLinks: React.ReactNode[] = []
-  const pauseLinksConfig = miscUiState.appConfig?.pauseLinks
-  if (pauseLinksConfig) {
-    for (const [i, row] of pauseLinksConfig.entries()) {
-      const rowButtons: React.ReactNode[] = []
-      for (const [k, button] of row.entries()) {
-        const key = `${i}-${k}`
-        const style = { width: (204 / row.length - (row.length > 1 ? 4 : 0)) + 'px' }
-        if (button.type === 'discord') {
-          rowButtons.push(<DiscordButton key={key} style={style} text={button.text}/>)
-        } else if (button.type === 'github') {
-          rowButtons.push(<Button key={key} className="button" style={style} onClick={() => openGithub()}>{button.text ?? 'GitHub'}</Button>)
-        } else if (button.type === 'url' && button.text) {
-          rowButtons.push(<Button key={key} className="button" style={style} onClick={() => openURL(button.url)}>{button.text}</Button>)
-        }
-      }
-      pauseLinks.push(<div className={styles.row}>{rowButtons}</div>)
-    }
-  }
-
   return <Screen title='Game Menu'>
     <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
       <Button
         icon="pixelarticons:folder"
         onClick={async () => openWorldActions()}
       />
-      {displayRecordButton && (
+      {displayPacketsButtons && (
         <>
           <Button
             icon={packetsReplaceActive ? 'pixelarticons:debug-stop' : 'pixelarticons:circle'}
@@ -263,10 +245,14 @@ export default () => {
           />
           {packetsReplaceHasRecordedPackets && (
             <Button
-              icon="pixelarticons:download"
+              icon={pixelartIcons['briefcase-download']}
               onClick={async () => downloadPacketsReplay()}
             />
           )}
+          <Button
+            icon={pixelartIcons['download']}
+            onClick={async () => bot.downloadCurrentWorldState()}
+          />
         </>
       )}
     </div>
@@ -277,7 +263,7 @@ export default () => {
     </ErrorBoundary>
     <div className={styles.pause_container}>
       <Button className="button" style={{ width: '204px' }} onClick={onReturnPress}>Back to Game</Button>
-      {pauseLinks}
+      <PauseLinkButtons />
       <Button className="button" style={{ width: '204px' }} onClick={() => openOptionsMenu('main')}>Options</Button>
       {singleplayer ? (
         <div className={styles.row}>

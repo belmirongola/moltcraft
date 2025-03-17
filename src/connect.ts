@@ -36,7 +36,7 @@ export type ConnectOptions = {
 
 export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVersionSelect) => {
   if (autoVersionSelect === 'auto') {
-    return '1.20.4'
+    return '1.19.4'
   }
   if (autoVersionSelect === 'latest') {
     return supportedVersions.at(-1)!

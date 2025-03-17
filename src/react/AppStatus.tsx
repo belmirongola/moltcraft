@@ -71,7 +71,16 @@ export default ({
         <>
           {showReconnect && onReconnect && <Button label="Reconnect" onClick={onReconnect} />}
           {actionsSlot}
-          <Button onClick={() => window.location.reload()} label="Reset App (recommended)" />
+          <Button
+            onClick={() => {
+              if (location.search) {
+                location.search = ''
+              } else {
+                window.location.reload()
+              }
+            }}
+            label="Reset App (recommended)"
+          />
           {!lockConnect && backAction && <Button label="Back" onClick={backAction} />}
         </>
       )}

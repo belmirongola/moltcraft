@@ -29,6 +29,12 @@ div.chat-wrapper {
   gap: 1px;
 }
 
+.chat-submit-button {
+  visibility: hidden;
+  position: absolute;
+  pointer-events: none !important;
+}
+
 .chat-input-wrapper form {
   display: flex;
 }
@@ -157,17 +163,22 @@ input[type=text],
   height: 15px;
 }
 
-.chat-mobile-hidden {
-  width: 8px;
-  height: 0;
+.chat-mobile-input-hidden {
   position: absolute;
+  width: 8px;
+  height: 1px !important;
   display: block !important;
   opacity: 0;
-  pointer-events: none;
+  height: 1px !important;
+  /* ios: using z-index, pointer-events: none or top below -10px breaks arrows */
 }
 
-.chat-mobile-hidden:nth-last-child(1) {
-  height: 8px;
+.chat-mobile-input-hidden-up {
+  top: -10px;
+}
+
+.chat-mobile-input-hidden-down {
+  top: -5px;
 }
 
 #chatinput:focus {
