@@ -70,8 +70,12 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
       if (data.type === 'event') {
         eventEmitter.emit(data.event, ...data.args)
         if (data.event === 'packet') {
-          if (window.stopPacketsProcessing) return
           let [packetData, packetMeta] = data.args
+          if (window.stopPacketsProcessing === true || (Array.isArray(window.stopPacketsProcessing) && window.stopPacketsProcessing.includes(packetMeta.name))) {
+            if (window.skipPackets && !window.skipPackets.includes(packetMeta.name)) {
+              return
+            }
+          }
 
           // Start timing the packet processing
           const startTime = performance.now()
