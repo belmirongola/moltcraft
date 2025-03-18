@@ -71,10 +71,10 @@ export default () => {
       if (alreadyWaiting) return
       state.indicators.chunksLoading = true
       alreadyWaiting = true
-      void viewer.waitForChunksToRender().then(() => {
-        state.indicators.chunksLoading = false
-        alreadyWaiting = false
-      })
+      // void viewer.waitForChunksToRender().then(() => {
+      //   state.indicators.chunksLoading = false
+      //   alreadyWaiting = false
+      // })
     }
     viewer.world.renderUpdateEmitter.on('dirty', listener)
 
