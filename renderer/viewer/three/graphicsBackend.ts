@@ -1,23 +1,22 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { proxy } from 'valtio'
-import { GraphicsBackendLoader, GraphicsBackend, GraphicsBackendOptions, DisplayWorldOptions } from '../../../src/appViewer'
+import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
-import { ThreeJsWorldRenderer } from '../lib/viewer'
 import { WorldRendererThree } from '../lib/worldrendererThree'
-import { DocumentRenderer } from './renderer'
+import { DocumentRenderer } from './documentRenderer'
 import { PanoramaRenderer } from './panorama'
 
 // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
 THREE.ColorManagement.enabled = false
 
-const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOptions) => {
+const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitOptions) => {
   // Private state
-  const documentRenderer = new DocumentRenderer(options)
+  const documentRenderer = new DocumentRenderer(initOptions)
   globalThis.renderer = documentRenderer.renderer
 
   let panoramaRenderer: PanoramaRenderer | null = null
-  let worldRenderer: ThreeJsWorldRenderer | null = null
+  let worldRenderer: WorldRendererThree | null = null
 
   const worldState = proxy({
     chunksLoaded: 0,
@@ -27,23 +26,29 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
   const startPanorama = () => {
     if (worldRenderer) return
     if (!panoramaRenderer) {
-      panoramaRenderer = new PanoramaRenderer(documentRenderer)
+      panoramaRenderer = new PanoramaRenderer(documentRenderer, initOptions, !!process.env.SINGLE_FILE_BUILD_MODE)
       void panoramaRenderer.start()
+      window.panoramaRenderer = panoramaRenderer
     }
   }
 
   let version = ''
-  const updateResources = async (ver: string, progressReporter: ProgressReporter): Promise<void> => {
+  const prepareResources = async (ver: string, progressReporter: ProgressReporter): Promise<void> => {
     version = ver
   }
 
-  const startWorld = (options: DisplayWorldOptions) => {
+  const startWorld = (displayOptions: DisplayWorldOptions) => {
     if (panoramaRenderer) {
       panoramaRenderer.dispose()
       panoramaRenderer = null
     }
-    worldRenderer = new ThreeJsWorldRenderer(documentRenderer.renderer, options)
-    void worldRenderer.setVersion(version)
+    worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions, version)
+    documentRenderer.render = (sizeChanged: boolean) => {
+      worldRenderer?.render(sizeChanged)
+    }
+    window.viewer ??= {}
+    window.world = worldRenderer
+    window.viewer.world = worldRenderer
   }
 
   const disconnect = () => {
@@ -55,7 +60,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
       documentRenderer.dispose()
     }
     if (worldRenderer) {
-      worldRenderer.dispose()
+      worldRenderer.destroy()
       worldRenderer = null
     }
   }
@@ -67,7 +72,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
   const backend: GraphicsBackend = {
     NAME: `three.js ${THREE.REVISION}`,
     startPanorama,
-    updateResources,
+    prepareResources,
     startWorld,
     disconnect,
     setRendering (rendering) {
@@ -82,7 +87,10 @@ const createGraphicsBackend: GraphicsBackendLoader = (options: GraphicsBackendOp
     setRoll (roll: number) {
       worldRenderer?.setCameraRoll(roll)
     },
-    worldState
+    worldState,
+    get soundSystem () {
+      return worldRenderer?.soundSystem
+    }
   }
 
   return backend

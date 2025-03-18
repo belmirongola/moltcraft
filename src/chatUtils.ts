@@ -44,6 +44,7 @@ export const formatMessage = (message: MessageInput, mcData: IndexedData = globa
       obfuscated: !!msg.obfuscated
     }
 
+    if (!msg.text && typeof msg.json?.[''] === 'string') msg.text = msg.json['']
     if (msg.text) {
       msglist.push({
         ...msg,

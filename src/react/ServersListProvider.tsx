@@ -86,6 +86,35 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   const [serversList, setServersList] = useState<StoreServerItem[]>(() => (customServersList ? [] : getInitialServersList()))
   const [additionalData, setAdditionalData] = useState<Record<string, AdditionalDisplayData>>({})
 
+  // Add keyboard handler for moving servers
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['input', 'textarea', 'select'].includes((e.target as HTMLElement)?.tagName?.toLowerCase())) return
+      if (!e.shiftKey || selectedIndex === undefined) return
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+
+      const newIndex = e.key === 'ArrowUp'
+        ? Math.max(0, selectedIndex - 1)
+        : Math.min(serversList.length - 1, selectedIndex + 1)
+
+      if (newIndex === selectedIndex) return
+
+      // Move server in the list
+      const newList = [...serversList]
+      const oldItem = newList[selectedIndex]
+      newList[selectedIndex] = newList[newIndex]
+      newList[newIndex] = oldItem
+
+      setServersList(newList)
+      setSelectedIndex(newIndex)
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedIndex, serversList])
+
   useEffect(() => {
     if (customServersList) {
       setServersList(customServersList.map(row => {
@@ -105,10 +134,11 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     setNewServersList(serversList)
   }, [serversList])
 
+  const serversListSorted = useMemo(() => serversList.map((server, index) => ({ ...server, index })), [serversList])
   // by lastJoined
-  const serversListSorted = useMemo(() => {
-    return serversList.map((server, index) => ({ ...server, index })).sort((a, b) => (b.lastJoined ?? 0) - (a.lastJoined ?? 0))
-  }, [serversList])
+  // const serversListSorted = useMemo(() => {
+  //   return serversList.map((server, index) => ({ ...server, index })).sort((a, b) => (b.lastJoined ?? 0) - (a.lastJoined ?? 0))
+  // }, [serversList])
 
   const isEditScreenModal = useIsModalActive('editServer')
 
@@ -313,6 +343,13 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
             // find and update
             const server = serversList.find(s => s.ip === ip)
             if (server) {
+              // move to top
+              const newList = [...serversList]
+              const index = newList.indexOf(server)
+              const thisItem = newList[index]
+              newList.splice(index, 1)
+              newList.unshift(thisItem)
+
               server.lastJoined = Date.now()
               server.numConnects = (server.numConnects || 0) + 1
               setNewServersList(serversList)
@@ -369,7 +406,8 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         worldNameRight: additional?.textNameRight ?? '',
         worldNameRightGrayed: additional?.textNameRightGrayed ?? '',
         iconSrc: additional?.icon,
-        offline: additional?.offline
+        offline: additional?.offline,
+        group: 'Your Servers'
       }
     })}
     initialProxies={{

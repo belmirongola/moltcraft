@@ -3,7 +3,7 @@ const rightOffset = 0
 
 const stats = {}
 
-let lastY = 20
+let lastY = 40
 export const addNewStat = (id: string, width = 80, x = rightOffset, y = lastY) => {
   const pane = document.createElement('div')
   pane.style.position = 'fixed'

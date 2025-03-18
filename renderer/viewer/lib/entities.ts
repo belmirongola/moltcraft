@@ -20,11 +20,11 @@ import { getMesh } from './entity/EntityMesh'
 import { WalkingGeneralSwing } from './entity/animations'
 import { disposeObject } from './threeJsUtils'
 import { armorModel, armorTextures } from './entity/armorModels'
-import { Viewer } from './viewer'
 import { getBlockMeshFromModel } from './holdingBlock'
 import { ItemSpecificContextProperties } from './basePlayerState'
 import { loadSkinImage, getLookupUrl, stevePngUrl, steveTexture } from './utils/skins'
 import { loadTexture } from './utils'
+import { WorldRendererThree } from './worldrendererThree'
 
 export const TWEEN_DURATION = 120
 
@@ -245,7 +245,7 @@ export class Entities extends EventEmitter {
     return Object.values(this.entities).filter(entity => entity.visible).length
   }
 
-  constructor (public viewer: Viewer) {
+  constructor (public worldRenderer: WorldRendererThree) {
     super()
     this.entitiesOptions = {}
     this.debugMode = 'none'
@@ -254,7 +254,7 @@ export class Entities extends EventEmitter {
 
   clear () {
     for (const mesh of Object.values(this.entities)) {
-      this.viewer.scene.remove(mesh)
+      this.worldRenderer.scene.remove(mesh)
       disposeObject(mesh)
     }
     this.entities = {}
@@ -276,16 +276,16 @@ export class Entities extends EventEmitter {
     this.rendering = rendering
     for (const ent of entity ? [entity] : Object.values(this.entities)) {
       if (rendering) {
-        if (!this.viewer.scene.children.includes(ent)) this.viewer.scene.add(ent)
+        if (!this.worldRenderer.scene.children.includes(ent)) this.worldRenderer.scene.add(ent)
       } else {
-        this.viewer.scene.remove(ent)
+        this.worldRenderer.scene.remove(ent)
       }
     }
   }
 
   render () {
     const dt = this.clock.getDelta()
-    const botPos = this.viewer.world.viewerPosition
+    const botPos = this.worldRenderer.viewerPosition
     const VISIBLE_DISTANCE = 8 * 8
 
     for (const entityId of Object.keys(this.entities)) {
@@ -310,7 +310,7 @@ export class Entities extends EventEmitter {
         const chunkKey = `${chunkX},${chunkZ}`
 
         // Entity is visible if within 16 blocks OR in a finished chunk
-        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey])
+        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.worldRenderer.finishedChunks[chunkKey])
       }
     }
   }
@@ -349,7 +349,7 @@ export class Entities extends EventEmitter {
     }
 
     if (typeof skinUrl !== 'string') throw new Error('Invalid skin url')
-    const renderEars = this.viewer.world.config.renderEars || username === 'deadmau5'
+    const renderEars = this.worldRenderer.worldRendererConfig.renderEars || username === 'deadmau5'
     void this.loadAndApplySkin(entityId, skinUrl, renderEars).then(() => {
       if (capeUrl) {
         if (capeUrl === true && username) {
@@ -504,12 +504,14 @@ export class Entities extends EventEmitter {
     if (previousModel && previousModel === textureUv?.modelName) return undefined
 
     if (textureUv && 'resolvedModel' in textureUv) {
-      const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
+      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName)
+      let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
-        const SCALE = 0.5
-        mesh.scale.set(SCALE, SCALE, SCALE)
-        mesh.position.set(0, 0.2, 0)
+        SCALE = 0.5
+      } else if (specificProps['minecraft:display_context'] === 'thirdperson') {
+        SCALE = 6
       }
+      mesh.scale.set(SCALE, SCALE, SCALE)
       const outerGroup = new THREE.Group()
       outerGroup.add(mesh)
       return {
@@ -554,6 +556,13 @@ export class Entities extends EventEmitter {
         new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
         material, materialFlipped,
       ])
+      let SCALE = 1
+      if (specificProps['minecraft:display_context'] === 'ground') {
+        SCALE = 0.5
+      } else if (specificProps['minecraft:display_context'] === 'thirdperson') {
+        SCALE = 6
+      }
+      mesh.scale.set(SCALE, SCALE, SCALE)
       return {
         mesh,
         isBlock: false,
@@ -589,8 +598,11 @@ export class Entities extends EventEmitter {
     if (entity.delete) {
       if (!e) return
       if (e.additionalCleanup) e.additionalCleanup()
+      e.traverse(c => {
+        if (c['additionalCleanup']) c['additionalCleanup']()
+      })
       this.emit('remove', entity)
-      this.viewer.scene.remove(e)
+      this.worldRenderer.scene.remove(e)
       disposeObject(e)
       // todo dispose textures as well ?
       delete this.entities[entity.id]
@@ -663,7 +675,7 @@ export class Entities extends EventEmitter {
         //@ts-expect-error
         playerObject.animation.isMoving = false
       } else {
-        mesh = getEntityMesh(entity, this.viewer.world, this.entitiesOptions, overrides)
+        mesh = getEntityMesh(entity, this.worldRenderer, this.entitiesOptions, overrides)
       }
       if (!mesh) return
       mesh.name = 'mesh'
@@ -682,7 +694,7 @@ export class Entities extends EventEmitter {
       group.add(mesh)
       group.add(boxHelper)
       boxHelper.visible = false
-      this.viewer.scene.add(group)
+      this.worldRenderer.scene.add(group)
 
       e = group
       e.name = 'entity'
@@ -702,6 +714,8 @@ export class Entities extends EventEmitter {
 
     // check if entity has armor
     if (entity.equipment) {
+      this.addItemModel(e, 'left', entity.equipment[0])
+      this.addItemModel(e, 'right', entity.equipment[1])
       addArmorModel(e, 'feet', entity.equipment[2])
       addArmorModel(e, 'legs', entity.equipment[3], 2)
       addArmorModel(e, 'chest', entity.equipment[4])
@@ -775,7 +789,7 @@ export class Entities extends EventEmitter {
               c.setRotationFromEuler(poseToEuler(armorStandMeta.body_pose))
             }
             break
-          case 'bone_leftarm':
+          case 'bone_rightarm':
             if (c.parent?.name !== 'bone_armor') {
               this.setVisible(c, hasArms)
             }
@@ -785,7 +799,7 @@ export class Entities extends EventEmitter {
               c.setRotationFromEuler(poseToEuler({ 'yaw': -10, 'pitch': -10, 'roll': 0 }))
             }
             break
-          case 'bone_rightarm':
+          case 'bone_leftarm':
             if (c.parent?.name !== 'bone_armor') {
               this.setVisible(c, hasArms)
             }
@@ -795,14 +809,14 @@ export class Entities extends EventEmitter {
               c.setRotationFromEuler(poseToEuler({ 'yaw': 10, 'pitch': -10, 'roll': 0 }))
             }
             break
-          case 'bone_leftleg':
+          case 'bone_rightleg':
             if (armorStandMeta.left_leg_pose) {
               c.setRotationFromEuler(poseToEuler(armorStandMeta.left_leg_pose))
             } else {
               c.setRotationFromEuler(poseToEuler({ 'yaw': -1, 'pitch': -1, 'roll': 0 }))
             }
             break
-          case 'bone_rightleg':
+          case 'bone_leftleg':
             if (armorStandMeta.right_leg_pose) {
               c.setRotationFromEuler(poseToEuler(armorStandMeta.right_leg_pose))
             } else {
@@ -852,9 +866,13 @@ export class Entities extends EventEmitter {
           })
           if (itemMesh) {
             itemMesh.mesh.position.set(0, 0, 0.43)
-            itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
+            if (itemMesh.isBlock) {
+              itemMesh.mesh.scale.set(0.25, 0.25, 0.25)
+            } else {
+              itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
+            }
             itemMesh.mesh.rotateY(Math.PI)
-            itemMesh.mesh.rotateZ(rotation * Math.PI / 4)
+            itemMesh.mesh.rotateZ(-rotation * Math.PI / 4)
             itemMesh.mesh.name = 'item'
             e.add(itemMesh.mesh)
           }
@@ -949,6 +967,45 @@ export class Entities extends EventEmitter {
       texture.needsUpdate = true
     }
     return texture
+  }
+
+  addItemModel (entityMesh: SceneEntity, hand: 'left' | 'right', item: Item) {
+    const parentName = `bone_${hand}item`
+    // remove existing item
+    entityMesh.traverse(c => {
+      if (c.parent?.name.toLowerCase() === parentName) {
+        c.removeFromParent()
+        if (c['additionalCleanup']) c['additionalCleanup']()
+      }
+    })
+    if (!item) return
+
+    const itemObject = this.getItemMesh(item, {
+      'minecraft:display_context': 'thirdperson',
+    })
+    if (itemObject) {
+      entityMesh.traverse(c => {
+        if (c.name.toLowerCase() === parentName) {
+          const group = new THREE.Object3D()
+          group['additionalCleanup'] = () => {
+            // important: avoid texture memory leak and gpu slowdown
+            itemObject.itemsTexture?.dispose()
+            itemObject.itemsTextureFlipped?.dispose()
+          }
+          const itemMesh = itemObject.mesh
+          group.rotation.z = -Math.PI / 16
+          if (itemObject.isBlock) {
+            group.rotation.y = Math.PI / 4
+          } else {
+            itemMesh.rotation.z = -Math.PI / 4
+            group.rotation.y = Math.PI / 2
+            group.scale.multiplyScalar(2)
+          }
+          group.add(itemMesh)
+          c.add(group)
+        }
+      })
+    }
   }
 
   handleDamageEvent (entityId, damageAmount) {

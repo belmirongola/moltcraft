@@ -79,8 +79,9 @@ const writeText = (text) => {
   displayClientChat(text)
 }
 
-const commands: Array<{
+export const commands: Array<{
   command: string[],
+  alwaysAvailable?: boolean,
   invoke (args: string[]): Promise<void> | void
   //@ts-format-ignore-region
 }> = [
@@ -111,6 +112,7 @@ const commands: Array<{
   },
   {
     command: ['/pos'],
+    alwaysAvailable: true,
     async invoke ([type]) {
       let pos: { x: number, y: number, z: number } | undefined
       if (type === 'block') {
@@ -131,13 +133,12 @@ const commands: Array<{
 ]
 //@ts-format-ignore-endregion
 
-export const getBuiltinCommandsList = () => commands.flatMap(command => command.command)
+export const getBuiltinCommandsList = () => commands.filter(command => command.alwaysAvailable || localServer).flatMap(command => command.command)
 
 export const tryHandleBuiltinCommand = (message: string) => {
-  if (!localServer) return
   const [userCommand, ...args] = message.split(' ')
 
-  for (const command of commands) {
+  for (const command of commands.filter(command => command.alwaysAvailable || localServer)) {
     if (command.command.includes(userCommand)) {
       void command.invoke(args) // ignoring for now
       return true

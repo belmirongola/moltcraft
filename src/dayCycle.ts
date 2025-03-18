@@ -4,6 +4,7 @@ import { updateBackground } from './water'
 
 export default () => {
   const timeUpdated = () => {
+    return
     assertDefined(viewer)
     // 0 morning
     const dayTotal = 24_000

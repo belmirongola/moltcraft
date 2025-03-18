@@ -1,20 +1,20 @@
 {
   "version": 1,
   "defaultHost": "<from-proxy>",
-  "defaultProxy": "proxy.mcraft.fun",
+  "defaultProxy": "https://proxy.mcraft.fun",
   "mapsProvider": "https://maps.mcraft.fun/",
   "peerJsServer": "",
   "peerJsServerFallback": "https://p2p.mcraft.fun",
   "promoteServers": [
     {
-      "ip": "ws://mcraft.ryzyn.xyz",
+      "ip": "wss://mcraft.ryzyn.xyz",
       "version": "1.19.4"
     },
     {
-      "ip": "ws://play.mcraft.fun"
+      "ip": "wss://play.mcraft.fun"
     },
     {
-      "ip": "ws://play2.mcraft.fun"
+      "ip": "wss://play2.mcraft.fun"
     },
     {
       "ip": "kaboom.pw",

@@ -37,6 +37,10 @@ export const allImagesLoadedState = proxy({
   value: false
 })
 
+export const jeiCustomCategories = proxy({
+  value: [] as Array<{ id: string, categoryTitle: string, items: any[] }>
+})
+
 export const onGameLoad = (onLoad) => {
   allImagesLoadedState.value = false
   version = bot.version
@@ -324,9 +328,14 @@ const implementedContainersGuiMap = {
 const upJei = (search: string) => {
   search = search.toLowerCase()
   // todo fix pre flat
-  const matchedSlots = loadedData.itemsArray.map(x => {
+  const itemsArray = [
+    ...jeiCustomCategories.value.flatMap(x => x.items).filter(x => x !== null),
+    ...loadedData.itemsArray.filter(x => x.displayName.toLowerCase().includes(search)).map(item => new PrismarineItem(item.id, 1)).filter(x => x !== null)
+  ]
+  const matchedSlots = itemsArray.map(x => {
+    x.displayName = getItemName(x) ?? x.displayName
     if (!x.displayName.toLowerCase().includes(search)) return null
-    return new PrismarineItem(x.id, 1)
+    return x
   }).filter(a => a !== null)
   lastWindow.pwindow.win.jeiSlotsPage = 0
   lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots, true)
@@ -448,7 +457,15 @@ const openWindow = (type: string | undefined) => {
       inGameError(`Item for block ${slotItem.name} not found`)
       return
     }
-    const item = new PrismarineItem(itemId, isRightclick ? 64 : 1, slotItem.metadata)
+    const item = PrismarineItem.fromNotch({
+      ...slotItem,
+      itemId,
+      itemCount: isRightclick ? 64 : 1,
+      components: slotItem.components ?? [],
+      removeComponents: slotItem.removedComponents ?? [],
+      itemDamage: slotItem.metadata ?? 0,
+      nbt: slotItem.nbt,
+    })
     if (bot.game.gameMode === 'creative') {
       const freeSlot = bot.inventory.firstEmptyInventorySlot()
       if (freeSlot === null) return
@@ -458,16 +475,25 @@ const openWindow = (type: string | undefined) => {
     }
   }
 
-  // if (bot.game.gameMode !== 'spectator') {
-  lastWindow.pwindow.win.jeiSlotsPage = 0
-  // todo workaround so inventory opens immediately (though it still lags)
-  setTimeout(() => {
-    upJei('')
-  })
-  miscUiState.displaySearchInput = true
-  // } else {
-  //   lastWindow.pwindow.win.jeiSlots = []
-  // }
+  const isJeiEnabled = () => {
+    if (typeof options.jeiEnabled === 'boolean') return options.jeiEnabled
+    if (Array.isArray(options.jeiEnabled)) {
+      return options.jeiEnabled.includes(bot.game?.gameMode as any)
+    }
+    return false
+  }
+
+  if (isJeiEnabled()) {
+    lastWindow.pwindow.win.jeiSlotsPage = 0
+    // todo workaround so inventory opens immediately (though it still lags)
+    setTimeout(() => {
+      upJei('')
+    })
+    miscUiState.displaySearchInput = true
+  } else {
+    lastWindow.pwindow.win.jeiSlots = []
+    miscUiState.displaySearchInput = false
+  }
 
   if (type === undefined) {
     // player inventory

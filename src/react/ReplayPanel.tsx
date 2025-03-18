@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useSnapshot } from 'valtio'
 import { filterPackets } from './packetsFilter'
 import { DARK_COLORS } from './components/replay/constants'
 import FilterInput from './components/replay/FilterInput'
 import PacketList from './components/replay/PacketList'
 import ProgressBar from './components/replay/ProgressBar'
+import { packetsReplayState } from './state/packetsReplayState'
 
 interface Props {
   replayName: string
@@ -41,7 +43,7 @@ export default function ReplayPanel ({
   style
 }: Props) {
   const [filter, setFilter] = useState(defaultFilter)
-  const [isMinimized, setIsMinimized] = useState(false)
+  const { isMinimized } = useSnapshot(packetsReplayState)
   const { filtered: filteredPackets, hiddenCount } = filterPackets(packets.slice(-500), filter)
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function ReplayPanel ({
 
   const handlePlayPauseClick = () => {
     if (isMinimized) {
-      setIsMinimized(false)
+      packetsReplayState.isMinimized = false
     } else {
       onPlayPause?.(!isPlaying)
     }
@@ -113,7 +115,7 @@ export default function ReplayPanel ({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{replayName || 'Unnamed Replay'}</div>
         <button
-          onClick={() => setIsMinimized(true)}
+          onClick={() => { packetsReplayState.isMinimized = true }}
           style={{
             background: 'none',
             border: 'none',

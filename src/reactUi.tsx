@@ -52,6 +52,7 @@ import MineflayerPluginConsole from './react/MineflayerPluginConsole'
 import { UIProvider } from './react/UIProvider'
 import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
+import TouchInteractionHint from './react/TouchInteractionHint'
 import { ua } from './react/utils'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
@@ -159,6 +160,7 @@ const InGameUi = () => {
       <PauseScreen />
       <MineflayerPluginHud />
       <MineflayerPluginConsole />
+      {showUI && <TouchInteractionHint />}
       <div style={{ display: showUI ? 'block' : 'none' }}>
         {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
         {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}

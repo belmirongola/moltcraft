@@ -2,7 +2,7 @@
 import { ItemRenderer, Identifier, ItemStack, NbtString, Structure, StructureRenderer, ItemRendererResources, BlockDefinition, BlockModel, TextureAtlas, Resources, ItemModel } from 'deepslate'
 import { mat4, vec3 } from 'gl-matrix'
 import { AssetsParser } from 'mc-assets/dist/assetsParser'
-import { getLoadedImage } from 'mc-assets/dist/utils'
+import { getLoadedImage, versionToNumber } from 'mc-assets/dist/utils'
 import { BlockModel as BlockModelMcAssets, AtlasParser } from 'mc-assets'
 import { getLoadedBlockstatesStore, getLoadedModelsStore } from 'mc-assets/dist/stores'
 import { makeTextureAtlas } from 'mc-assets/dist/atlasCreator'
@@ -14,7 +14,8 @@ export const activeGuiAtlas = proxy({
 })
 
 export const getNonFullBlocksModels = () => {
-  const version = viewer.world.texturesVersion ?? 'latest'
+  let version = viewer.world.texturesVersion ?? 'latest'
+  if (versionToNumber(version) < versionToNumber('1.13')) version = '1.13'
   const itemsDefinitions = viewer.world.itemsDefinitionsStore.data.latest
   const blockModelsResolved = {} as Record<string, any>
   const itemsModelsResolved = {} as Record<string, any>
@@ -153,7 +154,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
       return null
     },
     getTextureUV (texture) {
-      return textureAtlas.getTextureUV(texture.toString().slice(1).split('/').slice(1).join('/') as any)
+      return textureAtlas.getTextureUV(texture.toString().replace('minecraft:', '').replace('block/', '').replace('item/', '').replace('blocks/', '').replace('items/', '') as any)
     },
     getTextureAtlas () {
       return textureAtlas.getTextureAtlas()

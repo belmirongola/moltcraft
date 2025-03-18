@@ -6,7 +6,7 @@ import * as tweenJs from '@tweenjs/tween.js'
 import { BloomPass, RenderPass, UnrealBloomPass, EffectComposer, WaterPass, GlitchPass, LineSegmentsGeometry, Wireframe, LineMaterial } from 'three-stdlib'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
 import { renderSign } from '../sign-renderer'
-import { DisplayWorldOptions, GraphicsBackendOptions } from '../../../src/appViewer'
+import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from './simpleUtils'
 import { WorldRendererCommon, WorldRendererConfig } from './worldrendererCommon'
 import { disposeObject } from './threeJsUtils'
@@ -16,8 +16,9 @@ import { MesherGeometryOutput } from './mesher/shared'
 import { IPlayerState } from './basePlayerState'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
-
-const appViewer = undefined
+import { getMyHand } from './hand'
+import { setBlockPosition } from './mesher/standaloneRenderer'
+import { Entities } from './entities'
 
 export class WorldRendererThree extends WorldRendererCommon {
   interactionLines: null | { blockPos; mesh } = null
@@ -31,6 +32,11 @@ export class WorldRendererThree extends WorldRendererCommon {
   holdingBlock: HoldingBlock
   holdingBlockLeft: HoldingBlock
   cameraRoll = 0
+  scene = new THREE.Scene()
+  ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
+  directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
+  entities = new Entities(this)
+  cameraObjectOverride?: THREE.Object3D // for xr
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -40,15 +46,16 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public options: DisplayWorldOptions) {
-    super(options.resourcesManager, options.inWorldRenderingConfig)
-    const { playerState, inWorldRenderingConfig: config } = options
+  constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions, public version: string) {
+    if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
+    super(initOptions.resourcesManager, displayOptions, version)
+    const { playerState, inWorldRenderingConfig: config } = displayOptions
 
-    this.starField = new StarField(scene)
+    this.starField = new StarField(this.scene)
     this.holdingBlock = new HoldingBlock(playerState, config)
     this.holdingBlockLeft = new HoldingBlock(playerState, config, true)
 
-    this.options.resourcesManager.on('assetsTexturesUpdated', () => {
+    initOptions.resourcesManager.on('assetsTexturesUpdated', () => {
       this.holdingBlock.ready = true
       this.holdingBlock.updateItem()
       this.holdingBlockLeft.ready = true
@@ -56,6 +63,32 @@ export class WorldRendererThree extends WorldRendererCommon {
     })
 
     this.addDebugOverlay()
+    this.resetScene()
+    this.init()
+  }
+
+  updateEntity (e) {
+    this.entities.update(e, {
+      rotation: {
+        head: {
+          x: e.headPitch ?? e.pitch,
+          y: e.headYaw,
+          z: 0
+        }
+      }
+    })
+  }
+
+  resetScene () {
+    this.scene.matrixAutoUpdate = false // for perf
+    this.scene.background = new THREE.Color('lightblue')
+    this.scene.add(this.ambientLight)
+    this.directionalLight.position.set(1, 1, 0.5).normalize()
+    this.directionalLight.castShadow = true
+    this.scene.add(this.directionalLight)
+
+    const size = this.renderer.getSize(new THREE.Vector2())
+    this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
@@ -80,6 +113,31 @@ export class WorldRendererThree extends WorldRendererCommon {
     } else {
       this.starField.remove()
     }
+  }
+
+  async demoModel () {
+    //@ts-expect-error
+    const pos = cursorBlockRel(0, 1, 0).position
+
+    const mesh = await getMyHand()
+    // mesh.rotation.y = THREE.MathUtils.degToRad(90)
+    setBlockPosition(mesh, pos)
+    const helper = new THREE.BoxHelper(mesh, 0xff_ff_00)
+    mesh.add(helper)
+    this.scene.add(mesh)
+  }
+
+  demoItem () {
+    //@ts-expect-error
+    const pos = cursorBlockRel(0, 1, 0).position
+    const { mesh } = this.entities.getItemMesh({
+      itemId: 541,
+    }, {})!
+    mesh.position.set(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
+    // mesh.scale.set(0.5, 0.5, 0.5)
+    const helper = new THREE.BoxHelper(mesh, 0xff_ff_00)
+    mesh.add(helper)
+    this.scene.add(mesh)
   }
 
   debugOverlayAdded = false
@@ -170,7 +228,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     object.name = 'chunk';
     (object as any).tilesCount = data.geometry.positions.length / 3 / 4;
     (object as any).blocksCount = data.geometry.blocksCount
-    if (!this.options.inWorldRenderingConfig.showChunkBorders) {
+    if (!this.displayOptions.inWorldRenderingConfig.showChunkBorders) {
       boxHelper.visible = false
     }
     // should not compute it once
@@ -215,7 +273,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     // todo investigate bug and remove this so don't need to clean in section dirty
     if (textures[texturekey]) return textures[texturekey]
 
-    const PrismarineChat = PrismarineChatLoader(this.version!)
+    const PrismarineChat = PrismarineChatLoader(this.version)
     const canvas = renderSign(blockEntity, PrismarineChat)
     if (!canvas) return
     const tex = new THREE.Texture(canvas)
@@ -224,6 +282,14 @@ export class WorldRendererThree extends WorldRendererCommon {
     tex.needsUpdate = true
     textures[texturekey] = tex
     return tex
+  }
+
+  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
+    const cam = this.cameraObjectOverride || this.camera
+    const yOffset = this.displayOptions.playerState.getEyeHeight()
+
+    this.camera = cam as THREE.PerspectiveCamera
+    this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
   }
 
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
@@ -240,14 +306,18 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.camera.rotation.set(pitch, yaw, this.cameraRoll, 'ZYX')
   }
 
-  render () {
-    tweenJs.update()
+  render (sizeChanged = false) {
+    if (sizeChanged) {
+      this.camera.aspect = window.innerWidth / window.innerHeight
+      this.camera.updateProjectionMatrix()
+    }
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
     const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
+    this.entities.render()
     this.renderer.render(this.scene, cam)
-    if (this.options.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
-      this.holdingBlock.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
-      this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
+    if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
+      this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+      this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
     }
   }
 
@@ -324,7 +394,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   updateLight (chunkX: number, chunkZ: number) {
     // set all sections in the chunk dirty
-    for (let y = this.worldConfig.minY; y < this.worldConfig.worldHeight; y += 16) {
+    for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(chunkX, y, chunkZ))
     }
   }
@@ -349,7 +419,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateShowChunksBorder (value: boolean) {
-    this.options.inWorldRenderingConfig.showChunkBorders = value
+    this.displayOptions.inWorldRenderingConfig.showChunkBorders = value
     for (const object of Object.values(this.sectionObjects)) {
       for (const child of object.children) {
         if (child.name === 'helper') {
@@ -407,7 +477,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     super.removeColumn(x, z)
 
     this.cleanChunkTextures(x, z)
-    for (let y = this.worldConfig.minY; y < this.worldConfig.worldHeight; y += 16) {
+    for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(x, y, z), false)
       const key = `${x},${y},${z}`
       const mesh = this.sectionObjects[key]

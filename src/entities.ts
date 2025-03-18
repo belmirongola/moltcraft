@@ -36,6 +36,7 @@ subscribeKey(miscUiState, 'currentTouch', () => {
 })
 
 customEvents.on('gameLoaded', () => {
+  return
   bot.loadPlugin(tracker)
   bot.loadPlugin(autoJumpPlugin)
   updateAutoJump()

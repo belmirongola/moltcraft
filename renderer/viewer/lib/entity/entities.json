@@ -41,7 +41,7 @@
             ]
           },
           {
-            "name": "rightarm",
+            "name": "leftarm",
             "parent": "waist",
             "mirror": true,
             "pivot": [5, 10, 0],
@@ -49,9 +49,9 @@
               {"origin": [5, 12, -1], "size": [2, 12, 2], "uv": [32, 16]}
             ]
           },
-          {"name": "rightitem", "parent": "leftarm", "pivot": [6, 15, 1]},
+          {"name": "leftitem", "parent": "leftarm", "pivot": [1, -9, -5]},
           {
-            "name": "rightleg",
+            "name": "leftleg",
             "parent": "waist",
             "mirror": true,
             "pivot": [1.9, 1, 0],
@@ -60,16 +60,16 @@
             ]
           },
           {
-            "name": "leftarm",
+            "name": "rightarm",
             "parent": "waist",
             "pivot": [-5, 10, 0],
             "cubes": [
               {"origin": [-7, 12, -1], "size": [2, 12, 2], "uv": [24, 0]}
             ]
           },
-          {"name": "leftitem", "parent": "rightarm", "pivot": [-6, 15, 1]},
+          {"name": "rightitem", "parent": "rightarm", "pivot": [-1, -9, -5]},
           {
-            "name": "leftleg",
+            "name": "rightleg",
             "parent": "waist",
             "pivot": [-1.9, 1, 0],
             "cubes": [
@@ -769,8 +769,8 @@
             ]
           },
           {"name": "waist", "parent": "body", "pivot": [0, 12, 0]},
-          {"name": "rightItem", "parent": "rightArm", "pivot": [-6, 15, 1]},
-          {"name": "leftItem", "parent": "leftArm", "pivot": [6, 15, 1]}
+          {"name": "rightItem", "parent": "rightArm", "pivot": [-1, -45, -5]},
+          {"name": "leftItem", "parent": "leftArm", "pivot": [1, -45, -5]}
         ],
         "visible_bounds_width": 2.5,
         "visible_bounds_height": 2.5,
@@ -1652,6 +1652,534 @@
     },
     "render_controllers": ["controller.render.minecart"]
   },
+  "husk": {
+    "identifier": "minecraft:husk",
+    "min_engine_version": "1.8.0",
+    "materials": {"default": "husk"},
+    "textures": {"default": "textures/entity/zombie/husk"},
+    "geometry": {
+      "default": {
+        "visible_bounds_width": 1.5,
+        "visible_bounds_height": 2.5,
+        "visible_bounds_offset": [0, 1.25, 0],
+        "texturewidth": 64,
+        "textureheight": 32,
+        "bones": [
+          {
+            "name": "body",
+            "pivot": [0, 24, 0],
+            "cubes": [
+              {"origin": [-4, 12, -2], "size": [8, 12, 4], "uv": [16, 16]}
+            ],
+            "parent": "waist"
+          },
+          {"name": "waist", "neverRender": true, "pivot": [0, 12, 0]},
+          {
+            "name": "head",
+            "pivot": [0, 24, 0],
+            "cubes": [
+              {"origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [0, 0]}
+            ],
+            "parent": "body"
+          },
+          {
+            "name": "hat",
+            "pivot": [0, 24, 0],
+            "cubes": [
+              {
+                "origin": [-4, 24, -4],
+                "size": [8, 8, 8],
+                "uv": [32, 0],
+                "inflate": 0.5
+              }
+            ],
+            "neverRender": true,
+            "parent": "head"
+          },
+          {
+            "name": "rightArm",
+            "pivot": [-5, 22, 0],
+            "cubes": [
+              {"origin": [-8, 12, -2], "size": [4, 12, 4], "uv": [40, 16]}
+            ],
+            "parent": "body"
+          },
+          {
+            "name": "rightItem",
+            "pivot": [-1, -45, -5],
+            "neverRender": true,
+            "parent": "rightArm"
+          },
+          {
+            "name": "leftArm",
+            "pivot": [5, 22, 0],
+            "cubes": [
+              {"origin": [4, 12, -2], "size": [4, 12, 4], "uv": [40, 16]}
+            ],
+            "mirror": true,
+            "parent": "body"
+          },
+          {
+            "name": "leftItem",
+            "pivot": [1, -45, -5],
+            "neverRender": true,
+            "parent": "leftArm"
+          },
+          {
+            "name": "rightLeg",
+            "pivot": [-1.9, 12, 0],
+            "cubes": [
+              {"origin": [-3.9, 0, -2], "size": [4, 12, 4], "uv": [0, 16]}
+            ],
+            "parent": "body"
+          },
+          {
+            "name": "leftLeg",
+            "pivot": [1.9, 12, 0],
+            "cubes": [
+              {"origin": [-0.1, 0, -2], "size": [4, 12, 4], "uv": [0, 16]}
+            ],
+            "mirror": true,
+            "parent": "body"
+          }
+        ]
+      }
+    },
+    "scripts": {
+      "pre_animation": [
+        "variable.tcos0 = (Math.cos(query.modified_distance_moved * 38.17) * query.modified_move_speed / variable.gliding_speed_value) * 57.3;"
+      ]
+    },
+    "animations": {
+      "humanoid_big_head": {"loop": true, "bones": {"head": {"scale": 1.4}}},
+      "look_at_target_default": {
+        "loop": true,
+        "bones": {
+          "head": {
+            "relative_to": {"rotation": "entity"},
+            "rotation": [
+              "query.target_x_rotation",
+              "query.target_y_rotation",
+              0
+            ]
+          }
+        }
+      },
+      "look_at_target_gliding": {
+        "loop": true,
+        "bones": {"head": {"rotation": [-45, "query.target_y_rotation", 0]}}
+      },
+      "look_at_target_swimming": {
+        "loop": true,
+        "bones": {
+          "head": {
+            "rotation": [
+              "math.lerp(query.target_x_rotation, -45.0, variable.swim_amount)",
+              "query.target_y_rotation",
+              0
+            ]
+          }
+        }
+      },
+      "move": {
+        "loop": true,
+        "bones": {
+          "leftarm": {"rotation": ["variable.tcos0", 0, 0]},
+          "leftleg": {"rotation": ["variable.tcos0 * -1.4", 0, 0]},
+          "rightarm": {"rotation": ["-variable.tcos0", 0, 0]},
+          "rightleg": {"rotation": ["variable.tcos0 * 1.4", 0, 0]}
+        }
+      },
+      "riding.arms": {
+        "loop": true,
+        "bones": {
+          "leftarm": {"rotation": [-36, 0, 0]},
+          "rightarm": {"rotation": [-36, 0, 0]}
+        }
+      },
+      "riding.legs": {
+        "loop": true,
+        "bones": {
+          "leftleg": {"rotation": ["-72.0 - this", "-18.0 - this", "-this"]},
+          "rightleg": {"rotation": ["-72.0 - this", "18.0 - this", "-this"]}
+        }
+      },
+      "holding": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              "variable.is_holding_left ? (-this * 0.5 - 18.0) : 0.0",
+              0,
+              0
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "variable.is_holding_right ? (-this * 0.5 - 18.0) : 0.0",
+              0,
+              0
+            ]
+          }
+        }
+      },
+      "brandish_spear": {
+        "loop": true,
+        "bones": {
+          "rightarm": {
+            "rotation": [
+              "this * -0.5 - 157.5 - 22.5 * variable.charge_amount",
+              "-this",
+              0
+            ]
+          }
+        }
+      },
+      "charging": {
+        "loop": true,
+        "bones": {
+          "rightarm": {
+            "rotation": ["22.5 * variable.charge_amount - this", "-this", 0]
+          }
+        }
+      },
+      "attack.rotations": {
+        "loop": true,
+        "bones": {
+          "body": {
+            "rotation": [
+              0,
+              "math.sin(math.sqrt(variable.attack_time) * 360) * 11.46 - this",
+              0
+            ]
+          },
+          "leftarm": {
+            "rotation": [
+              "math.sin(math.sqrt(variable.attack_time) * 360) * 11.46",
+              0,
+              0
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "math.sin(1.0 - math.pow(1.0 - variable.attack_time, 3.0) * 180.0) * (variable.is_brandishing_spear ? -1.0 : 1.0 )",
+              "variable.is_brandishing_spear ? 0.0 : (math.sin(math.sqrt(variable.attack_time) * 360) * 11.46) * 2.0",
+              0
+            ]
+          }
+        }
+      },
+      "sneaking": {
+        "loop": true,
+        "bones": {
+          "body": {"rotation": ["0.5 - this", 0, 0]},
+          "head": {"position": [0, 1, 0]},
+          "leftarm": {"rotation": [72, 0, 0]},
+          "leftleg": {"position": [0, -3, 4]},
+          "rightarm": {"rotation": [72, 0, 0]},
+          "rightleg": {"position": [0, -3, 4]}
+        }
+      },
+      "bob": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              0,
+              0,
+              "((math.cos(query.life_time * 103.2) * 2.865) + 2.865) *-1.0"
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              0,
+              0,
+              "(math.cos(query.life_time * 103.2) * 2.865) + 2.865"
+            ]
+          }
+        }
+      },
+      "damage_nearby_mobs": {
+        "loop": true,
+        "bones": {
+          "leftarm": {"rotation": ["-45.0-this", "-this", "-this"]},
+          "leftleg": {"rotation": ["45.0-this", "-this", "-this"]},
+          "rightarm": {"rotation": ["45.0-this", "-this", "-this"]},
+          "rightleg": {"rotation": ["-45.0-this", "-this", "-this"]}
+        }
+      },
+      "bow_and_arrow": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              "query.target_x_rotation - 90.0 - math.sin(query.life_time * 76.8) * 2.865 - this",
+              "query.target_y_rotation + 28.65",
+              "-(math.cos(query.life_time * 103.2) * 2.865) - 2.865"
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "query.target_x_rotation - 90.0 + math.sin(query.life_time * 76.8) * 2.865 - this",
+              "query.target_y_rotation - 5.73",
+              "(math.cos(query.life_time * 103.2) * 2.865) + 2.865"
+            ]
+          }
+        }
+      },
+      "use_item_progress": {
+        "loop": true,
+        "bones": {
+          "rightarm": {
+            "rotation": [
+              "variable.use_item_startup_progress * -60.0 + variable.use_item_interval_progress * 11.25",
+              "variable.use_item_startup_progress * -22.5 + variable.use_item_interval_progress * 11.25",
+              "variable.use_item_startup_progress * -5.625 + variable.use_item_interval_progress * 11.25"
+            ]
+          }
+        }
+      },
+      "zombie_attack_bare_hand": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              "-90.0 - ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4) - (math.sin(query.life_time * 76.776372) * 2.865) - this",
+              "5.73 - ((math.sin(variable.attack_time * 180.0) * 57.3) * 0.6) - this",
+              "math.cos(query.life_time * 103.13244) * -2.865 - 2.865 - this"
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "90.0 * (variable.is_brandishing_spear - 1.0) - ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4) + (math.sin(query.life_time * 76.776372) * 2.865) - this",
+              "(math.sin(variable.attack_time * 180.0) * 57.3) * 0.6 - 5.73 - this",
+              "math.cos(query.life_time * 103.13244) * 2.865 + 2.865 - this"
+            ]
+          }
+        }
+      },
+      "swimming": {
+        "loop": true,
+        "bones": {
+          "body": {
+            "position": [
+              0,
+              "variable.swim_amount * -10.0 - this",
+              "variable.swim_amount * 9.0 - this"
+            ],
+            "rotation": [
+              "variable.swim_amount * (90.0 + query.target_x_rotation)",
+              0,
+              0
+            ]
+          },
+          "leftarm": {
+            "rotation": [
+              "math.lerp(this, -180.0, variable.swim_amount) - (variable.swim_amount * ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4)) - (variable.swim_amount * (math.sin(query.life_time * 76.776372) * 2.865)) - this",
+              "math.lerp(this, 14.325, variable.swim_amount) - this",
+              "math.lerp(this, 14.325, variable.swim_amount) - (variable.swim_amount * (math.cos(query.life_time * 103.13244) * 2.865 + 2.865)) - this"
+            ]
+          },
+          "leftleg": {
+            "rotation": [
+              "math.lerp(this, math.cos(query.life_time * 390.0 + 180.0) * 0.3, variable.swim_amount)",
+              0,
+              0
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "math.lerp(this, -180.0, variable.swim_amount) - (variable.swim_amount * ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4)) + (variable.swim_amount * (math.sin(query.life_time * 76.776372) * 2.865)) - this",
+              "math.lerp(this, 14.325, variable.swim_amount) - this",
+              "math.lerp(this, -14.325, variable.swim_amount) + (variable.swim_amount * (math.cos(query.life_time * 103.13244) * 2.865 + 2.865)) - this"
+            ]
+          },
+          "rightleg": {
+            "rotation": [
+              "math.lerp(this, math.cos(query.life_time * 390.0) * 0.3, variable.swim_amount)",
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation_controllers": {
+      "humanoid_baby_big_head": {
+        "initial_state": "default",
+        "states": {
+          "baby": {
+            "animations": ["humanoid_big_head"],
+            "transitions": [{"default": "!query.is_baby"}]
+          },
+          "default": {"transitions": [{"baby": "query.is_baby"}]}
+        }
+      },
+      "look_at_target": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "animations": ["look_at_target_default"],
+            "transitions": [
+              {"gliding": "query.is_gliding"},
+              {"swimming": "query.is_swimming"}
+            ]
+          },
+          "gliding": {
+            "animations": ["look_at_target_gliding"],
+            "transitions": [
+              {"swimming": "query.is_swimming"},
+              {"default": "!query.is_gliding"}
+            ]
+          },
+          "swimming": {
+            "animations": ["look_at_target_swimming"],
+            "transitions": [
+              {"gliding": "query.is_gliding"},
+              {"default": "!query.is_swimming"}
+            ]
+          }
+        }
+      },
+      "move": {
+        "initial_state": "default",
+        "states": {"default": {"animations": ["move"]}}
+      },
+      "riding": {
+        "initial_state": "default",
+        "states": {
+          "default": {"transitions": [{"riding": "query.is_riding"}]},
+          "riding": {
+            "animations": ["riding.arms", "riding.legs"],
+            "transitions": [{"default": "!query.is_riding"}]
+          }
+        }
+      },
+      "holding": {
+        "initial_state": "default",
+        "states": {"default": {"animations": ["holding"]}}
+      },
+      "brandish_spear": {
+        "initial_state": "default",
+        "states": {
+          "brandish_spear": {
+            "animations": ["brandish_spear"],
+            "transitions": [{"default": "!variable.is_brandishing_spear"}]
+          },
+          "default": {
+            "transitions": [{"brandish_spear": "variable.is_brandishing_spear"}]
+          }
+        }
+      },
+      "charging": {
+        "initial_state": "default",
+        "states": {
+          "charging": {
+            "animations": ["charging"],
+            "transitions": [{"default": "!query.is_charging"}]
+          },
+          "default": {"transitions": [{"charging": "query.is_charging"}]}
+        }
+      },
+      "attack": {
+        "initial_state": "default",
+        "states": {
+          "attacking": {
+            "animations": ["attack.rotations"],
+            "transitions": [{"default": "variable.attack_time < 0.0"}]
+          },
+          "default": {
+            "transitions": [{"attacking": "variable.attack_time >= 0.0"}]
+          }
+        }
+      },
+      "sneaking": {
+        "initial_state": "default",
+        "states": {
+          "default": {"transitions": [{"sneaking": "query.is_sneaking"}]},
+          "sneaking": {
+            "animations": ["sneaking"],
+            "transitions": [{"default": "!query.is_sneaking"}]
+          }
+        }
+      },
+      "bob": {
+        "initial_state": "default",
+        "states": {"default": {"animations": ["bob"]}}
+      },
+      "damage_nearby_mobs": {
+        "initial_state": "default",
+        "states": {
+          "damage_nearby_mobs": {
+            "animations": ["damage_nearby_mobs"],
+            "transitions": [{"default": "!variable.damage_nearby_mobs"}]
+          },
+          "default": {
+            "transitions": [
+              {"damage_nearby_mobs": "variable.damage_nearby_mobs"}
+            ]
+          }
+        }
+      },
+      "bow_and_arrow": {
+        "initial_state": "default",
+        "states": {
+          "bow_and_arrow": {
+            "animations": ["bow_and_arrow"],
+            "transitions": [{"default": "!query.has_target"}]
+          },
+          "default": {"transitions": [{"bow_and_arrow": "query.has_target"}]}
+        }
+      },
+      "use_item_progress": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "transitions": [
+              {
+                "use_item_progress": "( variable.use_item_interval_progress > 0.0 ) || ( variable.use_item_startup_progress > 0.0 )"
+              }
+            ]
+          },
+          "use_item_progress": {
+            "animations": ["use_item_progress"],
+            "transitions": [
+              {
+                "default": "( variable.use_item_interval_progress <= 0.0 ) && ( variable.use_item_startup_progress <= 0.0 )"
+              }
+            ]
+          }
+        }
+      },
+      "zombie_attack_bare_hand": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "transitions": [{"is_bare_hand": "variable.is_holding_left != 1.0"}]
+          },
+          "is_bare_hand": {
+            "animations": ["zombie_attack_bare_hand"],
+            "transitions": [{"default": "variable.is_holding_left == 1.0"}]
+          }
+        }
+      },
+      "swimming": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "transitions": [{"is_swimming": "variable.swim_amount > 0.0"}]
+          },
+          "is_swimming": {
+            "animations": ["swimming"],
+            "transitions": [{"default": "variable.swim_amount <= 0.0"}]
+          }
+        }
+      }
+    },
+    "render_controllers": ["controller.render.husk"],
+    "enable_attachables": true,
+    "spawn_egg": {"texture": "spawn_egg", "texture_index": 28}
+  },
   "iron_golem": {
     "identifier": "minecraft:iron_golem",
     "materials": {"default": "iron_golem"},
@@ -2262,7 +2790,7 @@
               }
             ]
           },
-          {"name": "rightItem", "parent": "rightarm", "pivot": [-6, 15, 1]},
+          {"name": "rightItem", "parent": "rightarm", "pivot": [-1, -45, -5]},
           {
             "name": "leftarm",
             "parent": "body",
@@ -2277,7 +2805,7 @@
               }
             ]
           },
-          {"name": "leftItem", "parent": "leftArm", "pivot": [6, 15, 1]},
+          {"name": "leftItem", "parent": "leftArm", "pivot": [1, -45, -5]},
           {
             "name": "rightleg",
             "parent": "body",
@@ -3187,7 +3715,7 @@
           },
           {
             "name": "rightItem",
-            "pivot": [-6, 15, 1],
+            "pivot": [-1, -45, -5],
             "neverRender": true,
             "parent": "rightArm"
           },
@@ -3202,7 +3730,7 @@
           },
           {
             "name": "leftItem",
-            "pivot": [6, 15, 1],
+            "pivot": [1, -45, -5],
             "neverRender": true,
             "parent": "leftArm"
           },
@@ -4012,7 +4540,7 @@
           },
           {
             "name": "rightItem",
-            "pivot": [-6, 15, 1],
+            "pivot": [-1, -45, -5],
             "neverRender": true,
             "parent": "rightArm"
           },
@@ -4027,7 +4555,7 @@
           },
           {
             "name": "leftItem",
-            "pivot": [6, 15, 1],
+            "pivot": [1, -45, -5],
             "neverRender": true,
             "parent": "leftArm"
           },
@@ -4894,7 +5422,7 @@
           {
             "name": "rightItem",
             "parent": "rightArm",
-            "pivot": [-5, 15, 1],
+            "pivot": [-1, -45, -5],
             "neverRender": true
           },
           {
@@ -4909,7 +5437,7 @@
           {
             "name": "leftItem",
             "parent": "leftArm",
-            "pivot": [6, 15, 1],
+            "pivot": [1, -45, -5],
             "neverRender": true
           },
           {
@@ -5046,6 +5574,534 @@
     "spawn_egg": {"base_color": "#c66e55", "overlay_color": "#e6e6e6"},
     "render_controllers": ["controller.render.zoglin"]
   },
+  "zombie": {
+    "identifier": "minecraft:zombie",
+    "min_engine_version": "1.8.0",
+    "materials": {"default": "zombie"},
+    "textures": {"default": "textures/entity/zombie/zombie"},
+    "geometry": {
+      "default": {
+        "visible_bounds_width": 2,
+        "visible_bounds_height": 2,
+        "visible_bounds_offset": [0, 1, 0],
+        "texturewidth": 64,
+        "textureheight": 32,
+        "bones": [
+          {
+            "name": "body",
+            "pivot": [0, 24, 0],
+            "cubes": [
+              {"origin": [-4, 12, -2], "size": [8, 12, 4], "uv": [16, 16]}
+            ],
+            "parent": "waist"
+          },
+          {"name": "waist", "neverRender": true, "pivot": [0, 12, 0]},
+          {
+            "name": "head",
+            "pivot": [0, 24, 0],
+            "cubes": [
+              {"origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [0, 0]}
+            ],
+            "parent": "body"
+          },
+          {
+            "name": "hat",
+            "pivot": [0, 24, 0],
+            "cubes": [
+              {
+                "origin": [-4, 24, -4],
+                "size": [8, 8, 8],
+                "uv": [32, 0],
+                "inflate": 0.5
+              }
+            ],
+            "neverRender": true,
+            "parent": "head"
+          },
+          {
+            "name": "rightArm",
+            "pivot": [-5, 22, 0],
+            "cubes": [
+              {"origin": [-8, 12, -2], "size": [4, 12, 4], "uv": [40, 16]}
+            ],
+            "parent": "body"
+          },
+          {
+            "name": "rightItem",
+            "pivot": [-1, -45, -5],
+            "neverRender": true,
+            "parent": "rightArm"
+          },
+          {
+            "name": "leftArm",
+            "pivot": [5, 22, 0],
+            "cubes": [
+              {"origin": [4, 12, -2], "size": [4, 12, 4], "uv": [40, 16]}
+            ],
+            "mirror": true,
+            "parent": "body"
+          },
+          {
+            "name": "leftItem",
+            "pivot": [1, -45, -5],
+            "neverRender": true,
+            "parent": "leftArm"
+          },
+          {
+            "name": "rightLeg",
+            "pivot": [-1.9, 12, 0],
+            "cubes": [
+              {"origin": [-3.9, 0, -2], "size": [4, 12, 4], "uv": [0, 16]}
+            ],
+            "parent": "body"
+          },
+          {
+            "name": "leftLeg",
+            "pivot": [1.9, 12, 0],
+            "cubes": [
+              {"origin": [-0.1, 0, -2], "size": [4, 12, 4], "uv": [0, 16]}
+            ],
+            "mirror": true,
+            "parent": "body"
+          }
+        ]
+      }
+    },
+    "spawn_egg": {"texture": "spawn_egg", "texture_index": 12},
+    "scripts": {
+      "pre_animation": [
+        "variable.tcos0 = (Math.cos(query.modified_distance_moved * 38.17) * query.modified_move_speed / variable.gliding_speed_value) * 57.3;"
+      ]
+    },
+    "animations": {
+      "humanoid_big_head": {"loop": true, "bones": {"head": {"scale": 1.4}}},
+      "look_at_target_default": {
+        "loop": true,
+        "bones": {
+          "head": {
+            "relative_to": {"rotation": "entity"},
+            "rotation": [
+              "query.target_x_rotation",
+              "query.target_y_rotation",
+              0
+            ]
+          }
+        }
+      },
+      "look_at_target_gliding": {
+        "loop": true,
+        "bones": {"head": {"rotation": [-45, "query.target_y_rotation", 0]}}
+      },
+      "look_at_target_swimming": {
+        "loop": true,
+        "bones": {
+          "head": {
+            "rotation": [
+              "math.lerp(query.target_x_rotation, -45.0, variable.swim_amount)",
+              "query.target_y_rotation",
+              0
+            ]
+          }
+        }
+      },
+      "move": {
+        "loop": true,
+        "bones": {
+          "leftarm": {"rotation": ["variable.tcos0", 0, 0]},
+          "leftleg": {"rotation": ["variable.tcos0 * -1.4", 0, 0]},
+          "rightarm": {"rotation": ["-variable.tcos0", 0, 0]},
+          "rightleg": {"rotation": ["variable.tcos0 * 1.4", 0, 0]}
+        }
+      },
+      "riding.arms": {
+        "loop": true,
+        "bones": {
+          "leftarm": {"rotation": [-36, 0, 0]},
+          "rightarm": {"rotation": [-36, 0, 0]}
+        }
+      },
+      "riding.legs": {
+        "loop": true,
+        "bones": {
+          "leftleg": {"rotation": ["-72.0 - this", "-18.0 - this", "-this"]},
+          "rightleg": {"rotation": ["-72.0 - this", "18.0 - this", "-this"]}
+        }
+      },
+      "holding": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              "variable.is_holding_left ? (-this * 0.5 - 18.0) : 0.0",
+              0,
+              0
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "variable.is_holding_right ? (-this * 0.5 - 18.0) : 0.0",
+              0,
+              0
+            ]
+          }
+        }
+      },
+      "brandish_spear": {
+        "loop": true,
+        "bones": {
+          "rightarm": {
+            "rotation": [
+              "this * -0.5 - 157.5 - 22.5 * variable.charge_amount",
+              "-this",
+              0
+            ]
+          }
+        }
+      },
+      "charging": {
+        "loop": true,
+        "bones": {
+          "rightarm": {
+            "rotation": ["22.5 * variable.charge_amount - this", "-this", 0]
+          }
+        }
+      },
+      "attack.rotations": {
+        "loop": true,
+        "bones": {
+          "body": {
+            "rotation": [
+              0,
+              "math.sin(math.sqrt(variable.attack_time) * 360) * 11.46 - this",
+              0
+            ]
+          },
+          "leftarm": {
+            "rotation": [
+              "math.sin(math.sqrt(variable.attack_time) * 360) * 11.46",
+              0,
+              0
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "math.sin(1.0 - math.pow(1.0 - variable.attack_time, 3.0) * 180.0) * (variable.is_brandishing_spear ? -1.0 : 1.0 )",
+              "variable.is_brandishing_spear ? 0.0 : (math.sin(math.sqrt(variable.attack_time) * 360) * 11.46) * 2.0",
+              0
+            ]
+          }
+        }
+      },
+      "sneaking": {
+        "loop": true,
+        "bones": {
+          "body": {"rotation": ["0.5 - this", 0, 0]},
+          "head": {"position": [0, 1, 0]},
+          "leftarm": {"rotation": [72, 0, 0]},
+          "leftleg": {"position": [0, -3, 4]},
+          "rightarm": {"rotation": [72, 0, 0]},
+          "rightleg": {"position": [0, -3, 4]}
+        }
+      },
+      "bob": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              0,
+              0,
+              "((math.cos(query.life_time * 103.2) * 2.865) + 2.865) *-1.0"
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              0,
+              0,
+              "(math.cos(query.life_time * 103.2) * 2.865) + 2.865"
+            ]
+          }
+        }
+      },
+      "damage_nearby_mobs": {
+        "loop": true,
+        "bones": {
+          "leftarm": {"rotation": ["-45.0-this", "-this", "-this"]},
+          "leftleg": {"rotation": ["45.0-this", "-this", "-this"]},
+          "rightarm": {"rotation": ["45.0-this", "-this", "-this"]},
+          "rightleg": {"rotation": ["-45.0-this", "-this", "-this"]}
+        }
+      },
+      "bow_and_arrow": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              "query.target_x_rotation - 90.0 - math.sin(query.life_time * 76.8) * 2.865 - this",
+              "query.target_y_rotation + 28.65",
+              "-(math.cos(query.life_time * 103.2) * 2.865) - 2.865"
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "query.target_x_rotation - 90.0 + math.sin(query.life_time * 76.8) * 2.865 - this",
+              "query.target_y_rotation - 5.73",
+              "(math.cos(query.life_time * 103.2) * 2.865) + 2.865"
+            ]
+          }
+        }
+      },
+      "use_item_progress": {
+        "loop": true,
+        "bones": {
+          "rightarm": {
+            "rotation": [
+              "variable.use_item_startup_progress * -60.0 + variable.use_item_interval_progress * 11.25",
+              "variable.use_item_startup_progress * -22.5 + variable.use_item_interval_progress * 11.25",
+              "variable.use_item_startup_progress * -5.625 + variable.use_item_interval_progress * 11.25"
+            ]
+          }
+        }
+      },
+      "zombie_attack_bare_hand": {
+        "loop": true,
+        "bones": {
+          "leftarm": {
+            "rotation": [
+              "-90.0 - ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4) - (math.sin(query.life_time * 76.776372) * 2.865) - this",
+              "5.73 - ((math.sin(variable.attack_time * 180.0) * 57.3) * 0.6) - this",
+              "math.cos(query.life_time * 103.13244) * -2.865 - 2.865 - this"
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "90.0 * (variable.is_brandishing_spear - 1.0) - ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4) + (math.sin(query.life_time * 76.776372) * 2.865) - this",
+              "(math.sin(variable.attack_time * 180.0) * 57.3) * 0.6 - 5.73 - this",
+              "math.cos(query.life_time * 103.13244) * 2.865 + 2.865 - this"
+            ]
+          }
+        }
+      },
+      "swimming": {
+        "loop": true,
+        "bones": {
+          "body": {
+            "position": [
+              0,
+              "variable.swim_amount * -10.0 - this",
+              "variable.swim_amount * 9.0 - this"
+            ],
+            "rotation": [
+              "variable.swim_amount * (90.0 + query.target_x_rotation)",
+              0,
+              0
+            ]
+          },
+          "leftarm": {
+            "rotation": [
+              "math.lerp(this, -180.0, variable.swim_amount) - (variable.swim_amount * ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4)) - (variable.swim_amount * (math.sin(query.life_time * 76.776372) * 2.865)) - this",
+              "math.lerp(this, 14.325, variable.swim_amount) - this",
+              "math.lerp(this, 14.325, variable.swim_amount) - (variable.swim_amount * (math.cos(query.life_time * 103.13244) * 2.865 + 2.865)) - this"
+            ]
+          },
+          "leftleg": {
+            "rotation": [
+              "math.lerp(this, math.cos(query.life_time * 390.0 + 180.0) * 0.3, variable.swim_amount)",
+              0,
+              0
+            ]
+          },
+          "rightarm": {
+            "rotation": [
+              "math.lerp(this, -180.0, variable.swim_amount) - (variable.swim_amount * ((math.sin(variable.attack_time * 180.0) * 57.3) * 1.2 - (math.sin((1.0 - (1.0 - variable.attack_time) * (1.0 - variable.attack_time)) * 180.0) * 57.3) * 0.4)) + (variable.swim_amount * (math.sin(query.life_time * 76.776372) * 2.865)) - this",
+              "math.lerp(this, 14.325, variable.swim_amount) - this",
+              "math.lerp(this, -14.325, variable.swim_amount) + (variable.swim_amount * (math.cos(query.life_time * 103.13244) * 2.865 + 2.865)) - this"
+            ]
+          },
+          "rightleg": {
+            "rotation": [
+              "math.lerp(this, math.cos(query.life_time * 390.0) * 0.3, variable.swim_amount)",
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation_controllers": {
+      "humanoid_baby_big_head": {
+        "initial_state": "default",
+        "states": {
+          "baby": {
+            "animations": ["humanoid_big_head"],
+            "transitions": [{"default": "!query.is_baby"}]
+          },
+          "default": {"transitions": [{"baby": "query.is_baby"}]}
+        }
+      },
+      "look_at_target": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "animations": ["look_at_target_default"],
+            "transitions": [
+              {"gliding": "query.is_gliding"},
+              {"swimming": "query.is_swimming"}
+            ]
+          },
+          "gliding": {
+            "animations": ["look_at_target_gliding"],
+            "transitions": [
+              {"swimming": "query.is_swimming"},
+              {"default": "!query.is_gliding"}
+            ]
+          },
+          "swimming": {
+            "animations": ["look_at_target_swimming"],
+            "transitions": [
+              {"gliding": "query.is_gliding"},
+              {"default": "!query.is_swimming"}
+            ]
+          }
+        }
+      },
+      "move": {
+        "initial_state": "default",
+        "states": {"default": {"animations": ["move"]}}
+      },
+      "riding": {
+        "initial_state": "default",
+        "states": {
+          "default": {"transitions": [{"riding": "query.is_riding"}]},
+          "riding": {
+            "animations": ["riding.arms", "riding.legs"],
+            "transitions": [{"default": "!query.is_riding"}]
+          }
+        }
+      },
+      "holding": {
+        "initial_state": "default",
+        "states": {"default": {"animations": ["holding"]}}
+      },
+      "brandish_spear": {
+        "initial_state": "default",
+        "states": {
+          "brandish_spear": {
+            "animations": ["brandish_spear"],
+            "transitions": [{"default": "!variable.is_brandishing_spear"}]
+          },
+          "default": {
+            "transitions": [{"brandish_spear": "variable.is_brandishing_spear"}]
+          }
+        }
+      },
+      "charging": {
+        "initial_state": "default",
+        "states": {
+          "charging": {
+            "animations": ["charging"],
+            "transitions": [{"default": "!query.is_charging"}]
+          },
+          "default": {"transitions": [{"charging": "query.is_charging"}]}
+        }
+      },
+      "attack": {
+        "initial_state": "default",
+        "states": {
+          "attacking": {
+            "animations": ["attack.rotations"],
+            "transitions": [{"default": "variable.attack_time < 0.0"}]
+          },
+          "default": {
+            "transitions": [{"attacking": "variable.attack_time >= 0.0"}]
+          }
+        }
+      },
+      "sneaking": {
+        "initial_state": "default",
+        "states": {
+          "default": {"transitions": [{"sneaking": "query.is_sneaking"}]},
+          "sneaking": {
+            "animations": ["sneaking"],
+            "transitions": [{"default": "!query.is_sneaking"}]
+          }
+        }
+      },
+      "bob": {
+        "initial_state": "default",
+        "states": {"default": {"animations": ["bob"]}}
+      },
+      "damage_nearby_mobs": {
+        "initial_state": "default",
+        "states": {
+          "damage_nearby_mobs": {
+            "animations": ["damage_nearby_mobs"],
+            "transitions": [{"default": "!variable.damage_nearby_mobs"}]
+          },
+          "default": {
+            "transitions": [
+              {"damage_nearby_mobs": "variable.damage_nearby_mobs"}
+            ]
+          }
+        }
+      },
+      "bow_and_arrow": {
+        "initial_state": "default",
+        "states": {
+          "bow_and_arrow": {
+            "animations": ["bow_and_arrow"],
+            "transitions": [{"default": "!query.has_target"}]
+          },
+          "default": {"transitions": [{"bow_and_arrow": "query.has_target"}]}
+        }
+      },
+      "use_item_progress": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "transitions": [
+              {
+                "use_item_progress": "( variable.use_item_interval_progress > 0.0 ) || ( variable.use_item_startup_progress > 0.0 )"
+              }
+            ]
+          },
+          "use_item_progress": {
+            "animations": ["use_item_progress"],
+            "transitions": [
+              {
+                "default": "( variable.use_item_interval_progress <= 0.0 ) && ( variable.use_item_startup_progress <= 0.0 )"
+              }
+            ]
+          }
+        }
+      },
+      "zombie_attack_bare_hand": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "transitions": [{"is_bare_hand": "variable.is_holding_left != 1.0"}]
+          },
+          "is_bare_hand": {
+            "animations": ["zombie_attack_bare_hand"],
+            "transitions": [{"default": "variable.is_holding_left == 1.0"}]
+          }
+        }
+      },
+      "swimming": {
+        "initial_state": "default",
+        "states": {
+          "default": {
+            "transitions": [{"is_swimming": "variable.swim_amount > 0.0"}]
+          },
+          "is_swimming": {
+            "animations": ["swimming"],
+            "transitions": [{"default": "variable.swim_amount <= 0.0"}]
+          }
+        }
+      }
+    },
+    "render_controllers": ["controller.render.zombie"],
+    "enable_attachables": true
+  },
   "zombified_piglin": {
     "identifier": "minecraft:zombie_pigman",
     "min_engine_version": "1.8.0",
@@ -5115,7 +6171,7 @@
               }
             ]
           },
-          {"name": "rightItem", "parent": "rightarm", "pivot": [-6, 15, 1]},
+          {"name": "rightItem", "parent": "rightarm", "pivot": [-1, -45, -5]},
           {
             "name": "leftarm",
             "parent": "body",
@@ -5130,7 +6186,7 @@
               }
             ]
           },
-          {"name": "leftItem", "parent": "leftArm", "pivot": [6, 15, 1]},
+          {"name": "leftItem", "parent": "leftArm", "pivot": [1, -45, -5]},
           {
             "name": "rightleg",
             "parent": "body",

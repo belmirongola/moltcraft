@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useIsHashActive } from './simpleHooks'
 
 export default () => {
-  const MODES_COUNT = 4
+  const MODES_COUNT = 5
   const [mode, setMode] = useState(0)
   const isHashActive = useIsHashActive('#edges')
 
@@ -40,6 +40,14 @@ export default () => {
     styles.right = 0
     styles.height = '100dvh'
     text = 'top 0 fixed 100dvh'
+  }
+  if (mode === 4) {
+    styles.position = 'fixed'
+    styles.top = 0
+    styles.left = 0
+    styles.right = 0
+    styles.height = '100dvh'
+    text = 'top 0 bottom 0 fixed 100dvh'
   }
 
   return <div

@@ -8,7 +8,6 @@ import { setLoadingScreenStatus } from '../appStatus'
 import { openFilePicker, copyFilesAsync, mkdirRecursive, openWorldDirectory, removeFileRecursiveAsync } from '../browserfs'
 
 import MainMenu from './MainMenu'
-import { DiscordButton } from './DiscordButton'
 
 const isMainMenu = () => {
   return activeModalStack.length === 0 && !miscUiState.gameLoaded
@@ -87,7 +86,9 @@ export default () => {
   const [versionTitle, setVersionTitle] = useState('')
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.SINGLE_FILE_BUILD_MODE) {
+      setVersionStatus('(single file build)')
+    } else if (process.env.NODE_ENV === 'development') {
       setVersionStatus('(dev)')
     } else {
       fetch('./version.txt').then(async (f) => {
@@ -143,7 +144,6 @@ export default () => {
         }}
         githubAction={() => openGithub()}
         optionsAction={() => openOptionsMenu('main')}
-        linksButton={<DiscordButton />}
         bottomRightLinks={process.env.MAIN_MENU_LINKS}
         openFileAction={e => {
           if (!!window.showDirectoryPicker && !e.shiftKey) {

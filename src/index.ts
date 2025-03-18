@@ -22,8 +22,6 @@ import microsoftAuthflow from './microsoftAuthflow'
 import { Duplex } from 'stream'
 
 import './scaleInterface'
-import PrismarineBlock from 'prismarine-block'
-import PrismarineItem from 'prismarine-item'
 
 import { options, watchValue } from './optionsStorage'
 import './reactUi'
@@ -37,7 +35,6 @@ import fs from 'fs'
 import net from 'net'
 import mineflayer from 'mineflayer'
 import pathfinder from 'mineflayer-pathfinder'
-import { Vec3 } from 'vec3'
 
 import * as THREE from 'three'
 import MinecraftData from 'minecraft-data'
@@ -81,7 +78,7 @@ import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
-import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
@@ -104,6 +101,8 @@ import { createConsoleLogProgressReporter, createFullScreenProgressReporter } fr
 import { getItemModelName } from './resourcesManager'
 import { appViewer } from './appViewer'
 import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
+import { importLargeData } from '../generated/large-data-aliases'
+import { subscribeKey } from 'valtio/utils'
 
 window.debug = debug
 window.THREE = THREE
@@ -122,11 +121,25 @@ onAppLoad()
 
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
-appViewer.loadBackend(createGraphicsBackend)
+const loadBackend = () => {
+  appViewer.loadBackend(createGraphicsBackend)
+}
+window.loadBackend = loadBackend
+if (process.env.SINGLE_FILE_BUILD_MODE) {
+  const unsub = subscribeKey(miscUiState, 'fsReady', () => {
+    if (miscUiState.fsReady) {
+      // don't do it earlier to load fs and display menu faster
+      loadBackend()
+      unsub()
+    }
+  })
+} else {
+  loadBackend()
+}
 
 // todo unify
 // viewer.entities.getItemUv = (item, specificProps) => {
-//   const idOrName = item.itemId ?? item.blockId
+//   const idOrName = item.itemId ?? item.blockId ?? item.name
 //   try {
 //     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
 //     if (!name) throw new Error(`Item not found: ${idOrName}`)
@@ -304,6 +317,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (miscUiState.gameLoaded) return
 
     setLoadingScreenStatus(`Error encountered. ${err}`, true)
+    appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
     destroyAll()
   }
@@ -349,15 +363,16 @@ export async function connect (connectOptions: ConnectOptions) {
 
     let dataDownloaded = false
     const downloadMcData = async (version: string) => {
+      await appViewer.resourcesManager.loadSourceData(version)
       if (dataDownloaded) return
       dataDownloaded = true
 
       await progress.executeWithMessage(
         'Applying user-installed resource pack',
         async () => {
-          await downloadMcDataOnConnect(version)
+          await loadMinecraftData(version)
           try {
-            await resourcepackReload(version)
+            // await resourcepackReload()
           } catch (err) {
             console.error(err)
             const doContinue = confirm('Failed to apply texture pack. See errors in the console. Continue?')
@@ -371,9 +386,8 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Loading minecraft models',
         async () => {
-          appViewer.resourcesManager.sourceBlockStatesModels ??= await import('mc-assets/dist/blockStatesModels.json')
           // void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
-          void appViewer.updateResources(version, createConsoleLogProgressReporter())
+          void appViewer.prepareResources(version, createConsoleLogProgressReporter())
           miscUiState.loadedDataVersion = version
         }
       )
@@ -654,6 +668,7 @@ export async function connect (connectOptions: ConnectOptions) {
     console.log('You were kicked!', kickReason)
     const { formatted: kickReasonFormatted, plain: kickReasonString } = parseFormattedMessagePacket(kickReason)
     setLoadingScreenStatus(`The Minecraft server kicked you. Kick reason: ${kickReasonString}`, true, undefined, undefined, kickReasonFormatted)
+    appStatusState.showReconnect = true
     destroyAll()
   })
 
@@ -687,17 +702,10 @@ export async function connect (connectOptions: ConnectOptions) {
 
   bot.once('login', () => {
     setLoadingScreenStatus('Loading world')
-
-    const mcData = MinecraftData(bot.version)
-    window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
-    window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
-    window.loadedData = mcData
-    window.Vec3 = Vec3
-    window.pathfinder = pathfinder
   })
 
   const start = Date.now()
-  let worldWasReady = false
+  const worldWasReady = false
   // void viewer.world.renderUpdateEmitter.on('update', () => {
   //   // todo might not emit as servers simply don't send chunk if it's empty
   //   if (!viewer.world.allChunksFinished || worldWasReady) return
@@ -743,7 +751,7 @@ export async function connect (connectOptions: ConnectOptions) {
     appViewer.startWorld(bot.world, renderDistance, bot.entity.position)
     watchOptionsAfterWorldViewInit()
 
-    void initVR()
+    // void initVR()
     initMotionTracking()
 
     appViewer.worldView.listenToBot(bot)
@@ -768,6 +776,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (appStatusState.isError) return
 
     const waitForChunks = async () => {
+      if (appQueryParams.sp === '1') return //todo
       const waitForChunks = options.waitForChunksRender === 'sp-only' ? !!singleplayer : options.waitForChunksRender
       if (viewer.world.allChunksFinished || !waitForChunks) {
         return
@@ -794,7 +803,7 @@ export async function connect (connectOptions: ConnectOptions) {
       )
     }
 
-    await waitForChunks()
+    // await waitForChunks()
 
     setTimeout(() => {
       if (appQueryParams.suggest_save) {
@@ -812,8 +821,8 @@ export async function connect (connectOptions: ConnectOptions) {
     miscUiState.gameLoaded = true
     miscUiState.loadedServerIndex = connectOptions.serverIndex ?? ''
     customEvents.emit('gameLoaded')
-    setLoadingScreenStatus(undefined)
     progress.end()
+    setLoadingScreenStatus(undefined)
   })
 
   if (singleplayer && connectOptions.serverOverrides.worldFolder) {
@@ -835,8 +844,8 @@ export async function connect (connectOptions: ConnectOptions) {
 const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
 
 listenGlobalEvents()
-const unsubscribe = watchValue(miscUiState, async s => {
-  if (s.fsReady && s.appConfig) {
+const unsubscribe = subscribe(miscUiState, async () => {
+  if (miscUiState.fsReady && miscUiState.appConfig) {
     unsubscribe()
     if (reconnectOptions) {
       sessionStorage.removeItem('reconnectOptions')

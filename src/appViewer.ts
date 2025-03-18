@@ -1,27 +1,18 @@
 import { EventEmitter } from 'events'
 import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
-import { IPlayerState } from 'renderer/viewer/lib/basePlayerState'
+import { BasePlayerState, IPlayerState } from 'renderer/viewer/lib/basePlayerState'
 import { subscribeKey } from 'valtio/utils'
 import { defaultWorldRendererConfig, WorldRendererConfig } from 'renderer/viewer/lib/worldrendererCommon'
 import { Vec3 } from 'vec3'
-import { proxy } from 'valtio'
-import blocksAtlases from 'mc-assets/dist/blocksAtlases.json'
-import itemsAtlases from 'mc-assets/dist/itemsAtlases.json'
-import itemDefinitionsJson from 'mc-assets/dist/itemDefinitions.json'
-import blocksAtlasLatest from 'mc-assets/dist/blocksAtlasLatest.png'
-import blocksAtlasLegacy from 'mc-assets/dist/blocksAtlasLegacy.png'
-import itemsAtlasLatest from 'mc-assets/dist/itemsAtlasLatest.png'
-import itemsAtlasLegacy from 'mc-assets/dist/itemsAtlasLegacy.png'
-import christmasPack from 'mc-assets/dist/textureReplacements/christmas'
-import { AtlasParser, getLoadedItemDefinitionsStore } from 'mc-assets'
-import TypedEmitter from 'typed-emitter'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
-import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
+import { getSyncWorld } from 'renderer/playground/shared'
+import { SoundSystem } from 'renderer/viewer/lib/threeJsSound'
 import { playerState, PlayerStateManager } from './mineflayer/playerState'
-import { createNotificationProgressReporter, ProgressReporter } from './core/progressReporter'
+import { createNotificationProgressReporter, createNullProgressReporter, ProgressReporter } from './core/progressReporter'
 import { setLoadingScreenStatus } from './appStatus'
 import { activeModalStack, miscUiState } from './globalState'
 import { options } from './optionsStorage'
+import { loadMinecraftData } from './connect'
+import { ResourcesManager } from './resourcesManager'
 
 export interface WorldReactiveState {
   chunksLoaded: number
@@ -39,25 +30,25 @@ const defaultGraphicsBackendConfig: GraphicsBackendConfig = {
   powerPreference: undefined
 }
 
-export interface GraphicsBackendOptions {
+export interface GraphicsInitOptions {
   resourcesManager: ResourcesManager
   config: GraphicsBackendConfig
+
   displayCriticalError: (error: Error) => void
 }
 
 export interface DisplayWorldOptions {
-  resourcesManager: ResourcesManager
   worldView: WorldDataEmitter
   inWorldRenderingConfig: WorldRendererConfig
   playerState: IPlayerState
 }
 
-export type GraphicsBackendLoader = (options: GraphicsBackendOptions) => GraphicsBackend
+export type GraphicsBackendLoader = (options: GraphicsInitOptions) => GraphicsBackend
 
 export interface GraphicsBackend {
   NAME: string
   startPanorama: () => void
-  updateResources: (version: string, progressReporter: ProgressReporter) => Promise<void>
+  prepareResources: (version: string, progressReporter: ProgressReporter) => Promise<void>
   startWorld: (options: DisplayWorldOptions) => void
   disconnect: () => void
   setRendering: (rendering: boolean) => void
@@ -66,39 +57,44 @@ export interface GraphicsBackend {
   updateCamera: (pos: Vec3 | null, yaw: number, pitch: number) => void
   setRoll: (roll: number) => void
   worldState: WorldReactiveState
+  soundSystem: SoundSystem | undefined
 }
 
 export class AppViewer {
-  resourcesManager: ResourcesManager = new ResourcesManager()
+  resourcesManager = new ResourcesManager()
   worldView: WorldDataEmitter
   readonly config: GraphicsBackendConfig = {
     ...defaultGraphicsBackendConfig,
     powerPreference: options.gpuPreference === 'default' ? undefined : options.gpuPreference
   }
   backend?: GraphicsBackend
+  backendLoader?: GraphicsBackendLoader
   private queuedDisplay?: {
     method: string
     args: any[]
   }
+  currentDisplay = null as 'menu' | 'world' | null
   inWorldRenderingConfig: WorldRendererConfig = defaultWorldRendererConfig
   lastCamUpdate = 0
 
-  loadBackend (loader: GraphicsBackendLoader, loadResourcesVersion?: string) {
+  loadBackend (loader: GraphicsBackendLoader) {
     if (this.backend) {
-      this.backend.disconnect()
+      this.disconnectBackend()
     }
 
-    this.backend = loader({
+    this.backendLoader = loader
+    const loaderOptions: GraphicsInitOptions = {
       resourcesManager: this.resourcesManager,
       config: this.config,
       displayCriticalError (error) {
         console.error(error)
         setLoadingScreenStatus(error.message, true)
       },
-    })
+    }
+    this.backend = loader(loaderOptions)
 
-    if (loadResourcesVersion) {
-      void this.updateResources(loadResourcesVersion, createNotificationProgressReporter())
+    if (this.resourcesManager.currentResources) {
+      void this.prepareResources(this.resourcesManager.currentResources.version, createNotificationProgressReporter())
     }
 
     // Execute queued action if exists
@@ -108,7 +104,15 @@ export class AppViewer {
     }
   }
 
+  resetBackend () {
+    if (this.backendLoader) {
+      this.loadBackend(this.backendLoader)
+    }
+  }
+
   startPanorama () {
+    if (this.currentDisplay === 'menu') return
+    this.currentDisplay = 'menu'
     if (options.disableAssets) return
     if (this.backend) {
       this.backend.startPanorama()
@@ -116,157 +120,67 @@ export class AppViewer {
     this.queuedDisplay = { method: 'startPanorama', args: [] }
   }
 
-  async updateResources (version: string, progressReporter: ProgressReporter) {
+  async prepareResources (version: string, progressReporter: ProgressReporter) {
     if (this.backend) {
-      // await this.backend.updateResources(version, progressReporter)
+      await this.backend.prepareResources(version, progressReporter)
     }
   }
 
-  async startWorld (world, renderDistance, startPosition) {
+  startWorld (world, renderDistance: number, startPosition: Vec3, playerStateSend: IPlayerState = playerState) {
+    if (this.currentDisplay === 'world') throw new Error('World already started')
+    this.currentDisplay = 'world'
     this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
     window.worldView = this.worldView
 
-    if (this.backend) {
-      this.backend.startWorld({
-        resourcesManager: this.resourcesManager,
-        worldView: this.worldView,
-        inWorldRenderingConfig: this.inWorldRenderingConfig,
-        playerState
-      })
+    const displayWorldOptions: DisplayWorldOptions = {
+      worldView: this.worldView,
+      inWorldRenderingConfig: this.inWorldRenderingConfig,
+      playerState: playerStateSend
     }
-    this.queuedDisplay = { method: 'startWorld', args: [options] }
+    if (this.backend) {
+      this.backend.startWorld(displayWorldOptions)
+    }
+    this.queuedDisplay = { method: 'startWorld', args: [displayWorldOptions] }
   }
 
-  disconnect () {
+  destroyAll () {
+    this.disconnectBackend()
+    this.resourcesManager.destroy()
+  }
+
+  disconnectBackend () {
     if (this.backend) {
       this.backend.disconnect()
       this.backend = undefined
     }
-    this.queuedDisplay = undefined
-  }
-}
-
-export interface UpdateAssetsRequest {
-  includeOnlyBlocks?: string[]
-}
-
-type ResourceManagerEvents = {
-  assetsTexturesUpdated: () => void
-}
-
-export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<ResourceManagerEvents>) {
-  // Source data (imported, not changing)
-  sourceBlockStatesModels: any = null
-  sourceBlocksAtlases: any = blocksAtlases
-  sourceItemsAtlases: any = itemsAtlases
-  sourceItemDefinitionsJson: any = itemDefinitionsJson
-  itemsDefinitionsStore = getLoadedItemDefinitionsStore(this.sourceItemDefinitionsJson)
-
-  // Atlas parsers
-  itemsAtlasParser: AtlasParser | undefined
-  blocksAtlasParser: AtlasParser | undefined
-
-  // User data (specific to current resourcepack/version)
-  customBlockStates?: Record<string, any>
-  customModels?: Record<string, any>
-  customTextures: {
-    items?: { tileSize: number | undefined, textures: Record<string, HTMLImageElement> }
-    blocks?: { tileSize: number | undefined, textures: Record<string, HTMLImageElement> }
-    armor?: { tileSize: number | undefined, textures: Record<string, HTMLImageElement> }
-  } = {}
-
-  // Moved from WorldRendererCommon
-  itemsRenderer: ItemsRenderer | undefined
-  worldBlockProvider: WorldBlockProvider | undefined
-  blockstatesModels: any = null
-
-  version?: string
-  texturesVersion?: string
-
-  async updateAssetsData (request: UpdateAssetsRequest = {}) {
-    const blocksAssetsParser = new AtlasParser(this.sourceBlocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
-    const itemsAssetsParser = new AtlasParser(this.sourceItemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
-
-    const blockTexturesChanges = {} as Record<string, string>
-    const date = new Date()
-    if ((date.getMonth() === 11 && date.getDate() >= 24) || (date.getMonth() === 0 && date.getDate() <= 6)) {
-      Object.assign(blockTexturesChanges, christmasPack)
-    }
-
-    const customBlockTextures = Object.keys(this.customTextures.blocks?.textures ?? {})
-    const customItemTextures = Object.keys(this.customTextures.items?.textures ?? {})
-
-    console.time('createBlocksAtlas')
-    const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(
-      this.texturesVersion ?? this.version ?? 'latest',
-      (textureName) => {
-        if (request.includeOnlyBlocks && !request.includeOnlyBlocks.includes(textureName)) return false
-        const texture = this.customTextures?.blocks?.textures[textureName]
-        return blockTexturesChanges[textureName] ?? texture
-      },
-      undefined,
-      undefined,
-      customBlockTextures
-    )
-    console.timeEnd('createBlocksAtlas')
-
-    console.time('createItemsAtlas')
-    const { atlas: itemsAtlas, canvas: itemsCanvas } = await itemsAssetsParser.makeNewAtlas(
-      this.texturesVersion ?? this.version ?? 'latest',
-      (textureName) => {
-        const texture = this.customTextures?.items?.textures[textureName]
-        if (!texture) return
-        return texture
-      },
-      this.customTextures?.items?.tileSize,
-      undefined,
-      customItemTextures
-    )
-    console.timeEnd('createItemsAtlas')
-
-    this.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
-    this.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
-
-    // Initialize ItemsRenderer and WorldBlockProvider
-    if (this.version && this.blockstatesModels && this.itemsAtlasParser && this.blocksAtlasParser) {
-      this.itemsRenderer = new ItemsRenderer(
-        this.version,
-        this.blockstatesModels,
-        this.itemsAtlasParser,
-        this.blocksAtlasParser
-      )
-      this.worldBlockProvider = worldBlockProvider(
-        this.blockstatesModels,
-        this.blocksAtlasParser.atlas,
-        'latest'
-      )
-    }
-
-    // Emit event that textures were updated
-    this.emit('assetsTexturesUpdated')
-
-    return {
-      blocksAtlas,
-      itemsAtlas,
-      blocksCanvas,
-      itemsCanvas
-    }
-  }
-
-  async setVersion (version: string, texturesVersion?: string) {
-    this.version = version
-    this.texturesVersion = texturesVersion
-    await this.updateAssetsData()
+    this.currentDisplay = null
+    // this.queuedDisplay = undefined
   }
 }
 
 export const appViewer = new AppViewer()
 window.appViewer = appViewer
 
-const modalStackUpdate = () => {
+const initialMenuStart = async () => {
+  if (appViewer.currentDisplay === 'world') {
+    appViewer.resetBackend()
+  }
+  appViewer.startPanorama()
+
+  // await appViewer.resourcesManager.loadMcData('1.21.4')
+  // const world = getSyncWorld('1.21.4')
+  // await appViewer.prepareResources('1.21.4', createNullProgressReporter())
+  // world.setBlockStateId(new Vec3(0, 64, 0), 1)
+  // appViewer.startWorld(world, 3, new Vec3(0, 64, 0), new BasePlayerState())
+  // appViewer.backend?.updateCamera(new Vec3(0, 64, 2), 0, 0)
+  // void appViewer.worldView.init(new Vec3(0, 64, 0))
+}
+window.initialMenuStart = initialMenuStart
+
+const modalStackUpdateChecks = () => {
+  // maybe start panorama
   if (activeModalStack.length === 0 && !miscUiState.gameLoaded) {
-    // tood reset backend
-    appViewer.startPanorama()
+    void initialMenuStart()
   }
 
   if (appViewer.backend) {
@@ -274,5 +188,5 @@ const modalStackUpdate = () => {
     appViewer.backend.setRendering(!hasAppStatus)
   }
 }
-subscribeKey(activeModalStack, 'length', modalStackUpdate)
-modalStackUpdate()
+subscribeKey(activeModalStack, 'length', modalStackUpdateChecks)
+modalStackUpdateChecks()
