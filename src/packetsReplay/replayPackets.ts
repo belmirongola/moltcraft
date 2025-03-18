@@ -3,6 +3,7 @@ import { createServer, ServerClient } from 'minecraft-protocol'
 import { ParsedReplayPacket, parseReplayContents } from 'mcraft-fun-mineflayer/build/packetsLogger'
 import { PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraft-fun-mineflayer/build/worldState'
 import MinecraftData from 'minecraft-data'
+import { GameMode } from 'mineflayer'
 import { LocalServer } from '../customServer'
 import { UserError } from '../mineflayer/userError'
 import { packetsReplayState } from '../react/state/packetsReplayState'
@@ -229,6 +230,25 @@ const mainPacketsReplayer = async (client: ServerClient, packets: ParsedReplayPa
     // Restore original console.error
     console.error = originalConsoleError
   }
+}
+
+export const switchGameMode = (gameMode: GameMode) => {
+  const gamemodes = {
+    survival: 0,
+    creative: 1,
+    adventure: 2,
+    spectator: 3
+  }
+  if (gameMode === 'spectator') {
+    bot._client.emit('abilities', {
+    // can fly + is flying
+      flags: 6
+    })
+  }
+  bot._client.emit('game_state_change', {
+    reason: 3,
+    gameMode: gamemodes[gameMode]
+  })
 }
 
 interface PacketsWaiterOptions {

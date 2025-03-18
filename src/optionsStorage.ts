@@ -1,11 +1,9 @@
-// todo implement async options storage
-
 import { proxy, subscribe } from 'valtio/vanilla'
-// weird webpack configuration bug: it cant import valtio/utils in this file
 import { subscribeKey } from 'valtio/utils'
 import { omitObj } from '@zardoy/utils'
 import { appQueryParamsArray } from './appParams'
 import type { AppConfig } from './appConfig'
+import { appStorage } from './react/appStorageProvider'
 
 const isDev = process.env.NODE_ENV === 'development'
 const initialAppConfig = process.env?.INLINED_APP_CONFIG as AppConfig ?? {}
@@ -164,12 +162,31 @@ const migrateOptions = (options: Partial<AppOptions & Record<string, any>>) => {
 
 export type AppOptions = typeof defaultOptions
 
-// when opening html file locally in browser, localStorage is shared between all ever opened html files, so we try to avoid conflicts
-const localStorageKey = process.env?.SINGLE_FILE_BUILD ? 'minecraftWebClientOptions' : 'options'
+const isDeepEqual = (a: any, b: any): boolean => {
+  if (a === b) return true
+  if (typeof a !== typeof b) return false
+  if (typeof a !== 'object') return false
+  if (a === null || b === null) return a === b
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    return a.every((item, index) => isDeepEqual(item, b[index]))
+  }
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+  if (keysA.length !== keysB.length) return false
+  return keysA.every(key => isDeepEqual(a[key], b[key]))
+}
+
+export const getChangedSettings = () => {
+  return Object.fromEntries(
+    Object.entries(options).filter(([key, value]) => !isDeepEqual(defaultOptions[key], value))
+  )
+}
+
 export const options: AppOptions = proxy({
   ...defaultOptions,
   ...initialAppConfig.defaultSettings,
-  ...migrateOptions(JSON.parse(localStorage[localStorageKey] || '{}')),
+  ...migrateOptions(appStorage.options),
   ...qsOptions
 })
 
@@ -181,14 +198,14 @@ export const resetOptions = () => {
 
 Object.defineProperty(window, 'debugChangedOptions', {
   get () {
-    return Object.fromEntries(Object.entries(options).filter(([key, v]) => defaultOptions[key] !== v))
+    return getChangedSettings()
   },
 })
 
 subscribe(options, () => {
   // Don't save disabled settings to localStorage
   const saveOptions = omitObj(options, [...disabledSettings.value] as any)
-  localStorage[localStorageKey] = JSON.stringify(saveOptions)
+  appStorage.options = saveOptions
 })
 
 type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T, isChanged: boolean) => void) => () => void
