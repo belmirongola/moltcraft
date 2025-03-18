@@ -3,7 +3,7 @@ import * as react from 'react'
 import { gt } from 'semver'
 import { proxy } from 'valtio'
 import { options } from './optionsStorage'
-import { getStoredValue, setStoredValue } from './react/storageProvider'
+import { appStorage } from './react/appStorageProvider'
 import { showOptionsModal } from './react/SelectOption'
 
 // #region Database
@@ -243,11 +243,11 @@ const checkModsUpdates = async () => {
 
 const refreshModRepositories = async () => {
   if (options.modsAutoUpdate === 'never') return
-  const lastCheck = getStoredValue('modsAutoUpdateLastCheck')
+  const lastCheck = appStorage.modsAutoUpdateLastCheck
   if (lastCheck && Date.now() - lastCheck < 1000 * 60 * 60 * options.modsUpdatePeriodCheck) return
   await fetchAllRepositories()
   // todo think of not updating check timestamp on offline access
-  setStoredValue('modsAutoUpdateLastCheck', Date.now())
+  appStorage.modsAutoUpdateLastCheck = Date.now()
 }
 
 export const installModByName = async (repoUrl: string, name: string) => {

@@ -211,6 +211,7 @@ const App = () => {
             <NoModalFoundProvider />
             <PacketsReplayProvider />
             <NotificationProvider />
+            <ModsPage />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>

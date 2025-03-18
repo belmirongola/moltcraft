@@ -1,0 +1,117 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+  gap: 10px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.searchBar {
+  flex: 1;
+}
+
+.filterButton {
+  width: 120px;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.modList {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sidebar {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.modInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modInfoTitle {
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+}
+
+.modInfoText {
+  font-size: 10px;
+  color: #bcbcbc;
+}
+
+.modActions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modRow {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modRow:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.modRowTitle {
+  font-size: 12px;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.modRowInfo {
+  font-size: 10px;
+  color: #bcbcbc;
+}
+
+.repoHeader {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #bcbcbc;
+  font-size: 8px;
+  cursor: pointer;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.repoHeader:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.repoContent {
+  margin-left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}

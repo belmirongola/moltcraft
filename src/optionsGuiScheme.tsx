@@ -214,7 +214,7 @@ export const guiOptionsScheme: {
     {
       custom () {
         const modsUpdateSnapshot = useSnapshot(modsUpdateStatus)
-        return <Button label={`Client Mods: ${Object.keys(window.loadedMods ?? {}).length} (${Object.keys(modsUpdateSnapshot).length})}`} onClick={() => showModal({ reactType: 'mods' })} inScreen />
+        return <Button label={`Client Mods: ${Object.keys(window.loadedMods ?? {}).length} (${Object.keys(modsUpdateSnapshot).length})`} onClick={() => showModal({ reactType: 'mods' })} inScreen />
       },
     },
     {
