@@ -25,11 +25,12 @@ import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
 import { onCameraMove, onControInit } from './cameraRotationControls'
 import { createNotificationProgressReporter } from './core/progressReporter'
+import { appStorage } from './react/appStorageProvider'
 
 
-export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
+export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
-  localStorage.keymap = JSON.stringify(customKeymaps)
+  appStorage.keybindings = customKeymaps
 })
 
 const controlOptions = {

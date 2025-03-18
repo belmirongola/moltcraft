@@ -10,7 +10,7 @@ interface Props extends Omit<React.ComponentProps<'input'>, 'width'> {
   width?: number
 }
 
-export default ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, width, ...inputProps }: Props) => {
+const Input = ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, width, ...inputProps }: Props) => {
   if (width) rootStyles = { ...rootStyles, width }
 
   const ref = useRef<HTMLInputElement>(null!)
@@ -49,5 +49,21 @@ export default ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, 
         inputProps.onChange?.(e)
       }}
     />
+  </div>
+}
+
+export default Input
+
+export const INPUT_LABEL_WIDTH = 190
+
+export const InputWithLabel = ({ label, span, ...props }: React.ComponentProps<typeof Input> & { label, span? }) => {
+  return <div style={{
+    display: 'flex',
+    flexDirection: 'column',
+    gridRow: span ? 'span 2 / span 2' : undefined,
+  }}
+  >
+    <label style={{ fontSize: 12, marginBottom: 1, color: 'lightgray' }}>{label}</label>
+    <Input rootStyles={{ width: INPUT_LABEL_WIDTH }} {...props} />
   </div>
 }

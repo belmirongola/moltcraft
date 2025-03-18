@@ -1,4 +1,5 @@
 import type { AppConfig } from './appConfig'
+import { miscUiState } from './globalState'
 
 const qsParams = new URLSearchParams(window.location?.search ?? '')
 
@@ -73,7 +74,7 @@ export const appQueryParams = new Proxy<AppQsParams>({} as AppQsParams, {
     }
     const qsParam = qsParams.get(property)
     if (qsParam) return qsParam
-    return initialAppConfig.appParams?.[property]
+    return miscUiState.appConfig?.appParams?.[property]
   },
 })
 
@@ -84,7 +85,7 @@ export const appQueryParamsArray = new Proxy({} as AppQsParamsArrayTransformed, 
     }
     const qsParam = qsParams.getAll(property)
     if (qsParam.length) return qsParam
-    return initialAppConfig.appParams?.[property] ?? []
+    return miscUiState.appConfig?.appParams?.[property] ?? []
   },
 })
 

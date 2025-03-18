@@ -3,7 +3,7 @@ import { appQueryParams } from '../appParams'
 import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
 import { parseServerAddress } from '../parseServerAddress'
 import Screen from './Screen'
-import Input from './Input'
+import Input, { INPUT_LABEL_WIDTH, InputWithLabel } from './Input'
 import Button from './Button'
 import SelectGameVersion from './SelectGameVersion'
 import { usePassesScaledDimensions } from './UIProvider'
@@ -31,8 +31,6 @@ interface Props {
   versions?: string[]
   allowAutoConnect?: boolean
 }
-
-const ELEMENTS_WIDTH = 190
 
 export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, placeholders, accounts, versions, allowAutoConnect }: Props) => {
   const isSmallHeight = !usePassesScaledDimensions(null, 350)
@@ -256,20 +254,8 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
 
 const ButtonWrapper = ({ ...props }: React.ComponentProps<typeof Button>) => {
   props.style ??= {}
-  props.style.width = ELEMENTS_WIDTH
+  props.style.width = INPUT_LABEL_WIDTH
   return <Button {...props} />
-}
-
-const InputWithLabel = ({ label, span, ...props }: React.ComponentProps<typeof Input> & { label, span? }) => {
-  return <div style={{
-    display: 'flex',
-    flexDirection: 'column',
-    gridRow: span ? 'span 2 / span 2' : undefined,
-  }}
-  >
-    <label style={{ fontSize: 12, marginBottom: 1, color: 'lightgray' }}>{label}</label>
-    <Input rootStyles={{ width: ELEMENTS_WIDTH }} {...props} />
-  </div>
 }
 
 const fallbackIfNotFound = (index: number) => (index === -1 ? undefined : index)

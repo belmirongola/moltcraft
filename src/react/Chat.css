@@ -90,11 +90,11 @@ div.chat-wrapper {
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
-  background-color: rgb(24, 24, 24);
+  background-color: #272727;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgb(50, 50, 50);
+  background-color: #747474;
 }
 
 .chat-completions-items>div {
@@ -160,7 +160,6 @@ input[type=text],
   padding-bottom: 1px;
   padding-left: 2px;
   padding-right: 2px;
-  height: 15px;
 }
 
 .chat-mobile-input-hidden {

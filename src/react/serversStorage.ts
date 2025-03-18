@@ -1,16 +1,10 @@
 import { appQueryParams } from '../appParams'
 import { miscUiState } from '../globalState'
 import { BaseServerInfo } from './AddServerOrConnect'
+import { appStorage, StoreServerItem } from './appStorageProvider'
 
 const serversListQs = appQueryParams.serversList
 
-export interface StoreServerItem extends BaseServerInfo {
-  lastJoined?: number
-  description?: string
-  optionsOverride?: Record<string, any>
-  autoLogin?: Record<string, string>
-  numConnects?: number // Track number of connections
-}
 export interface AuthenticatedAccount {
   // type: 'microsoft'
   username: string
@@ -19,6 +13,7 @@ export interface AuthenticatedAccount {
     expiresOn: number
   }
 }
+
 export interface ServerConnectionHistory {
   ip: string
   numConnects: number
@@ -28,7 +23,7 @@ export interface ServerConnectionHistory {
 
 export function updateServerConnectionHistory (ip: string, version?: string) {
   try {
-    const history: ServerConnectionHistory[] = JSON.parse(localStorage.getItem('serverConnectionHistory') || '[]')
+    const history = [...(appStorage.serversHistory ?? [])]
     const existingServer = history.find(s => s.ip === ip)
     if (existingServer) {
       existingServer.numConnects++
@@ -42,53 +37,35 @@ export function updateServerConnectionHistory (ip: string, version?: string) {
         version
       })
     }
-    localStorage.setItem('serverConnectionHistory', JSON.stringify(history))
+    appStorage.serversHistory = history
   } catch (err) {
     console.error('Failed to update server connection history:', err)
   }
 }
+
 export const updateLoadedServerData = (callback: (data: StoreServerItem) => StoreServerItem, index = miscUiState.loadedServerIndex) => {
   if (!index) index = miscUiState.loadedServerIndex
   if (!index) return
-  // function assumes component is not mounted to avoid sync issues after save
-  const servers = getInitialServersList()
+
+  const servers = [...(appStorage.serversList ?? [])]
   const server = servers[index]
   servers[index] = callback(server)
   setNewServersList(servers)
 }
+
 export const setNewServersList = (serversList: StoreServerItem[], force = false) => {
   if (serversListQs && !force) return
-  localStorage['serversList'] = JSON.stringify(serversList)
-
-  // cleanup legacy
-  localStorage.removeItem('serverHistory')
-  localStorage.removeItem('server')
-  localStorage.removeItem('password')
-  localStorage.removeItem('version')
+  appStorage.serversList = serversList
 }
+
 export const getInitialServersList = () => {
-  if (localStorage['serversList']) return JSON.parse(localStorage['serversList']) as StoreServerItem[]
+  // If we already have servers in appStorage, use those
+  if (appStorage.serversList) return appStorage.serversList
 
   const servers = [] as StoreServerItem[]
 
-  const legacyServersList = localStorage['serverHistory'] ? JSON.parse(localStorage['serverHistory']) as string[] : null
-  if (legacyServersList) {
-    for (const server of legacyServersList) {
-      if (!server || localStorage['server'] === server) continue
-      servers.push({ ip: server, lastJoined: Date.now() })
-    }
-  }
-
-  if (localStorage['server']) {
-    const legacyLastJoinedServer: StoreServerItem = {
-      ip: localStorage['server'],
-      versionOverride: localStorage['version'],
-      lastJoined: Date.now()
-    }
-    servers.push(legacyLastJoinedServer)
-  }
-
-  if (servers.length === 0) { // server list is empty, let's suggest some
+  if (servers.length === 0) {
+    // server list is empty, let's suggest some
     for (const server of miscUiState.appConfig?.promoteServers ?? []) {
       servers.push({
         ip: server.ip,
@@ -100,16 +77,13 @@ export const getInitialServersList = () => {
 
   return servers
 }
+
 export const updateAuthenticatedAccountData = (callback: (data: AuthenticatedAccount[]) => AuthenticatedAccount[]) => {
-  const accounts = JSON.parse(localStorage['authenticatedAccounts'] || '[]') as AuthenticatedAccount[]
+  const accounts = appStorage.authenticatedAccounts
   const newAccounts = callback(accounts)
-  localStorage['authenticatedAccounts'] = JSON.stringify(newAccounts)
+  appStorage.authenticatedAccounts = newAccounts
 }
 
 export function getServerConnectionHistory (): ServerConnectionHistory[] {
-  try {
-    return JSON.parse(localStorage.getItem('serverConnectionHistory') || '[]')
-  } catch {
-    return []
-  }
+  return appStorage.serversHistory ?? []
 }
