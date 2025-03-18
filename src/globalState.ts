@@ -1,13 +1,14 @@
 //@ts-check
 
 import { proxy, ref, subscribe } from 'valtio'
-import { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
-import { pointerLock } from './utils'
+import type { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import type { OptionsGroupType } from './optionsGuiScheme'
+import { options, disabledSettings } from './optionsStorage'
+import { AppConfig } from './appConfig'
 
 // todo: refactor structure with support of hideNext=false
 
-const notHideableModalsWithoutForce = new Set(['app-status'])
+export const notHideableModalsWithoutForce = new Set(['app-status'])
 
 type Modal = ({ elem?: HTMLElement & Record<string, any> } & { reactType: string })
 
@@ -25,16 +26,6 @@ export const insertActiveModalStack = (name: string, newModalStack = activeModal
 export const activeModalStacks: Record<string, Modal[]> = {}
 
 window.activeModalStack = activeModalStack
-
-subscribe(activeModalStack, () => {
-  if (activeModalStack.length === 0) {
-    if (isGameActive(false)) {
-      void pointerLock.requestPointerLock()
-    }
-  } else {
-    document.exitPointerLock?.()
-  }
-})
 
 /**
  * @returns true if operation was successful
@@ -86,9 +77,20 @@ export const hideCurrentModal = (_data?, onHide?: () => void) => {
   }
 }
 
+export const hideAllModals = () => {
+  while (activeModalStack.length > 0) {
+    if (!hideModal()) break
+  }
+  return activeModalStack.length === 0
+}
+
 export const openOptionsMenu = (group: OptionsGroupType) => {
   showModal({ reactType: `options-${group}` })
 }
+
+subscribe(activeModalStack, () => {
+  document.body.style.setProperty('--has-modals-z', activeModalStack.length ? '-1' : null)
+})
 
 // ---
 
@@ -104,21 +106,6 @@ export const showContextmenu = (items: ContextMenuItem[], { clientX, clientY }) 
 
 // ---
 
-export type AppConfig = {
-  // defaultHost?: string
-  // defaultHostSave?: string
-  defaultProxy?: string
-  // defaultProxySave?: string
-  // defaultVersion?: string
-  peerJsServer?: string
-  peerJsServerFallback?: string
-  promoteServers?: Array<{ ip, description, version? }>
-  mapsProvider?: string
-
-  defaultSettings?: Record<string, any>
-  allowAutoConnect?: boolean
-}
-
 export const miscUiState = proxy({
   currentDisplayQr: null as string | null,
   currentTouch: null as boolean | null,
@@ -133,16 +120,12 @@ export const miscUiState = proxy({
   loadedServerIndex: '',
   /** currently trying to load or loaded mc version, after all data is loaded */
   loadedDataVersion: null as string | null,
-  appLoaded: false,
+  fsReady: false,
+  singleplayerAvailable: false,
   usingGamepadInput: false,
   appConfig: null as AppConfig | null,
   displaySearchInput: false,
-})
-
-export const loadedGameState = proxy({
-  username: '',
-  serverIp: '' as string | null,
-  usingServerResourcePack: false,
+  displayFullmap: false
 })
 
 export const isGameActive = (foregroundCheck: boolean) => {
@@ -158,9 +141,12 @@ export const gameAdditionalState = proxy({
   isSprinting: false,
   isSneaking: false,
   isZooming: false,
-  warps: [] as WorldWarp[]
+  warps: [] as WorldWarp[],
+  noConnection: false,
+  poorConnection: false,
+  viewerConnection: false,
+
+  usingServerResourcePack: false,
 })
 
 window.gameAdditionalState = gameAdditionalState
-
-// todo restore auto-save on interval for player data! (or implement it in flying squid since there is already auto-save for world)

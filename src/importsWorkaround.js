@@ -1,4 +1,6 @@
 // workaround for mineflayer
+globalThis.window ??= globalThis
+globalThis.localStorage ??= {}
 process.versions.node = '18.0.0'
 
 if (!navigator.getGamepads) {

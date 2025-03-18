@@ -7,25 +7,49 @@ import * as browserfs from 'browserfs'
 import { options, resetOptions } from './optionsStorage'
 
 import { fsState, loadSave } from './loadSave'
-import { installTexturePack, installTexturePackFromHandle, updateTexturePackInstalledState } from './resourcePack'
+import { installResourcepackPack, installTexturePackFromHandle, updateTexturePackInstalledState } from './resourcePack'
 import { miscUiState } from './globalState'
-import { setLoadingScreenStatus } from './utils'
-const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive') // disable type checking
+import { setLoadingScreenStatus } from './appStatus'
+import { VALID_REPLAY_EXTENSIONS, openFile } from './packetsReplay/replayPackets'
+import { getFixedFilesize } from './downloadAndOpenFile'
+import { packetsReplayState } from './react/state/packetsReplayState'
+import { createFullScreenProgressReporter } from './core/progressReporter'
+import { showNotification } from './react/NotificationProvider'
+import { resetAppStorage } from './react/appStorageProvider'
+const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive')
 
 browserfs.install(window)
 const defaultMountablePoints = {
-  '/world': { fs: 'LocalStorage' }, // will be removed in future
   '/data': { fs: 'IndexedDB' },
   '/resourcepack': { fs: 'InMemory' }, // temporary storage for currently loaded resource pack
+  '/temp': { fs: 'InMemory' }
+}
+const fallbackMountablePoints = {
+  '/resourcepack': { fs: 'InMemory' }, // temporary storage for downloaded server resource pack
+  '/temp': { fs: 'InMemory' }
 }
 browserfs.configure({
   fs: 'MountableFileSystem',
   options: defaultMountablePoints,
 }, async (e) => {
-  // todo disable singleplayer button
-  if (e) throw e
+  if (e) {
+    browserfs.configure({
+      fs: 'MountableFileSystem',
+      options: fallbackMountablePoints,
+    }, async (e2) => {
+      if (e2) {
+        showNotification('Unknown FS error, cannot continue', e2.message, true)
+        throw e2
+      }
+      showNotification('Failed to access device storage', `Check you have free space. ${e.message}`, true)
+      miscUiState.fsReady = true
+      miscUiState.singleplayerAvailable = false
+    })
+    return
+  }
   await updateTexturePackInstalledState()
-  miscUiState.appLoaded = true
+  miscUiState.fsReady = true
+  miscUiState.singleplayerAvailable = true
 })
 
 export const forceCachedDataPaths = {}
@@ -597,46 +621,46 @@ export const openWorldZip = async (...args: Parameters<typeof openWorldZipInner>
   }
 }
 
-export const resetLocalStorageWorld = () => {
-  for (const key of Object.keys(localStorage)) {
-    if (/^[\da-fA-F]{8}(?:\b-[\da-fA-F]{4}){3}\b-[\da-fA-F]{12}$/g.test(key) || key === '/') {
-      localStorage.removeItem(key)
-    }
-  }
-}
-
-export const resetLocalStorageWithoutWorld = () => {
-  for (const key of Object.keys(localStorage)) {
-    if (!/^[\da-fA-F]{8}(?:\b-[\da-fA-F]{4}){3}\b-[\da-fA-F]{12}$/g.test(key) && key !== '/') {
-      localStorage.removeItem(key)
-    }
-  }
+export const resetLocalStorage = () => {
   resetOptions()
+  resetAppStorage()
 }
 
-window.resetLocalStorageWorld = resetLocalStorageWorld
+window.resetLocalStorage = resetLocalStorage
+
 export const openFilePicker = (specificCase?: 'resourcepack') => {
   // create and show input picker
   let picker: HTMLInputElement = document.body.querySelector('input#file-zip-picker')!
   if (!picker) {
     picker = document.createElement('input')
     picker.type = 'file'
-    picker.accept = '.zip'
+    picker.accept = specificCase ? '.zip' : [...VALID_REPLAY_EXTENSIONS, '.zip'].join(',')
 
     picker.addEventListener('change', () => {
       const file = picker.files?.[0]
       picker.value = ''
       if (!file) return
-      if (!file.name.endsWith('.zip')) {
-        const doContinue = confirm(`Are you sure ${file.name.slice(-20)} is .zip file? Only .zip files are supported. Continue?`)
-        if (!doContinue) return
-      }
       if (specificCase === 'resourcepack') {
-        void installTexturePack(file).catch((err) => {
+        if (!file.name.endsWith('.zip')) {
+          const doContinue = confirm(`Are you sure ${file.name.slice(-20)} is .zip file? ONLY .zip files are supported. Continue?`)
+          if (!doContinue) return
+        }
+        void installResourcepackPack(file, createFullScreenProgressReporter()).catch((err) => {
           setLoadingScreenStatus(err.message, true)
         })
       } else {
-        void openWorldZip(file)
+        // eslint-disable-next-line no-lonely-if
+        if (VALID_REPLAY_EXTENSIONS.some(ext => file.name.endsWith(ext)) || file.name.startsWith('packets-replay')) {
+          void file.text().then(contents => {
+            openFile({
+              contents,
+              filename: file.name,
+              filesize: file.size
+            })
+          })
+        } else {
+          void openWorldZip(file)
+        }
       }
     })
     picker.hidden = true

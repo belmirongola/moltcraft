@@ -3,22 +3,28 @@ import fs from 'fs'
 import { useEffect } from 'react'
 import { subscribe, useSnapshot } from 'valtio'
 import { usedServerPathsV1 } from 'flying-squid/dist/lib/modules/world'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import { subscribeKey } from 'valtio/utils'
+import { ErrorBoundary } from '@zardoy/react-util'
 import {
   activeModalStack,
   showModal,
   hideModal,
   miscUiState,
-  openOptionsMenu
+  openOptionsMenu,
+  gameAdditionalState
 } from '../globalState'
 import { fsState } from '../loadSave'
 import { disconnect } from '../flyingSquidUtils'
-import { pointerLock, setLoadingScreenStatus } from '../utils'
+import { openGithub, pointerLock } from '../utils'
+import { setLoadingScreenStatus } from '../appStatus'
 import { closeWan, openToWanAndCopyJoinLink, getJoinLink } from '../localServerMultiplayer'
 import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../browserfs'
+import { appQueryParams } from '../appParams'
+import { downloadPacketsReplay, packetsRecordingState } from '../packetsReplay/packetsReplayLegacy'
+import { options } from '../optionsStorage'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import Button from './Button'
@@ -26,7 +32,10 @@ import Screen from './Screen'
 import styles from './PauseScreen.module.css'
 import { DiscordButton } from './DiscordButton'
 import { showNotification } from './NotificationProvider'
-import { appStatusState } from './AppStatusProvider'
+import { appStatusState, reconnectReload } from './AppStatusProvider'
+import NetworkStatus from './NetworkStatus'
+import PauseLinkButtons from './PauseLinkButtons'
+import { pixelartIcons } from './PixelartIcon'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -86,7 +95,7 @@ export const saveToBrowserMemory = async () => {
           const srcPath = join(worldFolder, copyPath)
           const savePath = join(saveRootPath, copyPath)
           await mkdirRecursive(savePath)
-          await fs.promises.writeFile(savePath, await fs.promises.readFile(srcPath))
+          await fs.promises.writeFile(savePath, await fs.promises.readFile(srcPath) as any)
           upProgress(totalSIze)
           if (isRegionFiles) {
             const regionFile = copyPath.split('/').at(-1)!
@@ -146,12 +155,14 @@ const splitByCopySize = (files: string[], copySize = 15) => {
 }
 
 export default () => {
-  const qsParams = new URLSearchParams(window.location.search)
-  const lockConnect = qsParams?.get('lockConnect') === 'true'
+  const lockConnect = appQueryParams.lockConnect === 'true'
   const isModalActive = useIsModalActive('pause-screen')
   const fsStateSnap = useSnapshot(fsState)
   const activeModalStackSnap = useSnapshot(activeModalStack)
   const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
+  const { noConnection } = useSnapshot(gameAdditionalState)
+  const { active: packetsReplaceActive, hasRecordedPackets: packetsReplaceHasRecordedPackets } = useSnapshot(packetsRecordingState)
+  const { displayRecordButton: displayPacketsButtons } = useSnapshot(options)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -217,18 +228,42 @@ export default () => {
   }
 
   if (!isModalActive) return null
+
   return <Screen title='Game Menu'>
-    <Button
-      icon="pixelarticons:folder"
-      style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)' }}
-      onClick={async () => openWorldActions()}
-    />
+    <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <Button
+        icon="pixelarticons:folder"
+        onClick={async () => openWorldActions()}
+      />
+      {displayPacketsButtons && (
+        <>
+          <Button
+            icon={packetsReplaceActive ? 'pixelarticons:debug-stop' : 'pixelarticons:circle'}
+            onClick={() => {
+              packetsRecordingState.active = !packetsRecordingState.active
+            }}
+          />
+          {packetsReplaceHasRecordedPackets && (
+            <Button
+              icon={pixelartIcons['briefcase-download']}
+              onClick={async () => downloadPacketsReplay()}
+            />
+          )}
+          <Button
+            icon={pixelartIcons['download']}
+            onClick={async () => bot.downloadCurrentWorldState()}
+          />
+        </>
+      )}
+    </div>
+    <ErrorBoundary renderError={() => <div>error</div>}>
+      <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 35px)' }}>
+        <NetworkStatus />
+      </div>
+    </ErrorBoundary>
     <div className={styles.pause_container}>
       <Button className="button" style={{ width: '204px' }} onClick={onReturnPress}>Back to Game</Button>
-      <div className={styles.row}>
-        <Button className="button" style={{ width: '98px' }} onClick={() => openURL(process.env.GITHUB_URL!)}>GitHub</Button>
-        <DiscordButton />
-      </div>
+      <PauseLinkButtons />
       <Button className="button" style={{ width: '204px' }} onClick={() => openOptionsMenu('main')}>Options</Button>
       {singleplayer ? (
         <div className={styles.row}>
@@ -258,6 +293,11 @@ export default () => {
           {localServer && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
         </Button>
       </>}
+      {noConnection && (
+        <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
+          Reconnect
+        </Button>
+      )}
     </div>
   </Screen>
 }

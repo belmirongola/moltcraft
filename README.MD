@@ -14,13 +14,14 @@ For building the project yourself / contributing, see [Development, Debugging & 
 
 - Open any zip world file or even folder in read-write mode!
 - Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
-- Integrated JS server capable of opening Java world saves in any way (folders, zip, web streaming, etc)
+- Integrated JS server clone capable of opening Java world saves in any way (folders, zip, web chunks streaming, etc)
 - Singleplayer mode with simple world generations!
 - Works offline
 - First-class touch (mobile) & controller support
 - First-class keybindings configuration
-- Basic Resource pack support: Custom GUI, all textures. Server resource packs are not supported yet.
-- Builtin JEI with recipes & descriptions for every item (JEI is creative inventory replacement)
+- Advanced Resource pack support: Custom GUI, all textures. Server resource packs are supported with proper CORS configuration.
+- Builtin JEI with recipes & descriptions for almost every item (JEI is creative inventory replacement)
+- Custom protocol channel extensions (eg for custom block models in the world)
 - Play with friends over internet! (P2P is powered by Peer.js discovery servers)
 - ~~Google Drive support for reading / saving worlds back to the cloud~~
 - even even more!
@@ -33,6 +34,13 @@ All components that are in [Storybook](https://mcraft.fun/storybook) are publish
 - Controls -> **Auto Full Screen** -> **On** - To avoid ctrl+w issue
 - Controls -> **Raw Input** -> **On** - This will make the controls more precise (UPD: already enabled by default)
 - Interface -> **Chat Select** -> **On** - To select chat messages (UPD: already enabled by default)
+
+### Browser Notes
+
+These browsers have issues with capturing pointer:
+
+**Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
+**Vivaldi**: Disable Controls -> *Raw Input* in game settings if experiencing issues
 
 ### World Loading
 
@@ -136,6 +144,7 @@ General:
 
 - **`?setting=<setting_name>:<setting_value>`** - Set and lock the setting on load. You can set multiple settings by separating them with `&` e.g. `?setting=autoParkour:true&setting=renderDistance:4`
 - `?modal=<modal>` - Open specific modal on page load eg `keybindings`. Very useful on UI changes testing during dev. For path use `,` as separator. To get currently opened modal type this in the console: `activeModalStack.at(-1).reactType`
+- `?replayFileUrl=<url>` - Load and start a packet replay session from a URL with a integrated server. For debugging / previewing recorded sessions. The file must be CORS enabled.
 
 Server specific:
 
@@ -145,6 +154,7 @@ Server specific:
 - `?proxy=<proxy_address>` - Set the proxy server address to use for  the server
 - `?username=<username>` - Set the username for the server
 - `?lockConnect=true` - Only works then `ip` parameter is set. Disables cancel/save buttons and all inputs in the connect screen already set as parameters. Useful for integrates iframes.
+- `?autoConnect=true` - Only works then `ip` and `version` parameters are set and `allowAutoConnect` is `true` in config.json! Directly connects to the specified server. Useful for integrates iframes.
 - `?serversList=<list_or_url>` - `<list_or_url>` can be a list of servers in the format `ip:version,ip` or a url to a json file with the same format (array) or a txt file with line-delimited list of server IPs.
 
 Single player specific:

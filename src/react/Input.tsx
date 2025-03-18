@@ -1,5 +1,5 @@
-import React, { CSSProperties, useEffect, useRef, useState } from 'react'
-import { isMobile } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import React, { CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
+import { isMobile } from 'renderer/viewer/lib/simpleUtils'
 import styles from './input.module.css'
 
 interface Props extends Omit<React.ComponentProps<'input'>, 'width'> {
@@ -10,7 +10,7 @@ interface Props extends Omit<React.ComponentProps<'input'>, 'width'> {
   width?: number
 }
 
-export default ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, width, ...inputProps }: Props) => {
+const Input = ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, width, ...inputProps }: Props) => {
   if (width) rootStyles = { ...rootStyles, width }
 
   const ref = useRef<HTMLInputElement>(null!)
@@ -28,6 +28,10 @@ export default ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, 
   }, [])
 
 
+  useEffect(() => {
+    setValidationStyle(validateInput?.(value as any) ?? {})
+  }, [value, validateInput])
+
   return <div id='input-container' className={styles.container} style={rootStyles}>
     <input
       ref={ref}
@@ -41,10 +45,25 @@ export default ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, 
       {...inputProps}
       value={value}
       onChange={(e) => {
-        setValidationStyle(validateInput?.(e.target.value) ?? {})
         setValue(e.target.value)
         inputProps.onChange?.(e)
       }}
     />
+  </div>
+}
+
+export default Input
+
+export const INPUT_LABEL_WIDTH = 190
+
+export const InputWithLabel = ({ label, span, ...props }: React.ComponentProps<typeof Input> & { label, span? }) => {
+  return <div style={{
+    display: 'flex',
+    flexDirection: 'column',
+    gridRow: span ? 'span 2 / span 2' : undefined,
+  }}
+  >
+    <label style={{ fontSize: 12, marginBottom: 1, color: 'lightgray' }}>{label}</label>
+    <Input rootStyles={{ width: INPUT_LABEL_WIDTH }} {...props} />
   </div>
 }

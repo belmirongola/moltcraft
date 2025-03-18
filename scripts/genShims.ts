@@ -15,6 +15,7 @@ for (const resource of appReplacableResources) {
   const name = path.split('/').slice(-4).join('_').replace('.png', '').replaceAll('-', '_').replaceAll('.', '_')
   keys.push(name)
   headerImports += `import ${name} from '${path.replace('../node_modules/', '')}'\n`
+
   resourcesContent += `
   '${name}': {
     content: ${name},

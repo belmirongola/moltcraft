@@ -1,24 +1,3 @@
-diff --git a/src/client/autoVersion.js b/src/client/autoVersion.js
-index 3fe1552672e4c0dd1b14b3b56950c3d7eaf3537b..6eb615e5827279c328d5547b5911626693252da4 100644
---- a/src/client/autoVersion.js
-+++ b/src/client/autoVersion.js
-@@ -9,7 +9,7 @@ module.exports = function (client, options) {
-   client.wait_connect = true // don't let src/client/setProtocol proceed on socket 'connect' until 'connect_allowed'
-   debug('pinging', options.host)
-   // TODO: use 0xfe ping instead for better compatibility/performance? https://github.com/deathcap/node-minecraft-ping
--  ping(options, function (err, response) {
-+  ping(options, async function (err, response) {
-     if (err) { return client.emit('error', err) }
-     debug('ping response', response)
-     // TODO: could also use ping pre-connect to save description, type, max players, etc.
-@@ -40,6 +40,7 @@ module.exports = function (client, options) {
- 
-     // Reinitialize client object with new version TODO: move out of its constructor?
-     client.version = minecraftVersion
-+    await options.versionSelectedHook?.(client)
-     client.state = states.HANDSHAKING
- 
-     // Let other plugins such as Forge/FML (modinfo) respond to the ping response
 diff --git a/src/client/chat.js b/src/client/chat.js
 index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aae0d1d337 100644
 --- a/src/client/chat.js
@@ -165,24 +144,3 @@ index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d2
      this.serializer.write({ name, params })
    }
  
-diff --git a/src/index.d.ts b/src/index.d.ts
-index e61d5403bab46251d35b22a2ea30eb09b2746a26..84f597427893671eeac231b11e6e42aa815601df 100644
---- a/src/index.d.ts
-+++ b/src/index.d.ts
-@@ -135,6 +135,7 @@ declare module 'minecraft-protocol' {
- 		sessionServer?: string
- 		keepAlive?: boolean
- 		closeTimeout?: number
-+		closeTimeout?: number
- 		noPongTimeout?: number
- 		checkTimeoutInterval?: number
- 		version?: string
-@@ -155,6 +156,8 @@ declare module 'minecraft-protocol' {
- 		disableChatSigning?: boolean
- 		/** Pass custom client implementation if needed. */
- 		Client?: Client
-+		/** Can be used to prepare mc data on autoVersion (client.version has selected version) */
-+		versionSelectedHook?: (client: Client) => Promise<void> | void
- 	}
- 
- 	export class Server extends EventEmitter {

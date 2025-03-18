@@ -1,0 +1,43 @@
+name: Make Self Host Zip
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-bundle:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Bundle server.js
+        run: |
+          pnpm esbuild server.js --bundle --platform=node --outfile=bundled-server.js --define:process.env.NODE_ENV="'production'"
+
+      - name: Create distribution package
+        run: |
+          mkdir -p package
+          cp -r dist package/
+          cp bundled-server.js package/server.js
+          cd package
+          zip -r ../self-host.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-host
+          path: self-host.zip

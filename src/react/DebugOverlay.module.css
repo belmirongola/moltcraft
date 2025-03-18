@@ -36,6 +36,8 @@
 
 .debug-right-side p {
   margin-left: auto;
+  text-align: right;
+  word-break: break-all;
 }
 
 .empty {
