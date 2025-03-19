@@ -1,10 +1,42 @@
+/* eslint-disable no-await-in-loop */
 import { openDB } from 'idb'
 import * as react from 'react'
 import { gt } from 'semver'
 import { proxy } from 'valtio'
 import { options } from './optionsStorage'
 import { appStorage } from './react/appStorageProvider'
-import { showOptionsModal } from './react/SelectOption'
+import { showInputsModal, showOptionsModal } from './react/SelectOption'
+import { ProgressReporter } from './core/progressReporter'
+
+let sillyProtection = false
+const protectRuntime = () => {
+  if (sillyProtection) return
+  sillyProtection = true
+  const sensetiveKeys = new Set(['authenticatedAccounts'])
+  window.localStorage = new Proxy(window.localStorage, {
+    get (target, prop) {
+      if (typeof prop === 'string' && sensetiveKeys.has(prop)) {
+        console.warn(`Access to sensitive key "${prop}" was blocked`)
+        return null
+      }
+      return Reflect.get(target, prop)
+    },
+    set (target, prop, value) {
+      if (typeof prop === 'string' && sensetiveKeys.has(prop)) {
+        console.warn(`Attempt to set sensitive key "${prop}" was blocked`)
+        return false
+      }
+      return Reflect.set(target, prop, value)
+    },
+    deleteProperty (target, prop) {
+      if (typeof prop === 'string' && sensetiveKeys.has(prop)) {
+        console.warn(`Attempt to delete sensitive key "${prop}" was blocked`)
+        return false
+      }
+      return Reflect.deleteProperty(target, prop)
+    }
+  })
+}
 
 // #region Database
 const dbPromise = openDB('mods-db', 1, {
@@ -19,24 +51,28 @@ const dbPromise = openDB('mods-db', 1, {
 })
 
 // mcraft-repo.json
-export interface Repository {
-  url: string
+export interface McraftRepoFile {
   packages: ClientModDefinition[]
-  prefix?: string
+  /** @default true */
+  prefix?: string | boolean
   name?: string // display name
   description?: string
   mirrorUrls?: string[]
   autoUpdateOverride?: boolean
   lastUpdated?: number
 }
+export interface Repository extends McraftRepoFile {
+  url: string
+}
 
 export interface ClientMod {
-  repo: string
   name: string; // unique identifier like owner.name
   version: string
   enabled?: boolean
 
   scriptMainUnstable?: string;
+  serverPlugin?: string
+  // serverPlugins?: string[]
   // workerScript?: string
   stylesGlobal?: string
   // stylesLocal?: string
@@ -50,22 +86,24 @@ export interface ClientMod {
 }
 
 const cleanupFetchedModData = (mod: ClientModDefinition | Record<string, any>) => {
-  delete mod.enabled
-  delete mod.repo
-  delete mod.autoUpdateOverride
-  delete mod.lastUpdated
+  delete mod['enabled']
+  delete mod['repo']
+  delete mod['autoUpdateOverride']
+  delete mod['lastUpdated']
   return mod
 }
 
-export type ClientModDefinition = ClientMod & {
+export type ClientModDefinition = Omit<ClientMod, 'enabled'> & {
   scriptMainUnstable?: boolean
   stylesGlobal?: boolean
+  serverPlugin?: boolean
 }
 
 async function savePlugin (data: ClientMod) {
   const db = await dbPromise
   data.lastUpdated = Date.now()
   await db.put('mods', data)
+  modsReactiveUpdater.counter++
 }
 
 async function getPlugin (name: string) {
@@ -81,11 +119,13 @@ async function getAllMods () {
 async function deletePlugin (name) {
   const db = await dbPromise
   await db.delete('mods', name)
+  modsReactiveUpdater.counter++
 }
 
-async function clearPlugins () {
+async function removeAllMods () {
   const db = await dbPromise
   await db.clear('mods')
+  modsReactiveUpdater.counter++
 }
 
 // ---
@@ -105,6 +145,7 @@ async function getAllRepositories () {
   const db = await dbPromise
   return db.getAll('repositories') as Promise<Repository[]>
 }
+window.getAllRepositories = getAllRepositories
 
 async function deleteRepository (url) {
   const db = await dbPromise
@@ -124,7 +165,9 @@ window.mcraft = {
 }
 
 const activateMod = async (mod: ClientMod, reason: string) => {
+  protectRuntime()
   console.debug(`Activating mod ${mod.name} (${reason})...`)
+  window.loadedMods ??= {}
   if (window.loadedMods[mod.name]) {
     console.warn(`Mod is ${mod.name} already loaded, skipping activation...`)
     return false
@@ -136,16 +179,22 @@ const activateMod = async (mod: ClientMod, reason: string) => {
     document.head.appendChild(style)
   }
   if (mod.scriptMainUnstable) {
-    const blob = new Blob([mod.scriptMainUnstable], { type: 'application/javascript' })
+    const blob = new Blob([mod.scriptMainUnstable], { type: 'text/javascript' })
     const url = URL.createObjectURL(blob)
+    // eslint-disable-next-line no-useless-catch
     try {
-      const module = await import(url)
+      const module = await import(/* webpackIgnore: true */ url)
       module.default?.(structuredClone(mod))
       window.loadedMods[mod.name] = module
     } catch (e) {
-      console.error(`Error loading mod ${mod.name}:`, e)
+      // if (e instanceof Error && e.message.startsWith('Cannot find module')) {
+      //   throw new Error(`mainUnstable.js is not valid ES module! Ensure you have default export with function to activate.`)
+      // }
+      // console.error(`Error loading mod ${mod.name}:`, e)
+      throw e
     }
   }
+  mod.enabled = true
   return true
 }
 
@@ -154,53 +203,88 @@ export const appStartup = async () => {
 
   const mods = await getAllMods()
   for (const mod of mods) {
-    // eslint-disable-next-line no-await-in-loop
-    await activateMod(mod, 'autostart')
+    await activateMod(mod, 'autostart').catch(e => {
+      modsErrors[mod.name] ??= []
+      modsErrors[mod.name].push(`startup: ${String(e)}`)
+      console.error(`Error activating mod on startup ${mod.name}:`, e)
+    })
   }
 }
 
 export const modsUpdateStatus = proxy({} as Record<string, [string, string]>)
 export const modsWaitingReloadStatus = proxy({} as Record<string, boolean>)
+export const modsErrors = proxy({} as Record<string, string[]>)
 
-const installOrUpdateMod = async (repo: Repository, mod: ClientModDefinition, activate = true) => {
+const normalizeRepoUrl = (url: string) => {
+  if (url.startsWith('https://')) return url
+  if (url.startsWith('http://')) return url
+  if (url.startsWith('//')) return `https:${url}`
+  return `https://raw.githubusercontent.com/${url}/master`
+}
+
+const installOrUpdateMod = async (repo: Repository, mod: ClientModDefinition, activate = true, progress?: ProgressReporter) => {
+  // eslint-disable-next-line no-useless-catch
   try {
     const fetchData = async (urls: string[]) => {
       const errored = [] as string[]
+      // eslint-disable-next-line no-unreachable-loop
       for (const urlTemplate of urls) {
-        const url = new URL(`${mod.name.split('.').pop()}/${urlTemplate}`, repo.url).href
+        const modNameOnly = mod.name.split('.').pop()
+        const modFolder = repo.prefix === false ? modNameOnly : typeof repo.prefix === 'string' ? `${repo.prefix}/${modNameOnly}` : mod.name
+        const url = new URL(`${modFolder}/${urlTemplate}`, normalizeRepoUrl(repo.url).replace(/\/$/, '') + '/').href
+        // eslint-disable-next-line no-useless-catch
         try {
-          // eslint-disable-next-line no-await-in-loop
-          return await fetch(url).then(async res => res.text())
+          const response = await fetch(url)
+          if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`)
+          return await response.text()
         } catch (e) {
-          errored.push(String(e))
+          // errored.push(String(e))
+          throw e
         }
       }
       console.warn(`[${mod.name}] Error installing component of ${urls[0]}: ${errored.join(', ')}`)
       return undefined
     }
-    if (mod.stylesGlobal) mod.stylesGlobal = await fetchData(['global.css']) as any
-    if (mod.scriptMainUnstable) mod.scriptMainUnstable = await fetchData(['mainUnstable.js']) as any
-    await savePlugin(mod)
+    if (mod.stylesGlobal) {
+      await progress?.executeWithMessage(
+        `Installing ${mod.name} styles`,
+        async () => {
+          mod.stylesGlobal = await fetchData(['global.css']) as any
+        }
+      )
+    }
+    if (mod.scriptMainUnstable) {
+      await progress?.executeWithMessage(
+        `Installing ${mod.name} script`,
+        async () => {
+          mod.scriptMainUnstable = await fetchData(['mainUnstable.js']) as any
+        }
+      )
+    }
+    if (activate) {
+      const result = await activateMod(mod as ClientMod, 'install')
+      if (!result) {
+        modsWaitingReloadStatus[mod.name] = true
+      }
+    }
+    await savePlugin(mod as ClientMod)
     delete modsUpdateStatus[mod.name]
   } catch (e) {
-    console.error(`Error installing mod ${mod.name}:`, e)
-  }
-  if (activate) {
-    const result = await activateMod(mod, 'install')
-    if (!result) {
-      modsWaitingReloadStatus[mod.name] = true
-    }
+    // console.error(`Error installing mod ${mod.name}:`, e)
+    throw e
   }
 }
 
 const checkRepositoryUpdates = async (repo: Repository) => {
   for (const mod of repo.packages) {
-    // eslint-disable-next-line no-await-in-loop
+
     const modExisting = await getPlugin(mod.name)
     if (modExisting?.version && gt(mod.version, modExisting.version)) {
       modsUpdateStatus[mod.name] = [modExisting.version, mod.version]
       if (options.modsAutoUpdate === 'always' && (!repo.autoUpdateOverride && !modExisting.autoUpdateOverride)) {
-        void installOrUpdateMod(repo, mod)
+        void installOrUpdateMod(repo, mod).catch(e => {
+          console.error(`Error updating mod ${mod.name}:`, e)
+        })
       }
     }
   }
@@ -208,88 +292,137 @@ const checkRepositoryUpdates = async (repo: Repository) => {
 }
 
 const fetchRepository = async (urlOriginal: string, url: string, hasMirrors = false) => {
-  const fetchUrl = !url.startsWith('https://') && url.includes('/') ? `https://raw.githubusercontent.com/${url}/master/mcraft-repo.json` : url
+  const fetchUrl = normalizeRepoUrl(url).replace(/\/$/, '') + '/mcraft-repo.json'
   try {
     const response = await fetch(fetchUrl).then(async res => res.json())
     if (!response.packages) throw new Error(`No packages field in the response json of the repository: ${fetchUrl}`)
     response.autoUpdateOverride = (await getRepository(urlOriginal))?.autoUpdateOverride
+    response.url = urlOriginal
     void saveRepository(response)
+    modsReactiveUpdater.counter++
     return true
   } catch (e) {
-    console[hasMirrors ? 'warn' : 'error'](`Error fetching repository (trying other mirrors) ${url}:`, e)
+    console.warn(`Error fetching repository (trying other mirrors) ${url}:`, e)
     return false
   }
 }
 
-const fetchAllRepositories = async () => {
+export const fetchAllRepositories = async () => {
   const repositories = await getAllRepositories()
-  return Promise.all(repositories.map(async (repo) => {
+  await Promise.all(repositories.map(async (repo) => {
     const allUrls = [repo.url, ...(repo.mirrorUrls || [])]
     for (const [i, url] of allUrls.entries()) {
       const isLast = i === allUrls.length - 1
-      // eslint-disable-next-line no-await-in-loop
+
       if (await fetchRepository(repo.url, url, !isLast)) break
     }
   }))
+  appStorage.modsAutoUpdateLastCheck = Date.now()
 }
 
 const checkModsUpdates = async () => {
-  await refreshModRepositories()
+  await autoRefreshModRepositories()
   for (const repo of await getAllRepositories()) {
-    // eslint-disable-next-line no-await-in-loop
+
     await checkRepositoryUpdates(repo)
   }
 }
 
-const refreshModRepositories = async () => {
+const autoRefreshModRepositories = async () => {
   if (options.modsAutoUpdate === 'never') return
   const lastCheck = appStorage.modsAutoUpdateLastCheck
   if (lastCheck && Date.now() - lastCheck < 1000 * 60 * 60 * options.modsUpdatePeriodCheck) return
   await fetchAllRepositories()
   // todo think of not updating check timestamp on offline access
-  appStorage.modsAutoUpdateLastCheck = Date.now()
 }
 
-export const installModByName = async (repoUrl: string, name: string) => {
+export const installModByName = async (repoUrl: string, name: string, progress?: ProgressReporter) => {
+  progress?.beginStage('main', `Installing ${name}`)
   const repo = await getRepository(repoUrl)
   if (!repo) throw new Error(`Repository ${repoUrl} not found`)
   const mod = repo.packages.find(m => m.name === name)
   if (!mod) throw new Error(`Mod ${name} not found in repository ${repoUrl}`)
-  return installOrUpdateMod(repo, mod)
+  await installOrUpdateMod(repo, mod, undefined, progress)
+  progress?.endStage('main')
 }
 
 export const uninstallModAction = async (name: string) => {
   const choice = await showOptionsModal(`Uninstall mod ${name}?`, ['Yes'])
   if (!choice) return
   await deletePlugin(name)
+  window.loadedMods ??= {}
   if (window.loadedMods[name]) {
     // window.loadedMods[name].default?.(null)
     delete window.loadedMods[name]
     modsWaitingReloadStatus[name] = true
   }
+  // Clear any errors associated with the mod
+  delete modsErrors[name]
 }
+
+export const setEnabledModAction = async (name: string, enabled: boolean) => {
+  const mod = await getPlugin(name)
+  if (!mod) throw new Error(`Mod ${name} not found`)
+  if (enabled) {
+    if (window.loadedMods?.[mod.name]) {
+      mod.enabled = true
+    } else {
+      await activateMod(mod, 'manual')
+    }
+  } else {
+    // todo deactivate mod
+    mod.enabled = false
+  }
+  await savePlugin(mod)
+}
+
+export const modsReactiveUpdater = proxy({
+  counter: 0
+})
 
 export const getAllModsDisplayList = async () => {
   const repos = await getAllRepositories()
-  const mods = await getAllMods()
-  const modsWithoutRepos = mods.filter(mod => !repos.some(repo => repo.packages.some(m => m.name === mod.name)))
-  const mapMods = (mods: ClientMod[]) => mods.map(mod => ({
+  const installedMods = await getAllMods()
+  const modsWithoutRepos = installedMods.filter(mod => !repos.some(repo => repo.packages.some(m => m.name === mod.name)))
+  const mapMods = (mapMods: ClientMod[]) => mapMods.map(mod => ({
     ...mod,
-    installed: mods.some(m => m.name === mod.name),
+    installed: installedMods.some(m => m.name === mod.name),
+    enabled: !!window.loadedMods?.[mod.name]
   }))
   return {
     repos: repos.map(repo => ({
       ...repo,
-      packages: mapMods(repo.packages),
+      packages: mapMods(repo.packages as ClientMod[]),
     })),
     modsWithoutRepos: mapMods(modsWithoutRepos),
   }
 }
 
 export const removeRepositoryAction = async (url: string) => {
+  // todo remove mods
   const choice = await showOptionsModal('Remove repository? Installed mods won\' be automatically removed.', ['Yes'])
   if (!choice) return
   await deleteRepository(url)
+  modsReactiveUpdater.counter++
+}
+
+export const selectAndRemoveRepository = async () => {
+  const repos = await getAllRepositories()
+  const choice = await showOptionsModal('Select repository to remove', repos.map(repo => repo.url))
+  if (!choice) return
+  await removeRepositoryAction(choice)
+}
+
+export const addRepositoryAction = async () => {
+  const { url } = await showInputsModal('Add repository', {
+    url: {
+      type: 'text',
+      label: 'Repository URL or slug',
+      placeholder: 'github-owner/repo-name',
+    },
+  })
+  if (!url) return
+  await fetchRepository(url, url)
 }
 
 // export const getAllMods = () => {}

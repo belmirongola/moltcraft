@@ -2,9 +2,9 @@
 // Please do not change this file!
 interface CssExports {
   content: string;
-  filterButton: string;
   header: string;
   modActions: string;
+  modErrorList: string;
   modInfo: string;
   modInfoText: string;
   modInfoTitle: string;
@@ -17,6 +17,8 @@ interface CssExports {
   root: string;
   searchBar: string;
   sidebar: string;
+  statsRow: string;
+  verticalContent: string;
 }
 declare const cssExports: CssExports;
 export default cssExports;

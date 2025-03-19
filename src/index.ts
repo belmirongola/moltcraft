@@ -747,7 +747,7 @@ export async function connect (connectOptions: ConnectOptions) {
   onBotCreate()
 
   bot.once('login', () => {
-    setLoadingScreenStatus('Loading world')
+    progress.setMessage('Loading world')
   })
 
   const start = Date.now()
@@ -779,7 +779,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
-    setLoadingScreenStatus('Placing blocks (starting viewer)')
+    progress.setMessage('Placing blocks (starting viewer)')
     if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
       localStorage.lastConnectOptions = JSON.stringify(connectOptions)
       if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {

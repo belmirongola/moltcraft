@@ -202,7 +202,6 @@ const App = () => {
             <CreateWorldProvider />
             <AppStatusProvider />
             <KeybindingsScreenProvider />
-            <SelectOption />
             <ServersListProvider />
             <OptionsRenderApp />
             <MainMenuRenderApp />
@@ -212,6 +211,8 @@ const App = () => {
             <PacketsReplayProvider />
             <NotificationProvider />
             <ModsPage />
+
+            <SelectOption />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>

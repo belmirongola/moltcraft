@@ -52,6 +52,7 @@ type InputOption = {
   type: 'text' | 'checkbox'
   defaultValue?: string | boolean
   label?: string
+  placeholder?: string
 }
 export const showInputsModal = async <T extends Record<string, InputOption>>(
   title: string,
@@ -130,6 +131,7 @@ export default () => {
                 autoFocus
                 type='text'
                 defaultValue={input.defaultValue as string}
+                placeholder={input.placeholder}
                 onChange={(e) => {
                   inputValues.current[key] = e.target.value
                 }}
