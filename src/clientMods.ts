@@ -12,12 +12,45 @@ let sillyProtection = false
 const protectRuntime = () => {
   if (sillyProtection) return
   sillyProtection = true
-  const sensetiveKeys = new Set(['authenticatedAccounts'])
+  const sensetiveKeys = new Set(['authenticatedAccounts', 'serversList', 'username'])
   window.localStorage = new Proxy(window.localStorage, {
     get (target, prop) {
-      if (typeof prop === 'string' && sensetiveKeys.has(prop)) {
-        console.warn(`Access to sensitive key "${prop}" was blocked`)
-        return null
+      if (typeof prop === 'string') {
+        if (sensetiveKeys.has(prop)) {
+          console.warn(`Access to sensitive key "${prop}" was blocked`)
+          return null
+        }
+        if (prop === 'getItem') {
+          return (key: string) => {
+            if (sensetiveKeys.has(key)) {
+              console.warn(`Access to sensitive key "${key}" via getItem was blocked`)
+              return null
+            }
+            return target.getItem(key)
+          }
+        }
+        if (prop === 'setItem') {
+          return (key: string, value: string) => {
+            if (sensetiveKeys.has(key)) {
+              console.warn(`Attempt to set sensitive key "${key}" via setItem was blocked`)
+              return
+            }
+            target.setItem(key, value)
+          }
+        }
+        if (prop === 'removeItem') {
+          return (key: string) => {
+            if (sensetiveKeys.has(key)) {
+              console.warn(`Attempt to delete sensitive key "${key}" via removeItem was blocked`)
+              return
+            }
+            target.removeItem(key)
+          }
+        }
+        if (prop === 'clear') {
+          console.warn('Attempt to clear localStorage was blocked')
+          return () => {}
+        }
       }
       return Reflect.get(target, prop)
     },

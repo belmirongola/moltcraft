@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useSnapshot } from 'valtio'
 import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors } from '../clientMods'
 import { createNotificationProgressReporter, ProgressReporter } from '../core/progressReporter'
@@ -15,8 +15,6 @@ import { usePassesScaledDimensions } from './UIProvider'
 type ModsData = Awaited<ReturnType<typeof getAllModsDisplayList>>
 
 const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { repo?: string }) | null }) => {
-  // just make it update
-  const { counter } = useSnapshot(modsReactiveUpdater)
   const errors = useSnapshot(modsErrors)
 
   const handleAction = async (action: () => Promise<void>, errorMessage: string, progress?: ProgressReporter) => {
@@ -115,18 +113,27 @@ export default () => {
   const [search, setSearch] = useState('')
   const [showOnlyInstalled, setShowOnlyInstalled] = useState(false)
   const [showOnlyEnabled, setShowOnlyEnabled] = useState(false)
-  const [selectedMod, setSelectedMod] = useState<(ModsData['repos'][0]['packages'][0] & { repo?: string }) | null>(null)
+  const [selectedModIndex, setSelectedModIndex] = useState<number | null>(null)
   const [expandedRepos, setExpandedRepos] = useState<Record<string, boolean>>({})
   const useHorizontalLayout = usePassesScaledDimensions(400)
   const { counter } = useSnapshot(modsReactiveUpdater)
   const errors = useSnapshot(modsErrors)
 
+  const allModsArray = useMemo(() => {
+    if (!modsData) return []
+    return [
+      ...modsData.repos.flatMap(repo => repo.packages.map(mod => ({ ...mod, repo: repo.url }))),
+      ...modsData.modsWithoutRepos
+    ]
+  }, [modsData])
+
   useEffect(() => {
     if (isModalActive) {
       void getAllModsDisplayList().then(mods => {
         setModsData(mods)
-        if (selectedMod) {
-          setSelectedMod(mods.repos.find(repo => repo.packages.find(mod => mod.name === selectedMod.name))?.packages.find(mod => mod.name === selectedMod.name) ?? null)
+        // Update selected mod index if needed
+        if (selectedModIndex !== null && selectedModIndex < allModsArray.length) {
+          setSelectedModIndex(selectedModIndex)
         }
       })
     }
@@ -157,21 +164,17 @@ export default () => {
     modsWithoutRepos: modsData.modsWithoutRepos.filter(modFilter)
   } : null
 
-  const getStatsText = () => {
-    if (!modsData) return 'Loading...'
-    const totalRepos = modsData.repos.length
-    const totalMods = modsData.repos.reduce((acc, repo) => acc + repo.packages.length, 0) + modsData.modsWithoutRepos.length
-    const filteredModsCount = filteredMods ?
-      filteredMods.repos.reduce((acc, repo) => acc + repo.packages.length, 0) + filteredMods.modsWithoutRepos.length : 0
+  const filteredModsCount = filteredMods ?
+    filteredMods.repos.reduce((acc, repo) => acc + repo.packages.length, 0) + filteredMods.modsWithoutRepos.length : 0
 
-    if (showOnlyEnabled) {
-      return `Showing enabled mods (${filteredModsCount} of ${totalMods})`
-    }
-    if (showOnlyInstalled) {
-      return `Showing installed mods (${filteredModsCount} of ${totalMods})`
-    }
+  const totalRepos = modsData?.repos.length ?? 0
+
+  const getStatsText = () => {
+    if (!filteredMods) return 'Loading...'
     return `Showing all ${totalRepos} repos with ${filteredModsCount} mods`
   }
+
+  const selectedMod = selectedModIndex === null ? null : allModsArray[selectedModIndex]
 
   return <Screen backdrop="dirt" title="Client Mods" titleMarginTop={0} contentStyle={{ paddingTop: 15, height: '100%', width: '100%' }}>
     <div className={styles.root}>
@@ -241,11 +244,11 @@ export default () => {
                   </div>
                   {expandedRepos[repo.url] && (
                     <div className={styles.repoContent}>
-                      {repo.packages.map(mod => (
+                      {repo.packages.map((mod, index) => (
                         <div
                           key={mod.name}
                           className={styles.modRow}
-                          onClick={() => setSelectedMod({ ...mod, repo: repo.url })}
+                          onClick={() => setSelectedModIndex(allModsArray.findIndex(m => m.name === mod.name))}
                           data-enabled={mod.enabled}
                           data-has-error={errors[mod.name]?.length > 0}
                         >
@@ -273,7 +276,7 @@ export default () => {
                       <div
                         key={mod.name}
                         className={styles.modRow}
-                        onClick={() => setSelectedMod(mod)}
+                        onClick={() => setSelectedModIndex(allModsArray.findIndex(m => m.name === mod.name))}
                         data-enabled={mod.enabled}
                         data-has-error={errors[mod.name]?.length > 0}
                       >
