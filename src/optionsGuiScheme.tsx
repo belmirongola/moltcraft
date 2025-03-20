@@ -2,20 +2,23 @@ import { useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
+import { versionToNumber } from 'mc-assets/dist/utils'
 import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
-import { AppOptions, options } from './optionsStorage'
+import { AppOptions, getChangedSettings, options, resetOptions } from './optionsStorage'
 import Button from './react/Button'
 import { OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
 import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
-import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
+import { openFilePicker, resetLocalStorage } from './browserfs'
 import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
-import { showOptionsModal } from './react/SelectOption'
+import { showInputsModal, showOptionsModal } from './react/SelectOption'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
 import { createNotificationProgressReporter } from './core/progressReporter'
+import { customKeymaps } from './controls'
+import { appStorage } from './react/appStorageProvider'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -450,15 +453,30 @@ export const guiOptionsScheme: {
         return <Button
           inScreen
           onClick={() => {
-            if (confirm('Are you sure you want to reset all settings?')) resetLocalStorageWithoutWorld()
+            if (confirm('Are you sure you want to reset all settings?')) resetOptions()
           }}
-        >Reset all settings</Button>
+        >Reset settings</Button>
+      },
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          onClick={() => {
+            if (confirm('Are you sure you want to remove all data (settings, keybindings, servers, username, auth, proxies)?')) resetLocalStorage()
+          }}
+        >Remove all data</Button>
       },
     },
     {
       custom () {
         return <Category>Developer</Category>
       },
+    },
+    {
+      custom () {
+        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
+      }
     },
     {
       custom () {
@@ -495,7 +513,7 @@ export const guiOptionsScheme: {
     {
       custom () {
         const { serversAutoVersionSelect } = useSnapshot(options)
-        const allVersions = [...supportedVersions, 'latest', 'auto']
+        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
         const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
 
         const getDisplayValue = (version: string) => {
@@ -508,10 +526,11 @@ export const guiOptionsScheme: {
         return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <Slider
             style={{ width: 150 }}
-            label='Server Version'
+            label='Prefer Server Version'
             value={currentIndex}
             min={0}
             max={allVersions.length - 1}
+            unit=''
             valueDisplay={getDisplayValue(serversAutoVersionSelect)}
             updateValue={(newVal) => {
               options.serversAutoVersionSelect = allVersions[newVal]
@@ -521,8 +540,94 @@ export const guiOptionsScheme: {
       },
     },
   ],
+  'export-import': [
+    {
+      custom () {
+        return <Category>Export/Import Data</Category>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled={true}
+          onClick={() => {}}
+        >Import Data</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          onClick={async () => {
+            const data = await showInputsModal('Export Profile', {
+              profileName: {
+                type: 'text',
+              },
+              exportSettings: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              exportKeybindings: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              exportServers: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              saveUsernameAndProxy: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+            })
+            const fileName = `${data.profileName ? `${data.profileName}-` : ''}web-client-profile.json`
+            const json = {
+              _about: 'Minecraft Web Client (mcraft.fun) Profile',
+              ...data.exportSettings ? {
+                options: getChangedSettings(),
+              } : {},
+              ...data.exportKeybindings ? {
+                keybindings: customKeymaps,
+              } : {},
+              ...data.exportServers ? {
+                servers: appStorage.serversList,
+              } : {},
+              ...data.saveUsernameAndProxy ? {
+                username: appStorage.username,
+                proxy: appStorage.proxiesData?.selected,
+              } : {},
+            }
+            const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = fileName
+            a.click()
+            URL.revokeObjectURL(url)
+          }}
+        >Export Data</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled
+        >Export Worlds</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled
+        >Export Resource Pack</Button>
+      }
+    }
+  ],
 }
-export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR'
+export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR' | 'export-import'
 
 const Category = ({ children }) => <div style={{
   fontSize: 9,
