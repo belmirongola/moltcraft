@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { proxy } from 'valtio'
-import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions } from '../../../src/appViewer'
+import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions, WorldReactiveState } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
 import { WorldRendererThree } from '../lib/worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
@@ -18,9 +18,10 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let panoramaRenderer: PanoramaRenderer | null = null
   let worldRenderer: WorldRendererThree | null = null
 
-  const worldState = proxy({
+  const worldState: WorldReactiveState = proxy({
     chunksLoaded: 0,
-    chunksTotal: 0
+    chunksTotal: 0,
+    allChunksLoaded: false
   })
 
   const startPanorama = () => {

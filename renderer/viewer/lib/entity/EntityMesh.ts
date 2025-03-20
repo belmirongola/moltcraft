@@ -237,7 +237,7 @@ export function getMesh (
   if (useBlockTexture) {
     if (!worldRenderer) throw new Error('worldRenderer is required for block textures')
     const blockName = texture.slice(6)
-    const textureInfo = worldRenderer.blocksAtlasParser!.getTextureInfo(blockName)
+    const textureInfo = worldRenderer.resourcesManager.currentResources!.blocksAtlasParser.getTextureInfo(blockName)
     if (textureInfo) {
       textureWidth = blocksTexture!.image.width
       textureHeight = blocksTexture!.image.height

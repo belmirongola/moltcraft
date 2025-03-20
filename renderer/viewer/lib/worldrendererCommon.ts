@@ -151,7 +151,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   worldRendererConfig: WorldRendererConfig
 
-  constructor (private readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public version: string) {
+  constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public version: string) {
     // this.initWorkers(1) // preload script on page load
     this.snapshotInitialValues()
     this.worldRendererConfig = displayOptions.inWorldRenderingConfig

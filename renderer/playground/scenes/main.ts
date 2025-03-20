@@ -173,7 +173,6 @@ class MainScene extends BasePlaygroundScene {
     canvas.height = size
     renderer.setSize(size, size)
 
-    //@ts-expect-error
     viewer.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10)
     viewer.scene.background = null
 

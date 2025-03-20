@@ -5,6 +5,7 @@ import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
 import { BloomPass, RenderPass, UnrealBloomPass, EffectComposer, WaterPass, GlitchPass, LineSegmentsGeometry, Wireframe, LineMaterial } from 'three-stdlib'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
+import { subscribeKey } from 'valtio/utils'
 import { renderSign } from '../sign-renderer'
 import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from './simpleUtils'
@@ -89,6 +90,27 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     const size = this.renderer.getSize(new THREE.Vector2())
     this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
+  }
+
+  watchReactivePlayerState () {
+    const updateValue = <T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) => {
+      callback(this.displayOptions.playerState.reactive[key])
+      subscribeKey(this.displayOptions.playerState.reactive, key, callback)
+    }
+    updateValue('backgroundColor', (value) => {
+      this.changeBackgroundColor(value)
+    })
+    updateValue('inWater', (value) => {
+      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, 100) : null
+    })
+    updateValue('ambientLight', (value) => {
+      if (!value) return
+      this.ambientLight.intensity = value
+    })
+    updateValue('directionalLight', (value) => {
+      if (!value) return
+      this.directionalLight.intensity = value
+    })
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {

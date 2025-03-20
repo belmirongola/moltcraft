@@ -6,7 +6,7 @@ import * as tweenJs from '@tweenjs/tween.js'
 import { EntityMesh } from '../lib/entity/EntityMesh'
 import type { GraphicsInitOptions } from '../../../src/appViewer'
 import { WorldDataEmitter } from '../lib/worldDataEmitter'
-import { ThreeJsWorldRenderer } from '../lib/viewer'
+import { WorldRendererThree } from '../lib/worldrendererThree'
 import { defaultWorldRendererConfig } from '../lib/worldrendererCommon'
 import { BasePlayerState } from '../lib/basePlayerState'
 import { DocumentRenderer } from './documentRenderer'
@@ -28,7 +28,7 @@ export class PanoramaRenderer {
   private panoramaGroup: THREE.Object3D | null = null
   private time = 0
   private readonly abortController = new AbortController()
-  private worldRenderer: ThreeJsWorldRenderer | undefined
+  private worldRenderer: WorldRendererThree | undefined
 
   constructor (private readonly documentRenderer: DocumentRenderer, private readonly options: GraphicsInitOptions, private readonly doWorldBlocksPanorama = false) {
     this.scene = new THREE.Scene()
@@ -153,7 +153,7 @@ export class PanoramaRenderer {
     // worldView.addWaitTime = 0
     if (this.abortController.signal.aborted) return
 
-    this.worldRenderer = new ThreeJsWorldRenderer(
+    this.worldRenderer = new WorldRendererThree(
       this.documentRenderer.renderer,
       this.options,
       {
@@ -198,7 +198,7 @@ export class PanoramaRenderer {
 
   dispose () {
     this.scene.clear()
-    this.worldRenderer?.dispose()
+    this.worldRenderer?.destroy()
     this.abortController.abort()
   }
 }

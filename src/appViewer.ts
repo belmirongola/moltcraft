@@ -17,6 +17,7 @@ import { ResourcesManager } from './resourcesManager'
 export interface WorldReactiveState {
   chunksLoaded: number
   chunksTotal: number
+  allChunksLoaded: boolean
 }
 
 export interface GraphicsBackendConfig {
@@ -76,6 +77,7 @@ export class AppViewer {
   currentDisplay = null as 'menu' | 'world' | null
   inWorldRenderingConfig: WorldRendererConfig = defaultWorldRendererConfig
   lastCamUpdate = 0
+  playerState = playerState
 
   loadBackend (loader: GraphicsBackendLoader) {
     if (this.backend) {
@@ -155,6 +157,22 @@ export class AppViewer {
     }
     this.currentDisplay = null
     // this.queuedDisplay = undefined
+  }
+
+  get utils () {
+    return {
+      async waitingForChunks () {
+        if (this.backend?.worldState.allChunksLoaded) return
+        return new Promise((resolve) => {
+          const interval = setInterval(() => {
+            if (this.backend?.worldState.allChunksLoaded) {
+              clearInterval(interval)
+              resolve(true)
+            }
+          }, 100)
+        })
+      }
+    }
   }
 }
 

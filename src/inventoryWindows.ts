@@ -46,7 +46,7 @@ export const onGameLoad = (onLoad) => {
   version = bot.version
 
   const checkIfLoaded = () => {
-    if (!appViewer.resourcesManager.itemsAtlasParser) return
+    if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser) return
     if (!allImagesLoadedState.value) {
       onLoad?.()
     }
@@ -137,11 +137,10 @@ export const onGameLoad = (onLoad) => {
 }
 
 const getImageSrc = (path): string | HTMLImageElement => {
-  assertDefined(viewer)
   switch (path) {
     case 'gui/container/inventory': return appReplacableResources.latest_gui_container_inventory.content
-    case 'blocks': return viewer.world.blocksAtlasParser!.latestImage
-    case 'items': return viewer.world.itemsAtlasParser!.latestImage
+    case 'blocks': return appViewer.resourcesManager.currentResources!.blocksAtlasParser.latestImage
+    case 'items': return appViewer.resourcesManager.currentResources!.itemsAtlasParser.latestImage
     case 'gui/container/dispenser': return appReplacableResources.latest_gui_container_dispenser.content
     case 'gui/container/furnace': return appReplacableResources.latest_gui_container_furnace.content
     case 'gui/container/crafting_table': return appReplacableResources.latest_gui_container_crafting_table.content
@@ -223,13 +222,13 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
   }
 
   try {
-    assertDefined(viewer.world.itemsRenderer)
+    assertDefined(appViewer.resourcesManager.currentResources?.itemsRenderer)
     itemTexture =
-      viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
-      ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
+      appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
+      ?? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
-    itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
+    itemTexture = appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('block/errored')!
   }
 
 

@@ -110,7 +110,7 @@ const HotbarInner = () => {
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!appViewer.resourcesManager.itemsAtlasParser || !allImagesLoadedState.value) return
+      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser || !allImagesLoadedState.value) return
       upInventoryItems(true, inv)
     }
 

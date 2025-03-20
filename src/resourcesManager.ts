@@ -30,9 +30,9 @@ export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpec
   const itemSelector = playerState.getItemSelector({
     ...specificProps
   })
-  const modelFromDef = getItemDefinition(viewer.world.itemsDefinitionsStore, {
+  const modelFromDef = getItemDefinition(appViewer.resourcesManager.itemsDefinitionsStore, {
     name: itemModelName,
-    version: viewer.world.texturesVersion!,
+    version: appViewer.resourcesManager.currentResources!.version,
     properties: itemSelector
   })?.model
   const model = (modelFromDef === 'minecraft:special' ? undefined : modelFromDef) ?? itemModelName
@@ -57,8 +57,8 @@ class LoadedResources {
     armor?: { tileSize: number | undefined, textures: Record<string, HTMLImageElement> }
   } = {}
 
-  itemsRenderer: ItemsRenderer | undefined
-  worldBlockProvider: WorldBlockProvider | undefined
+  itemsRenderer: ItemsRenderer
+  worldBlockProvider: WorldBlockProvider
   blockstatesModels: any = null
 
   version: string

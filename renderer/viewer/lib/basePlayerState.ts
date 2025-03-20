@@ -31,12 +31,20 @@ export interface IPlayerState {
 
   reactive: {
     playerSkin: string | undefined
+    inWater: boolean
+    backgroundColor: [number, number, number]
+    ambientLight: number
+    directionalLight: number
   }
 }
 
 export class BasePlayerState implements IPlayerState {
   reactive = proxy({
-    playerSkin: undefined
+    playerSkin: undefined as string | undefined,
+    inWater: false,
+    backgroundColor: [0, 0, 0] as [number, number, number],
+    ambientLight: 0,
+    directionalLight: 0,
   })
   protected movementState: MovementState = 'NOT_MOVING'
   protected velocity = new Vec3(0, 0, 0)
