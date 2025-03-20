@@ -1,7 +1,10 @@
 import mojangson from 'mojangson'
 import nbt from 'prismarine-nbt'
 import { fromFormattedString } from '@xmcl/text-component'
+import { ItemSpecificContextProperties } from 'renderer/viewer/lib/basePlayerState'
+import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 import { MessageFormatPart } from '../chatUtils'
+import { playerState } from './playerState'
 
 type RenderSlotComponent = {
   type: string,
@@ -85,4 +88,23 @@ export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'>
       text: JSON.stringify(customText)
     }
   }
+}
+
+export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpecificContextProperties) => {
+  let itemModelName = item.name
+  const { customModel } = getItemMetadata(item)
+  if (customModel) {
+    itemModelName = customModel
+  }
+
+  const itemSelector = playerState.getItemSelector({
+    ...specificProps
+  })
+  const modelFromDef = getItemDefinition(appViewer.resourcesManager.itemsDefinitionsStore, {
+    name: itemModelName,
+    version: appViewer.resourcesManager.currentResources!.version,
+    properties: itemSelector
+  })?.model
+  const model = (modelFromDef === 'minecraft:special' ? undefined : modelFromDef) ?? itemModelName
+  return model
 }

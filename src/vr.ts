@@ -5,36 +5,37 @@ import { buttonMap as standardButtonsMap } from 'contro-max/build/gamepad'
 import * as THREE from 'three'
 import { subscribeKey } from 'valtio/utils'
 import { subscribe } from 'valtio'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { activeModalStack, hideModal } from './globalState'
 import { watchUnloadForCleanup } from './gameUnload'
-import { options } from './optionsStorage'
 
-export async function initVR () {
-  options.vrSupport = true
-  const { renderer } = viewer
-  if (!('xr' in navigator)) return
+export async function initVR (worldRenderer: WorldRendererThree) {
+  if (!('xr' in navigator) || !worldRenderer.worldRendererConfig.vrSupport) return
+  const { renderer } = worldRenderer
 
   const isSupported = await checkVRSupport()
   if (!isSupported) return
 
-  enableVr(renderer)
+  enableVr()
 
   const vrButtonContainer = createVrButtonContainer(renderer)
   const updateVrButtons = () => {
-    vrButtonContainer.hidden = !options.vrSupport || activeModalStack.length !== 0
+    vrButtonContainer.hidden = !worldRenderer.worldRendererConfig.vrSupport || activeModalStack.length !== 0
   }
 
-  const unsubWatchSetting = subscribeKey(options, 'vrSupport', updateVrButtons)
+  const unsubWatchSetting = subscribeKey(worldRenderer.worldRendererConfig, 'vrSupport', updateVrButtons)
   const unsubWatchModals = subscribe(activeModalStack, updateVrButtons)
 
-  function enableVr (renderer) {
+  function enableVr () {
     renderer.xr.enabled = true
+    worldRenderer.reactiveState.preventEscapeMenu = true
   }
 
   function disableVr () {
     renderer.xr.enabled = false
-    viewer.cameraObjectOverride = undefined
-    viewer.scene.remove(user)
+    worldRenderer.cameraObjectOverride = undefined
+    worldRenderer.reactiveState.preventEscapeMenu = false
+    worldRenderer.scene.remove(user)
     vrButtonContainer.hidden = true
     unsubWatchSetting()
     unsubWatchModals()
@@ -84,7 +85,7 @@ export async function initVR () {
 
     closeButton.addEventListener('click', () => {
       container.hidden = true
-      options.vrSupport = false
+      worldRenderer.worldRendererConfig.vrSupport = false
     })
 
     return closeButton
@@ -103,8 +104,8 @@ export async function initVR () {
 
   // hack for vr camera
   const user = new THREE.Group()
-  user.add(viewer.camera)
-  viewer.scene.add(user)
+  user.add(worldRenderer.camera)
+  worldRenderer.scene.add(user)
   const controllerModelFactory = new XRControllerModelFactory(new GLTFLoader())
   const controller1 = renderer.xr.getControllerGrip(0)
   const controller2 = renderer.xr.getControllerGrip(1)
@@ -203,17 +204,17 @@ export async function initVR () {
     // todo ?
     // bot.physics.stepHeight = 1
 
-    viewer.render()
+    worldRenderer.render()
   })
   renderer.xr.addEventListener('sessionstart', () => {
-    viewer.cameraObjectOverride = user
+    worldRenderer.cameraObjectOverride = user
     // close all modals to be in game
     for (const _modal of activeModalStack) {
       hideModal(undefined, {}, { force: true })
     }
   })
   renderer.xr.addEventListener('sessionend', () => {
-    viewer.cameraObjectOverride = undefined
+    worldRenderer.cameraObjectOverride = undefined
   })
 
   watchUnloadForCleanup(disableVr)

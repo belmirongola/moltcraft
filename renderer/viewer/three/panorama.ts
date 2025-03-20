@@ -9,6 +9,7 @@ import { WorldDataEmitter } from '../lib/worldDataEmitter'
 import { WorldRendererThree } from '../lib/worldrendererThree'
 import { defaultWorldRendererConfig } from '../lib/worldrendererCommon'
 import { BasePlayerState } from '../lib/basePlayerState'
+import { getDefaultReactiveState } from '../baseGraphicsBackend'
 import { DocumentRenderer } from './documentRenderer'
 
 const panoramaFiles = [
@@ -161,7 +162,8 @@ export class PanoramaRenderer {
         inWorldRenderingConfig: defaultWorldRendererConfig,
         playerState: new BasePlayerState()
       },
-      version
+      version,
+      getDefaultReactiveState()
     )
     this.scene = this.worldRenderer.scene
     void worldView.init(initPos)

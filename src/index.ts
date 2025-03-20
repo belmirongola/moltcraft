@@ -14,8 +14,7 @@ import './mineflayer/java-tester/index'
 import './external'
 import './appConfig'
 import { getServerInfo } from './mineflayer/mc-protocol'
-import { onGameLoad, renderSlot } from './inventoryWindows'
-import { GeneralInputItem } from './mineflayer/items'
+import { onGameLoad } from './inventoryWindows'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
@@ -23,7 +22,7 @@ import { Duplex } from 'stream'
 
 import './scaleInterface'
 
-import { options, watchValue } from './optionsStorage'
+import { options } from './optionsStorage'
 import './reactUi'
 import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
@@ -34,15 +33,12 @@ import downloadAndOpenFile from './downloadAndOpenFile'
 import fs from 'fs'
 import net from 'net'
 import mineflayer from 'mineflayer'
-import pathfinder from 'mineflayer-pathfinder'
 
 import * as THREE from 'three'
-import MinecraftData from 'minecraft-data'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
 import initializePacketsReplay from './packetsReplay/packetsReplayLegacy'
 
-import { initVR } from './vr'
 import {
   activeModalStack,
   activeModalStacks,
@@ -62,7 +58,7 @@ import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalS
 import defaultServerOptions from './defaultLocalServerOptions'
 import dayCycle from './dayCycle'
 
-import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack'
+import { onAppLoad, resourcePackState } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
 import CustomChannelClient from './customClient'
 import { registerServiceWorker } from './serviceWorker'
@@ -98,10 +94,8 @@ import mouse from './mineflayer/plugins/mouse'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createConsoleLogProgressReporter, createFullScreenProgressReporter } from './core/progressReporter'
-import { getItemModelName } from './resourcesManager'
 import { appViewer } from './appViewer'
 import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
-import { importLargeData } from '../generated/large-data-aliases'
 import { subscribeKey } from 'valtio/utils'
 
 window.debug = debug
@@ -137,61 +131,6 @@ if (process.env.SINGLE_FILE_BUILD_MODE) {
   loadBackend()
 }
 
-// todo unify
-// viewer.entities.getItemUv = (item, specificProps) => {
-//   const idOrName = item.itemId ?? item.blockId ?? item.name
-//   try {
-//     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
-//     if (!name) throw new Error(`Item not found: ${idOrName}`)
-
-//     const model = getItemModelName({
-//       ...item,
-//       name,
-//     } as GeneralInputItem, specificProps)
-
-//     const renderInfo = renderSlot({
-//       modelName: model,
-//     }, false, true)
-
-//     if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
-
-//     const textureThree = renderInfo.texture === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
-//     const img = textureThree.image
-
-//     if (renderInfo.blockData) {
-//       return {
-//         resolvedModel: renderInfo.blockData.resolvedModel,
-//         modelName: renderInfo.modelName!
-//       }
-//     }
-//     if (renderInfo.slice) {
-//       // Get slice coordinates from either block or item texture
-//       const [x, y, w, h] = renderInfo.slice
-//       const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
-//       return {
-//         u, v, su, sv,
-//         texture: textureThree,
-//         modelName: renderInfo.modelName
-//       }
-//     }
-
-//     throw new Error(`Invalid render info for item ${name}`)
-//   } catch (err) {
-//     reportError?.(err)
-//     // Return default UV coordinates for missing texture
-//     return {
-//       u: 0,
-//       v: 0,
-//       su: 16 / viewer.world.material.map!.image.width,
-//       sv: 16 / viewer.world.material.map!.image.width,
-//       texture: viewer.world.material.map!
-//     }
-//   }
-// }
-
-// viewer.entities.entitiesOptions = {
-//   fontFamily: 'mojangles'
-// }
 watchOptionsAfterViewerInit()
 
 function hideCurrentScreens () {
@@ -750,15 +689,10 @@ export async function connect (connectOptions: ConnectOptions) {
 
 
     console.log('bot spawned - starting viewer')
-    appViewer.startWorld(bot.world, renderDistance, bot.entity.position)
-    watchOptionsAfterWorldViewInit()
-
-    // void initVR()
-    initMotionTracking()
-
+    appViewer.startWorld(bot.world, renderDistance)
     appViewer.worldView.listenToBot(bot)
-    void appViewer.worldView.init(bot.entity.position)
 
+    initMotionTracking()
     dayCycle()
 
     // Bot position callback
@@ -780,7 +714,7 @@ export async function connect (connectOptions: ConnectOptions) {
     const waitForChunks = async () => {
       if (appQueryParams.sp === '1') return //todo
       const waitForChunks = options.waitForChunksRender === 'sp-only' ? !!singleplayer : options.waitForChunksRender
-      if (viewer.world.allChunksFinished || !waitForChunks) {
+      if (!appViewer.backend || appViewer.backend.reactiveState.world.allChunksLoaded || !waitForChunks) {
         return
       }
 
@@ -790,13 +724,13 @@ export async function connect (connectOptions: ConnectOptions) {
         async () => {
           await new Promise<void>(resolve => {
             let wasFinished = false
-            void viewer.world.renderUpdateEmitter.on('update', () => {
+            const unsub = subscribe(appViewer.backend!.reactiveState, () => {
               if (wasFinished) return
-              if (viewer.world.allChunksFinished) {
+              if (appViewer.backend!.reactiveState.world.allChunksLoaded) {
                 wasFinished = true
                 resolve()
               } else {
-                const perc = Math.round(Object.keys(viewer.world.finishedChunks).length / viewer.world.chunksLength * 100)
+                const perc = Math.round(appViewer.backend!.reactiveState.world.chunksLoaded / appViewer.backend!.reactiveState.world.chunksTotal * 100)
                 progress.reportProgress('chunks', perc / 100)
               }
             })

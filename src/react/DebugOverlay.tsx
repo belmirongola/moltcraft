@@ -1,9 +1,11 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import type { Block } from 'prismarine-block'
+import { proxy, useSnapshot } from 'valtio'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
-import { getBlockAssetsCacheKey } from '../../renderer/viewer/lib/mesher/shared'
+import { BlockStateModelInfo, getBlockAssetsCacheKey } from '../../renderer/viewer/lib/mesher/shared'
 import styles from './DebugOverlay.module.css'
 
 export default () => {
@@ -36,9 +38,11 @@ export default () => {
   const [day, setDay] = useState(0)
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
+  const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
-  const rendererDevice = appViewer.backend?.getRenderer() ?? 'No render backend'
+  const { reactiveState } = appViewer.backend ?? {}
+  const rendererDevice = reactiveState?.renderer ?? 'No render backend'
 
   const quadsDescription = [
     'north (towards negative Z)',
@@ -108,6 +112,16 @@ export default () => {
       setCursorBlock(bot.mouse.getCursorState().cursorBlock)
     }, 100)
 
+    const notFrequentUpdateInterval = setInterval(async () => {
+      const block = bot.mouse.cursorBlock
+      if (!block) {
+        setBlockInfo(null)
+        return
+      }
+      const { customBlockName, modelInfo } = await getThreeJsRendererMethods()?.getBlockInfo(pos, block.stateId) ?? {}
+      setBlockInfo({ customBlockName, modelInfo })
+    }, 300)
+
     // @ts-expect-error
     bot._client.on('packet', readPacket)
     // @ts-expect-error
@@ -121,6 +135,7 @@ export default () => {
       document.removeEventListener('keydown', handleF3)
       clearInterval(packetsUpdateInterval)
       clearInterval(freqUpdateInterval)
+      clearInterval(notFrequentUpdateInterval)
     }
   }, [])
 
@@ -172,11 +187,8 @@ export default () => {
         <p>Looking at: {cursorBlock.position.x} {cursorBlock.position.y} {cursorBlock.position.z}</p>
       ) : ''}
       <div className={styles.empty} />
-      {cursorBlock && (() => {
-        const chunkKey = `${Math.floor(cursorBlock.position.x / 16) * 16},${Math.floor(cursorBlock.position.z / 16) * 16}`
-        const customBlockName = viewer.world.protocolCustomBlocks.get(chunkKey)?.[`${cursorBlock.position.x},${cursorBlock.position.y},${cursorBlock.position.z}`]
-        const cacheKey = getBlockAssetsCacheKey(cursorBlock.stateId, customBlockName)
-        const modelInfo = viewer.world.blockStateModelInfo.get(cacheKey)
+      {blockInfo && (() => {
+        const { customBlockName, modelInfo } = blockInfo
         return modelInfo && (
           <>
             {customBlockName && <p style={{ fontSize: 7, }}>Custom block: {customBlockName}</p>}

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { proxy } from 'valtio'
-import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions, WorldReactiveState } from '../../../src/appViewer'
+import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions, RendererReactiveState } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
 import { WorldRendererThree } from '../lib/worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
@@ -9,6 +9,16 @@ import { PanoramaRenderer } from './panorama'
 
 // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
 THREE.ColorManagement.enabled = false
+
+const getBackendMethods = (worldRenderer: WorldRendererThree) => {
+  return {
+    updateMap: worldRenderer.entities.updateMap.bind(worldRenderer.entities),
+    updateCustomBlock: worldRenderer.updateCustomBlock.bind(worldRenderer),
+    getBlockInfo: worldRenderer.getBlockInfo.bind(worldRenderer),
+  }
+}
+
+export type ThreeJsBackendMethods = ReturnType<typeof getBackendMethods>
 
 const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitOptions) => {
   // Private state
@@ -18,10 +28,14 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let panoramaRenderer: PanoramaRenderer | null = null
   let worldRenderer: WorldRendererThree | null = null
 
-  const worldState: WorldReactiveState = proxy({
-    chunksLoaded: 0,
-    chunksTotal: 0,
-    allChunksLoaded: false
+  const reactiveState: RendererReactiveState = proxy({
+    world: {
+      chunksLoaded: 0,
+      chunksTotal: 0,
+      allChunksLoaded: false,
+    },
+    renderer: WorldRendererThree.getRendererInfo(documentRenderer.renderer) ?? '...',
+    preventEscapeMenu: false
   })
 
   const startPanorama = () => {
@@ -43,7 +57,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
       panoramaRenderer.dispose()
       panoramaRenderer = null
     }
-    worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions, version)
+    worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions, version, reactiveState)
     documentRenderer.render = (sizeChanged: boolean) => {
       worldRenderer?.render(sizeChanged)
     }
@@ -66,11 +80,10 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     }
   }
 
-  const renderer = WorldRendererThree.getRendererInfo(documentRenderer.renderer) ?? '...'
-  // viewer.setFirstPersonCamera(null, bot.entity.yaw, bot.entity.pitch)
-
   // Public interface
   const backend: GraphicsBackend = {
+    //@ts-expect-error mark as three.js renderer
+    __isThreeJsRenderer: true,
     NAME: `three.js ${THREE.REVISION}`,
     startPanorama,
     prepareResources,
@@ -79,7 +92,6 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     setRendering (rendering) {
       documentRenderer.setPaused(!rendering)
     },
-    getRenderer: () => renderer,
     getDebugOverlay: () => ({
     }),
     updateCamera (pos: Vec3 | null, yaw: number, pitch: number) {
@@ -88,9 +100,13 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     setRoll (roll: number) {
       worldRenderer?.setCameraRoll(roll)
     },
-    worldState,
+    reactiveState,
     get soundSystem () {
       return worldRenderer?.soundSystem
+    },
+    get backendMethods () {
+      if (!worldRenderer) return undefined
+      return getBackendMethods(worldRenderer)
     }
   }
 

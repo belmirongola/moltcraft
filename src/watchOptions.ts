@@ -2,6 +2,7 @@
 
 import { subscribeKey } from 'valtio/utils'
 import { isMobile } from 'renderer/viewer/lib/simpleUtils'
+import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
@@ -28,8 +29,6 @@ window.matchMedia('(pointer: coarse)').addEventListener('change', (e) => {
 export const watchOptionsAfterViewerInit = () => {
   watchValue(options, o => {
     appViewer.inWorldRenderingConfig.showChunkBorders = o.showChunkBorders
-    // Note: entities debug mode still needs viewer access
-    if (viewer) viewer.entities.setDebugMode(o.showChunkBorders ? 'basic' : 'none')
   })
 
   watchValue(options, o => {
@@ -37,7 +36,7 @@ export const watchOptionsAfterViewerInit = () => {
   })
 
   watchValue(options, o => {
-    if (viewer) viewer.entities.setRendering(o.renderEntities)
+    appViewer.inWorldRenderingConfig.renderEntities = o.renderEntities
   })
 
   watchValue(options, o => {
@@ -108,10 +107,7 @@ export const watchOptionsAfterViewerInit = () => {
   })
 }
 
-let viewWatched = false
-export const watchOptionsAfterWorldViewInit = () => {
-  if (viewWatched) return
-  viewWatched = true
+export const watchOptionsAfterWorldViewInit = (worldView: WorldDataEmitter) => {
   watchValue(options, o => {
     if (!worldView) return
     worldView.keepChunksDistance = o.keepChunksDistance

@@ -131,6 +131,10 @@ export class PlayerStateManager implements IPlayerState {
   isSprinting (): boolean {
     return gameAdditionalState.isSprinting
   }
+
+  getPosition (): Vec3 {
+    return bot.player?.entity.position ?? new Vec3(0, 0, 0)
+  }
   // #endregion
 
   // #region Held Item State

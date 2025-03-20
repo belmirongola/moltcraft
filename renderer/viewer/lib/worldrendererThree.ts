@@ -3,23 +3,25 @@ import { Vec3 } from 'vec3'
 import nbt from 'prismarine-nbt'
 import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
-import { BloomPass, RenderPass, UnrealBloomPass, EffectComposer, WaterPass, GlitchPass, LineSegmentsGeometry, Wireframe, LineMaterial } from 'three-stdlib'
-import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
+import { LineSegmentsGeometry, Wireframe } from 'three-stdlib'
 import { subscribeKey } from 'valtio/utils'
 import { renderSign } from '../sign-renderer'
-import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
+import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
+import { initVR } from '../../../src/vr'
+import { getItemUv } from '../three/appShared'
 import { chunkPos, sectionPos } from './simpleUtils'
-import { WorldRendererCommon, WorldRendererConfig } from './worldrendererCommon'
+import { WorldRendererCommon } from './worldrendererCommon'
 import { disposeObject } from './threeJsUtils'
-import HoldingBlock, { HandItemBlock } from './holdingBlock'
+import HoldingBlock from './holdingBlock'
 import { addNewStat } from './ui/newStats'
 import { MesherGeometryOutput } from './mesher/shared'
-import { IPlayerState } from './basePlayerState'
+import { ItemSpecificContextProperties } from './basePlayerState'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
 import { getMyHand } from './hand'
 import { setBlockPosition } from './mesher/standaloneRenderer'
 import { Entities } from './entities'
+import { ThreeJsSound } from './threeJsSound'
 
 export class WorldRendererThree extends WorldRendererCommon {
   interactionLines: null | { blockPos; mesh } = null
@@ -38,6 +40,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
   entities = new Entities(this)
   cameraObjectOverride?: THREE.Object3D // for xr
+  material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -47,14 +50,13 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions, public version: string) {
+  constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions, public version: string, public reactiveState: RendererReactiveState) {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
     super(initOptions.resourcesManager, displayOptions, version)
-    const { playerState, inWorldRenderingConfig: config } = displayOptions
 
     this.starField = new StarField(this.scene)
-    this.holdingBlock = new HoldingBlock(playerState, config)
-    this.holdingBlockLeft = new HoldingBlock(playerState, config, true)
+    this.holdingBlock = new HoldingBlock(this)
+    this.holdingBlockLeft = new HoldingBlock(this, true)
 
     initOptions.resourcesManager.on('assetsTexturesUpdated', () => {
       this.holdingBlock.ready = true
@@ -63,9 +65,13 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.holdingBlockLeft.updateItem()
     })
 
+    this.soundSystem = new ThreeJsSound(this)
+
     this.addDebugOverlay()
     this.resetScene()
+    this.watchReactivePlayerState()
     this.init()
+    void initVR(this)
   }
 
   updateEntity (e) {
@@ -122,6 +128,16 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
+  async updateAssetsData (): Promise<void> {
+    const resources = this.resourcesManager.currentResources!
+    const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.NearestFilter
+    texture.flipY = false
+    this.material.map = texture
+    await super.updateAssetsData()
+  }
+
   changeBackgroundColor (color: [number, number, number]): void {
     this.scene.background = new THREE.Color(color[0], color[1], color[2])
   }
@@ -135,6 +151,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     } else {
       this.starField.remove()
     }
+  }
+
+  getItemRenderData (item: Record<string, any>, specificProps: ItemSpecificContextProperties) {
+    return getItemUv(item, specificProps, this.resourcesManager)
   }
 
   async demoModel () {
@@ -329,8 +349,10 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   render (sizeChanged = false) {
-    if (sizeChanged) {
+    const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
+    if (sizeOrFovChanged) {
       this.camera.aspect = window.innerWidth / window.innerHeight
+      this.camera.fov = this.displayOptions.inWorldRenderingConfig.fov
       this.camera.updateProjectionMatrix()
     }
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
@@ -566,6 +588,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     // Apply roll after camera rotation
     const finalQuat = camQuat.multiply(rollQuat)
     this.camera.setRotationFromQuaternion(finalQuat)
+  }
+
+  destroy (): void {
+    super.destroy()
   }
 }
 

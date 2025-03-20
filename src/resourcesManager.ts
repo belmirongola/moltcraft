@@ -1,7 +1,4 @@
 import { EventEmitter } from 'events'
-import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
-import { ItemSpecificContextProperties } from 'renderer/viewer/lib/basePlayerState'
-import { Item } from 'prismarine-item'
 import TypedEmitter from 'typed-emitter'
 import blocksAtlases from 'mc-assets/dist/blocksAtlases.json'
 import itemsAtlases from 'mc-assets/dist/itemsAtlases.json'
@@ -15,29 +12,9 @@ import { AtlasParser } from 'mc-assets/dist/atlasParser'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { getLoadedItemDefinitionsStore } from 'mc-assets'
+import { getLoadedImage } from 'mc-assets/dist/utils'
 import { importLargeData } from '../generated/large-data-aliases'
-import { GeneralInputItem, getItemMetadata } from './mineflayer/items'
-import { playerState } from './mineflayer/playerState'
 import { loadMinecraftData } from './connect'
-
-export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpecificContextProperties) => {
-  let itemModelName = item.name
-  const { customModel } = getItemMetadata(item)
-  if (customModel) {
-    itemModelName = customModel
-  }
-
-  const itemSelector = playerState.getItemSelector({
-    ...specificProps
-  })
-  const modelFromDef = getItemDefinition(appViewer.resourcesManager.itemsDefinitionsStore, {
-    name: itemModelName,
-    version: appViewer.resourcesManager.currentResources!.version,
-    properties: itemSelector
-  })?.model
-  const model = (modelFromDef === 'minecraft:special' ? undefined : modelFromDef) ?? itemModelName
-  return model
-}
 
 type ResourceManagerEvents = {
   assetsTexturesUpdated: () => void
@@ -47,6 +24,8 @@ class LoadedResources {
   // Atlas parsers
   itemsAtlasParser: AtlasParser
   blocksAtlasParser: AtlasParser
+  itemsAtlasImage: HTMLImageElement
+  blocksAtlasImage: HTMLImageElement
 
   // User data (specific to current resourcepack/version)
   customBlockStates?: Record<string, any>
@@ -160,6 +139,8 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
 
     resources.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
     resources.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
+    resources.blocksAtlasImage = await getLoadedImage(blocksCanvas.toDataURL())
+    resources.itemsAtlasImage = await getLoadedImage(itemsCanvas.toDataURL())
 
     if (resources.version && resources.blockstatesModels && resources.itemsAtlasParser && resources.blocksAtlasParser) {
       resources.itemsRenderer = new ItemsRenderer(

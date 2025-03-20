@@ -9,20 +9,19 @@ import { LineMaterial } from 'three-stdlib'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
+import { proxy } from 'valtio'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
 import { DisplayWorldOptions } from '../../../src/appViewer'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo } from './mesher/shared'
+import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { updateStatText } from './ui/newStats'
 import { generateGuiAtlas } from './guiRenderer'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { WorldRendererThree } from './worldrendererThree'
-import { SoundSystem } from './threeJsSound'
-
-const appViewer = undefined
+import { SoundSystem, ThreeJsSound } from './threeJsSound'
 
 function mod (x, n) {
   return ((x % n) + n) % n
@@ -43,15 +42,13 @@ export const defaultWorldRendererConfig = {
   smoothLighting: true,
   enableLighting: true,
   starfield: true,
-  addChunksBatchWaitTime: 200
+  addChunksBatchWaitTime: 200,
+  vrSupport: true,
+  renderEntities: true,
+  fov: 75
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
-
-type CustomTexturesData = {
-  tileSize: number | undefined
-  textures: Record<string, HTMLImageElement>
-}
 
 export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any> {
   // todo
@@ -62,8 +59,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   displayStats = true
   @worldCleanup()
   worldSizeParams = { minY: 0, worldHeight: 256 }
-  // todo need to cleanup
-  material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
   cameraRoll = 0
 
   @worldCleanup()
@@ -96,7 +91,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }>
   customTexturesDataUrl = undefined as string | undefined
   @worldCleanup()
-  currentTextureImage = undefined as any
   workers: any[] = []
   @worldCleanup()
   viewerPosition?: Vec3
@@ -154,7 +148,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public version: string) {
     // this.initWorkers(1) // preload script on page load
     this.snapshotInitialValues()
-    this.worldRendererConfig = displayOptions.inWorldRenderingConfig
+    this.worldRendererConfig = proxy(displayOptions.inWorldRenderingConfig)
 
     this.renderUpdateEmitter.on('update', () => {
       const loadedChunks = Object.keys(this.finishedChunks).length
@@ -177,6 +171,32 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   snapshotInitialValues () { }
+
+  wasChunkSentToWorker (chunkKey: string) {
+    return this.loadedChunks[chunkKey]
+  }
+
+  updateCustomBlock (chunkKey: string, blockPos: string, model: string) {
+    this.protocolCustomBlocks.set(chunkKey, {
+      ...this.protocolCustomBlocks.get(chunkKey),
+      [blockPos]: model
+    })
+    if (this.wasChunkSentToWorker(chunkKey)) {
+      const [x, y, z] = blockPos.split(',').map(Number)
+      this.setBlockStateId(new Vec3(x, y, z), undefined)
+    }
+  }
+
+  async getBlockInfo (blockPos: { x: number, y: number, z: number }, stateId: number) {
+    const chunkKey = `${Math.floor(blockPos.x / 16) * 16},${Math.floor(blockPos.z / 16) * 16}`
+    const customBlockName = this.protocolCustomBlocks.get(chunkKey)?.[`${blockPos.x},${blockPos.y},${blockPos.z}`]
+    const cacheKey = getBlockAssetsCacheKey(stateId, customBlockName)
+    const modelInfo = this.blockStateModelInfo.get(cacheKey)
+    return {
+      customBlockName,
+      modelInfo
+    }
+  }
 
   initWorkers (numWorkers = this.worldRendererConfig.mesherWorkers) {
     // init workers
@@ -323,7 +343,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       worker.terminate()
     }
     this.workers = []
-    this.currentTextureImage = undefined
   }
 
   // new game load happens here
@@ -371,13 +390,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   async updateAssetsData () {
     const resources = this.resourcesManager.currentResources!
-    const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
-    texture.flipY = false
-    this.material.map = texture
-    this.currentTextureImage = this.material.map.image
-    this.mesherConfig.textureSize = this.material.map.image.width
+
+    this.mesherConfig.textureSize = this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width
 
     if (this.workers.length === 0) throw new Error('workers not initialized yet')
     for (const [i, worker] of this.workers.entries()) {
@@ -476,7 +490,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
   }
 
-  setBlockStateId (pos: Vec3, stateId: number) {
+  setBlockStateId (pos: Vec3, stateId: number | undefined) {
     const set = async () => {
       const sectionX = Math.floor(pos.x / 16) * 16
       const sectionZ = Math.floor(pos.z / 16) * 16
@@ -594,7 +608,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     worldEmitter.emit('listening')
   }
 
-  setBlockStateIdInner (pos: Vec3, stateId: number) {
+  setBlockStateIdInner (pos: Vec3, stateId: number | undefined) {
     const needAoRecalculation = true
     const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     const blockPosKey = `${pos.x},${pos.y},${pos.z}`
@@ -745,15 +759,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       this.soundSystem = undefined
     }
 
-    // if not necessary as renderer is destroyed anyway
-    if (this.material.map) {
-      this.material.map.dispose()
-    }
-    this.material.dispose()
-
     this.active = false
 
     this.renderUpdateEmitter.removeAllListeners()
+    this.displayOptions.worldView.removeAllListeners() // todo
   }
 
   abstract setHighlightCursorBlock (block: typeof this.cursorBlock, shapePositions?: Array<{ position; width; height; depth }>): void

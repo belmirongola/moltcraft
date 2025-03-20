@@ -39,12 +39,12 @@ export const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
 
   appViewer.lastCamUpdate = Date.now()
 
-  if (viewer.world.freeFlyMode) {
-    // Update freeFlyState directly
-    viewer.world.freeFlyState.yaw = (viewer.world.freeFlyState.yaw - x) % (2 * Math.PI)
-    viewer.world.freeFlyState.pitch = Math.max(minPitch, Math.min(maxPitch, viewer.world.freeFlyState.pitch - y))
-    return
-  }
+  // if (viewer.world.freeFlyMode) {
+  //   // Update freeFlyState directly
+  //   viewer.world.freeFlyState.yaw = (viewer.world.freeFlyState.yaw - x) % (2 * Math.PI)
+  //   viewer.world.freeFlyState.pitch = Math.max(minPitch, Math.min(maxPitch, viewer.world.freeFlyState.pitch - y))
+  //   return
+  // }
 
   if (!bot?.entity) return
   const pitch = bot.entity.pitch - y
@@ -76,7 +76,7 @@ function pointerLockChangeCallback () {
   if (notificationProxy.id === 'pointerlockchange') {
     hideNotification()
   }
-  if (viewer.renderer.xr.isPresenting) return // todo
+  if (appViewer.backend?.reactiveState.preventEscapeMenu) return
   if (!pointerLock.hasPointerLock && activeModalStack.length === 0 && miscUiState.gameLoaded) {
     showModal({ reactType: 'pause-screen' })
   }

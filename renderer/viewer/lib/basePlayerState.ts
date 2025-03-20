@@ -22,6 +22,7 @@ export interface IPlayerState {
   isFlying(): boolean
   isSprinting (): boolean
   getItemUsageTicks?(): number
+  getPosition(): Vec3
   // isUsingItem?(): boolean
   getHeldItem?(isLeftHand: boolean): HandItemBlock | undefined
   username?: string
@@ -80,6 +81,10 @@ export class BasePlayerState implements IPlayerState {
 
   isSprinting (): boolean {
     return this.sprinting
+  }
+
+  getPosition (): Vec3 {
+    return new Vec3(0, 0, 0)
   }
 
   // For testing purposes

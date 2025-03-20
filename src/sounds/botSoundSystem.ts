@@ -46,7 +46,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
     const isMuted = options.mutedSounds.includes(soundKey) || options.volume === 0
     if (position) {
       if (!isMuted) {
-        viewer.playSound(
+        appViewer.backend?.soundSystem?.playSound(
           position,
           soundData.url,
           soundData.volume * (options.volume / 100),

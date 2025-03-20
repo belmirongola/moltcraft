@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import * as tweenJs from '@tweenjs/tween.js'
-import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
+import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { BlockModel } from 'mc-assets'
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
 import { getMyHand } from './hand'
@@ -10,6 +10,7 @@ import { SmoothSwitcher } from './smoothSwitcher'
 import { watchProperty } from './utils/proxy'
 import { disposeObject } from './threeJsUtils'
 import { WorldRendererConfig } from './worldrendererCommon'
+import { WorldRendererThree } from './worldrendererThree'
 
 export type HandItemBlock = {
   name?
@@ -114,14 +115,17 @@ export default class HoldingBlock {
   offHandModeLegacy = false
 
   swingAnimator: HandSwingAnimator | undefined
+  playerState: IPlayerState
+  config: WorldRendererConfig
 
-  constructor (public playerState: IPlayerState, public config: WorldRendererConfig, public offHand = false) {
+  constructor (public worldRenderer: WorldRendererThree, public offHand = false) {
     this.initCameraGroup()
-
+    this.playerState = worldRenderer.displayOptions.playerState
     this.playerState.events.on('heldItemChanged', (_, isOffHand) => {
       if (this.offHand !== isOffHand) return
       this.updateItem()
     })
+    this.config = worldRenderer.displayOptions.inWorldRenderingConfig
 
     this.offHandDisplay = this.offHand
     // this.offHandDisplay = true
@@ -327,7 +331,7 @@ export default class HoldingBlock {
 
     let blockInner: THREE.Object3D | undefined
     if (handItem.type === 'item' || handItem.type === 'block') {
-      const result = viewer.entities.getItemMesh({
+      const result = this.worldRenderer.entities.getItemMesh({
         ...handItem.fullItem,
         itemId: handItem.id,
       }, {
@@ -901,8 +905,7 @@ class HandSwingAnimator {
   }
 }
 
-export const getBlockMeshFromModel = (material: THREE.Material, model: BlockModel, name: string) => {
-  const blockProvider = worldBlockProvider(viewer.world.blockstatesModels, viewer.world.blocksAtlasParser!.atlas, 'latest')
+export const getBlockMeshFromModel = (material: THREE.Material, model: BlockModel, name: string, blockProvider: WorldBlockProvider) => {
   const worldRenderModel = blockProvider.transformModel(model, {
     name,
     properties: {}

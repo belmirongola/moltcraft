@@ -210,26 +210,28 @@ export class Entities extends EventEmitter {
   entities = {} as Record<string, SceneEntity>
   entitiesOptions: {
     fontFamily?: string
-  } = {}
+  } = {
+      fontFamily: 'mojangles'
+    }
   debugMode: string
   onSkinUpdate: () => void
   clock = new THREE.Clock()
-  rendering = true
+  currentlyRendering = true
   itemsTexture: THREE.Texture | null = null
   cachedMapsImages = {} as Record<number, string>
   itemFrameMaps = {} as Record<number, Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>>>
-  getItemUv: undefined | ((item: Record<string, any>, specificProps: ItemSpecificContextProperties) => {
-    texture: THREE.Texture;
-    u: number;
-    v: number;
-    su?: number;
-    sv?: number;
-    size?: number;
-    modelName?: string;
-  } | {
-    resolvedModel: BlockModel
-    modelName: string
-  } | undefined)
+  // getItemUv: undefined | (() => {
+  //   texture: THREE.Texture;
+  //   u: number;
+  //   v: number;
+  //   su?: number;
+  //   sv?: number;
+  //   size?: number;
+  //   modelName?: string;
+  // } | {
+  //   resolvedModel: BlockModel
+  //   modelName: string
+  // } | undefined)
 
   get entitiesByName (): Record<string, SceneEntity[]> {
     const byName: Record<string, SceneEntity[]> = {}
@@ -273,7 +275,7 @@ export class Entities extends EventEmitter {
   }
 
   setRendering (rendering: boolean, entity: THREE.Object3D | null = null) {
-    this.rendering = rendering
+    this.currentlyRendering = rendering
     for (const ent of entity ? [entity] : Object.values(this.entities)) {
       if (rendering) {
         if (!this.worldRenderer.scene.children.includes(ent)) this.worldRenderer.scene.add(ent)
@@ -284,6 +286,11 @@ export class Entities extends EventEmitter {
   }
 
   render () {
+    const renderEntitiesConfig = this.worldRenderer.worldRendererConfig.renderEntities
+    if (renderEntitiesConfig !== this.currentlyRendering) {
+      this.setRendering(renderEntitiesConfig)
+    }
+
     const dt = this.clock.getDelta()
     const botPos = this.worldRenderer.viewerPosition
     const VISIBLE_DISTANCE = 8 * 8
@@ -500,11 +507,11 @@ export class Entities extends EventEmitter {
   }
 
   getItemMesh (item, specificProps: ItemSpecificContextProperties, previousModel?: string) {
-    const textureUv = this.getItemUv?.(item, specificProps)
+    const textureUv = this.worldRenderer.getItemRenderData(item, specificProps)
     if (previousModel && previousModel === textureUv?.modelName) return undefined
 
     if (textureUv && 'resolvedModel' in textureUv) {
-      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName)
+      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName, this.worldRenderer.resourcesManager.currentResources!.worldBlockProvider)
       let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
         SCALE = 0.5
@@ -525,9 +532,11 @@ export class Entities extends EventEmitter {
 
     // TODO: Render proper model (especially for blocks) instead of flat texture
     if (textureUv) {
+      const textureThree = textureUv.renderInfo?.texture === 'blocks' ? this.worldRenderer.material.map! : this.itemsTexture!
       // todo use geometry buffer uv instead!
-      const { u, v, size, su, sv, texture } = textureUv
-      const itemsTexture = texture.clone()
+      const { u, v, su, sv, texture } = textureUv
+      const size = undefined
+      const itemsTexture = textureThree.clone()
       itemsTexture.flipY = true
       const sizeY = (sv ?? size)!
       const sizeX = (su ?? size)!
@@ -707,7 +716,7 @@ export class Entities extends EventEmitter {
         this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePngUrl)
       }
       this.setDebugMode(this.debugMode, group)
-      this.setRendering(this.rendering, group)
+      this.setRendering(this.currentlyRendering, group)
     } else {
       mesh = e.children.find(c => c.name === 'mesh')
     }
@@ -716,10 +725,10 @@ export class Entities extends EventEmitter {
     if (entity.equipment) {
       this.addItemModel(e, 'left', entity.equipment[0])
       this.addItemModel(e, 'right', entity.equipment[1])
-      addArmorModel(e, 'feet', entity.equipment[2])
-      addArmorModel(e, 'legs', entity.equipment[3], 2)
-      addArmorModel(e, 'chest', entity.equipment[4])
-      addArmorModel(e, 'head', entity.equipment[5])
+      addArmorModel(this.worldRenderer, e, 'feet', entity.equipment[2])
+      addArmorModel(this.worldRenderer, e, 'legs', entity.equipment[3], 2)
+      addArmorModel(this.worldRenderer, e, 'chest', entity.equipment[4])
+      addArmorModel(this.worldRenderer, e, 'head', entity.equipment[5])
     }
 
     const meta = getGeneralEntitiesMetadata(entity)
@@ -1043,7 +1052,7 @@ function getSpecificEntityMetadata<T extends keyof EntityMetadataVersions> (name
   return getGeneralEntitiesMetadata(entity) as any
 }
 
-function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item, layer = 1, overlay = false) {
+function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Object3D, slotType: string, item: Item, layer = 1, overlay = false) {
   if (!item) {
     removeArmorModel(entityMesh, slotType)
     return
@@ -1077,7 +1086,7 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
   if (!texturePath) {
     // TODO: Support mirroring on certain parts of the model
     const armorTextureName = `${armorMaterial}_layer_${layer}${overlay ? '_overlay' : ''}`
-    texturePath = viewer.world.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
+    texturePath = worldRenderer.resourcesManager.currentResources!.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
   }
   if (!texturePath || !armorModel[slotType]) {
     removeArmorModel(entityMesh, slotType)
@@ -1098,7 +1107,7 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
       material.map = texture
     })
   } else {
-    mesh = getMesh(viewer.world, texturePath, armorModel[slotType])
+    mesh = getMesh(worldRenderer, texturePath, armorModel[slotType])
     mesh.name = meshName
     material = mesh.material
     if (!isPlayerHead) {
@@ -1115,7 +1124,7 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     } else {
       material.color.setHex(0xB5_6D_51) // default brown color
     }
-    addArmorModel(entityMesh, slotType, item, layer, true)
+    addArmorModel(worldRenderer, entityMesh, slotType, item, layer, true)
   } else {
     material.color.setHex(0xFF_FF_FF)
   }

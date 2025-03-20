@@ -1,23 +1,26 @@
-import { EventEmitter } from 'events'
 import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
-import { BasePlayerState, IPlayerState } from 'renderer/viewer/lib/basePlayerState'
+import { IPlayerState } from 'renderer/viewer/lib/basePlayerState'
 import { subscribeKey } from 'valtio/utils'
 import { defaultWorldRendererConfig, WorldRendererConfig } from 'renderer/viewer/lib/worldrendererCommon'
 import { Vec3 } from 'vec3'
-import { getSyncWorld } from 'renderer/playground/shared'
 import { SoundSystem } from 'renderer/viewer/lib/threeJsSound'
-import { playerState, PlayerStateManager } from './mineflayer/playerState'
-import { createNotificationProgressReporter, createNullProgressReporter, ProgressReporter } from './core/progressReporter'
+import { proxy } from 'valtio'
+import { playerState } from './mineflayer/playerState'
+import { createNotificationProgressReporter, ProgressReporter } from './core/progressReporter'
 import { setLoadingScreenStatus } from './appStatus'
 import { activeModalStack, miscUiState } from './globalState'
 import { options } from './optionsStorage'
-import { loadMinecraftData } from './connect'
 import { ResourcesManager } from './resourcesManager'
+import { watchOptionsAfterWorldViewInit } from './watchOptions'
 
-export interface WorldReactiveState {
-  chunksLoaded: number
-  chunksTotal: number
-  allChunksLoaded: boolean
+export interface RendererReactiveState {
+  world: {
+    chunksLoaded: number
+    chunksTotal: number
+    allChunksLoaded: boolean
+  }
+  renderer: string
+  preventEscapeMenu: boolean
 }
 
 export interface GraphicsBackendConfig {
@@ -46,6 +49,7 @@ export interface DisplayWorldOptions {
 
 export type GraphicsBackendLoader = (options: GraphicsInitOptions) => GraphicsBackend
 
+// no sync methods
 export interface GraphicsBackend {
   NAME: string
   startPanorama: () => void
@@ -53,12 +57,13 @@ export interface GraphicsBackend {
   startWorld: (options: DisplayWorldOptions) => void
   disconnect: () => void
   setRendering: (rendering: boolean) => void
-  getRenderer: () => string
   getDebugOverlay: () => Record<string, any>
   updateCamera: (pos: Vec3 | null, yaw: number, pitch: number) => void
   setRoll: (roll: number) => void
-  worldState: WorldReactiveState
+  reactiveState: RendererReactiveState
   soundSystem: SoundSystem | undefined
+
+  backendMethods: Record<string, unknown> | undefined
 }
 
 export class AppViewer {
@@ -75,7 +80,7 @@ export class AppViewer {
     args: any[]
   }
   currentDisplay = null as 'menu' | 'world' | null
-  inWorldRenderingConfig: WorldRendererConfig = defaultWorldRendererConfig
+  inWorldRenderingConfig: WorldRendererConfig = proxy(defaultWorldRendererConfig)
   lastCamUpdate = 0
   playerState = playerState
 
@@ -103,6 +108,9 @@ export class AppViewer {
     if (this.queuedDisplay) {
       const { method, args } = this.queuedDisplay
       this.backend[method](...args)
+      if (method === 'startWorld') {
+        void this.worldView.init(args[0].playerState.getPosition())
+      }
     }
   }
 
@@ -128,11 +136,13 @@ export class AppViewer {
     }
   }
 
-  startWorld (world, renderDistance: number, startPosition: Vec3, playerStateSend: IPlayerState = playerState) {
+  startWorld (world, renderDistance: number, playerStateSend: IPlayerState = playerState) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
+    const startPosition = playerStateSend.getPosition()
     this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
     window.worldView = this.worldView
+    watchOptionsAfterWorldViewInit(this.worldView)
 
     const displayWorldOptions: DisplayWorldOptions = {
       worldView: this.worldView,
@@ -141,6 +151,7 @@ export class AppViewer {
     }
     if (this.backend) {
       this.backend.startWorld(displayWorldOptions)
+      void this.worldView.init(startPosition)
     }
     this.queuedDisplay = { method: 'startWorld', args: [displayWorldOptions] }
   }
