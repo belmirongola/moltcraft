@@ -91,6 +91,7 @@
 
 .modInfoText {
   font-size: 10px;
+  white-space: pre-wrap;
   color: #bcbcbc;
 }
 
@@ -115,6 +116,7 @@
   font-size: 12px;
   color: white;
   margin-bottom: 4px;
+  display: flex;
 }
 
 .modRowInfo {

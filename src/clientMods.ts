@@ -13,7 +13,7 @@ const protectRuntime = () => {
   if (sillyProtection) return
   sillyProtection = true
   const sensetiveKeys = new Set(['authenticatedAccounts', 'serversList', 'username'])
-  window.localStorage = new Proxy(window.localStorage, {
+  const proxy = new Proxy(window.localStorage, {
     get (target, prop) {
       if (typeof prop === 'string') {
         if (sensetiveKeys.has(prop)) {
@@ -68,6 +68,11 @@ const protectRuntime = () => {
       }
       return Reflect.deleteProperty(target, prop)
     }
+  })
+  Object.defineProperty(window, 'localStorage', {
+    value: proxy,
+    writable: false,
+    configurable: false,
   })
 }
 
@@ -198,6 +203,7 @@ window.mcraft = {
 }
 
 const activateMod = async (mod: ClientMod, reason: string) => {
+  if (mod.enabled === false) return false
   protectRuntime()
   console.debug(`Activating mod ${mod.name} (${reason})...`)
   window.loadedMods ??= {}
@@ -280,7 +286,7 @@ const installOrUpdateMod = async (repo: Repository, mod: ClientModDefinition, ac
     }
     if (mod.stylesGlobal) {
       await progress?.executeWithMessage(
-        `Installing ${mod.name} styles`,
+        `Downloading ${mod.name} styles`,
         async () => {
           mod.stylesGlobal = await fetchData(['global.css']) as any
         }
@@ -288,16 +294,27 @@ const installOrUpdateMod = async (repo: Repository, mod: ClientModDefinition, ac
     }
     if (mod.scriptMainUnstable) {
       await progress?.executeWithMessage(
-        `Installing ${mod.name} script`,
+        `Downloading ${mod.name} script`,
         async () => {
           mod.scriptMainUnstable = await fetchData(['mainUnstable.js']) as any
         }
       )
     }
+    if (mod.serverPlugin) {
+      if (mod.name.endsWith('.disabled')) throw new Error(`Mod name ${mod.name} can't end with .disabled`)
+      await progress?.executeWithMessage(
+        `Downloading ${mod.name} server plugin`,
+        async () => {
+          mod.serverPlugin = await fetchData(['serverPlugin.js']) as any
+        }
+      )
+    }
     if (activate) {
-      const result = await activateMod(mod as ClientMod, 'install')
-      if (!result) {
+      // todo try to de-activate mod if it's already loaded
+      if (window.loadedMods?.[mod.name]) {
         modsWaitingReloadStatus[mod.name] = true
+      } else {
+        await activateMod(mod as ClientMod, 'install')
       }
     }
     await savePlugin(mod as ClientMod)
@@ -324,7 +341,7 @@ const checkRepositoryUpdates = async (repo: Repository) => {
 
 }
 
-const fetchRepository = async (urlOriginal: string, url: string, hasMirrors = false) => {
+export const fetchRepository = async (urlOriginal: string, url: string, hasMirrors = false) => {
   const fetchUrl = normalizeRepoUrl(url).replace(/\/$/, '') + '/mcraft-repo.json'
   try {
     const response = await fetch(fetchUrl).then(async res => res.json())
@@ -393,18 +410,21 @@ export const uninstallModAction = async (name: string) => {
   delete modsErrors[name]
 }
 
-export const setEnabledModAction = async (name: string, enabled: boolean) => {
+export const setEnabledModAction = async (name: string, newEnabled: boolean) => {
   const mod = await getPlugin(name)
   if (!mod) throw new Error(`Mod ${name} not found`)
-  if (enabled) {
-    if (window.loadedMods?.[mod.name]) {
-      mod.enabled = true
-    } else {
+  if (newEnabled) {
+    mod.enabled = true
+    if (!window.loadedMods?.[mod.name]) {
       await activateMod(mod, 'manual')
     }
   } else {
     // todo deactivate mod
     mod.enabled = false
+    if (window.loadedMods?.[mod.name]?.deactivate) {
+      window.loadedMods[mod.name].deactivate()
+      delete window.loadedMods[mod.name]
+    }
   }
   await savePlugin(mod)
 }
@@ -420,7 +440,9 @@ export const getAllModsDisplayList = async () => {
   const mapMods = (mapMods: ClientMod[]) => mapMods.map(mod => ({
     ...mod,
     installed: installedMods.some(m => m.name === mod.name),
-    enabled: !!window.loadedMods?.[mod.name]
+    activated: !!window.loadedMods?.[mod.name],
+    installedVersion: installedMods.find(m => m.name === mod.name)?.version,
+    canBeActivated: mod.scriptMainUnstable || mod.stylesGlobal,
   }))
   return {
     repos: repos.map(repo => ({
@@ -433,7 +455,7 @@ export const getAllModsDisplayList = async () => {
 
 export const removeRepositoryAction = async (url: string) => {
   // todo remove mods
-  const choice = await showOptionsModal('Remove repository? Installed mods won\' be automatically removed.', ['Yes'])
+  const choice = await showOptionsModal('Remove repository? Installed mods wont be automatically removed.', ['Yes'])
   if (!choice) return
   await deleteRepository(url)
   modsReactiveUpdater.counter++
@@ -458,4 +480,21 @@ export const addRepositoryAction = async () => {
   await fetchRepository(url, url)
 }
 
-// export const getAllMods = () => {}
+export const getServerPlugin = async (plugin: string) => {
+  const mod = await getPlugin(plugin)
+  if (!mod) return null
+  if (mod.serverPlugin) {
+    return {
+      content: mod.serverPlugin,
+      version: mod.version
+    }
+  }
+  return null
+}
+
+export const getAvailableServerPlugins = async () => {
+  const mods = await getAllMods()
+  return mods.filter(mod => mod.serverPlugin)
+}
+
+window.inspectInstalledMods = getAllMods

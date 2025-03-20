@@ -120,8 +120,8 @@ importers:
         specifier: ^10.0.12
         version: 10.0.12
       flying-squid:
-        specifier: npm:@zardoy/flying-squid@^0.0.51
-        version: '@zardoy/flying-squid@0.0.51(encoding@0.1.13)'
+        specifier: npm:@zardoy/flying-squid@^0.0.57
+        version: '@zardoy/flying-squid@0.0.57(encoding@0.1.13)'
       fs-extra:
         specifier: ^11.1.1
         version: 11.1.1
@@ -3541,8 +3541,8 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
-  '@zardoy/flying-squid@0.0.51':
-    resolution: {integrity: sha512-HHZ79H9NkS44lL9vk6gVEuJDJqj88gpiBt9Ihh5p4rHXTVbRid95riiNK5dD0kHI94P5/DXdtNalvmJDPU86oQ==}
+  '@zardoy/flying-squid@0.0.57':
+    resolution: {integrity: sha512-yjBfdQwUyl5rQ8rCYsC3O/yXTUfxNhhGBLxW+xHJj2xwqWy9/Lx4MV9PqIdl5kyuB4sEVUOghv9npJtnp6mriw==}
     engines: {node: '>=8'}
     hasBin: true
 
@@ -13637,7 +13637,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@zardoy/flying-squid@0.0.51(encoding@0.1.13)':
+  '@zardoy/flying-squid@0.0.57(encoding@0.1.13)':
     dependencies:
       '@tootallnate/once': 2.0.0
       chalk: 5.3.0
@@ -13648,7 +13648,7 @@ snapshots:
       flatmap: 0.0.3
       long: 5.2.3
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/3bd4dc1b2002cd7badfa5b9cf8dda35cd6cc9ac1(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
       mkdirp: 2.1.6
       node-gzip: 1.1.2
       node-rsa: 1.1.1

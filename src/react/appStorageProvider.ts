@@ -39,6 +39,7 @@ type StorageData = {
   authenticatedAccounts: AuthenticatedAccount[]
   serversList: StoreServerItem[] | undefined
   modsAutoUpdateLastCheck: number | undefined
+  firstModsPageVisit: boolean
 }
 
 const oldKeysAliases: Partial<Record<keyof StorageData, string>> = {
@@ -79,6 +80,7 @@ const defaultStorageData: StorageData = {
   authenticatedAccounts: [],
   serversList: undefined,
   modsAutoUpdateLastCheck: undefined,
+  firstModsPageVisit: true,
 }
 
 export const setStorageDataOnAppConfigLoad = () => {

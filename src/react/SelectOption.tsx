@@ -48,11 +48,12 @@ export const showOptionsModal = async <T extends string> (
   })
 }
 
-type InputOption = {
-  type: 'text' | 'checkbox'
+export type InputOption = {
+  type: 'text' | 'checkbox' | 'button'
   defaultValue?: string | boolean
   label?: string
   placeholder?: string
+  onButtonClick?: () => void
 }
 export const showInputsModal = async <T extends Record<string, InputOption>>(
   title: string,
@@ -149,6 +150,15 @@ export default () => {
                 />
                 {label}
               </label>
+            )}
+            {input.type === 'button' && (
+              <Button
+                onClick={() => {
+                  resolveClose(inputValues.current)
+                  input.onButtonClick?.()
+                }}
+              >{label}
+              </Button>
             )}
           </div>
         })}

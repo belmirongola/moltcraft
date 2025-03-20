@@ -8,6 +8,7 @@ module.exports = {
   'gameMode': 0,
   'difficulty': 0,
   'worldFolder': 'world',
+  'pluginsFolder': true,
   // todo set sid, disable entities auto-spawn
   'generation': {
     // grass_field

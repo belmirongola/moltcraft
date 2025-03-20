@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useSnapshot } from 'valtio'
-import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors } from '../clientMods'
+import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors, fetchRepository } from '../clientMods'
 import { createNotificationProgressReporter, ProgressReporter } from '../core/progressReporter'
 import { useIsModalActive } from './utilsApp'
 import Input from './Input'
@@ -8,11 +8,45 @@ import Button from './Button'
 import styles from './mods.module.css'
 import { showOptionsModal } from './SelectOption'
 import Screen from './Screen'
-import { pixelartIcons } from './PixelartIcon'
+import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import { showNotification } from './NotificationProvider'
 import { usePassesScaledDimensions } from './UIProvider'
+import { appStorage } from './appStorageProvider'
 
 type ModsData = Awaited<ReturnType<typeof getAllModsDisplayList>>
+
+const ModListItem = ({
+  mod,
+  onClick,
+  hasError
+}: {
+  mod: ModsData['repos'][0]['packages'][0],
+  onClick: () => void,
+  hasError: boolean
+}) => (
+  <div
+    className={styles.modRow}
+    onClick={onClick}
+    data-enabled={mod.installed ? '' : mod.activated}
+    data-has-error={hasError}
+  >
+    <div className={styles.modRowTitle}>
+      {mod.name}
+      {mod.installedVersion && mod.installedVersion !== mod.version && (
+        <PixelartIcon
+          iconName={pixelartIcons['arrow-up-box']}
+          styles={{ fontSize: 14, marginLeft: 3 }}
+        />
+      )}
+    </div>
+    <div className={styles.modRowInfo}>
+      {mod.description}
+      {mod.author && ` • By ${mod.author}`}
+      {mod.version && ` • v${mod.version}`}
+      {mod.serverPlugin && ` • World plugin`}
+    </div>
+  </div>
+)
 
 const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { repo?: string }) | null }) => {
   const errors = useSnapshot(modsErrors)
@@ -35,14 +69,17 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
   return (
     <>
       <div className={styles.modInfo}>
-        <div className={styles.modInfoTitle}>{mod.name}</div>
+        <div className={styles.modInfoTitle}>
+          {mod.name}
+        </div>
         <div className={styles.modInfoText}>
           {mod.description}
         </div>
         <div className={styles.modInfoText}>
-          {mod.author && `Author: ${mod.author}`}
-          {mod.version && `\nVersion: ${mod.version}`}
-          {mod.section && `\nSection: ${mod.section}`}
+          {mod.author && `Author: ${mod.author}\n`}
+          {mod.version && `Version: ${mod.version}\n`}
+          {mod.installedVersion && mod.installedVersion !== mod.version && `Installed version: ${mod.installedVersion}\n`}
+          {mod.section && `Section: ${mod.section}\n`}
         </div>
         {errors[mod.name]?.length > 0 && (
           <div className={styles.modErrorList}>
@@ -57,7 +94,7 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
       <div className={styles.modActions}>
         {mod.installed ? (
           <>
-            {mod.enabled ? (
+            {mod.activated ? (
               <Button
                 onClick={async () => handleAction(
                   async () => setEnabledModAction(mod.name, false),
@@ -74,6 +111,7 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
                 )}
                 icon={pixelartIcons['add-box']}
                 title="Enable"
+                disabled={!mod.canBeActivated}
               />
             )}
             <Button
@@ -84,6 +122,23 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
               icon={pixelartIcons.trash}
               title="Delete"
             />
+            {mod.installedVersion && mod.installedVersion !== mod.version && (
+              <Button
+                onClick={async () => {
+                  if (!mod.repo) return
+                  const progress = createNotificationProgressReporter(`${mod.name} updated and activated`)
+                  await handleAction(
+                    async () => {
+                      await installModByName(mod.repo!, mod.name, progress)
+                    },
+                    'Failed to update mod:',
+                    progress
+                  )
+                }}
+                icon={pixelartIcons['arrow-up-box']}
+                title="Update"
+              />
+            )}
           </>
         ) : (
           <Button
@@ -129,6 +184,11 @@ export default () => {
 
   useEffect(() => {
     if (isModalActive) {
+      if (appStorage.firstModsPageVisit) {
+        appStorage.firstModsPageVisit = false
+        const defaultRepo = 'zardoy/mcraft-client-mods'
+        void fetchRepository(defaultRepo, defaultRepo)
+      }
       void getAllModsDisplayList().then(mods => {
         setModsData(mods)
         // Update selected mod index if needed
@@ -152,7 +212,7 @@ export default () => {
     const matchesSearch = mod.name.toLowerCase().includes(search.toLowerCase()) ||
       mod.description?.toLowerCase().includes(search.toLowerCase())
     const matchesInstalledFilter = !showOnlyInstalled || mod.installed
-    const matchesEnabledFilter = !showOnlyEnabled || mod.enabled
+    const matchesEnabledFilter = !showOnlyEnabled || mod.activated
     return matchesSearch && matchesInstalledFilter && matchesEnabledFilter
   }
 
@@ -171,6 +231,11 @@ export default () => {
 
   const getStatsText = () => {
     if (!filteredMods) return 'Loading...'
+    if (showOnlyEnabled) {
+      return `Showing ${filteredMods.repos.reduce((acc, repo) => acc + repo.packages.filter(mod => mod.activated).length, 0)} enabled mods in ${totalRepos} repos`
+    } else if (showOnlyInstalled) {
+      return `Showing ${filteredMods.repos.reduce((acc, repo) => acc + repo.packages.filter(mod => mod.installed).length, 0)} installed mods in ${totalRepos} repos`
+    }
     return `Showing all ${totalRepos} repos with ${filteredModsCount} mods`
   }
 
@@ -196,7 +261,8 @@ export default () => {
         />
         <Button
           onClick={async () => {
-            const refreshButton = `Refresh repositories (last update)`
+            // const refreshButton = `Refresh repositories (last update)`
+            const refreshButton = `Refresh repositories`
             const choice = await showOptionsModal(`Manage repositories (${modsData?.repos.length ?? '-'} repos)`, ['Add repository', 'Remove repository', refreshButton])
             switch (choice) {
               case 'Add repository': {
@@ -223,6 +289,7 @@ export default () => {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search mods..."
+          autoFocus
         />
       </div>
       <div className={styles.statsRow}>
@@ -244,21 +311,13 @@ export default () => {
                   </div>
                   {expandedRepos[repo.url] && (
                     <div className={styles.repoContent}>
-                      {repo.packages.map((mod, index) => (
-                        <div
+                      {repo.packages.map((mod) => (
+                        <ModListItem
                           key={mod.name}
-                          className={styles.modRow}
+                          mod={mod}
                           onClick={() => setSelectedModIndex(allModsArray.findIndex(m => m.name === mod.name))}
-                          data-enabled={mod.enabled}
-                          data-has-error={errors[mod.name]?.length > 0}
-                        >
-                          <div className={styles.modRowTitle}>{mod.name}</div>
-                          <div className={styles.modRowInfo}>
-                            {mod.description}
-                            {mod.author && ` • By ${mod.author}`}
-                            {mod.version && ` • v${mod.version}`}
-                          </div>
-                        </div>
+                          hasError={errors[mod.name]?.length > 0}
+                        />
                       ))}
                     </div>
                   )}
@@ -273,20 +332,12 @@ export default () => {
                   </div>
                   <div className={styles.repoContent}>
                     {filteredMods.modsWithoutRepos.map(mod => (
-                      <div
+                      <ModListItem
                         key={mod.name}
-                        className={styles.modRow}
+                        mod={mod}
                         onClick={() => setSelectedModIndex(allModsArray.findIndex(m => m.name === mod.name))}
-                        data-enabled={mod.enabled}
-                        data-has-error={errors[mod.name]?.length > 0}
-                      >
-                        <div className={styles.modRowTitle}>{mod.name}</div>
-                        <div className={styles.modRowInfo}>
-                          {mod.description}
-                          {mod.author && ` • By ${mod.author}`}
-                          {mod.version && ` • v${mod.version}`}
-                        </div>
-                      </div>
+                        hasError={errors[mod.name]?.length > 0}
+                      />
                     ))}
                   </div>
                 </div>
