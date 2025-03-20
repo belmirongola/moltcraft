@@ -49,6 +49,7 @@ export const updateLoadedServerData = (callback: (data: StoreServerItem) => Stor
 
   const servers = [...(appStorage.serversList ?? [])]
   const server = servers[index]
+  if (!server) return
   servers[index] = callback(server)
   setNewServersList(servers)
 }
