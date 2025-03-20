@@ -58,12 +58,17 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)
 
-    initOptions.resourcesManager.on('assetsTexturesUpdated', () => {
+    const onAssetsReaady = () => {
       this.holdingBlock.ready = true
       this.holdingBlock.updateItem()
       this.holdingBlockLeft.ready = true
       this.holdingBlockLeft.updateItem()
-    })
+    }
+
+    initOptions.resourcesManager.on('assetsTexturesUpdated', onAssetsReaady)
+    if (initOptions.resourcesManager.currentResources) {
+      onAssetsReaady()
+    }
 
     this.soundSystem = new ThreeJsSound(this)
 
