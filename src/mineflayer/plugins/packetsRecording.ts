@@ -26,18 +26,37 @@ export const localRelayServerPlugin = (bot: Bot) => {
     })
   )
 
-  bot.downloadCurrentWorldState = () => {
-    const worldState = bot.webViewer._unstable.createStateCaptureFile()
+  const downloadFile = (contents: string, filename: string) => {
     const a = document.createElement('a')
-    const textContents = worldState.contents
-    const blob = new Blob([textContents], { type: 'text/plain' })
+    const blob = new Blob([contents], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     a.href = url
-    // add readable timestamp to filename
-    const timestamp = new Date().toISOString().replaceAll(/[-:Z]/g, '')
-    a.download = `${bot.username}-world-state-${timestamp}.${WORLD_STATE_FILE_EXTENSION}`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  bot.downloadCurrentWorldState = () => {
+    const worldState = bot.webViewer._unstable.createStateCaptureFile()
+    // add readable timestamp to filename
+    const timestamp = new Date().toISOString().replaceAll(/[-:Z]/g, '')
+    downloadFile(worldState.contents, `${bot.username}-world-state-${timestamp}.${WORLD_STATE_FILE_EXTENSION}`)
+  }
+
+  let logger: PacketsLogger | undefined
+  bot.startPacketsRecording = () => {
+    bot.webViewer._unstable.startRecording((l) => {
+      logger = l
+    })
+  }
+
+  bot.stopPacketsRecording = () => {
+    if (!logger) return
+    const packets = logger?.contents
+    logger = undefined
+    const timestamp = new Date().toISOString().replaceAll(/[-:Z]/g, '')
+    downloadFile(packets, `${bot.username}-packets-${timestamp}.${PACKETS_REPLAY_FILE_EXTENSION}`)
+    bot.webViewer._unstable.stopRecording()
   }
 
   circularBuffer = new CircularBuffer(AUTO_CAPTURE_PACKETS_COUNT)
@@ -87,6 +106,8 @@ subscribe(packetsRecordingState, () => {
 declare module 'mineflayer' {
   interface Bot {
     downloadCurrentWorldState: () => void
+    startPacketsRecording: () => void
+    stopPacketsRecording: () => void
   }
 }
 

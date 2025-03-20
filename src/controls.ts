@@ -8,6 +8,7 @@ import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
+import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
@@ -26,6 +27,7 @@ import { lastConnectOptions } from './react/AppStatusProvider'
 import { onCameraMove, onControInit } from './cameraRotationControls'
 import { createNotificationProgressReporter } from './core/progressReporter'
 import { appStorage } from './react/appStorageProvider'
+import { switchGameMode } from './packetsReplay/replayPackets'
 
 
 export const customKeymaps = proxy(appStorage.keybindings)
@@ -637,28 +639,34 @@ export const f3Keybinds: Array<{
   {
     key: 'F4',
     async action () {
+      let nextGameMode: GameMode
       switch (bot.game.gameMode) {
         case 'creative': {
-          bot.chat('/gamemode survival')
+          nextGameMode = 'survival'
 
           break
         }
         case 'survival': {
-          bot.chat('/gamemode adventure')
+          nextGameMode = 'adventure'
 
           break
         }
         case 'adventure': {
-          bot.chat('/gamemode spectator')
+          nextGameMode = 'spectator'
 
           break
         }
         case 'spectator': {
-          bot.chat('/gamemode creative')
+          nextGameMode = 'creative'
 
           break
         }
       // No default
+      }
+      if (lastConnectOptions.value?.worldStateFileContents) {
+        switchGameMode(nextGameMode)
+      } else {
+        bot.chat(`/gamemode ${nextGameMode}`)
       }
     },
     mobileTitle: 'Cycle Game Mode'
