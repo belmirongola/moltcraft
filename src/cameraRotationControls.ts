@@ -49,6 +49,7 @@ export const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
   if (!bot?.entity) return
   const pitch = bot.entity.pitch - y
   void bot.look(bot.entity.yaw - x, Math.max(minPitch, Math.min(maxPitch, pitch)), true)
+  appViewer.backend?.updateCamera(null, bot.entity.yaw, pitch)
 }
 
 window.addEventListener('mousemove', (e: MouseEvent) => {
