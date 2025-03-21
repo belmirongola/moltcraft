@@ -53,6 +53,7 @@ import { UIProvider } from './react/UIProvider'
 import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
 import TouchInteractionHint from './react/TouchInteractionHint'
+import { ArwesPlayground } from './arwes'
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -241,7 +242,8 @@ const PerComponentErrorBoundary = ({ children }) => {
   </ErrorBoundary>)
 }
 
-renderToDom(<App />, {
+
+renderToDom(<ArwesPlayground />, {
   strictMode: false,
   selector: '#react-root',
 })
