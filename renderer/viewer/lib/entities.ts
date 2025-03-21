@@ -15,6 +15,7 @@ import { snakeCase } from 'change-case'
 import { Item } from 'prismarine-item'
 import { BlockModel } from 'mc-assets'
 import { isEntityAttackable } from 'mineflayer-mouse/dist/attackableEntity'
+import { Vec3 } from 'vec3'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import * as Entity from './entity/EntityMesh'
 import { getMesh } from './entity/EntityMesh'
@@ -923,8 +924,9 @@ export class Entities {
     if (!mesh) return
     if (!mesh.playerObject || !this.worldRenderer.worldRendererConfig.fetchPlayerSkins) return
     const MAX_DISTANCE_SKIN_LOAD = 128
-    const distance = entity.position.distanceTo(bot.entity.position)
-    if (distance < MAX_DISTANCE_SKIN_LOAD && distance < (bot.settings.viewDistance as number) * 16) {
+    const caameraPos = this.worldRenderer.camera.position
+    const distance = entity.position.distanceTo(new Vec3(caameraPos.x, caameraPos.y, caameraPos.z))
+    if (distance < MAX_DISTANCE_SKIN_LOAD && distance < (this.worldRenderer.viewDistance * 16)) {
       if (this.entities[entity.id]) {
         if (this.loadedSkinEntityIds.has(entity.id)) return
         this.loadedSkinEntityIds.add(entity.id)
