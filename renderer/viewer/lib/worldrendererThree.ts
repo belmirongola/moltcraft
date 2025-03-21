@@ -3,12 +3,12 @@ import { Vec3 } from 'vec3'
 import nbt from 'prismarine-nbt'
 import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
-import { LineSegmentsGeometry, Wireframe } from 'three-stdlib'
 import { subscribeKey } from 'valtio/utils'
 import { renderSign } from '../sign-renderer'
 import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
 import { initVR } from '../../../src/vr'
 import { getItemUv } from '../three/appShared'
+import { CursorBlock } from '../three/world/cursorBlock'
 import { chunkPos, sectionPos } from './simpleUtils'
 import { WorldRendererCommon } from './worldrendererCommon'
 import { disposeObject } from './threeJsUtils'
@@ -24,7 +24,6 @@ import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 
 export class WorldRendererThree extends WorldRendererCommon {
-  interactionLines: null | { blockPos; mesh } = null
   outputFormat = 'threeJs' as const
   blockEntities = {}
   sectionObjects: Record<string, THREE.Object3D> = {}
@@ -41,6 +40,8 @@ export class WorldRendererThree extends WorldRendererCommon {
   entities = new Entities(this)
   cameraObjectOverride?: THREE.Object3D // for xr
   material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
+  itemsTexture: THREE.Texture
+  cursorBlock = new CursorBlock(this)
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -58,18 +59,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)
 
-    const onAssetsReaady = () => {
-      this.holdingBlock.ready = true
-      this.holdingBlock.updateItem()
-      this.holdingBlockLeft.ready = true
-      this.holdingBlockLeft.updateItem()
-    }
-
-    initOptions.resourcesManager.on('assetsTexturesUpdated', onAssetsReaady)
-    if (initOptions.resourcesManager.currentResources) {
-      onAssetsReaady()
-    }
-
     this.soundSystem = new ThreeJsSound(this)
 
     this.addDebugOverlay()
@@ -79,8 +68,8 @@ export class WorldRendererThree extends WorldRendererCommon {
     void initVR(this)
   }
 
-  updateEntity (e) {
-    this.entities.update(e, {
+  updateEntity (e, isPosUpdate = false) {
+    const overrides = {
       rotation: {
         head: {
           x: e.headPitch ?? e.pitch,
@@ -88,7 +77,12 @@ export class WorldRendererThree extends WorldRendererCommon {
           z: 0
         }
       }
-    })
+    }
+    if (isPosUpdate) {
+      this.entities.updateEntityPosition(e, false, overrides)
+    } else {
+      this.entities.update(e, overrides)
+    }
   }
 
   resetScene () {
@@ -140,7 +134,21 @@ export class WorldRendererThree extends WorldRendererCommon {
     texture.minFilter = THREE.NearestFilter
     texture.flipY = false
     this.material.map = texture
+
+    const itemsTexture = await new THREE.TextureLoader().loadAsync(resources.itemsAtlasParser.latestImage)
+    itemsTexture.magFilter = THREE.NearestFilter
+    itemsTexture.minFilter = THREE.NearestFilter
+    itemsTexture.flipY = false
+    this.itemsTexture = itemsTexture
     await super.updateAssetsData()
+    this.onAllTexturesLoaded()
+  }
+
+  onAllTexturesLoaded () {
+    this.holdingBlock.ready = true
+    this.holdingBlock.updateItem()
+    this.holdingBlockLeft.ready = true
+    this.holdingBlockLeft.updateItem()
   }
 
   changeBackgroundColor (color: [number, number, number]): void {
@@ -354,6 +362,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   render (sizeChanged = false) {
+    this.cursorBlock.render()
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
       this.camera.aspect = window.innerWidth / window.innerHeight
@@ -441,7 +450,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     return group
   }
 
-  updateLight (chunkX: number, chunkZ: number) {
+  lightUpdate (chunkX: number, chunkZ: number) {
     // set all sections in the chunk dirty
     for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(chunkX, y, chunkZ))
@@ -542,34 +551,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     const [pos] = args
     this.cleanChunkTextures(pos.x, pos.z) // todo don't do this!
     super.setSectionDirty(...args)
-  }
-
-  setHighlightCursorBlock (blockPos: typeof this.cursorBlock, shapePositions?: Array<{ position: any; width: any; height: any; depth: any; }>): void {
-    this.cursorBlock = blockPos
-    if (blockPos && this.interactionLines && blockPos.equals(this.interactionLines.blockPos)) {
-      return
-    }
-    if (this.interactionLines !== null) {
-      this.scene.remove(this.interactionLines.mesh)
-      this.interactionLines = null
-    }
-    if (blockPos === null) {
-      return
-    }
-
-    const group = new THREE.Group()
-    for (const { position, width, height, depth } of shapePositions ?? []) {
-      const scale = [1.0001 * width, 1.0001 * height, 1.0001 * depth] as const
-      const geometry = new THREE.BoxGeometry(...scale)
-      const lines = new LineSegmentsGeometry().fromEdgesGeometry(new THREE.EdgesGeometry(geometry))
-      const wireframe = new Wireframe(lines, this.threejsCursorLineMaterial)
-      const pos = blockPos.plus(position)
-      wireframe.position.set(pos.x, pos.y, pos.z)
-      wireframe.computeLineDistances()
-      group.add(wireframe)
-    }
-    this.scene.add(group)
-    this.interactionLines = { blockPos, mesh: group }
   }
 
   static getRendererInfo (renderer: THREE.WebGLRenderer) {

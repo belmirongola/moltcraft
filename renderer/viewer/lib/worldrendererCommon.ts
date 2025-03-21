@@ -5,7 +5,6 @@ import * as THREE from 'three'
 import mcDataRaw from 'minecraft-data/data.js' // note: using alias
 import { AtlasParser } from 'mc-assets'
 import TypedEmitter from 'typed-emitter'
-import { LineMaterial } from 'three-stdlib'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
@@ -22,6 +21,7 @@ import { generateGuiAtlas } from './guiRenderer'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { WorldRendererThree } from './worldrendererThree'
 import { SoundSystem, ThreeJsSound } from './threeJsSound'
+import { IPlayerState } from './basePlayerState'
 
 function mod (x, n) {
   return ((x % n) + n) % n
@@ -45,17 +45,14 @@ export const defaultWorldRendererConfig = {
   addChunksBatchWaitTime: 200,
   vrSupport: true,
   renderEntities: true,
-  fov: 75
+  fov: 75,
+  fetchPlayerSkins: true,
+  highlightBlockColor: 'blue'
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
 
 export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any> {
-  // todo
-  @worldCleanup()
-  threejsCursorLineMaterial: LineMaterial
-  @worldCleanup()
-  cursorBlock = null as Vec3 | null
   displayStats = true
   @worldCleanup()
   worldSizeParams = { minY: 0, worldHeight: 256 }
@@ -138,17 +135,18 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   abstract outputFormat: 'threeJs' | 'webgpu'
   worldBlockProvider: WorldBlockProvider
-  itemsTexture: THREE.Texture
   soundSystem: SoundSystem | undefined
 
   abstract changeBackgroundColor (color: [number, number, number]): void
 
   worldRendererConfig: WorldRendererConfig
+  playerState: IPlayerState
 
   constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public version: string) {
     // this.initWorkers(1) // preload script on page load
     this.snapshotInitialValues()
     this.worldRendererConfig = proxy(displayOptions.inWorldRenderingConfig)
+    this.playerState = displayOptions.playerState
 
     this.renderUpdateEmitter.on('update', () => {
       const loadedChunks = Object.keys(this.finishedChunks).length
@@ -407,11 +405,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         config: this.mesherConfig,
       })
     }
-    const itemsTexture = await new THREE.TextureLoader().loadAsync(resources.itemsAtlasParser.latestImage)
-    itemsTexture.magFilter = THREE.NearestFilter
-    itemsTexture.minFilter = THREE.NearestFilter
-    itemsTexture.flipY = false
-    this.itemsTexture = itemsTexture
 
     console.log('textures loaded')
   }
@@ -509,13 +502,18 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     void set()
   }
 
-  updateEntity (e: any) { }
+  updateEntity (e: any, isUpdate = false) { }
+
+  lightUpdate (chunkX: number, chunkZ: number) { }
 
   connect (worldView: WorldDataEmitter) {
     const worldEmitter = worldView
 
     worldEmitter.on('entity', (e) => {
-      this.updateEntity(e)
+      this.updateEntity(e, false)
+    })
+    worldEmitter.on('entityMoved', (e) => {
+      this.updateEntity(e, true)
     })
 
     let currentLoadChunkBatch = null as {
@@ -579,7 +577,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
 
     worldEmitter.on('updateLight', ({ pos }) => {
-      if (this instanceof WorldRendererThree) (this).updateLight(pos.x, pos.z)
+      this.lightUpdate(pos.x, pos.z)
     })
 
     worldEmitter.on('time', (timeOfDay) => {
@@ -764,6 +762,4 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.renderUpdateEmitter.removeAllListeners()
     this.displayOptions.worldView.removeAllListeners() // todo
   }
-
-  abstract setHighlightCursorBlock (block: typeof this.cursorBlock, shapePositions?: Array<{ position; width; height; depth }>): void
 }

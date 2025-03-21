@@ -3,6 +3,7 @@ import { Vec3 } from 'vec3'
 import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
 import { proxy } from 'valtio'
+import { GameMode } from 'mineflayer'
 import { HandItemBlock } from './holdingBlock'
 
 export type MovementState = 'NOT_MOVING' | 'WALKING' | 'SPRINTING' | 'SNEAKING'
@@ -36,6 +37,7 @@ export interface IPlayerState {
     backgroundColor: [number, number, number]
     ambientLight: number
     directionalLight: number
+    gameMode?: GameMode
   }
 }
 

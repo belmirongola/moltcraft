@@ -158,9 +158,8 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
 
     if (abortController.signal.aborted) return
 
-    this.emit('assetsTexturesUpdated')
-
     this.currentResources = resources
+    this.emit('assetsTexturesUpdated')
   }
 
   async downloadDebugAtlas (isItems = false) {

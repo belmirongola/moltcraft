@@ -15,6 +15,12 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     updateMap: worldRenderer.entities.updateMap.bind(worldRenderer.entities),
     updateCustomBlock: worldRenderer.updateCustomBlock.bind(worldRenderer),
     getBlockInfo: worldRenderer.getBlockInfo.bind(worldRenderer),
+    playEntityAnimation: worldRenderer.entities.playAnimation.bind(worldRenderer.entities),
+    damageEntity: worldRenderer.entities.handleDamageEvent.bind(worldRenderer.entities),
+    updatePlayerSkin: worldRenderer.entities.updatePlayerSkin.bind(worldRenderer.entities),
+    setHighlightCursorBlock: worldRenderer.cursorBlock.setHighlightCursorBlock.bind(worldRenderer.cursorBlock),
+    updateBreakAnimation: worldRenderer.cursorBlock.updateBreakAnimation.bind(worldRenderer.cursorBlock),
+    changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
   }
 }
 

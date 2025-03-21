@@ -6,6 +6,7 @@ import { generateSpiralMatrix, ViewRect } from 'flying-squid/dist/utils'
 import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
 import { proxy } from 'valtio'
+import TypedEmitter from 'typed-emitter'
 import { getItemFromBlock } from '../../../src/chatUtils'
 import { delayedIterator } from '../../playground/shared'
 import { playerState } from '../../../src/mineflayer/playerState'
@@ -14,11 +15,26 @@ import { chunkPos } from './simpleUtils'
 export type ChunkPosKey = string
 type ChunkPos = { x: number, z: number }
 
+export type WorldDataEmitterEvents = {
+  chunkPosUpdate: (data: { pos: Vec3 }) => void
+  blockUpdate: (data: { pos: Vec3, stateId: number }) => void
+  entity: (data: any) => void
+  entityMoved: (data: any) => void
+  time: (data: number) => void
+  renderDistance: (viewDistance: number) => void
+  blockEntities: (data: Record<string, any> | { blockEntities: Record<string, any> }) => void
+  listening: () => void
+  markAsLoaded: (data: { x: number, z: number }) => void
+  unloadChunk: (data: { x: number, z: number }) => void
+  loadChunk: (data: { x: number, z: number, chunk: any, blockEntities: any, worldConfig: any, isLightUpdate: boolean }) => void
+  updateLight: (data: { pos: Vec3 }) => void
+}
+
 /**
  * Usually connects to mineflayer bot and emits world data (chunks, entities)
  * It's up to the consumer to serialize the data if needed
  */
-export class WorldDataEmitter extends EventEmitter {
+export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
   private loadedChunks: Record<ChunkPosKey, boolean>
   private readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
@@ -33,6 +49,7 @@ export class WorldDataEmitter extends EventEmitter {
   })
 
   constructor (public world: typeof __type_bot['world'], public viewDistance: number, position: Vec3 = new Vec3(0, 0, 0)) {
+    // eslint-disable-next-line constructor-super
     super()
     this.loadedChunks = {}
     this.lastPos = new Vec3(0, 0, 0).update(position)
@@ -59,9 +76,9 @@ export class WorldDataEmitter extends EventEmitter {
   }
 
   listenToBot (bot: typeof __type_bot) {
-    const emitEntity = (e) => {
+    const emitEntity = (e, name = 'entity') => {
       if (!e || e === bot.entity) return
-      this.emitter.emit('entity', {
+      this.emitter.emit(name as any, {
         ...e,
         pos: e.position,
         username: e.username,
@@ -84,7 +101,7 @@ export class WorldDataEmitter extends EventEmitter {
         emitEntity(e)
       },
       entityMoved (e: any) {
-        emitEntity(e)
+        emitEntity(e, 'entityMoved')
       },
       entityGone: (e: any) => {
         this.emitter.emit('entity', { id: e.id, delete: true })

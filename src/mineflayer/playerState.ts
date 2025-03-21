@@ -29,7 +29,7 @@ export class PlayerStateManager implements IPlayerState {
     return bot.player?.username ?? ''
   }
 
-  reactive = new BasePlayerState().reactive
+  reactive: IPlayerState['reactive'] = new BasePlayerState().reactive
 
   static getInstance (): PlayerStateManager {
     if (!this.instance) {
@@ -68,6 +68,11 @@ export class PlayerStateManager implements IPlayerState {
     // Initial held items setup
     this.updateHeldItem(false)
     this.updateHeldItem(true)
+
+    bot.on('game', () => {
+      this.reactive.gameMode = bot.game.gameMode
+    })
+    this.reactive.gameMode = bot.game?.gameMode
   }
 
   // #region Movement and Physics State

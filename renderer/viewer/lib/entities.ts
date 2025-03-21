@@ -206,7 +206,7 @@ export type SceneEntity = THREE.Object3D & {
   additionalCleanup?: () => void
 }
 
-export class Entities extends EventEmitter {
+export class Entities {
   entities = {} as Record<string, SceneEntity>
   entitiesOptions: {
     fontFamily?: string
@@ -217,7 +217,6 @@ export class Entities extends EventEmitter {
   onSkinUpdate: () => void
   clock = new THREE.Clock()
   currentlyRendering = true
-  itemsTexture: THREE.Texture | null = null
   cachedMapsImages = {} as Record<number, string>
   itemFrameMaps = {} as Record<number, Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>>>
   // getItemUv: undefined | (() => {
@@ -248,7 +247,6 @@ export class Entities extends EventEmitter {
   }
 
   constructor (public worldRenderer: WorldRendererThree) {
-    super()
     this.entitiesOptions = {}
     this.debugMode = 'none'
     this.onSkinUpdate = () => { }
@@ -532,9 +530,9 @@ export class Entities extends EventEmitter {
 
     // TODO: Render proper model (especially for blocks) instead of flat texture
     if (textureUv) {
-      const textureThree = textureUv.renderInfo?.texture === 'blocks' ? this.worldRenderer.material.map! : this.itemsTexture!
+      const textureThree = textureUv.renderInfo?.texture === 'blocks' ? this.worldRenderer.material.map! : this.worldRenderer.itemsTexture
       // todo use geometry buffer uv instead!
-      const { u, v, su, sv, texture } = textureUv
+      const { u, v, su, sv } = textureUv
       const size = undefined
       const itemsTexture = textureThree.clone()
       itemsTexture.flipY = true
@@ -593,6 +591,8 @@ export class Entities extends EventEmitter {
   }
 
   update (entity: import('prismarine-entity').Entity & { delete?; pos, name }, overrides) {
+    const justAdded = !this.entities[entity.id]
+
     const isPlayerModel = entity.name === 'player'
     if (entity.name === 'zombie_villager' || entity.name === 'husk') {
       overrides.texture = `textures/1.16.4/entity/${entity.name === 'zombie_villager' ? 'zombie_villager/zombie_villager.png' : `zombie/${entity.name}.png`}`
@@ -610,7 +610,7 @@ export class Entities extends EventEmitter {
       e.traverse(c => {
         if (c['additionalCleanup']) c['additionalCleanup']()
       })
-      this.emit('remove', entity)
+      this.onRemoveEntity(entity)
       this.worldRenderer.scene.remove(e)
       disposeObject(e)
       // todo dispose textures as well ?
@@ -710,7 +710,7 @@ export class Entities extends EventEmitter {
       e['realName'] = entity.name
       this.entities[entity.id] = e
 
-      this.emit('add', entity)
+      this.onAddEntity(entity)
 
       if (isPlayerModel) {
         this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePngUrl)
@@ -893,6 +893,30 @@ export class Entities extends EventEmitter {
       e.username = entity.username
     }
 
+    if (entity.type === 'player' && entity.equipment && e.playerObject) {
+      const { playerObject } = e
+      playerObject.backEquipment = entity.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
+      if (playerObject.cape.map === null) {
+        playerObject.cape.visible = false
+      }
+    }
+
+    this.updateEntityPosition(entity, justAdded, overrides)
+  }
+
+  updateEntityPosition (entity: import('prismarine-entity').Entity, justAdded: boolean, overrides: { rotation?: { head?: { y: number, x: number } } }) {
+    const e = this.entities[entity.id]
+    if (!e) return
+    const ANIMATION_DURATION = justAdded ? 0 : TWEEN_DURATION
+    if (entity.position) {
+      new TWEEN.Tween(e.position).to({ x: entity.position.x, y: entity.position.y, z: entity.position.z }, ANIMATION_DURATION).start()
+    }
+    if (entity.yaw) {
+      const da = (entity.yaw - e.rotation.y) % (Math.PI * 2)
+      const dy = 2 * da % (Math.PI * 2) - da
+      new TWEEN.Tween(e.rotation).to({ y: e.rotation.y + dy }, ANIMATION_DURATION).start()
+    }
+
     if (e?.playerObject && overrides?.rotation?.head) {
       const playerObject = e.playerObject as PlayerObjectType
       const headRotationDiff = overrides.rotation.head.y ? overrides.rotation.head.y - entity.yaw : 0
@@ -900,14 +924,31 @@ export class Entities extends EventEmitter {
       playerObject.skin.head.rotation.x = overrides.rotation.head.x ? - overrides.rotation.head.x : 0
     }
 
-    if (entity.pos) {
-      new TWEEN.Tween(e.position).to({ x: entity.pos.x, y: entity.pos.y, z: entity.pos.z }, TWEEN_DURATION).start()
+    this.maybeRenderPlayerSkin(entity)
+  }
+
+  onAddEntity (entity: import('prismarine-entity').Entity) {
+  }
+
+  loadedSkinEntityIds = new Set<number>()
+  maybeRenderPlayerSkin (entity: import('prismarine-entity').Entity) {
+    const mesh = this.entities[entity.id]
+    if (!mesh) return
+    if (!mesh.playerObject || !this.worldRenderer.worldRendererConfig.fetchPlayerSkins) return
+    const MAX_DISTANCE_SKIN_LOAD = 128
+    const distance = entity.position.distanceTo(bot.entity.position)
+    if (distance < MAX_DISTANCE_SKIN_LOAD && distance < (bot.settings.viewDistance as number) * 16) {
+      if (this.entities[entity.id]) {
+        if (this.loadedSkinEntityIds.has(entity.id)) return
+        this.loadedSkinEntityIds.add(entity.id)
+        this.updatePlayerSkin(entity.id, entity.username, entity.uuid, true, true)
+      }
     }
-    if (entity.yaw) {
-      const da = (entity.yaw - e.rotation.y) % (Math.PI * 2)
-      const dy = 2 * da % (Math.PI * 2) - da
-      new TWEEN.Tween(e.rotation).to({ y: e.rotation.y + dy }, TWEEN_DURATION).start()
-    }
+  }
+
+  playerPerAnimation = {} as Record<number, string>
+  onRemoveEntity (entity: import('prismarine-entity').Entity) {
+    this.loadedSkinEntityIds.delete(entity.id)
   }
 
   updateMap (mapNumber: string | number, data: string) {
