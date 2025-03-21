@@ -924,8 +924,8 @@ export class Entities {
     if (!mesh) return
     if (!mesh.playerObject || !this.worldRenderer.worldRendererConfig.fetchPlayerSkins) return
     const MAX_DISTANCE_SKIN_LOAD = 128
-    const caameraPos = this.worldRenderer.camera.position
-    const distance = entity.position.distanceTo(new Vec3(caameraPos.x, caameraPos.y, caameraPos.z))
+    const cameraPos = this.worldRenderer.camera.position
+    const distance = entity.position.distanceTo(new Vec3(cameraPos.x, cameraPos.y, cameraPos.z))
     if (distance < MAX_DISTANCE_SKIN_LOAD && distance < (this.worldRenderer.viewDistance * 16)) {
       if (this.entities[entity.id]) {
         if (this.loadedSkinEntityIds.has(entity.id)) return
