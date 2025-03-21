@@ -6,7 +6,7 @@ import * as tweenJs from '@tweenjs/tween.js'
 import { subscribeKey } from 'valtio/utils'
 import { renderSign } from '../sign-renderer'
 import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
-import { initVR } from '../../../src/vr'
+import { initVR } from '../three/world/vr'
 import { getItemUv } from '../three/appShared'
 import { CursorBlock } from '../three/world/cursorBlock'
 import { chunkPos, sectionPos } from './simpleUtils'
@@ -42,6 +42,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
   itemsTexture: THREE.Texture
   cursorBlock = new CursorBlock(this)
+  onRender: Array<() => void> = []
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -51,7 +52,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions, public version: string, public reactiveState: RendererReactiveState) {
+  constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions, public version: string) {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
     super(initOptions.resourcesManager, displayOptions, version)
 
@@ -363,19 +364,27 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   render (sizeChanged = false) {
     this.cursorBlock.render()
+
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
       this.camera.aspect = window.innerWidth / window.innerHeight
       this.camera.fov = this.displayOptions.inWorldRenderingConfig.fov
       this.camera.updateProjectionMatrix()
     }
+
+    this.entities.render()
+
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
     const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
-    this.entities.render()
     this.renderer.render(this.scene, cam)
+
     if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+    }
+
+    for (const onRender of this.onRender) {
+      onRender()
     }
   }
 

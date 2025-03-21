@@ -34,16 +34,6 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let panoramaRenderer: PanoramaRenderer | null = null
   let worldRenderer: WorldRendererThree | null = null
 
-  const reactiveState: RendererReactiveState = proxy({
-    world: {
-      chunksLoaded: 0,
-      chunksTotal: 0,
-      allChunksLoaded: false,
-    },
-    renderer: WorldRendererThree.getRendererInfo(documentRenderer.renderer) ?? '...',
-    preventEscapeMenu: false
-  })
-
   const startPanorama = () => {
     if (worldRenderer) return
     if (!panoramaRenderer) {
@@ -63,13 +53,11 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
       panoramaRenderer.dispose()
       panoramaRenderer = null
     }
-    worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions, version, reactiveState)
+    worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions, version)
     documentRenderer.render = (sizeChanged: boolean) => {
       worldRenderer?.render(sizeChanged)
     }
-    window.viewer ??= {}
     window.world = worldRenderer
-    window.viewer.world = worldRenderer
   }
 
   const disconnect = () => {
@@ -106,7 +94,6 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     setRoll (roll: number) {
       worldRenderer?.setCameraRoll(roll)
     },
-    reactiveState,
     get soundSystem () {
       return worldRenderer?.soundSystem
     },

@@ -12,7 +12,7 @@ import { proxy } from 'valtio'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
-import { DisplayWorldOptions } from '../../../src/appViewer'
+import { DisplayWorldOptions, RendererReactiveState } from '../../../src/appViewer'
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
@@ -47,7 +47,8 @@ export const defaultWorldRendererConfig = {
   renderEntities: true,
   fov: 75,
   fetchPlayerSkins: true,
-  highlightBlockColor: 'blue'
+  highlightBlockColor: 'blue',
+  foreground: true
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -141,12 +142,16 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   worldRendererConfig: WorldRendererConfig
   playerState: IPlayerState
+  reactiveState: RendererReactiveState
+
+  abortController = new AbortController()
 
   constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public version: string) {
     // this.initWorkers(1) // preload script on page load
     this.snapshotInitialValues()
-    this.worldRendererConfig = proxy(displayOptions.inWorldRenderingConfig)
+    this.worldRendererConfig = displayOptions.inWorldRenderingConfig
     this.playerState = displayOptions.playerState
+    this.reactiveState = displayOptions.rendererState
 
     this.renderUpdateEmitter.on('update', () => {
       const loadedChunks = Object.keys(this.finishedChunks).length
@@ -761,5 +766,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
     this.renderUpdateEmitter.removeAllListeners()
     this.displayOptions.worldView.removeAllListeners() // todo
+    this.abortController.abort()
   }
 }

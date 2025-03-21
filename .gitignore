@@ -10,7 +10,7 @@ localSettings.mjs
 dist*
 .DS_Store
 .idea/
-world
+/world
 data*.json
 out
 *.iml

@@ -3,11 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { buttonMap as standardButtonsMap } from 'contro-max/build/gamepad'
 import * as THREE from 'three'
-import { subscribeKey } from 'valtio/utils'
-import { subscribe } from 'valtio'
 import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
-import { activeModalStack, hideModal } from './globalState'
-import { watchUnloadForCleanup } from './gameUnload'
 
 export async function initVR (worldRenderer: WorldRendererThree) {
   if (!('xr' in navigator) || !worldRenderer.worldRendererConfig.vrSupport) return
@@ -20,11 +16,13 @@ export async function initVR (worldRenderer: WorldRendererThree) {
 
   const vrButtonContainer = createVrButtonContainer(renderer)
   const updateVrButtons = () => {
-    vrButtonContainer.hidden = !worldRenderer.worldRendererConfig.vrSupport || activeModalStack.length !== 0
+    const newHidden = !worldRenderer.worldRendererConfig.vrSupport || !worldRenderer.worldRendererConfig.foreground
+    if (vrButtonContainer.hidden !== newHidden) {
+      vrButtonContainer.hidden = newHidden
+    }
   }
 
-  const unsubWatchSetting = subscribeKey(worldRenderer.worldRendererConfig, 'vrSupport', updateVrButtons)
-  const unsubWatchModals = subscribe(activeModalStack, updateVrButtons)
+  worldRenderer.onRender.push(updateVrButtons)
 
   function enableVr () {
     renderer.xr.enabled = true
@@ -37,8 +35,6 @@ export async function initVR (worldRenderer: WorldRendererThree) {
     worldRenderer.reactiveState.preventEscapeMenu = false
     worldRenderer.scene.remove(user)
     vrButtonContainer.hidden = true
-    unsubWatchSetting()
-    unsubWatchModals()
   }
 
   function createVrButtonContainer (renderer) {
@@ -193,7 +189,7 @@ export async function initVR (worldRenderer: WorldRendererThree) {
     }
 
     // appViewer.backend?.updateCamera(null, yawOffset, 0)
-    appViewer.backend?.updateCamera(null, bot.entity.yaw, bot.entity.pitch)
+    worldRenderer.updateCamera(null, bot.entity.yaw, bot.entity.pitch)
 
     // todo restore this logic (need to preserve ability to move camera)
     // const xrCamera = renderer.xr.getCamera()
@@ -208,16 +204,12 @@ export async function initVR (worldRenderer: WorldRendererThree) {
   })
   renderer.xr.addEventListener('sessionstart', () => {
     worldRenderer.cameraObjectOverride = user
-    // close all modals to be in game
-    for (const _modal of activeModalStack) {
-      hideModal(undefined, {}, { force: true })
-    }
   })
   renderer.xr.addEventListener('sessionend', () => {
     worldRenderer.cameraObjectOverride = undefined
   })
 
-  watchUnloadForCleanup(disableVr)
+  worldRenderer.abortController.signal.addEventListener('abort', disableVr)
 }
 
 const xrStandardRightButtonsMap = [

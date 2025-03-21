@@ -5,6 +5,7 @@ import { defaultWorldRendererConfig, WorldRendererConfig } from 'renderer/viewer
 import { Vec3 } from 'vec3'
 import { SoundSystem } from 'renderer/viewer/lib/threeJsSound'
 import { proxy } from 'valtio'
+import { getDefaultRendererState } from 'renderer/viewer/baseGraphicsBackend'
 import { playerState } from './mineflayer/playerState'
 import { createNotificationProgressReporter, ProgressReporter } from './core/progressReporter'
 import { setLoadingScreenStatus } from './appStatus'
@@ -45,6 +46,7 @@ export interface DisplayWorldOptions {
   worldView: WorldDataEmitter
   inWorldRenderingConfig: WorldRendererConfig
   playerState: IPlayerState
+  rendererState: RendererReactiveState
 }
 
 export type GraphicsBackendLoader = (options: GraphicsInitOptions) => GraphicsBackend
@@ -60,7 +62,6 @@ export interface GraphicsBackend {
   getDebugOverlay: () => Record<string, any>
   updateCamera: (pos: Vec3 | null, yaw: number, pitch: number) => void
   setRoll: (roll: number) => void
-  reactiveState: RendererReactiveState
   soundSystem: SoundSystem | undefined
 
   backendMethods: Record<string, unknown> | undefined
@@ -83,6 +84,7 @@ export class AppViewer {
   inWorldRenderingConfig: WorldRendererConfig = proxy(defaultWorldRendererConfig)
   lastCamUpdate = 0
   playerState = playerState
+  rendererState = proxy(getDefaultRendererState())
 
   loadBackend (loader: GraphicsBackendLoader) {
     if (this.backend) {
@@ -147,7 +149,8 @@ export class AppViewer {
     const displayWorldOptions: DisplayWorldOptions = {
       worldView: this.worldView,
       inWorldRenderingConfig: this.inWorldRenderingConfig,
-      playerState: playerStateSend
+      playerState: playerStateSend,
+      rendererState: this.rendererState
     }
     if (this.backend) {
       this.backend.startWorld(displayWorldOptions)
@@ -216,6 +219,8 @@ const modalStackUpdateChecks = () => {
     const hasAppStatus = activeModalStack.some(m => m.reactType === 'app-status')
     appViewer.backend.setRendering(!hasAppStatus)
   }
+
+  appViewer.inWorldRenderingConfig.foreground = activeModalStack.length === 0
 }
 subscribeKey(activeModalStack, 'length', modalStackUpdateChecks)
 modalStackUpdateChecks()
