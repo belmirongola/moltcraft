@@ -1,3 +1,4 @@
+//@ts-nocheck
 // eslint-disable-next-line import/no-named-as-default
 import GUI, { Controller } from 'lil-gui'
 import * as THREE from 'three'
