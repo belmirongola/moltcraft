@@ -35,11 +35,11 @@ jobs:
         env:
           CONFIG_JSON_SOURCE: BUNDLED
       - run: pnpm build-storybook
-      # - name: Copy playground files
-      #   run: |
-      #     mkdir -p .vercel/output/static/playground
-      #     pnpm build-playground
-      #     cp -r renderer/dist/* .vercel/output/static/playground/
+      - name: Copy playground files
+        run: |
+          mkdir -p .vercel/output/static/playground
+          pnpm build-playground
+          cp -r renderer/dist/* .vercel/output/static/playground/
       - name: Download Generated Sounds map
         run: node scripts/downloadSoundsMap.mjs
       - name: Deploy Project Artifacts to Vercel

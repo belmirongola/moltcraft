@@ -21,7 +21,7 @@ jobs:
         uses: pnpm/action-setup@v4
       - run: pnpm install
       - run: pnpm check-build
-      # - run: pnpm build-playground
+      - run: pnpm build-playground
       - run: pnpm build-storybook
       - run: pnpm test-unit
       - run: pnpm lint
