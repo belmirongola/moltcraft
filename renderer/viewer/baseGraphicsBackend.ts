@@ -1,8 +1,10 @@
-export const getDefaultRendererState = () => {
+import { RendererReactiveState } from '../../src/appViewer'
+
+export const getDefaultRendererState = (): RendererReactiveState => {
   return {
     world: {
-      chunksLoaded: 0,
-      chunksTotal: 0,
+      chunksLoaded: [],
+      chunksTotalNumber: 0,
       allChunksLoaded: true,
       mesherWork: false
     },

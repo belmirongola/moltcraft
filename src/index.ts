@@ -131,6 +131,12 @@ if (process.env.SINGLE_FILE_BUILD_MODE) {
   loadBackend()
 }
 
+const animLoop = () => {
+  for (const fn of beforeRenderFrame) fn()
+  requestAnimationFrame(animLoop)
+}
+requestAnimationFrame(animLoop)
+
 watchOptionsAfterViewerInit()
 
 function hideCurrentScreens () {
@@ -714,7 +720,7 @@ export async function connect (connectOptions: ConnectOptions) {
     const waitForChunks = async () => {
       if (appQueryParams.sp === '1') return //todo
       const waitForChunks = options.waitForChunksRender === 'sp-only' ? !!singleplayer : options.waitForChunksRender
-      if (!appViewer.backend || appViewer.backend.reactiveState.world.allChunksLoaded || !waitForChunks) {
+      if (!appViewer.backend || appViewer.rendererState.world.allChunksLoaded || !waitForChunks) {
         return
       }
 
@@ -724,13 +730,14 @@ export async function connect (connectOptions: ConnectOptions) {
         async () => {
           await new Promise<void>(resolve => {
             let wasFinished = false
-            const unsub = subscribe(appViewer.backend!.reactiveState, () => {
+            const unsub = subscribe(appViewer.rendererState, () => {
               if (wasFinished) return
-              if (appViewer.backend!.reactiveState.world.allChunksLoaded) {
+              if (appViewer.rendererState.world.allChunksLoaded) {
                 wasFinished = true
                 resolve()
+                unsub()
               } else {
-                const perc = Math.round(appViewer.backend!.reactiveState.world.chunksLoaded / appViewer.backend!.reactiveState.world.chunksTotal * 100)
+                const perc = Math.round(appViewer.rendererState.world.chunksLoaded.length / appViewer.rendererState.world.chunksTotalNumber * 100)
                 progress.reportProgress('chunks', perc / 100)
               }
             })
@@ -739,7 +746,7 @@ export async function connect (connectOptions: ConnectOptions) {
       )
     }
 
-    // await waitForChunks()
+    await waitForChunks()
 
     setTimeout(() => {
       if (appQueryParams.suggest_save) {

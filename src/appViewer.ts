@@ -16,9 +16,10 @@ import { watchOptionsAfterWorldViewInit } from './watchOptions'
 
 export interface RendererReactiveState {
   world: {
-    chunksLoaded: number
-    chunksTotal: number
+    chunksLoaded: string[]
+    chunksTotalNumber: number
     allChunksLoaded: boolean
+    mesherWork: boolean
   }
   renderer: string
   preventEscapeMenu: boolean

@@ -21,6 +21,7 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     setHighlightCursorBlock: worldRenderer.cursorBlock.setHighlightCursorBlock.bind(worldRenderer.cursorBlock),
     updateBreakAnimation: worldRenderer.cursorBlock.updateBreakAnimation.bind(worldRenderer.cursorBlock),
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
+    getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer)
   }
 }
 

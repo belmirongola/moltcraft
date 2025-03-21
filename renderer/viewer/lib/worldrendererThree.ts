@@ -56,6 +56,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
     super(initOptions.resourcesManager, displayOptions, version)
 
+    displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
     this.starField = new StarField(this.scene)
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)

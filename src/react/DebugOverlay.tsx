@@ -41,8 +41,7 @@ export default () => {
   const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
-  const { reactiveState } = appViewer.backend ?? {}
-  const rendererDevice = reactiveState?.renderer ?? 'No render backend'
+  const rendererDevice = appViewer.rendererState.renderer ?? 'No render backend'
 
   const quadsDescription = [
     'north (towards negative Z)',
@@ -166,6 +165,7 @@ export default () => {
     </div>
 
     <div className={`debug-right-side ${styles['debug-right-side']}`}>
+      <p>Backend: {appViewer.backend?.NAME}</p>
       <p>Renderer: {rendererDevice}</p>
       <div className={styles.empty} />
       {cursorBlock ? (<>

@@ -208,29 +208,15 @@ export type SceneEntity = THREE.Object3D & {
 
 export class Entities {
   entities = {} as Record<string, SceneEntity>
-  entitiesOptions: {
-    fontFamily?: string
-  } = {
-      fontFamily: 'mojangles'
-    }
+  entitiesOptions = {
+    fontFamily: 'mojangles'
+  }
   debugMode: string
   onSkinUpdate: () => void
   clock = new THREE.Clock()
   currentlyRendering = true
   cachedMapsImages = {} as Record<number, string>
   itemFrameMaps = {} as Record<number, Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>>>
-  // getItemUv: undefined | (() => {
-  //   texture: THREE.Texture;
-  //   u: number;
-  //   v: number;
-  //   su?: number;
-  //   sv?: number;
-  //   size?: number;
-  //   modelName?: string;
-  // } | {
-  //   resolvedModel: BlockModel
-  //   modelName: string
-  // } | undefined)
 
   get entitiesByName (): Record<string, SceneEntity[]> {
     const byName: Record<string, SceneEntity[]> = {}
@@ -247,7 +233,6 @@ export class Entities {
   }
 
   constructor (public worldRenderer: WorldRendererThree) {
-    this.entitiesOptions = {}
     this.debugMode = 'none'
     this.onSkinUpdate = () => { }
   }

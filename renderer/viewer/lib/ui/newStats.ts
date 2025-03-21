@@ -40,6 +40,12 @@ export const updateStatText = (id, text) => {
   stats[id].innerText = text
 }
 
+export const removeStat = (id) => {
+  if (!stats[id]) return
+  stats[id].remove()
+  delete stats[id]
+}
+
 if (typeof customEvents !== 'undefined') {
   customEvents.on('gameLoaded', () => {
     const chunksLoaded = addNewStat('chunks-loaded', 80, 0, 0)

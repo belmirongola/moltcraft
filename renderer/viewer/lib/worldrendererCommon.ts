@@ -16,7 +16,7 @@ import { DisplayWorldOptions, RendererReactiveState } from '../../../src/appView
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
-import { updateStatText } from './ui/newStats'
+import { removeStat, updateStatText } from './ui/newStats'
 import { generateGuiAtlas } from './guiRenderer'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { WorldRendererThree } from './worldrendererThree'
@@ -179,6 +179,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return this.loadedChunks[chunkKey]
   }
 
+  async getHighestBlocks () {
+    return this.highestBlocks
+  }
+
   updateCustomBlock (chunkKey: string, blockPos: string, model: string) {
     this.protocolCustomBlocks.set(chunkKey, {
       ...this.protocolCustomBlocks.get(chunkKey),
@@ -291,13 +295,16 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   checkAllFinished () {
     if (this.sectionsWaiting.size === 0) {
-      const allFinished = Object.keys(this.finishedChunks).length === this.chunksLength
-      if (allFinished) {
-        this.allChunksLoaded?.()
-        this.allChunksFinished = true
-        this.allLoadedIn ??= Date.now() - this.initialChunkLoadWasStartedIn!
-      }
+      this.reactiveState.world.mesherWork = false
     }
+    // todo check exact surrounding chunks
+    const allFinished = Object.keys(this.finishedChunks).length >= this.chunksLength
+    if (allFinished) {
+      this.allChunksLoaded?.()
+      this.allChunksFinished = true
+      this.allLoadedIn ??= Date.now() - this.initialChunkLoadWasStartedIn!
+    }
+    this.updateChunksStats()
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeftHand: boolean): void { }
@@ -418,7 +425,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return Math.floor(Math.max(this.worldSizeParams.minY, this.mesherConfig.clipWorldBelowY ?? -Infinity) / 16) * 16
   }
 
-  updateChunksStatsText () {
+  updateChunksStats () {
+    const loadedChunks = Object.keys(this.finishedChunks)
+    this.reactiveState.world.chunksLoaded = loadedChunks
+    this.reactiveState.world.chunksTotalNumber = this.chunksLength
+    this.reactiveState.world.allChunksLoaded = this.allChunksFinished
     updateStatText('downloaded-chunks', `${Object.keys(this.loadedChunks).length}/${this.chunksLength} chunks D (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`)
   }
 
@@ -428,7 +439,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.initialChunksLoad = false
     this.initialChunkLoadWasStartedIn ??= Date.now()
     this.loadedChunks[`${x},${z}`] = true
-    this.updateChunksStatsText()
+    this.updateChunksStats()
 
     const chunkKey = `${x},${z}`
     const customBlockModels = this.protocolCustomBlocks.get(chunkKey)
@@ -461,6 +472,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   removeColumn (x, z) {
+    this.updateChunksStats()
     delete this.loadedChunks[`${x},${z}`]
     for (const worker of this.workers) {
       worker.postMessage({ type: 'unloadChunk', x, z })
@@ -675,7 +687,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   setSectionDirty (pos: Vec3, value = true, useChangeWorker = false) { // value false is used for unloading chunks
     if (this.viewDistance === -1) throw new Error('viewDistance not set')
-    this.allChunksFinished = false
+    this.reactiveState.world.mesherWork = true
     const distance = this.getDistance(pos)
     if (!this.workers.length || distance[0] > this.viewDistance || distance[1] > this.viewDistance) return
     const key = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.y / 16) * 16},${Math.floor(pos.z / 16) * 16}`
@@ -767,5 +779,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.renderUpdateEmitter.removeAllListeners()
     this.displayOptions.worldView.removeAllListeners() // todo
     this.abortController.abort()
+    removeStat('chunks-loaded')
+    removeStat('chunks-read')
   }
 }
