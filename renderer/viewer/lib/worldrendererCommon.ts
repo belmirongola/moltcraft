@@ -19,7 +19,6 @@ import { chunkPos } from './simpleUtils'
 import { removeStat, updateStatText } from './ui/newStats'
 import { generateGuiAtlas } from './guiRenderer'
 import { WorldDataEmitter } from './worldDataEmitter'
-import { WorldRendererThree } from './worldrendererThree'
 import { SoundSystem, ThreeJsSound } from './threeJsSound'
 import { IPlayerState } from './basePlayerState'
 
@@ -108,6 +107,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   handleResize = () => { }
   camera: THREE.PerspectiveCamera
   highestBlocks = new Map<string, HighestBlockInfo>()
+  blockEntities = {}
 
   workersProcessAverageTime = 0
   workersProcessAverageTimeCount = 0
@@ -355,13 +355,12 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   // new game load happens here
-  async setVersion (version, texturesVersion = version) {
+  async setVersion (version: string) {
     this.version = version
-    this.texturesVersion = texturesVersion
     this.resetWorld()
 
     // for workers in single file build
-    if (document.readyState === 'loading') {
+    if (document?.readyState === 'loading') {
       await new Promise(resolve => {
         document.addEventListener('DOMContentLoaded', resolve)
       })
@@ -373,7 +372,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     await this.resourcesManager.loadMcData(version)
     this.sendMesherMcData()
     if (!this.resourcesManager.currentResources) {
-      await this.resourcesManager.updateAssetsData({ version, texturesVersion })
+      await this.resourcesManager.updateAssetsData({ })
     }
   }
 
@@ -571,7 +570,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
     // todo remove and use other architecture instead so data flow is clear
     worldEmitter.on('blockEntities', (blockEntities) => {
-      if (this instanceof WorldRendererThree) (this).blockEntities = blockEntities
+      this.blockEntities = blockEntities
     })
 
     worldEmitter.on('unloadChunk', ({ x, z }) => {

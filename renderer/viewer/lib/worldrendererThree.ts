@@ -25,7 +25,6 @@ import { ThreeJsSound } from './threeJsSound'
 
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
-  blockEntities = {}
   sectionObjects: Record<string, THREE.Object3D> = {}
   chunkTextures = new Map<string, { [pos: string]: THREE.Texture }>()
   signsCache = new Map<string, any>()
@@ -153,6 +152,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.itemsTexture = itemsTexture
     await super.updateAssetsData()
     this.onAllTexturesLoaded()
+    if (Object.keys(this.loadedChunks).length > 0) {
+      console.log('rerendering chunks because of texture update')
+      this.rerenderAllChunks()
+    }
   }
 
   onAllTexturesLoaded () {
@@ -474,18 +477,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(chunkX, y, chunkZ))
     }
-  }
-
-  async doHmr () {
-    const oldSections = { ...this.sectionObjects }
-    this.sectionObjects = {} // skip clearing
-    worldView!.unloadAllChunks()
-    void this.setVersion(this.version, this.texturesVersion)
-    this.sectionObjects = oldSections
-    // this.rerenderAllChunks()
-
-    // supply new data
-    await worldView!.updatePosition(bot.entity.position, true)
   }
 
   rerenderAllChunks () { // todo not clear what to do with loading chunks
