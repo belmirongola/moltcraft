@@ -37,6 +37,10 @@ export const allImagesLoadedState = proxy({
   value: false
 })
 
+export const jeiCustomCategories = proxy({
+  value: [] as Array<{ id: string, categoryTitle: string, items: any[] }>
+})
+
 export const onGameLoad = (onLoad) => {
   allImagesLoadedState.value = false
   version = bot.version
@@ -254,12 +258,25 @@ const getItemName = (slot: Item | RenderItem | null) => {
   return text.join('')
 }
 
+let lastMappedSots = [] as any[]
+const itemToVisualKey = (slot: RenderItem | Item | null) => {
+  if (!slot) return null
+  return slot.name + (slot['metadata'] ?? '-') + (slot.nbt ? JSON.stringify(slot.nbt) : '') + (slot['components'] ? JSON.stringify(slot['components']) : '')
+}
 const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
-  return slots.map((slot, i) => {
+  const newSlots = slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
+    if (!isJei) {
+      const oldKey = itemToVisualKey(lastMappedSots[i])
+      if (oldKey && oldKey === itemToVisualKey(slot)) {
+        return lastMappedSots[i]
+      }
+    }
+
     try {
+      if (slot.durabilityUsed && slot.maxDurability) slot.durabilityUsed = Math.min(slot.durabilityUsed, slot.maxDurability)
       const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
       const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', })
       const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
@@ -277,6 +294,8 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
     }
     return slot
   })
+  lastMappedSots = newSlots
+  return newSlots
 }
 
 export const upInventoryItems = (isInventory: boolean, invWindow = lastWindow) => {
@@ -324,9 +343,14 @@ const implementedContainersGuiMap = {
 const upJei = (search: string) => {
   search = search.toLowerCase()
   // todo fix pre flat
-  const matchedSlots = loadedData.itemsArray.map(x => {
+  const itemsArray = [
+    ...jeiCustomCategories.value.flatMap(x => x.items).filter(x => x !== null),
+    ...loadedData.itemsArray.filter(x => x.displayName.toLowerCase().includes(search)).map(item => new PrismarineItem(item.id, 1)).filter(x => x !== null)
+  ]
+  const matchedSlots = itemsArray.map(x => {
+    x.displayName = getItemName(x) ?? x.displayName
     if (!x.displayName.toLowerCase().includes(search)) return null
-    return new PrismarineItem(x.id, 1)
+    return x
   }).filter(a => a !== null)
   lastWindow.pwindow.win.jeiSlotsPage = 0
   lastWindow.pwindow.win.jeiSlots = mapSlots(matchedSlots, true)
@@ -344,7 +368,7 @@ export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {
     return [...allRecipes ?? [], ...itemDescription ? [
       [
         'GenericDescription',
-        mapSlots([item])[0],
+        mapSlots([item], true)[0],
         [],
         itemDescription
       ]
@@ -448,26 +472,43 @@ const openWindow = (type: string | undefined) => {
       inGameError(`Item for block ${slotItem.name} not found`)
       return
     }
-    const item = new PrismarineItem(itemId, isRightclick ? 64 : 1, slotItem.metadata)
+    const item = PrismarineItem.fromNotch({
+      ...slotItem,
+      itemId,
+      itemCount: isRightclick ? 64 : 1,
+      components: slotItem.components ?? [],
+      removeComponents: slotItem.removedComponents ?? [],
+      itemDamage: slotItem.metadata ?? 0,
+      nbt: slotItem.nbt,
+    })
     if (bot.game.gameMode === 'creative') {
       const freeSlot = bot.inventory.firstEmptyInventorySlot()
       if (freeSlot === null) return
       void bot.creative.setInventorySlot(freeSlot, item)
     } else {
-      inv.canvasManager.children[0].showRecipesOrUsages(!isRightclick, mapSlots([item])[0])
+      inv.canvasManager.children[0].showRecipesOrUsages(!isRightclick, mapSlots([item], true)[0])
     }
   }
 
-  // if (bot.game.gameMode !== 'spectator') {
-  lastWindow.pwindow.win.jeiSlotsPage = 0
-  // todo workaround so inventory opens immediately (though it still lags)
-  setTimeout(() => {
-    upJei('')
-  })
-  miscUiState.displaySearchInput = true
-  // } else {
-  //   lastWindow.pwindow.win.jeiSlots = []
-  // }
+  const isJeiEnabled = () => {
+    if (typeof options.jeiEnabled === 'boolean') return options.jeiEnabled
+    if (Array.isArray(options.jeiEnabled)) {
+      return options.jeiEnabled.includes(bot.game?.gameMode as any)
+    }
+    return false
+  }
+
+  if (isJeiEnabled()) {
+    lastWindow.pwindow.win.jeiSlotsPage = 0
+    // todo workaround so inventory opens immediately (though it still lags)
+    setTimeout(() => {
+      upJei('')
+    })
+    miscUiState.displaySearchInput = true
+  } else {
+    lastWindow.pwindow.win.jeiSlots = []
+    miscUiState.displaySearchInput = false
+  }
 
   if (type === undefined) {
     // player inventory
@@ -574,8 +615,8 @@ const getAllItemRecipes = (itemName: string) => {
   return results.map(({ result, ingredients, description }) => {
     return [
       'CraftingTableGuide',
-      mapSlots([result])[0],
-      mapSlots(ingredients),
+      mapSlots([result], true)[0],
+      mapSlots(ingredients, true),
       description
     ]
   })

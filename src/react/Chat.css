@@ -29,6 +29,12 @@ div.chat-wrapper {
   gap: 1px;
 }
 
+.chat-submit-button {
+  visibility: hidden;
+  position: absolute;
+  pointer-events: none !important;
+}
+
 .chat-input-wrapper form {
   display: flex;
 }
@@ -84,11 +90,11 @@ div.chat-wrapper {
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
-  background-color: rgb(24, 24, 24);
+  background-color: #272727;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgb(50, 50, 50);
+  background-color: #747474;
 }
 
 .chat-completions-items>div {
@@ -154,20 +160,24 @@ input[type=text],
   padding-bottom: 1px;
   padding-left: 2px;
   padding-right: 2px;
-  height: 15px;
 }
 
-.chat-mobile-hidden {
-  width: 8px;
-  height: 0;
+.chat-mobile-input-hidden {
   position: absolute;
+  width: 8px;
+  height: 1px !important;
   display: block !important;
   opacity: 0;
-  pointer-events: none;
+  height: 1px !important;
+  /* ios: using z-index, pointer-events: none or top below -10px breaks arrows */
 }
 
-.chat-mobile-hidden:nth-last-child(1) {
-  height: 8px;
+.chat-mobile-input-hidden-up {
+  top: -10px;
+}
+
+.chat-mobile-input-hidden-down {
+  top: -5px;
 }
 
 #chatinput:focus {

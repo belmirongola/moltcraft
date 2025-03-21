@@ -71,6 +71,8 @@ export default ({
 }: Props) => {
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
   const [isInputFocused, setIsInputFocused] = useState(false)
+  // const [spellCheckEnabled, setSpellCheckEnabled] = useState(false)
+  const spellCheckEnabled = false
 
   const [completePadText, setCompletePadText] = useState('')
   const completeRequestValue = useRef('')
@@ -107,9 +109,28 @@ export default ({
     }, 0)
   }
 
-  const auxInputFocus = (fireKey: string) => {
+  const handleArrowUp = () => {
+    if (chatHistoryPos.current === 0) return
+    if (chatHistoryPos.current === sendHistoryRef.current.length) { // started navigating history
+      inputCurrentlyEnteredValue.current = chatInput.current.value
+    }
+    chatHistoryPos.current--
+    updateInputValue(sendHistoryRef.current[chatHistoryPos.current] || '')
+  }
+
+  const handleArrowDown = () => {
+    if (chatHistoryPos.current === sendHistoryRef.current.length) return
+    chatHistoryPos.current++
+    updateInputValue(sendHistoryRef.current[chatHistoryPos.current] || inputCurrentlyEnteredValue.current || '')
+  }
+
+  const auxInputFocus = (direction: 'up' | 'down') => {
     chatInput.current.focus()
-    chatInput.current.dispatchEvent(new KeyboardEvent('keydown', { code: fireKey, bubbles: true }))
+    if (direction === 'up') {
+      handleArrowUp()
+    } else {
+      handleArrowDown()
+    }
   }
 
   useEffect(() => {
@@ -125,6 +146,7 @@ export default ({
     if (opened) {
       updateInputValue(chatInputValueGlobal.value)
       chatInputValueGlobal.value = ''
+      chatHistoryPos.current = sendHistoryRef.current.length
       if (!usingTouch) {
         chatInput.current.focus()
       }
@@ -167,6 +189,8 @@ export default ({
   const onMainInputChange = () => {
     const completeValue = getCompleteValue()
     setCompletePadText(completeValue === '/' ? '' : completeValue)
+    // not sure if enabling would be useful at all (maybe make as a setting in the future?)
+    // setSpellCheckEnabled(!chatInput.current.value.startsWith('/'))
     if (completeRequestValue.current === completeValue) {
       updateFilteredCompleteItems(completionItemsSource)
       return
@@ -271,20 +295,23 @@ export default ({
             {isIos && <input
               value=''
               type="text"
-              className="chat-mobile-hidden"
+              className="chat-mobile-input-hidden chat-mobile-input-hidden-up"
               id="chatinput-next-command"
               spellCheck={false}
               autoComplete="off"
-              onFocus={() => auxInputFocus('ArrowUp')}
+              onFocus={() => auxInputFocus('up')}
               onChange={() => { }}
             />}
             <input
               defaultValue=''
+              // ios doesn't support toggling autoCorrect on the fly so we need to re-create the input
+              key={spellCheckEnabled ? 'true' : 'false'}
               ref={chatInput}
               type="text"
               className="chat-input"
               id="chatinput"
-              spellCheck={false}
+              spellCheck={spellCheckEnabled}
+              autoCorrect={spellCheckEnabled ? 'on' : 'off'}
               autoComplete="off"
               aria-autocomplete="both"
               onChange={onMainInputChange}
@@ -294,16 +321,9 @@ export default ({
               onBlur={() => setIsInputFocused(false)}
               onKeyDown={(e) => {
                 if (e.code === 'ArrowUp') {
-                  if (chatHistoryPos.current === 0) return
-                  if (chatHistoryPos.current === sendHistoryRef.current.length) { // started navigating history
-                    inputCurrentlyEnteredValue.current = e.currentTarget.value
-                  }
-                  chatHistoryPos.current--
-                  updateInputValue(sendHistoryRef.current[chatHistoryPos.current] || '')
+                  handleArrowUp()
                 } else if (e.code === 'ArrowDown') {
-                  if (chatHistoryPos.current === sendHistoryRef.current.length) return
-                  chatHistoryPos.current++
-                  updateInputValue(sendHistoryRef.current[chatHistoryPos.current] || inputCurrentlyEnteredValue.current || '')
+                  handleArrowDown()
                 }
                 if (e.code === 'Tab') {
                   if (completionItemsSource.length) {
@@ -327,15 +347,15 @@ export default ({
             {isIos && <input
               value=''
               type="text"
-              className="chat-mobile-hidden"
+              className="chat-mobile-input-hidden chat-mobile-input-hidden-down"
               id="chatinput-prev-command"
               spellCheck={false}
               autoComplete="off"
-              onFocus={() => auxInputFocus('ArrowDown')}
+              onFocus={() => auxInputFocus('down')}
               onChange={() => { }}
             />}
             {/* for some reason this is needed to make Enter work on android chrome */}
-            <button type='submit' style={{ visibility: 'hidden' }} />
+            <button type='submit' className="chat-submit-button" />
           </form>
         </div>
       </div>

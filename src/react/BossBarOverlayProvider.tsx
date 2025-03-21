@@ -28,9 +28,11 @@ export default () => {
       addBossBar(bossBar as BossBarType)
     })
     bot.on('bossBarUpdated', (bossBar) => {
+      if (!bossBar) return
       addBossBar(bossBar as BossBarType)
     })
     bot.on('bossBarDeleted', (bossBar) => {
+      if (!bossBar) return
       removeBossBar(bossBar as BossBarType)
     })
   }, [])

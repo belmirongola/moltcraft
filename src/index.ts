@@ -363,6 +363,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (miscUiState.gameLoaded) return
 
     setLoadingScreenStatus(`Error encountered. ${err}`, true)
+    appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
     destroyAll()
   }
@@ -712,6 +713,7 @@ export async function connect (connectOptions: ConnectOptions) {
     console.log('You were kicked!', kickReason)
     const { formatted: kickReasonFormatted, plain: kickReasonString } = parseFormattedMessagePacket(kickReason)
     setLoadingScreenStatus(`The Minecraft server kicked you. Kick reason: ${kickReasonString}`, true, undefined, undefined, kickReasonFormatted)
+    appStatusState.showReconnect = true
     destroyAll()
   })
 
@@ -779,11 +781,13 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus('Placing blocks (starting viewer)')
     if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
       localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+      if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
+        lockUrl()
+      }
+    } else {
+      localStorage.removeItem('lastConnectOptions')
     }
     connectOptions.onSuccessfulPlay?.()
-    if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
-      lockUrl()
-    }
     updateDataAfterJoin()
     if (connectOptions.autoLoginPassword) {
       bot.chat(`/login ${connectOptions.autoLoginPassword}`)
@@ -827,6 +831,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (appStatusState.isError) return
 
     const waitForChunks = async () => {
+      if (appQueryParams.sp === '1') return //todo
       const waitForChunks = options.waitForChunksRender === 'sp-only' ? !!singleplayer : options.waitForChunksRender
       if (viewer.world.allChunksFinished || !waitForChunks) {
         return
@@ -894,8 +899,8 @@ export async function connect (connectOptions: ConnectOptions) {
 const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
 
 listenGlobalEvents()
-const unsubscribe = watchValue(miscUiState, async s => {
-  if (s.fsReady && s.appConfig) {
+const unsubscribe = subscribe(miscUiState, async () => {
+  if (miscUiState.fsReady && miscUiState.appConfig) {
     unsubscribe()
     if (reconnectOptions) {
       sessionStorage.removeItem('reconnectOptions')

@@ -88,7 +88,7 @@ export default () => {
             // normalize
             items = items.map(item => `/${item}`)
           }
-          if (localServer) {
+          if (items.length) {
             items = [...items, ...getBuiltinCommandsList()]
           }
         }

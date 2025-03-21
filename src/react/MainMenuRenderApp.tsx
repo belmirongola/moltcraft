@@ -8,7 +8,6 @@ import { setLoadingScreenStatus } from '../appStatus'
 import { openFilePicker, copyFilesAsync, mkdirRecursive, openWorldDirectory, removeFileRecursiveAsync } from '../browserfs'
 
 import MainMenu from './MainMenu'
-import { DiscordButton } from './DiscordButton'
 
 const isMainMenu = () => {
   return activeModalStack.length === 0 && !miscUiState.gameLoaded
@@ -123,29 +122,10 @@ export default () => {
         singleplayerAvailable={singleplayerAvailable}
         connectToServerAction={() => showModal({ reactType: 'serversList' })}
         singleplayerAction={async () => {
-          const oldFormatSave = fs.existsSync('./world/level.dat')
-          if (oldFormatSave) {
-            setLoadingScreenStatus('Migrating old save, don\'t close the page')
-            try {
-              await mkdirRecursive('/data/worlds/local')
-              await copyFilesAsync('/world/', '/data/worlds/local')
-              try {
-                await removeFileRecursiveAsync('/world/')
-              } catch (err) {
-                console.error(err)
-              }
-            } catch (err) {
-              console.warn(err)
-              alert('Failed to migrate world from localStorage')
-            } finally {
-              setLoadingScreenStatus(undefined)
-            }
-          }
           showModal({ reactType: 'singleplayer' })
         }}
         githubAction={() => openGithub()}
         optionsAction={() => openOptionsMenu('main')}
-        linksButton={<DiscordButton />}
         bottomRightLinks={process.env.MAIN_MENU_LINKS}
         openFileAction={e => {
           if (!!window.showDirectoryPicker && !e.shiftKey) {

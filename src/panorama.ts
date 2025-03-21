@@ -13,7 +13,7 @@ import { miscUiState } from './globalState'
 import { loadMinecraftData } from './connect'
 
 let panoramaCubeMap
-let shouldDisplayPanorama = false
+let shouldDisplayPanorama = true
 
 const panoramaFiles = [
   'panorama_3.png', // right (+x)
@@ -34,12 +34,11 @@ export async function addPanoramaCubeMap () {
     setTimeout(resolve, 0) // wait for viewer to be initialized
   })
   viewer.camera.fov = 85
+  if (!shouldDisplayPanorama) return
   if (process.env.SINGLE_FILE_BUILD_MODE) {
     void initDemoWorld()
     return
   }
-
-  shouldDisplayPanorama = true
 
   let time = 0
   viewer.camera.near = 0.05
@@ -102,12 +101,16 @@ export async function addPanoramaCubeMap () {
   panoramaCubeMap = group
 }
 
-subscribeKey(miscUiState, 'fsReady', () => {
-  if (miscUiState.fsReady) {
-    // don't do it earlier to load fs and display menu faster
-    void addPanoramaCubeMap()
-  }
-})
+if (process.env.SINGLE_FILE_BUILD_MODE) {
+  subscribeKey(miscUiState, 'fsReady', () => {
+    if (miscUiState.fsReady) {
+      // don't do it earlier to load fs and display menu faster
+      void addPanoramaCubeMap()
+    }
+  })
+} else {
+  void addPanoramaCubeMap()
+}
 
 export function removePanorama () {
   for (const unloadPanoramaCallback of unloadPanoramaCallbacks) {

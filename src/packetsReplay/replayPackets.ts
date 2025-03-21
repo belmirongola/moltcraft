@@ -3,6 +3,7 @@ import { createServer, ServerClient } from 'minecraft-protocol'
 import { ParsedReplayPacket, parseReplayContents } from 'mcraft-fun-mineflayer/build/packetsLogger'
 import { PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraft-fun-mineflayer/build/worldState'
 import MinecraftData from 'minecraft-data'
+import { GameMode } from 'mineflayer'
 import { LocalServer } from '../customServer'
 import { UserError } from '../mineflayer/userError'
 import { packetsReplayState } from '../react/state/packetsReplayState'
@@ -188,6 +189,10 @@ const mainPacketsReplayer = async (client: ServerClient, packets: ParsedReplayPa
       }
 
       if (packet.isFromServer) {
+        if (packet.params === null) {
+          console.warn('packet.params is null', packet)
+          continue
+        }
         playServerPacket(packet.name, packet.params)
         await new Promise(resolve => {
           setTimeout(resolve, packet.diff * packetsReplayState.speed + ADDITIONAL_DELAY * (packetsReplayState.customButtons.packetsSenderDelay.state ? 1 : 0))
@@ -216,6 +221,7 @@ const mainPacketsReplayer = async (client: ServerClient, packets: ParsedReplayPa
               setTimeout(resolve, 1000)
             })] : [])
           ])
+          clientsPacketsWaiter.stopWaiting()
           clientPackets = []
         }
       }
@@ -224,6 +230,25 @@ const mainPacketsReplayer = async (client: ServerClient, packets: ParsedReplayPa
     // Restore original console.error
     console.error = originalConsoleError
   }
+}
+
+export const switchGameMode = (gameMode: GameMode) => {
+  const gamemodes = {
+    survival: 0,
+    creative: 1,
+    adventure: 2,
+    spectator: 3
+  }
+  if (gameMode === 'spectator') {
+    bot._client.emit('abilities', {
+    // can fly + is flying
+      flags: 6
+    })
+  }
+  bot._client.emit('game_state_change', {
+    reason: 3,
+    gameMode: gamemodes[gameMode]
+  })
 }
 
 interface PacketsWaiterOptions {
@@ -236,6 +261,7 @@ interface PacketsWaiterOptions {
 interface PacketsWaiter {
   addPacket(name: string, params: any): void
   waitForPackets(packets: string[]): Promise<void>
+  stopWaiting(): void
 }
 
 const createPacketsWaiter = (options: PacketsWaiterOptions = {}): PacketsWaiter => {
@@ -296,6 +322,11 @@ const createPacketsWaiter = (options: PacketsWaiterOptions = {}): PacketsWaiter 
         isWaiting = false
         packetHandler = null
       }
+    },
+    stopWaiting () {
+      isWaiting = false
+      packetHandler = null
+      queuedPackets.length = 0
     }
   }
 }
