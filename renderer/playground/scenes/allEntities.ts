@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { BasePlaygroundScene } from '../baseScene'
 import { EntityDebugFlags, EntityMesh, rendererSpecialHandled } from '../../viewer/lib/entity/EntityMesh'
 

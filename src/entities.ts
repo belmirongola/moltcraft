@@ -1,8 +1,9 @@
 import { Entity } from 'prismarine-entity'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import tracker from '@nxg-org/mineflayer-tracker'
 import { loader as autoJumpPlugin } from '@nxg-org/mineflayer-auto-jump'
 import { subscribeKey } from 'valtio/utils'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options, watchValue } from './optionsStorage'
 import { miscUiState } from './globalState'
 
@@ -40,23 +41,13 @@ customEvents.on('gameLoaded', () => {
   bot.loadPlugin(autoJumpPlugin)
   updateAutoJump()
 
-  // todo cleanup (move to viewer, also shouldnt be used at all)
   const playerPerAnimation = {} as Record<string, string>
   const entityData = (e: Entity) => {
     if (!e.username) return
     window.debugEntityMetadata ??= {}
     window.debugEntityMetadata[e.username] = e
-    // todo entity spawn timing issue, check perf
-    const playerObject = viewer.entities.entities[e.id]?.playerObject
-    if (playerObject) {
-      // todo throttle!
+    if (e.type === 'player') {
       bot.tracker.trackEntity(e)
-      playerObject.backEquipment = e.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
-      if (playerObject.cape.map === null) {
-        playerObject.cape.visible = false
-      }
-      // todo (easy, important) elytra flying animation
-      // todo cleanup states
     }
   }
 
@@ -76,68 +67,40 @@ customEvents.on('gameLoaded', () => {
       const isSprinting = Math.abs(speed.x) > SPRINTING_SPEED || Math.abs(speed.z) > SPRINTING_SPEED
       const newAnimation = isWalking ? (isSprinting ? 'running' : 'walking') : 'idle'
       if (newAnimation !== playerPerAnimation[id]) {
-        viewer.entities.playAnimation(e.id, newAnimation)
+        getThreeJsRendererMethods()?.playEntityAnimation(e.id, newAnimation)
         playerPerAnimation[id] = newAnimation
       }
     }
   })
 
   bot.on('entitySwingArm', (e) => {
-    if (viewer.entities.entities[e.id]?.playerObject) {
-      viewer.entities.playAnimation(e.id, 'oneSwing')
-    }
+    getThreeJsRendererMethods()?.playEntityAnimation(e.id, 'oneSwing')
   })
 
   bot._client.on('damage_event', (data) => {
     const { entityId, sourceTypeId: damage } = data
-    if (viewer.entities.entities[entityId]) {
-      viewer.entities.handleDamageEvent(entityId, damage)
-    }
+    getThreeJsRendererMethods()?.damageEntity(entityId, damage)
   })
 
   bot._client.on('entity_status', (data) => {
     if (versionToNumber(bot.version) >= versionToNumber('1.19.4')) return
     const { entityId, entityStatus } = data
-    if (entityStatus === 2 && viewer.entities.entities[entityId]) {
-      viewer.entities.handleDamageEvent(entityId, entityStatus)
+    if (entityStatus === 2) {
+      getThreeJsRendererMethods()?.damageEntity(entityId, entityStatus)
     }
   })
 
-  const loadedSkinEntityIds = new Set<number>()
-
-  const playerRenderSkin = (e: Entity) => {
-    const mesh = viewer.entities.entities[e.id]
-    if (!mesh) return
-    if (!mesh.playerObject || !options.loadPlayerSkins) return
-    const MAX_DISTANCE_SKIN_LOAD = 128
-    const distance = e.position.distanceTo(bot.entity.position)
-    if (distance < MAX_DISTANCE_SKIN_LOAD && distance < (bot.settings.viewDistance as number) * 16) {
-      if (viewer.entities.entities[e.id]) {
-        if (loadedSkinEntityIds.has(e.id)) return
-        loadedSkinEntityIds.add(e.id)
-        viewer.entities.updatePlayerSkin(e.id, e.username, e.uuid, true, true)
-      }
-    }
-  }
-  viewer.entities.addListener('remove', (e) => {
-    loadedSkinEntityIds.delete(e.id)
-    playerPerAnimation[e.id] = ''
-    bot.tracker.stopTrackingEntity(e, true)
+  bot.on('entityGone', (entity) => {
+    bot.tracker.stopTrackingEntity(entity, true)
   })
 
   bot.on('entityMoved', (e) => {
-    playerRenderSkin(e)
     entityData(e)
   })
   bot._client.on('entity_velocity', (packet) => {
     const e = bot.entities[packet.entityId]
     if (!e) return
     entityData(e)
-  })
-
-  viewer.entities.addListener('add', (e) => {
-    if (!viewer.entities.entities[e.id]) throw new Error('mesh still not loaded')
-    playerRenderSkin(e)
   })
 
   for (const entity of Object.values(bot.entities)) {
@@ -149,10 +112,6 @@ customEvents.on('gameLoaded', () => {
   bot.on('entitySpawn', entityData)
   bot.on('entityUpdate', entityData)
   bot.on('entityEquip', entityData)
-
-  watchValue(options, o => {
-    viewer.entities.setDebugMode(o.showChunkBorders ? 'basic' : 'none')
-  })
 
   // Texture override from packet properties
   bot._client.on('player_info', (packet) => {
@@ -177,7 +136,7 @@ customEvents.on('gameLoaded', () => {
             }
           }
           // even if not found, still record to cache
-          viewer.entities.updatePlayerSkin(entityId, playerEntry.player?.name, playerEntry.uuid, skinUrl, capeUrl)
+          getThreeJsRendererMethods()?.updatePlayerSkin(entityId, playerEntry.player?.name, playerEntry.uuid, skinUrl, capeUrl)
         } catch (err) {
           console.error('Error decoding player texture:', err)
         }

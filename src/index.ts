@@ -14,17 +14,15 @@ import './mineflayer/java-tester/index'
 import './external'
 import './appConfig'
 import { getServerInfo } from './mineflayer/mc-protocol'
-import { onGameLoad, renderSlot } from './inventoryWindows'
-import { GeneralInputItem, RenderItem } from './mineflayer/items'
+import { onGameLoad } from './inventoryWindows'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
 import { Duplex } from 'stream'
 
 import './scaleInterface'
-import { initWithRenderer } from './topRightStats'
 
-import { options, watchValue } from './optionsStorage'
+import { options } from './optionsStorage'
 import './reactUi'
 import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
@@ -35,16 +33,11 @@ import downloadAndOpenFile from './downloadAndOpenFile'
 import fs from 'fs'
 import net from 'net'
 import mineflayer from 'mineflayer'
-import { WorldDataEmitter, Viewer } from 'renderer/viewer'
-import pathfinder from 'mineflayer-pathfinder'
 
-import * as THREE from 'three'
-import MinecraftData from 'minecraft-data'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
 import initializePacketsReplay from './packetsReplay/packetsReplayLegacy'
 
-import { initVR } from './vr'
 import {
   activeModalStack,
   activeModalStacks,
@@ -60,16 +53,11 @@ import { parseServerAddress } from './parseServerAddress'
 import { setLoadingScreenStatus } from './appStatus'
 import { isCypress } from './standaloneUtils'
 
-import {
-  removePanorama
-} from './panorama'
-import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
-
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
 import dayCycle from './dayCycle'
 
-import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack'
+import { onAppLoad, resourcePackState } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
 import CustomChannelClient from './customClient'
 import { registerServiceWorker } from './serviceWorker'
@@ -79,42 +67,37 @@ import { fsState } from './loadSave'
 import { watchFov } from './rendererUtils'
 import { loadInMemorySave } from './react/SingleplayerProvider'
 
-import { ua } from './react/utils'
 import { possiblyHandleStateVariable } from './googledrive'
 import flyingSquidEvents from './flyingSquidEvents'
-import { hideNotification, notificationProxy, showNotification } from './react/NotificationProvider'
+import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
-import { ViewerWrapper } from 'renderer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
 import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import packetsPatcher from './mineflayer/plugins/packetsPatcher'
 import { mainMenuState } from './react/MainMenuRenderApp'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import './mobileShim'
 import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from './viewerConnector'
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
-import { playerState, PlayerStateManager } from './mineflayer/playerState'
+import { playerState } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
-import { LocalServer } from './customServer'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
-import { createFullScreenProgressReporter } from './core/progressReporter'
-import { getItemModelName } from './resourcesManager'
-import { importLargeData } from '../generated/large-data-aliases'
+import { createConsoleLogProgressReporter, createFullScreenProgressReporter } from './core/progressReporter'
+import { appViewer } from './appViewer'
+import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
+import { subscribeKey } from 'valtio/utils'
 
 window.debug = debug
-window.THREE = THREE
 window.beforeRenderFrame = []
 
 // ACTUAL CODE
@@ -128,105 +111,30 @@ initializePacketsReplay()
 packetsPatcher()
 onAppLoad()
 
-// Create three.js context, add to page
-let renderer: THREE.WebGLRenderer
-try {
-  renderer = new THREE.WebGLRenderer({
-    powerPreference: options.gpuPreference,
-    preserveDrawingBuffer: true,
-    logarithmicDepthBuffer: true,
-  })
-} catch (err) {
-  console.error(err)
-  throw new Error(`Failed to create WebGL context, not possible to render (restart browser): ${err.message}`)
-}
-
-// renderer.localClippingEnabled = true
-initWithRenderer(renderer.domElement)
-const renderWrapper = new ViewerWrapper(renderer.domElement, renderer)
-renderWrapper.addToPage()
-watchValue(options, (o) => {
-  renderWrapper.renderInterval = o.frameLimit ? 1000 / o.frameLimit : 0
-  renderWrapper.renderIntervalUnfocused = o.backgroundRendering === '5fps' ? 1000 / 5 : o.backgroundRendering === '20fps' ? 1000 / 20 : undefined
-})
-
-const isFirefox = ua.getBrowser().name === 'Firefox'
-if (isFirefox) {
-  // set custom property
-  document.body.style.setProperty('--thin-if-firefox', 'thin')
-}
-
-const isIphone = ua.getDevice().model === 'iPhone' // todo ipad?
-
-if (isIphone) {
-  document.documentElement.style.setProperty('--hud-bottom-max', '21px') // env-safe-aria-inset-bottom
-}
-
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
-// Create viewer
-const viewer: import('renderer/viewer/lib/viewer').Viewer = new Viewer(renderer, undefined, playerState)
-window.viewer = viewer
-Object.defineProperty(window, 'world', {
-  get () {
-    return viewer.world
-  },
-})
-// todo unify
-viewer.entities.getItemUv = (item, specificProps) => {
-  const idOrName = item.itemId ?? item.blockId ?? item.name
-  try {
-    const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
-    if (!name) throw new Error(`Item not found: ${idOrName}`)
-
-    const model = getItemModelName({
-      ...item,
-      name,
-    } as GeneralInputItem, specificProps)
-
-    const renderInfo = renderSlot({
-      modelName: model,
-    }, false, true)
-
-    if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
-
-    const textureThree = renderInfo.texture === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
-    const img = textureThree.image
-
-    if (renderInfo.blockData) {
-      return {
-        resolvedModel: renderInfo.blockData.resolvedModel,
-        modelName: renderInfo.modelName!
-      }
+const loadBackend = () => {
+  appViewer.loadBackend(createGraphicsBackend)
+}
+window.loadBackend = loadBackend
+if (process.env.SINGLE_FILE_BUILD_MODE) {
+  const unsub = subscribeKey(miscUiState, 'fsReady', () => {
+    if (miscUiState.fsReady) {
+      // don't do it earlier to load fs and display menu faster
+      loadBackend()
+      unsub()
     }
-    if (renderInfo.slice) {
-      // Get slice coordinates from either block or item texture
-      const [x, y, w, h] = renderInfo.slice
-      const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
-      return {
-        u, v, su, sv,
-        texture: textureThree,
-        modelName: renderInfo.modelName
-      }
-    }
-
-    throw new Error(`Invalid render info for item ${name}`)
-  } catch (err) {
-    reportError?.(err)
-    // Return default UV coordinates for missing texture
-    return {
-      u: 0,
-      v: 0,
-      su: 16 / viewer.world.material.map!.image.width,
-      sv: 16 / viewer.world.material.map!.image.width,
-      texture: viewer.world.material.map!
-    }
-  }
+  })
+} else {
+  loadBackend()
 }
 
-viewer.entities.entitiesOptions = {
-  fontFamily: 'mojangles'
+const animLoop = () => {
+  for (const fn of beforeRenderFrame) fn()
+  requestAnimationFrame(animLoop)
 }
+requestAnimationFrame(animLoop)
+
 watchOptionsAfterViewerInit()
 
 function hideCurrentScreens () {
@@ -252,30 +160,21 @@ function listenGlobalEvents () {
   })
 }
 
-let listeners = [] as Array<{ target, event, callback }>
-let cleanupFunctions = [] as Array<() => void>
-// only for dom listeners (no removeAllListeners)
-// todo refactor them out of connect fn instead
-const registerListener: import('./utilsTs').RegisterListener = (target, event, callback) => {
-  target.addEventListener(event, callback)
-  listeners.push({ target, event, callback })
-}
-const removeAllListeners = () => {
-  for (const { target, event, callback } of listeners) {
-    target.removeEventListener(event, callback)
-  }
-  for (const cleanupFunction of cleanupFunctions) {
-    cleanupFunction()
-  }
-  cleanupFunctions = []
-  listeners = []
-}
-
 export async function connect (connectOptions: ConnectOptions) {
   if (miscUiState.gameLoaded) return
+
+  if (sessionStorage.delayLoadUntilFocus) {
+    await new Promise(resolve => {
+      if (document.hasFocus()) {
+        resolve(undefined)
+      } else {
+        window.addEventListener('focus', resolve)
+      }
+    })
+  }
+
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
-  removePanorama()
 
   const { singleplayer } = connectOptions
   const p2pMultiplayer = !!connectOptions.peerId
@@ -318,12 +217,11 @@ export async function connect (connectOptions: ConnectOptions) {
   const destroyAll = () => {
     if (ended) return
     ended = true
-    viewer.resetAll()
     progress.end()
+    // dont reset viewer so we can still do debugging
     localServer = window.localServer = window.server = undefined
     gameAdditionalState.viewerConnection = false
 
-    renderWrapper.postRender = () => { }
     if (bot) {
       bot.end()
       // ensure mineflayer plugins receive this event for cleanup
@@ -337,7 +235,6 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     resetStateAfterDisconnect()
     cleanFs()
-    removeAllListeners()
   }
   const cleanFs = () => {
     if (singleplayer && !fsState.inMemorySave) {
@@ -409,6 +306,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
     let dataDownloaded = false
     const downloadMcData = async (version: string) => {
+      await appViewer.resourcesManager.loadSourceData(version)
       if (dataDownloaded) return
       dataDownloaded = true
 
@@ -417,7 +315,7 @@ export async function connect (connectOptions: ConnectOptions) {
         async () => {
           await loadMinecraftData(version)
           try {
-            await resourcepackReload(version)
+            // await resourcepackReload()
           } catch (err) {
             console.error(err)
             const doContinue = confirm('Failed to apply texture pack. See errors in the console. Continue?')
@@ -431,8 +329,8 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Loading minecraft models',
         async () => {
-          viewer.world.blockstatesModels = await importLargeData('blockStatesModels')
-          void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
+          // void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
+          void appViewer.prepareResources(version, createConsoleLogProgressReporter())
           miscUiState.loadedDataVersion = version
         }
       )
@@ -750,15 +648,15 @@ export async function connect (connectOptions: ConnectOptions) {
   })
 
   const start = Date.now()
-  let worldWasReady = false
-  void viewer.world.renderUpdateEmitter.on('update', () => {
-    // todo might not emit as servers simply don't send chunk if it's empty
-    if (!viewer.world.allChunksFinished || worldWasReady) return
-    worldWasReady = true
-    console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
-    viewer.render() // ensure the last state is rendered
-    document.dispatchEvent(new Event('cypress-world-ready'))
-  })
+  const worldWasReady = false
+  // void viewer.world.renderUpdateEmitter.on('update', () => {
+  //   // todo might not emit as servers simply don't send chunk if it's empty
+  //   if (!viewer.world.allChunksFinished || worldWasReady) return
+  //   worldWasReady = true
+  //   console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
+  //   viewer.render() // ensure the last state is rendered
+  //   document.dispatchEvent(new Event('cypress-world-ready'))
+  // })
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
@@ -778,7 +676,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
-    setLoadingScreenStatus('Placing blocks (starting viewer)')
+    progress.setMessage('Placing blocks (starting viewer)')
     if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
       localStorage.lastConnectOptions = JSON.stringify(connectOptions)
       if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
@@ -793,38 +691,25 @@ export async function connect (connectOptions: ConnectOptions) {
       bot.chat(`/login ${connectOptions.autoLoginPassword}`)
     }
 
+
     console.log('bot spawned - starting viewer')
+    appViewer.startWorld(bot.world, renderDistance)
+    appViewer.worldView.listenToBot(bot)
 
-    const center = bot.entity.position
-
-    const worldView = window.worldView = new WorldDataEmitter(bot.world, renderDistance, center)
-    watchOptionsAfterWorldViewInit()
-
-    void initVR()
     initMotionTracking()
-
-    renderWrapper.postRender = () => {
-      viewer.setFirstPersonCamera(null, bot.entity.yaw, bot.entity.pitch)
-    }
-
-    // Link WorldDataEmitter and Viewer
-    viewer.connect(worldView)
-    worldView.listenToBot(bot)
-    void worldView.init(bot.entity.position)
-
     dayCycle()
 
     // Bot position callback
     function botPosition () {
-      viewer.world.lastCamUpdate = Date.now()
+      appViewer.lastCamUpdate = Date.now()
       // this might cause lag, but not sure
-      viewer.setFirstPersonCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
-      void worldView.updatePosition(bot.entity.position)
+      appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
+      void appViewer.worldView.updatePosition(bot.entity.position)
     }
     bot.on('move', botPosition)
     botPosition()
 
-    setLoadingScreenStatus('Setting callbacks')
+    progress.setMessage('Setting callbacks')
 
     onGameLoad(() => {})
 
@@ -833,7 +718,7 @@ export async function connect (connectOptions: ConnectOptions) {
     const waitForChunks = async () => {
       if (appQueryParams.sp === '1') return //todo
       const waitForChunks = options.waitForChunksRender === 'sp-only' ? !!singleplayer : options.waitForChunksRender
-      if (viewer.world.allChunksFinished || !waitForChunks) {
+      if (!appViewer.backend || appViewer.rendererState.world.allChunksLoaded || !waitForChunks) {
         return
       }
 
@@ -843,13 +728,14 @@ export async function connect (connectOptions: ConnectOptions) {
         async () => {
           await new Promise<void>(resolve => {
             let wasFinished = false
-            void viewer.world.renderUpdateEmitter.on('update', () => {
+            const unsub = subscribe(appViewer.rendererState, () => {
               if (wasFinished) return
-              if (viewer.world.allChunksFinished) {
+              if (appViewer.rendererState.world.allChunksLoaded) {
                 wasFinished = true
                 resolve()
+                unsub()
               } else {
-                const perc = Math.round(Object.keys(viewer.world.finishedChunks).length / viewer.world.chunksLength * 100)
+                const perc = Math.round(appViewer.rendererState.world.chunksLoaded.length / appViewer.rendererState.world.chunksTotalNumber * 100)
                 progress.reportProgress('chunks', perc / 100)
               }
             })

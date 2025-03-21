@@ -3,41 +3,38 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { buttonMap as standardButtonsMap } from 'contro-max/build/gamepad'
 import * as THREE from 'three'
-import { subscribeKey } from 'valtio/utils'
-import { subscribe } from 'valtio'
-import { activeModalStack, hideModal } from './globalState'
-import { watchUnloadForCleanup } from './gameUnload'
-import { options } from './optionsStorage'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 
-export async function initVR () {
-  options.vrSupport = true
-  const { renderer } = viewer
-  if (!('xr' in navigator)) return
+export async function initVR (worldRenderer: WorldRendererThree) {
+  if (!('xr' in navigator) || !worldRenderer.worldRendererConfig.vrSupport) return
+  const { renderer } = worldRenderer
 
   const isSupported = await checkVRSupport()
   if (!isSupported) return
 
-  enableVr(renderer)
+  enableVr()
 
   const vrButtonContainer = createVrButtonContainer(renderer)
   const updateVrButtons = () => {
-    vrButtonContainer.hidden = !options.vrSupport || activeModalStack.length !== 0
+    const newHidden = !worldRenderer.worldRendererConfig.vrSupport || !worldRenderer.worldRendererConfig.foreground
+    if (vrButtonContainer.hidden !== newHidden) {
+      vrButtonContainer.hidden = newHidden
+    }
   }
 
-  const unsubWatchSetting = subscribeKey(options, 'vrSupport', updateVrButtons)
-  const unsubWatchModals = subscribe(activeModalStack, updateVrButtons)
+  worldRenderer.onRender.push(updateVrButtons)
 
-  function enableVr (renderer) {
+  function enableVr () {
     renderer.xr.enabled = true
+    worldRenderer.reactiveState.preventEscapeMenu = true
   }
 
   function disableVr () {
     renderer.xr.enabled = false
-    viewer.cameraObjectOverride = undefined
-    viewer.scene.remove(user)
+    worldRenderer.cameraObjectOverride = undefined
+    worldRenderer.reactiveState.preventEscapeMenu = false
+    worldRenderer.scene.remove(user)
     vrButtonContainer.hidden = true
-    unsubWatchSetting()
-    unsubWatchModals()
   }
 
   function createVrButtonContainer (renderer) {
@@ -84,7 +81,7 @@ export async function initVR () {
 
     closeButton.addEventListener('click', () => {
       container.hidden = true
-      options.vrSupport = false
+      worldRenderer.worldRendererConfig.vrSupport = false
     })
 
     return closeButton
@@ -103,8 +100,8 @@ export async function initVR () {
 
   // hack for vr camera
   const user = new THREE.Group()
-  user.add(viewer.camera)
-  viewer.scene.add(user)
+  user.add(worldRenderer.camera)
+  worldRenderer.scene.add(user)
   const controllerModelFactory = new XRControllerModelFactory(new GLTFLoader())
   const controller1 = renderer.xr.getControllerGrip(0)
   const controller2 = renderer.xr.getControllerGrip(1)
@@ -191,8 +188,8 @@ export async function initVR () {
       rotSnapReset = true
     }
 
-    // viewer.setFirstPersonCamera(null, yawOffset, 0)
-    viewer.setFirstPersonCamera(null, bot.entity.yaw, bot.entity.pitch)
+    // appViewer.backend?.updateCamera(null, yawOffset, 0)
+    worldRenderer.updateCamera(null, bot.entity.yaw, bot.entity.pitch)
 
     // todo restore this logic (need to preserve ability to move camera)
     // const xrCamera = renderer.xr.getCamera()
@@ -203,20 +200,16 @@ export async function initVR () {
     // todo ?
     // bot.physics.stepHeight = 1
 
-    viewer.render()
+    worldRenderer.render()
   })
   renderer.xr.addEventListener('sessionstart', () => {
-    viewer.cameraObjectOverride = user
-    // close all modals to be in game
-    for (const _modal of activeModalStack) {
-      hideModal(undefined, {}, { force: true })
-    }
+    worldRenderer.cameraObjectOverride = user
   })
   renderer.xr.addEventListener('sessionend', () => {
-    viewer.cameraObjectOverride = undefined
+    worldRenderer.cameraObjectOverride = undefined
   })
 
-  watchUnloadForCleanup(disableVr)
+  worldRenderer.abortController.signal.addEventListener('abort', disableVr)
 }
 
 const xrStandardRightButtonsMap = [

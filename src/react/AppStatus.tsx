@@ -69,7 +69,9 @@ export default ({
     >
       {isError && (
         <>
-          {showReconnect && onReconnect && <Button label="Reconnect" onClick={onReconnect} />}
+          {showReconnect && onReconnect && <Button onClick={onReconnect}>
+            <b>Reconnect</b>
+          </Button>}
           {actionsSlot}
           <Button
             onClick={() => {
@@ -79,8 +81,9 @@ export default ({
                 window.location.reload()
               }
             }}
-            label="Reset App (recommended)"
-          />
+          >
+            <b>Reset App (recommended)</b>
+          </Button>
           {!lockConnect && backAction && <Button label="Back" onClick={backAction} />}
         </>
       )}

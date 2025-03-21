@@ -14,17 +14,19 @@ import mojangson from 'mojangson'
 import { snakeCase } from 'change-case'
 import { Item } from 'prismarine-item'
 import { BlockModel } from 'mc-assets'
+import { isEntityAttackable } from 'mineflayer-mouse/dist/attackableEntity'
+import { Vec3 } from 'vec3'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import * as Entity from './entity/EntityMesh'
 import { getMesh } from './entity/EntityMesh'
 import { WalkingGeneralSwing } from './entity/animations'
 import { disposeObject } from './threeJsUtils'
 import { armorModel, armorTextures } from './entity/armorModels'
-import { Viewer } from './viewer'
 import { getBlockMeshFromModel } from './holdingBlock'
 import { ItemSpecificContextProperties } from './basePlayerState'
 import { loadSkinImage, getLookupUrl, stevePngUrl, steveTexture } from './utils/skins'
 import { loadTexture } from './utils'
+import { WorldRendererThree } from './worldrendererThree'
 
 export const TWEEN_DURATION = 120
 
@@ -167,7 +169,7 @@ const nametags = {}
 
 const isFirstUpperCase = (str) => str.charAt(0) === str.charAt(0).toUpperCase()
 
-function getEntityMesh (entity, world, options, overrides) {
+function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos: any; name: any }, world: WorldRendererThree | undefined, options: { fontFamily: string }, overrides) {
   if (entity.name) {
     try {
       // https://github.com/PrismarineJS/prismarine-viewer/pull/410
@@ -183,6 +185,7 @@ function getEntityMesh (entity, world, options, overrides) {
     }
   }
 
+  if (!isEntityAttackable(loadedData, entity)) return
   const geometry = new THREE.BoxGeometry(entity.width, entity.height, entity.width)
   geometry.translate(0, entity.height / 2, 0)
   const material = new THREE.MeshBasicMaterial({ color: 0xff_00_ff })
@@ -206,30 +209,17 @@ export type SceneEntity = THREE.Object3D & {
   additionalCleanup?: () => void
 }
 
-export class Entities extends EventEmitter {
+export class Entities {
   entities = {} as Record<string, SceneEntity>
-  entitiesOptions: {
-    fontFamily?: string
-  } = {}
+  entitiesOptions = {
+    fontFamily: 'mojangles'
+  }
   debugMode: string
   onSkinUpdate: () => void
   clock = new THREE.Clock()
-  rendering = true
-  itemsTexture: THREE.Texture | null = null
+  currentlyRendering = true
   cachedMapsImages = {} as Record<number, string>
   itemFrameMaps = {} as Record<number, Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>>>
-  getItemUv: undefined | ((item: Record<string, any>, specificProps: ItemSpecificContextProperties) => {
-    texture: THREE.Texture;
-    u: number;
-    v: number;
-    su?: number;
-    sv?: number;
-    size?: number;
-    modelName?: string;
-  } | {
-    resolvedModel: BlockModel
-    modelName: string
-  } | undefined)
 
   get entitiesByName (): Record<string, SceneEntity[]> {
     const byName: Record<string, SceneEntity[]> = {}
@@ -245,16 +235,14 @@ export class Entities extends EventEmitter {
     return Object.values(this.entities).filter(entity => entity.visible).length
   }
 
-  constructor (public viewer: Viewer) {
-    super()
-    this.entitiesOptions = {}
+  constructor (public worldRenderer: WorldRendererThree) {
     this.debugMode = 'none'
     this.onSkinUpdate = () => { }
   }
 
   clear () {
     for (const mesh of Object.values(this.entities)) {
-      this.viewer.scene.remove(mesh)
+      this.worldRenderer.scene.remove(mesh)
       disposeObject(mesh)
     }
     this.entities = {}
@@ -273,19 +261,24 @@ export class Entities extends EventEmitter {
   }
 
   setRendering (rendering: boolean, entity: THREE.Object3D | null = null) {
-    this.rendering = rendering
+    this.currentlyRendering = rendering
     for (const ent of entity ? [entity] : Object.values(this.entities)) {
       if (rendering) {
-        if (!this.viewer.scene.children.includes(ent)) this.viewer.scene.add(ent)
+        if (!this.worldRenderer.scene.children.includes(ent)) this.worldRenderer.scene.add(ent)
       } else {
-        this.viewer.scene.remove(ent)
+        this.worldRenderer.scene.remove(ent)
       }
     }
   }
 
   render () {
+    const renderEntitiesConfig = this.worldRenderer.worldRendererConfig.renderEntities
+    if (renderEntitiesConfig !== this.currentlyRendering) {
+      this.setRendering(renderEntitiesConfig)
+    }
+
     const dt = this.clock.getDelta()
-    const botPos = this.viewer.world.viewerPosition
+    const botPos = this.worldRenderer.viewerPosition
     const VISIBLE_DISTANCE = 8 * 8
 
     for (const entityId of Object.keys(this.entities)) {
@@ -310,7 +303,7 @@ export class Entities extends EventEmitter {
         const chunkKey = `${chunkX},${chunkZ}`
 
         // Entity is visible if within 16 blocks OR in a finished chunk
-        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey])
+        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.worldRenderer.finishedChunks[chunkKey])
       }
     }
   }
@@ -349,7 +342,7 @@ export class Entities extends EventEmitter {
     }
 
     if (typeof skinUrl !== 'string') throw new Error('Invalid skin url')
-    const renderEars = this.viewer.world.config.renderEars || username === 'deadmau5'
+    const renderEars = this.worldRenderer.worldRendererConfig.renderEars || username === 'deadmau5'
     void this.loadAndApplySkin(entityId, skinUrl, renderEars).then(() => {
       if (capeUrl) {
         if (capeUrl === true && username) {
@@ -500,11 +493,11 @@ export class Entities extends EventEmitter {
   }
 
   getItemMesh (item, specificProps: ItemSpecificContextProperties, previousModel?: string) {
-    const textureUv = this.getItemUv?.(item, specificProps)
+    const textureUv = this.worldRenderer.getItemRenderData(item, specificProps)
     if (previousModel && previousModel === textureUv?.modelName) return undefined
 
     if (textureUv && 'resolvedModel' in textureUv) {
-      const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
+      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName, this.worldRenderer.resourcesManager.currentResources!.worldBlockProvider)
       let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
         SCALE = 0.5
@@ -525,9 +518,11 @@ export class Entities extends EventEmitter {
 
     // TODO: Render proper model (especially for blocks) instead of flat texture
     if (textureUv) {
+      const textureThree = textureUv.renderInfo?.texture === 'blocks' ? this.worldRenderer.material.map! : this.worldRenderer.itemsTexture
       // todo use geometry buffer uv instead!
-      const { u, v, size, su, sv, texture } = textureUv
-      const itemsTexture = texture.clone()
+      const { u, v, su, sv } = textureUv
+      const size = undefined
+      const itemsTexture = textureThree.clone()
       itemsTexture.flipY = true
       const sizeY = (sv ?? size)!
       const sizeX = (su ?? size)!
@@ -584,6 +579,8 @@ export class Entities extends EventEmitter {
   }
 
   update (entity: import('prismarine-entity').Entity & { delete?; pos, name }, overrides) {
+    const justAdded = !this.entities[entity.id]
+
     const isPlayerModel = entity.name === 'player'
     if (entity.name === 'zombie_villager' || entity.name === 'husk') {
       overrides.texture = `textures/1.16.4/entity/${entity.name === 'zombie_villager' ? 'zombie_villager/zombie_villager.png' : `zombie/${entity.name}.png`}`
@@ -601,8 +598,8 @@ export class Entities extends EventEmitter {
       e.traverse(c => {
         if (c['additionalCleanup']) c['additionalCleanup']()
       })
-      this.emit('remove', entity)
-      this.viewer.scene.remove(e)
+      this.onRemoveEntity(entity)
+      this.worldRenderer.scene.remove(e)
       disposeObject(e)
       // todo dispose textures as well ?
       delete this.entities[entity.id]
@@ -675,7 +672,7 @@ export class Entities extends EventEmitter {
         //@ts-expect-error
         playerObject.animation.isMoving = false
       } else {
-        mesh = getEntityMesh(entity, this.viewer.world, this.entitiesOptions, overrides)
+        mesh = getEntityMesh(entity, this.worldRenderer, this.entitiesOptions, overrides)
       }
       if (!mesh) return
       mesh.name = 'mesh'
@@ -694,20 +691,20 @@ export class Entities extends EventEmitter {
       group.add(mesh)
       group.add(boxHelper)
       boxHelper.visible = false
-      this.viewer.scene.add(group)
+      this.worldRenderer.scene.add(group)
 
       e = group
       e.name = 'entity'
       e['realName'] = entity.name
       this.entities[entity.id] = e
 
-      this.emit('add', entity)
+      this.onAddEntity(entity)
 
       if (isPlayerModel) {
         this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePngUrl)
       }
       this.setDebugMode(this.debugMode, group)
-      this.setRendering(this.rendering, group)
+      this.setRendering(this.currentlyRendering, group)
     } else {
       mesh = e.children.find(c => c.name === 'mesh')
     }
@@ -716,10 +713,10 @@ export class Entities extends EventEmitter {
     if (entity.equipment) {
       this.addItemModel(e, 'left', entity.equipment[0])
       this.addItemModel(e, 'right', entity.equipment[1])
-      addArmorModel(e, 'feet', entity.equipment[2])
-      addArmorModel(e, 'legs', entity.equipment[3], 2)
-      addArmorModel(e, 'chest', entity.equipment[4])
-      addArmorModel(e, 'head', entity.equipment[5])
+      addArmorModel(this.worldRenderer, e, 'feet', entity.equipment[2])
+      addArmorModel(this.worldRenderer, e, 'legs', entity.equipment[3], 2)
+      addArmorModel(this.worldRenderer, e, 'chest', entity.equipment[4])
+      addArmorModel(this.worldRenderer, e, 'head', entity.equipment[5])
     }
 
     const meta = getGeneralEntitiesMetadata(entity)
@@ -884,6 +881,30 @@ export class Entities extends EventEmitter {
       e.username = entity.username
     }
 
+    if (entity.type === 'player' && entity.equipment && e.playerObject) {
+      const { playerObject } = e
+      playerObject.backEquipment = entity.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
+      if (playerObject.cape.map === null) {
+        playerObject.cape.visible = false
+      }
+    }
+
+    this.updateEntityPosition(entity, justAdded, overrides)
+  }
+
+  updateEntityPosition (entity: import('prismarine-entity').Entity, justAdded: boolean, overrides: { rotation?: { head?: { y: number, x: number } } }) {
+    const e = this.entities[entity.id]
+    if (!e) return
+    const ANIMATION_DURATION = justAdded ? 0 : TWEEN_DURATION
+    if (entity.position) {
+      new TWEEN.Tween(e.position).to({ x: entity.position.x, y: entity.position.y, z: entity.position.z }, ANIMATION_DURATION).start()
+    }
+    if (entity.yaw) {
+      const da = (entity.yaw - e.rotation.y) % (Math.PI * 2)
+      const dy = 2 * da % (Math.PI * 2) - da
+      new TWEEN.Tween(e.rotation).to({ y: e.rotation.y + dy }, ANIMATION_DURATION).start()
+    }
+
     if (e?.playerObject && overrides?.rotation?.head) {
       const playerObject = e.playerObject as PlayerObjectType
       const headRotationDiff = overrides.rotation.head.y ? overrides.rotation.head.y - entity.yaw : 0
@@ -891,14 +912,32 @@ export class Entities extends EventEmitter {
       playerObject.skin.head.rotation.x = overrides.rotation.head.x ? - overrides.rotation.head.x : 0
     }
 
-    if (entity.pos) {
-      new TWEEN.Tween(e.position).to({ x: entity.pos.x, y: entity.pos.y, z: entity.pos.z }, TWEEN_DURATION).start()
+    this.maybeRenderPlayerSkin(entity)
+  }
+
+  onAddEntity (entity: import('prismarine-entity').Entity) {
+  }
+
+  loadedSkinEntityIds = new Set<number>()
+  maybeRenderPlayerSkin (entity: import('prismarine-entity').Entity) {
+    const mesh = this.entities[entity.id]
+    if (!mesh) return
+    if (!mesh.playerObject || !this.worldRenderer.worldRendererConfig.fetchPlayerSkins) return
+    const MAX_DISTANCE_SKIN_LOAD = 128
+    const cameraPos = this.worldRenderer.camera.position
+    const distance = entity.position.distanceTo(new Vec3(cameraPos.x, cameraPos.y, cameraPos.z))
+    if (distance < MAX_DISTANCE_SKIN_LOAD && distance < (this.worldRenderer.viewDistance * 16)) {
+      if (this.entities[entity.id]) {
+        if (this.loadedSkinEntityIds.has(entity.id)) return
+        this.loadedSkinEntityIds.add(entity.id)
+        this.updatePlayerSkin(entity.id, entity.username, entity.uuid, true, true)
+      }
     }
-    if (entity.yaw) {
-      const da = (entity.yaw - e.rotation.y) % (Math.PI * 2)
-      const dy = 2 * da % (Math.PI * 2) - da
-      new TWEEN.Tween(e.rotation).to({ y: e.rotation.y + dy }, TWEEN_DURATION).start()
-    }
+  }
+
+  playerPerAnimation = {} as Record<number, string>
+  onRemoveEntity (entity: import('prismarine-entity').Entity) {
+    this.loadedSkinEntityIds.delete(entity.id)
   }
 
   updateMap (mapNumber: string | number, data: string) {
@@ -983,7 +1022,7 @@ export class Entities extends EventEmitter {
     const itemObject = this.getItemMesh(item, {
       'minecraft:display_context': 'thirdperson',
     })
-    if (itemObject) {
+    if (itemObject?.mesh) {
       entityMesh.traverse(c => {
         if (c.name.toLowerCase() === parentName) {
           const group = new THREE.Object3D()
@@ -1043,7 +1082,7 @@ function getSpecificEntityMetadata<T extends keyof EntityMetadataVersions> (name
   return getGeneralEntitiesMetadata(entity) as any
 }
 
-function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item, layer = 1, overlay = false) {
+function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Object3D, slotType: string, item: Item, layer = 1, overlay = false) {
   if (!item) {
     removeArmorModel(entityMesh, slotType)
     return
@@ -1077,7 +1116,7 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
   if (!texturePath) {
     // TODO: Support mirroring on certain parts of the model
     const armorTextureName = `${armorMaterial}_layer_${layer}${overlay ? '_overlay' : ''}`
-    texturePath = viewer.world.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
+    texturePath = worldRenderer.resourcesManager.currentResources!.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
   }
   if (!texturePath || !armorModel[slotType]) {
     removeArmorModel(entityMesh, slotType)
@@ -1098,7 +1137,7 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
       material.map = texture
     })
   } else {
-    mesh = getMesh(viewer.world, texturePath, armorModel[slotType])
+    mesh = getMesh(worldRenderer, texturePath, armorModel[slotType])
     mesh.name = meshName
     material = mesh.material
     if (!isPlayerHead) {
@@ -1115,7 +1154,7 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     } else {
       material.color.setHex(0xB5_6D_51) // default brown color
     }
-    addArmorModel(entityMesh, slotType, item, layer, true)
+    addArmorModel(worldRenderer, entityMesh, slotType, item, layer, true)
   } else {
     material.color.setHex(0xFF_FF_FF)
   }

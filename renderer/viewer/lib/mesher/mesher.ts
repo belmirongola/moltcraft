@@ -121,7 +121,9 @@ const handleMessage = data => {
     }
     case 'blockUpdate': {
       const loc = new Vec3(data.pos.x, data.pos.y, data.pos.z).floored()
-      world.setBlockStateId(loc, data.stateId)
+      if (data.stateId !== undefined && data.stateId !== null) {
+        world.setBlockStateId(loc, data.stateId)
+      }
 
       const chunkKey = `${Math.floor(loc.x / 16) * 16},${Math.floor(loc.z / 16) * 16}`
       if (data.customBlockModels) {

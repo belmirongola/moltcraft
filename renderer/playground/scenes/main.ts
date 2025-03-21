@@ -1,3 +1,4 @@
+//@ts-nocheck
 // eslint-disable-next-line import/no-named-as-default
 import GUI, { Controller } from 'lil-gui'
 import * as THREE from 'three'
@@ -173,7 +174,6 @@ class MainScene extends BasePlaygroundScene {
     canvas.height = size
     renderer.setSize(size, size)
 
-    //@ts-expect-error
     viewer.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10)
     viewer.scene.background = null
 

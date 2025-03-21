@@ -1,3 +1,4 @@
+//@ts-nocheck
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { BasePlaygroundScene } from '../baseScene'

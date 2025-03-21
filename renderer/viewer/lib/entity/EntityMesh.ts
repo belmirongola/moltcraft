@@ -5,8 +5,8 @@ import { Vec3 } from 'vec3'
 import arrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/arrow.png'
 import spectralArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/spectral_arrow.png'
 import tippedArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/tipped_arrow.png'
-import { WorldRendererCommon } from '../worldrendererCommon'
 import { loadTexture } from '../utils'
+import { WorldRendererThree } from '../worldrendererThree'
 import entities from './entities.json'
 import { externalModels } from './objModels'
 import externalTexturesJson from './externalTextures.json'
@@ -223,7 +223,7 @@ function addCube (
 }
 
 export function getMesh (
-  worldRenderer: WorldRendererCommon | undefined,
+  worldRenderer: WorldRendererThree | undefined,
   texture: string,
   jsonModel: JsonModel,
   overrides: EntityOverrides = {},
@@ -237,7 +237,7 @@ export function getMesh (
   if (useBlockTexture) {
     if (!worldRenderer) throw new Error('worldRenderer is required for block textures')
     const blockName = texture.slice(6)
-    const textureInfo = worldRenderer.blocksAtlasParser!.getTextureInfo(blockName)
+    const textureInfo = worldRenderer.resourcesManager.currentResources!.blocksAtlasParser.getTextureInfo(blockName)
     if (textureInfo) {
       textureWidth = blocksTexture!.image.width
       textureHeight = blocksTexture!.image.height
@@ -437,7 +437,7 @@ export class EntityMesh {
   constructor (
     version: string,
     type: string,
-    worldRenderer?: WorldRendererCommon,
+    worldRenderer?: WorldRendererThree,
     overrides: EntityOverrides = {},
     debugFlags: EntityDebugFlags = {}
   ) {

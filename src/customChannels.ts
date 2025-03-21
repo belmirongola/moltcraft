@@ -1,4 +1,5 @@
 import { Vec3 } from 'vec3'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options } from './optionsStorage'
 
 customEvents.on('mineflayerBotCreated', async () => {
@@ -50,28 +51,7 @@ const registerBlockModelsChannel = () => {
     const chunkKey = `${chunkX},${chunkZ}`
     const blockPosKey = `${x},${y},${z}`
 
-    const chunkModels = viewer.world.protocolCustomBlocks.get(chunkKey) || {}
-
-    if (model) {
-      chunkModels[blockPosKey] = model
-    } else {
-      delete chunkModels[blockPosKey]
-    }
-
-    if (Object.keys(chunkModels).length > 0) {
-      viewer.world.protocolCustomBlocks.set(chunkKey, chunkModels)
-    } else {
-      viewer.world.protocolCustomBlocks.delete(chunkKey)
-    }
-
-    // Trigger update
-    if (worldView) {
-      const block = worldView.world.getBlock(new Vec3(x, y, z))
-      if (block) {
-        worldView.world.setBlockStateId(new Vec3(x, y, z), block.stateId)
-      }
-    }
-
+    getThreeJsRendererMethods()?.updateCustomBlock(chunkKey, blockPosKey, model)
   })
 
   console.debug(`registered custom channel ${CHANNEL_NAME} channel`)
