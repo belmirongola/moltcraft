@@ -1,11 +1,9 @@
-import { useEffect, useRef, useMemo, useState } from 'react'
-import * as THREE from 'three'
+import { useEffect, useRef, useState } from 'react'
 import type { Block } from 'prismarine-block'
-import { proxy, useSnapshot } from 'valtio'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
-import { BlockStateModelInfo, getBlockAssetsCacheKey } from '../../renderer/viewer/lib/mesher/shared'
+import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
 import styles from './DebugOverlay.module.css'
 
 export default () => {

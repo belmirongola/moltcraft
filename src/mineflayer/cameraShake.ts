@@ -1,5 +1,3 @@
-import * as THREE from 'three'
-
 class CameraShake {
   private rollAngle = 0
   private get damageRollAmount () { return 5 }

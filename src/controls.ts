@@ -2,12 +2,10 @@
 
 import { Vec3 } from 'vec3'
 import { proxy, subscribe } from 'valtio'
-import * as THREE from 'three'
 
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
-import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
 import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'

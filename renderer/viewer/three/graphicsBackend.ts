@@ -9,6 +9,7 @@ import { PanoramaRenderer } from './panorama'
 
 // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
 THREE.ColorManagement.enabled = false
+window.THREE = THREE
 
 const getBackendMethods = (worldRenderer: WorldRendererThree) => {
   return {

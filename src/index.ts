@@ -34,7 +34,6 @@ import fs from 'fs'
 import net from 'net'
 import mineflayer from 'mineflayer'
 
-import * as THREE from 'three'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
 import initializePacketsReplay from './packetsReplay/packetsReplayLegacy'
@@ -99,7 +98,6 @@ import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
 import { subscribeKey } from 'valtio/utils'
 
 window.debug = debug
-window.THREE = THREE
 window.beforeRenderFrame = []
 
 // ACTUAL CODE
