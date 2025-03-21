@@ -18,7 +18,6 @@ export default ({
   children
 }) => {
   const [loadingDotIndex, setLoadingDotIndex] = useState(0)
-  const lockConnect = appQueryParams.lockConnect === 'true'
 
   useEffect(() => {
     const statusRunner = async () => {
@@ -84,7 +83,7 @@ export default ({
           >
             <b>Reset App (recommended)</b>
           </Button>
-          {!lockConnect && backAction && <Button label="Back" onClick={backAction} />}
+          {backAction && <Button label="Back" onClick={backAction} />}
         </>
       )}
       {children}
