@@ -13,11 +13,13 @@ import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBloc
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { getLoadedItemDefinitionsStore } from 'mc-assets'
 import { getLoadedImage } from 'mc-assets/dist/utils'
+import { generateGuiAtlas } from 'renderer/viewer/lib/guiRenderer'
 import { importLargeData } from '../generated/large-data-aliases'
 import { loadMinecraftData } from './connect'
 
 type ResourceManagerEvents = {
   assetsTexturesUpdated: () => void
+  assetsInventoryReady: () => void
 }
 
 export class LoadedResources {
@@ -170,7 +172,14 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
     this.currentResources = resources
     if (!unstableSkipEvent) { // todo rework resourcepack optimization
       this.emit('assetsTexturesUpdated')
+      void this.generateGuiTextures().then(() => {
+        this.emit('assetsInventoryReady')
+      })
     }
+  }
+
+  async generateGuiTextures () {
+    await generateGuiAtlas()
   }
 
   async downloadDebugAtlas (isItems = false) {

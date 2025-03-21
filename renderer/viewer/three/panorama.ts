@@ -33,6 +33,7 @@ export class PanoramaRenderer {
 
   constructor (private readonly documentRenderer: DocumentRenderer, private readonly options: GraphicsInitOptions, private readonly doWorldBlocksPanorama = false) {
     this.scene = new THREE.Scene()
+    this.scene.background = new THREE.Color(this.options.config.sceneBackground)
 
     // Add ambient light
     this.ambientLight = new THREE.AmbientLight(0xcc_cc_cc)

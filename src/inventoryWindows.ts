@@ -55,6 +55,7 @@ export const onGameLoad = (onLoad) => {
     }, 0)
   }
   appViewer.resourcesManager.on('assetsTexturesUpdated', checkIfLoaded)
+  appViewer.resourcesManager.on('assetsInventoryReady', checkIfLoaded)
   checkIfLoaded()
 
   PrismarineItem = PItem(version)

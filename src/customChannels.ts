@@ -12,6 +12,20 @@ customEvents.on('mineflayerBotCreated', async () => {
   registerBlockModelsChannel()
 })
 
+const registerChannel = (channelName: string, packetStructure: any[], handler: (data: any) => void, waitForWorld = true) => {
+  bot._client.registerChannel(channelName, packetStructure, true)
+  bot._client.on(channelName as any, async (data) => {
+    if (waitForWorld) {
+      await appViewer.worldReady
+      handler(data)
+    } else {
+      handler(data)
+    }
+  })
+
+  console.debug(`registered custom channel ${channelName} channel`)
+}
+
 const registerBlockModelsChannel = () => {
   const CHANNEL_NAME = 'minecraft-web-client:blockmodels'
 
@@ -41,9 +55,7 @@ const registerBlockModelsChannel = () => {
     ]
   ]
 
-  bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
-
-  bot._client.on(CHANNEL_NAME as any, (data) => {
+  registerChannel(CHANNEL_NAME, packetStructure, (data) => {
     const { worldName, x, y, z, model } = data
 
     const chunkX = Math.floor(x / 16) * 16
@@ -52,9 +64,7 @@ const registerBlockModelsChannel = () => {
     const blockPosKey = `${x},${y},${z}`
 
     getThreeJsRendererMethods()?.updateCustomBlock(chunkKey, blockPosKey, model)
-  })
-
-  console.debug(`registered custom channel ${CHANNEL_NAME} channel`)
+  }, true)
 }
 
 const registeredJeiChannel = () => {

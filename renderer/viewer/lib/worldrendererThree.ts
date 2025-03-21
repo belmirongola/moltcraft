@@ -88,7 +88,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   resetScene () {
     this.scene.matrixAutoUpdate = false // for perf
-    this.scene.background = new THREE.Color('lightblue')
+    this.scene.background = new THREE.Color(this.initOptions.config.sceneBackground)
     this.scene.add(this.ambientLight)
     this.directionalLight.position.set(1, 1, 0.5).normalize()
     this.directionalLight.castShadow = true

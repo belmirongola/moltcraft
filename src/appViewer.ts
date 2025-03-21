@@ -29,11 +29,13 @@ export interface GraphicsBackendConfig {
   fpsLimit?: number
   powerPreference?: 'high-performance' | 'low-power'
   statsVisible?: number
+  sceneBackground: string
 }
 
 const defaultGraphicsBackendConfig: GraphicsBackendConfig = {
   fpsLimit: undefined,
-  powerPreference: undefined
+  powerPreference: undefined,
+  sceneBackground: 'lightblue'
 }
 
 export interface GraphicsInitOptions {
@@ -87,6 +89,12 @@ export class AppViewer {
   lastCamUpdate = 0
   playerState = playerState
   rendererState = proxy(getDefaultRendererState())
+  worldReady: Promise<void>
+  private resolveWorldReady: () => void
+
+  constructor () {
+    this.disconnectBackend()
+  }
 
   loadBackend (loader: GraphicsBackendLoader) {
     if (this.backend) {
@@ -118,6 +126,31 @@ export class AppViewer {
     }
   }
 
+  startWorld (world, renderDistance: number, playerStateSend: IPlayerState = playerState) {
+    if (this.currentDisplay === 'world') throw new Error('World already started')
+    this.currentDisplay = 'world'
+    const startPosition = playerStateSend.getPosition()
+    this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
+    window.worldView = this.worldView
+    watchOptionsAfterWorldViewInit(this.worldView)
+
+    const displayWorldOptions: DisplayWorldOptions = {
+      version: this.resourcesManager.currentConfig!.version,
+      worldView: this.worldView,
+      inWorldRenderingConfig: this.inWorldRenderingConfig,
+      playerState: playerStateSend,
+      rendererState: this.rendererState
+    }
+    if (this.backend) {
+      this.backend.startWorld(displayWorldOptions)
+      void this.worldView.init(startPosition)
+    }
+    this.currentState = { method: 'startWorld', args: [displayWorldOptions] }
+
+    // Resolve the promise after world is started
+    this.resolveWorldReady()
+  }
+
   resetBackend (cleanState = false) {
     if (cleanState) {
       this.currentState = undefined
@@ -145,28 +178,6 @@ export class AppViewer {
   //   }
   // }
 
-  startWorld (world, renderDistance: number, playerStateSend: IPlayerState = playerState) {
-    if (this.currentDisplay === 'world') throw new Error('World already started')
-    this.currentDisplay = 'world'
-    const startPosition = playerStateSend.getPosition()
-    this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
-    window.worldView = this.worldView
-    watchOptionsAfterWorldViewInit(this.worldView)
-
-    const displayWorldOptions: DisplayWorldOptions = {
-      version: this.resourcesManager.currentConfig!.version,
-      worldView: this.worldView,
-      inWorldRenderingConfig: this.inWorldRenderingConfig,
-      playerState: playerStateSend,
-      rendererState: this.rendererState
-    }
-    if (this.backend) {
-      this.backend.startWorld(displayWorldOptions)
-      void this.worldView.init(startPosition)
-    }
-    this.currentState = { method: 'startWorld', args: [displayWorldOptions] }
-  }
-
   destroyAll () {
     this.disconnectBackend()
     this.resourcesManager.destroy()
@@ -178,6 +189,9 @@ export class AppViewer {
       this.backend = undefined
     }
     this.currentDisplay = null
+    const { promise, resolve } = Promise.withResolvers<void>()
+    this.worldReady = promise
+    this.resolveWorldReady = resolve
     // this.queuedDisplay = undefined
   }
 

@@ -3,23 +3,20 @@ import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
 import * as THREE from 'three'
 import mcDataRaw from 'minecraft-data/data.js' // note: using alias
-import { AtlasParser } from 'mc-assets'
 import TypedEmitter from 'typed-emitter'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
-import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
+import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
-import { proxy } from 'valtio'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
 import { DisplayWorldOptions, RendererReactiveState } from '../../../src/appViewer'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
+import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { removeStat, updateStatText } from './ui/newStats'
-import { generateGuiAtlas } from './guiRenderer'
 import { WorldDataEmitter } from './worldDataEmitter'
-import { SoundSystem, ThreeJsSound } from './threeJsSound'
+import { SoundSystem } from './threeJsSound'
 import { IPlayerState } from './basePlayerState'
 
 function mod (x, n) {
@@ -164,6 +161,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     if (this.active) throw new Error('WorldRendererCommon is already initialized')
     void this.setVersion(this.version).then(() => {
       this.resourcesManager.on('assetsTexturesUpdated', () => {
+        if (!this.active) return
         void this.updateAssetsData()
       })
       if (this.resourcesManager.currentResources) {
@@ -402,10 +400,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     for (const worker of this.workers) {
       worker.postMessage({ type: 'mcData', mcData, config: this.getMesherConfig() })
     }
-  }
-
-  async generateGuiTextures () {
-    await generateGuiAtlas()
   }
 
   async updateAssetsData () {
