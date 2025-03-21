@@ -157,6 +157,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
         <InputWithLabel
           required
           label="Server IP"
+          autoFocus={!lockConnect}
           value={serverIp}
           disabled={lockConnect && parsedQsIp.host !== null}
           onChange={({ target: { value } }) => {

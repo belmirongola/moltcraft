@@ -256,12 +256,25 @@ const getItemName = (slot: Item | RenderItem | null) => {
   return text.join('')
 }
 
+let lastMappedSots = [] as any[]
+const itemToVisualKey = (slot: RenderItem | Item | null) => {
+  if (!slot) return null
+  return slot.name + (slot['metadata'] ?? '-') + (slot.nbt ? JSON.stringify(slot.nbt) : '') + (slot['components'] ? JSON.stringify(slot['components']) : '')
+}
 const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
-  return slots.map((slot, i) => {
+  const newSlots = slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
+    if (!isJei) {
+      const oldKey = itemToVisualKey(lastMappedSots[i])
+      if (oldKey && oldKey === itemToVisualKey(slot)) {
+        return lastMappedSots[i]
+      }
+    }
+
     try {
+      if (slot.durabilityUsed && slot.maxDurability) slot.durabilityUsed = Math.min(slot.durabilityUsed, slot.maxDurability)
       const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
       const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', })
       const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
@@ -279,6 +292,8 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
     }
     return slot
   })
+  lastMappedSots = newSlots
+  return newSlots
 }
 
 export const upInventoryItems = (isInventory: boolean, invWindow = lastWindow) => {
@@ -351,7 +366,7 @@ export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {
     return [...allRecipes ?? [], ...itemDescription ? [
       [
         'GenericDescription',
-        mapSlots([item])[0],
+        mapSlots([item], true)[0],
         [],
         itemDescription
       ]
@@ -469,7 +484,7 @@ const openWindow = (type: string | undefined) => {
       if (freeSlot === null) return
       void bot.creative.setInventorySlot(freeSlot, item)
     } else {
-      inv.canvasManager.children[0].showRecipesOrUsages(!isRightclick, mapSlots([item])[0])
+      inv.canvasManager.children[0].showRecipesOrUsages(!isRightclick, mapSlots([item], true)[0])
     }
   }
 
@@ -598,8 +613,8 @@ const getAllItemRecipes = (itemName: string) => {
   return results.map(({ result, ingredients, description }) => {
     return [
       'CraftingTableGuide',
-      mapSlots([result])[0],
-      mapSlots(ingredients),
+      mapSlots([result], true)[0],
+      mapSlots(ingredients, true),
       description
     ]
   })
