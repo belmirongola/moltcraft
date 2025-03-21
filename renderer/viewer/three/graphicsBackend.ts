@@ -49,7 +49,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let version = ''
   const prepareResources = async (ver: string, progressReporter: ProgressReporter): Promise<void> => {
     version = ver
-    await initOptions.resourcesManager.updateAssetsData({ version }, true)
+    await initOptions.resourcesManager.updateAssetsData({ })
   }
 
   const startWorld = (displayOptions: DisplayWorldOptions) => {
@@ -57,7 +57,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
       panoramaRenderer.dispose()
       panoramaRenderer = null
     }
-    worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions, version)
+    worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions)
     documentRenderer.render = (sizeChanged: boolean) => {
       worldRenderer?.render(sizeChanged)
     }

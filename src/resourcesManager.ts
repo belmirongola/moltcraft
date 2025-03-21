@@ -20,13 +20,12 @@ type ResourceManagerEvents = {
   assetsTexturesUpdated: () => void
 }
 
-class LoadedResources {
+export class LoadedResources {
   // Atlas parsers
   itemsAtlasParser: AtlasParser
   blocksAtlasParser: AtlasParser
   itemsAtlasImage: HTMLImageElement
   blocksAtlasImage: HTMLImageElement
-
   // User data (specific to current resourcepack/version)
   customBlockStates?: Record<string, any>
   customModels?: Record<string, any>
@@ -44,11 +43,15 @@ class LoadedResources {
   texturesVersion: string
 }
 
-export interface UpdateAssetsRequest {
+export interface ResourcesCurrentConfig {
   version: string
-  noBlockstatesModels?: boolean
   texturesVersion?: string
+  noBlockstatesModels?: boolean
   includeOnlyBlocks?: string[]
+}
+
+export interface UpdateAssetsRequest {
+  _?: false
 }
 
 export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<ResourceManagerEvents>) {
@@ -60,6 +63,7 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
   readonly itemsDefinitionsStore = getLoadedItemDefinitionsStore(this.sourceItemDefinitionsJson)
 
   currentResources: LoadedResources | undefined
+  currentConfig: ResourcesCurrentConfig | undefined
   abortController = new AbortController()
 
   async loadMcData (version: string) {
@@ -71,14 +75,19 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
     this.sourceBlockStatesModels ??= await importLargeData('blockStatesModels')
   }
 
-  async updateAssetsData (request: UpdateAssetsRequest) {
+  resetResources () {
+    this.currentResources = new LoadedResources()
+  }
+
+  async updateAssetsData (request: UpdateAssetsRequest, unstableSkipEvent = false) {
+    if (!this.currentConfig) throw new Error('No config loaded')
     const abortController = new AbortController()
-    await this.loadSourceData(request.version)
+    await this.loadSourceData(this.currentConfig.version)
     if (abortController.signal.aborted) return
 
     const resources = this.currentResources ?? new LoadedResources()
-    resources.version = request.version
-    resources.texturesVersion = request.texturesVersion ?? resources.version
+    resources.version = this.currentConfig.version
+    resources.texturesVersion = this.currentConfig.texturesVersion ?? resources.version
 
     resources.blockstatesModels = {
       blockstates: {},
@@ -112,7 +121,7 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
     const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(
       resources.texturesVersion,
       (textureName) => {
-        if (request.includeOnlyBlocks && !request.includeOnlyBlocks.includes(textureName)) return false
+        if (this.currentConfig!.includeOnlyBlocks && !this.currentConfig!.includeOnlyBlocks.includes(textureName)) return false
         const texture = resources.customTextures.blocks?.textures[textureName]
         return blockTexturesChanges[textureName] ?? texture
       },
@@ -159,7 +168,9 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
     if (abortController.signal.aborted) return
 
     this.currentResources = resources
-    this.emit('assetsTexturesUpdated')
+    if (!unstableSkipEvent) { // todo rework resourcepack optimization
+      this.emit('assetsTexturesUpdated')
+    }
   }
 
   async downloadDebugAtlas (isItems = false) {

@@ -13,7 +13,7 @@ import { chunkPos, sectionPos } from './simpleUtils'
 import { WorldRendererCommon } from './worldrendererCommon'
 import { disposeObject } from './threeJsUtils'
 import HoldingBlock from './holdingBlock'
-import { addNewStat } from './ui/newStats'
+import { addNewStat, removeAllStats } from './ui/newStats'
 import { MesherGeometryOutput } from './mesher/shared'
 import { ItemSpecificContextProperties } from './basePlayerState'
 import { getMesh } from './entity/EntityMesh'
@@ -51,9 +51,9 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions, public version: string) {
+  constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions) {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
-    super(initOptions.resourcesManager, displayOptions, version)
+    super(initOptions.resourcesManager, displayOptions, displayOptions.version)
 
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
     this.starField = new StarField(this.scene)
@@ -131,13 +131,8 @@ export class WorldRendererThree extends WorldRendererCommon {
   async updateAssetsData (): Promise<void> {
     const resources = this.resourcesManager.currentResources!
 
-    // Dispose old textures if they exist
-    if (this.material.map) {
-      this.material.map.dispose()
-    }
-    if (this.itemsTexture) {
-      this.itemsTexture.dispose()
-    }
+    const oldTexture = this.material.map
+    const oldItemsTexture = this.itemsTexture
 
     const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
     texture.magFilter = THREE.NearestFilter
@@ -150,6 +145,14 @@ export class WorldRendererThree extends WorldRendererCommon {
     itemsTexture.minFilter = THREE.NearestFilter
     itemsTexture.flipY = false
     this.itemsTexture = itemsTexture
+
+    if (oldTexture) {
+      oldTexture.dispose()
+    }
+    if (oldItemsTexture) {
+      oldItemsTexture.dispose()
+    }
+
     await super.updateAssetsData()
     this.onAllTexturesLoaded()
     if (Object.keys(this.loadedChunks).length > 0) {
@@ -219,7 +222,7 @@ export class WorldRendererThree extends WorldRendererCommon {
       if (this.displayStats) {
         pane.updateText(`C: ${this.renderer.info.render.calls} TR: ${this.renderer.info.render.triangles} TE: ${this.renderer.info.memory.textures} F: ${this.tilesRendered} B: ${this.blocksRendered}`)
       }
-    }, 100)
+    }, 200)
   }
 
   /**
@@ -587,6 +590,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   destroy (): void {
+    removeAllStats()
     super.destroy()
   }
 }

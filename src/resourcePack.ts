@@ -3,13 +3,11 @@ import { join, dirname, basename } from 'path'
 import fs from 'fs'
 import JSZip from 'jszip'
 import { proxy, subscribe } from 'valtio'
-import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { armorTextures } from 'renderer/viewer/lib/entity/armorModels'
-import { collectFilesToCopy, copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
+import { copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
 import { showNotification } from './react/NotificationProvider'
 import { options } from './optionsStorage'
 import { showOptionsModal } from './react/SelectOption'
-import { appStatusState } from './react/AppStatusProvider'
 import { appReplacableResources, resourcesContentOriginal } from './generated/resources'
 import { gameAdditionalState, miscUiState } from './globalState'
 import { watchUnloadForCleanup } from './gameUnload'
@@ -532,7 +530,10 @@ const updateAllReplacableTextures = async () => {
 
 const repeatArr = (arr, i) => Array.from({ length: i }, () => arr)
 
-const updateTextures = async (progressReporter = createConsoleLogProgressReporter()) => {
+const updateTextures = async (progressReporter = createConsoleLogProgressReporter(), skipResourcesLoad = false) => {
+  if (!appViewer.resourcesManager.currentResources) {
+    appViewer.resourcesManager.resetResources()
+  }
   const resources = appViewer.resourcesManager.currentResources!
   currentErrors = []
   const origBlocksFiles = Object.keys(appViewer.resourcesManager.sourceBlocksAtlases.latest.textures)
@@ -564,16 +565,13 @@ const updateTextures = async (progressReporter = createConsoleLogProgressReporte
     }
   }
 
-  if (appViewer.backend) {
-    await appViewer.resourcesManager.updateAssetsData({ version: bot.version })
-    if (appViewer.backend instanceof WorldRendererThree) {
-      appViewer.backend.rerenderAllChunks?.()
-    }
+  if (!skipResourcesLoad) {
+    await appViewer.resourcesManager.updateAssetsData({ })
   }
 }
 
-export const resourcepackReload = async () => {
-  await updateTextures()
+export const resourcepackReload = async (skipResourcesLoad = false) => {
+  await updateTextures(undefined, skipResourcesLoad)
 }
 
 export const copyServerResourcePackToRegular = async (name = 'default') => {

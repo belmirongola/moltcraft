@@ -57,7 +57,7 @@ import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalS
 import defaultServerOptions from './defaultLocalServerOptions'
 import dayCycle from './dayCycle'
 
-import { onAppLoad, resourcePackState } from './resourcePack'
+import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
 import CustomChannelClient from './customClient'
 import { registerServiceWorker } from './serviceWorker'
@@ -306,16 +306,22 @@ export async function connect (connectOptions: ConnectOptions) {
 
     let dataDownloaded = false
     const downloadMcData = async (version: string) => {
-      await appViewer.resourcesManager.loadSourceData(version)
       if (dataDownloaded) return
       dataDownloaded = true
+      appViewer.resourcesManager.currentConfig = { version, texturesVersion: options.useVersionsTextures || undefined }
+
+      await progress.executeWithMessage(
+        'Loading minecraft data',
+        async () => {
+          await appViewer.resourcesManager.loadSourceData(version)
+        }
+      )
 
       await progress.executeWithMessage(
         'Applying user-installed resource pack',
         async () => {
-          await loadMinecraftData(version)
           try {
-            // await resourcepackReload()
+            await resourcepackReload(true)
           } catch (err) {
             console.error(err)
             const doContinue = confirm('Failed to apply texture pack. See errors in the console. Continue?')
@@ -327,11 +333,9 @@ export async function connect (connectOptions: ConnectOptions) {
       )
 
       await progress.executeWithMessage(
-        'Loading minecraft models',
+        'Preparing textures',
         async () => {
-          // void viewer.setVersion(version, options.useVersionsTextures === 'latest' ? version : options.useVersionsTextures)
-          void appViewer.prepareResources(version, createConsoleLogProgressReporter())
-          miscUiState.loadedDataVersion = version
+          await appViewer.resourcesManager.updateAssetsData({})
         }
       )
     }

@@ -44,6 +44,7 @@ export interface GraphicsInitOptions {
 }
 
 export interface DisplayWorldOptions {
+  version: string
   worldView: WorldDataEmitter
   inWorldRenderingConfig: WorldRendererConfig
   playerState: IPlayerState
@@ -56,7 +57,7 @@ export type GraphicsBackendLoader = (options: GraphicsInitOptions) => GraphicsBa
 export interface GraphicsBackend {
   NAME: string
   startPanorama: () => void
-  prepareResources: (version: string, progressReporter: ProgressReporter) => Promise<void>
+  // prepareResources: (version: string, progressReporter: ProgressReporter) => Promise<void>
   startWorld: (options: DisplayWorldOptions) => void
   disconnect: () => void
   setRendering: (rendering: boolean) => void
@@ -70,14 +71,14 @@ export interface GraphicsBackend {
 
 export class AppViewer {
   resourcesManager = new ResourcesManager()
-  worldView: WorldDataEmitter
+  worldView: WorldDataEmitter | undefined
   readonly config: GraphicsBackendConfig = {
     ...defaultGraphicsBackendConfig,
     powerPreference: options.gpuPreference === 'default' ? undefined : options.gpuPreference
   }
   backend?: GraphicsBackend
   backendLoader?: GraphicsBackendLoader
-  private queuedDisplay?: {
+  private currentState?: {
     method: string
     args: any[]
   }
@@ -103,21 +104,26 @@ export class AppViewer {
     }
     this.backend = loader(loaderOptions)
 
-    if (this.resourcesManager.currentResources) {
-      void this.prepareResources(this.resourcesManager.currentResources.version, createNotificationProgressReporter())
-    }
+    // if (this.resourcesManager.currentResources) {
+    //   void this.prepareResources(this.resourcesManager.currentResources.version, createNotificationProgressReporter())
+    // }
 
     // Execute queued action if exists
-    if (this.queuedDisplay) {
-      const { method, args } = this.queuedDisplay
+    if (this.currentState) {
+      const { method, args } = this.currentState
       this.backend[method](...args)
       if (method === 'startWorld') {
-        void this.worldView.init(args[0].playerState.getPosition())
+        void this.worldView!.init(args[0].playerState.getPosition())
       }
     }
   }
 
-  resetBackend () {
+  resetBackend (cleanState = false) {
+    if (cleanState) {
+      this.currentState = undefined
+      this.currentDisplay = null
+      this.worldView = undefined
+    }
     if (this.backendLoader) {
       this.loadBackend(this.backendLoader)
     }
@@ -130,14 +136,14 @@ export class AppViewer {
     if (this.backend) {
       this.backend.startPanorama()
     }
-    this.queuedDisplay = { method: 'startPanorama', args: [] }
+    this.currentState = { method: 'startPanorama', args: [] }
   }
 
-  async prepareResources (version: string, progressReporter: ProgressReporter) {
-    if (this.backend) {
-      await this.backend.prepareResources(version, progressReporter)
-    }
-  }
+  // async prepareResources (version: string, progressReporter: ProgressReporter) {
+  //   if (this.backend) {
+  //     await this.backend.prepareResources(version, progressReporter)
+  //   }
+  // }
 
   startWorld (world, renderDistance: number, playerStateSend: IPlayerState = playerState) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
@@ -148,6 +154,7 @@ export class AppViewer {
     watchOptionsAfterWorldViewInit(this.worldView)
 
     const displayWorldOptions: DisplayWorldOptions = {
+      version: this.resourcesManager.currentConfig!.version,
       worldView: this.worldView,
       inWorldRenderingConfig: this.inWorldRenderingConfig,
       playerState: playerStateSend,
@@ -157,7 +164,7 @@ export class AppViewer {
       this.backend.startWorld(displayWorldOptions)
       void this.worldView.init(startPosition)
     }
-    this.queuedDisplay = { method: 'startWorld', args: [displayWorldOptions] }
+    this.currentState = { method: 'startWorld', args: [displayWorldOptions] }
   }
 
   destroyAll () {
@@ -196,7 +203,7 @@ window.appViewer = appViewer
 
 const initialMenuStart = async () => {
   if (appViewer.currentDisplay === 'world') {
-    appViewer.resetBackend()
+    appViewer.resetBackend(true)
   }
   appViewer.startPanorama()
 

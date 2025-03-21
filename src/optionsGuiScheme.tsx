@@ -11,7 +11,7 @@ import Slider from './react/Slider'
 import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorage } from './browserfs'
-import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
+import { completeResourcepackPackInstall, getResourcePackNames, resourcepackReload, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
 import supportedVersions from './supportedVersions.mjs'
@@ -181,6 +181,7 @@ export const guiOptionsScheme: {
               if (!choice) return
               if (choice === 'Disable') {
                 options.enabledResourcepack = null
+                await resourcepackReload()
                 return
               }
               if (choice === 'Enable') {

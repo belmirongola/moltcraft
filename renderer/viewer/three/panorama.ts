@@ -122,8 +122,8 @@ export class PanoramaRenderer {
 
   async worldBlocksPanorama () {
     const version = '1.21.4'
-    // await this.options.resourcesManager!.loadMcData(version)
-    await this.options.resourcesManager.updateAssetsData({ version })
+    this.options.resourcesManager.currentConfig = { version }
+    await this.options.resourcesManager.updateAssetsData({ })
     if (this.abortController.signal.aborted) return
     console.time('load panorama scene')
     const world = getSyncWorld(version)
@@ -158,12 +158,12 @@ export class PanoramaRenderer {
       this.documentRenderer.renderer,
       this.options,
       {
+        version,
         worldView,
         inWorldRenderingConfig: defaultWorldRendererConfig,
         playerState: new BasePlayerState(),
         rendererState: getDefaultRendererState()
-      },
-      version
+      }
     )
     this.scene = this.worldRenderer.scene
     void worldView.init(initPos)
