@@ -1,10 +1,8 @@
 import * as THREE from 'three'
 import Stats from 'stats.js'
 import StatsGl from 'stats-gl'
-import tween from '@tweenjs/tween.js'
+import * as tween from '@tweenjs/tween.js'
 import { GraphicsBackendConfig, GraphicsInitOptions } from '../../../src/appViewer'
-import { activeModalStack } from '../../../src/globalState'
-import { isCypress } from '../../../src/standaloneUtils'
 
 export class DocumentRenderer {
   readonly canvas = document.createElement('canvas')
