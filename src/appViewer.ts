@@ -192,6 +192,7 @@ export class AppViewer {
     const { promise, resolve } = Promise.withResolvers<void>()
     this.worldReady = promise
     this.resolveWorldReady = resolve
+    Object.assign(this.rendererState, getDefaultRendererState())
     // this.queuedDisplay = undefined
   }
 

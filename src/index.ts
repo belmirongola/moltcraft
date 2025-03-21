@@ -92,7 +92,7 @@ import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
-import { createConsoleLogProgressReporter, createFullScreenProgressReporter } from './core/progressReporter'
+import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
 import { appViewer } from './appViewer'
 import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
 import { subscribeKey } from 'valtio/utils'
@@ -651,16 +651,28 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus('Loading world')
   })
 
-  const start = Date.now()
-  const worldWasReady = false
-  // void viewer.world.renderUpdateEmitter.on('update', () => {
-  //   // todo might not emit as servers simply don't send chunk if it's empty
-  //   if (!viewer.world.allChunksFinished || worldWasReady) return
-  //   worldWasReady = true
-  //   console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
-  //   viewer.render() // ensure the last state is rendered
-  //   document.dispatchEvent(new Event('cypress-world-ready'))
-  // })
+  const loadStart = Date.now()
+  let worldWasReady = false
+  const waitForChunksToLoad = async (progress?: ProgressReporter) => {
+    await new Promise<void>(resolve => {
+      const unsub = subscribe(appViewer.rendererState, () => {
+        if (worldWasReady) return
+        if (appViewer.rendererState.world.allChunksLoaded) {
+          worldWasReady = true
+          resolve()
+          unsub()
+        } else {
+          const perc = Math.round(appViewer.rendererState.world.chunksLoaded.length / appViewer.rendererState.world.chunksTotalNumber * 100)
+          progress?.reportProgress('chunks', perc / 100)
+        }
+      })
+    })
+  }
+
+  void waitForChunksToLoad().then(() => {
+    console.log('All chunks done and ready! Time from renderer connect to ready', (Date.now() - loadStart) / 1000, 's')
+    document.dispatchEvent(new Event('cypress-world-ready'))
+  })
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
@@ -698,7 +710,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
     console.log('bot spawned - starting viewer')
     appViewer.startWorld(bot.world, renderDistance)
-    appViewer.worldView.listenToBot(bot)
+    appViewer.worldView!.listenToBot(bot)
 
     initMotionTracking()
     dayCycle()
@@ -708,7 +720,7 @@ export async function connect (connectOptions: ConnectOptions) {
       appViewer.lastCamUpdate = Date.now()
       // this might cause lag, but not sure
       appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
-      void appViewer.worldView.updatePosition(bot.entity.position)
+      void appViewer.worldView?.updatePosition(bot.entity.position)
     }
     bot.on('move', botPosition)
     botPosition()
@@ -730,20 +742,7 @@ export async function connect (connectOptions: ConnectOptions) {
         'Loading chunks',
         'chunks',
         async () => {
-          await new Promise<void>(resolve => {
-            let wasFinished = false
-            const unsub = subscribe(appViewer.rendererState, () => {
-              if (wasFinished) return
-              if (appViewer.rendererState.world.allChunksLoaded) {
-                wasFinished = true
-                resolve()
-                unsub()
-              } else {
-                const perc = Math.round(appViewer.rendererState.world.chunksLoaded.length / appViewer.rendererState.world.chunksTotalNumber * 100)
-                progress.reportProgress('chunks', perc / 100)
-              }
-            })
-          })
+          await waitForChunksToLoad(progress)
         }
       )
     }
