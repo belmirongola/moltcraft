@@ -131,6 +131,15 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   async updateAssetsData (): Promise<void> {
     const resources = this.resourcesManager.currentResources!
+
+    // Dispose old textures if they exist
+    if (this.material.map) {
+      this.material.map.dispose()
+    }
+    if (this.itemsTexture) {
+      this.itemsTexture.dispose()
+    }
+
     const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
     texture.magFilter = THREE.NearestFilter
     texture.minFilter = THREE.NearestFilter

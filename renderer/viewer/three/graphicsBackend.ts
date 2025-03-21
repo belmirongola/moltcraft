@@ -22,7 +22,8 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     setHighlightCursorBlock: worldRenderer.cursorBlock.setHighlightCursorBlock.bind(worldRenderer.cursorBlock),
     updateBreakAnimation: worldRenderer.cursorBlock.updateBreakAnimation.bind(worldRenderer.cursorBlock),
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
-    getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer)
+    getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer),
+    rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer)
   }
 }
 
@@ -48,6 +49,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let version = ''
   const prepareResources = async (ver: string, progressReporter: ProgressReporter): Promise<void> => {
     version = ver
+    await initOptions.resourcesManager.updateAssetsData({ version }, true)
   }
 
   const startWorld = (displayOptions: DisplayWorldOptions) => {

@@ -6,6 +6,7 @@ import type { ConnectOptions } from '../connect'
 import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
 import { getProxyDetails } from '../microsoftAuthflow'
 import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/packetsRecording'
+import { appQueryParams } from '../appParams'
 import AppStatus from './AppStatus'
 import DiveTransition from './DiveTransition'
 import { useDidUpdateEffect } from './utils'
@@ -117,9 +118,10 @@ export default () => {
   }
 
   const lastAutoCapturedPackets = getLastAutoCapturedPackets()
-  let backAction = undefined as (() => void) | undefined
+  const lockConnect = appQueryParams.lockConnect === 'true'
   const wasDisconnected = showReconnect
-  if (maybeRecoverable) {
+  let backAction = undefined as (() => void) | undefined
+  if (maybeRecoverable && (!lockConnect || !wasDisconnected)) {
     backAction = () => {
       if (!wasDisconnected) {
         hideModal(undefined, undefined, { force: true })

@@ -14,7 +14,7 @@ import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
 import { DisplayWorldOptions, RendererReactiveState } from '../../../src/appViewer'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey } from './mesher/shared'
+import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { removeStat, updateStatText } from './ui/newStats'
 import { generateGuiAtlas } from './guiRenderer'
@@ -106,7 +106,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   allChunksFinished = false
 
   handleResize = () => { }
-  mesherConfig = defaultMesherConfig
   camera: THREE.PerspectiveCamera
   highestBlocks = new Map<string, HighestBlockInfo>()
 
@@ -370,13 +369,25 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
     this.initWorkers()
     this.active = true
-    this.mesherConfig.outputFormat = this.outputFormat
-    this.mesherConfig.version = this.version!
 
     await this.resourcesManager.loadMcData(version)
     this.sendMesherMcData()
     if (!this.resourcesManager.currentResources) {
       await this.resourcesManager.updateAssetsData({ version, texturesVersion })
+    }
+  }
+
+  getMesherConfig (): MesherConfig {
+    return {
+      version: this.version,
+      enableLighting: this.worldRendererConfig.enableLighting,
+      skyLight: 15,
+      smoothLighting: this.worldRendererConfig.smoothLighting,
+      outputFormat: this.outputFormat,
+      textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
+      debugModelVariant: undefined,
+      clipWorldBelowY: this.worldRendererConfig.clipWorldBelowY,
+      disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers
     }
   }
 
@@ -390,7 +401,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
 
     for (const worker of this.workers) {
-      worker.postMessage({ type: 'mcData', mcData, config: this.mesherConfig })
+      worker.postMessage({ type: 'mcData', mcData, config: this.getMesherConfig() })
     }
   }
 
@@ -400,8 +411,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   async updateAssetsData () {
     const resources = this.resourcesManager.currentResources!
-
-    this.mesherConfig.textureSize = this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width
 
     if (this.workers.length === 0) throw new Error('workers not initialized yet')
     for (const [i, worker] of this.workers.entries()) {
@@ -414,7 +423,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
           latest: resources.blocksAtlasParser.atlas.latest
         },
         blockstatesModels,
-        config: this.mesherConfig,
+        config: this.getMesherConfig(),
       })
     }
 
@@ -422,7 +431,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   get worldMinYRender () {
-    return Math.floor(Math.max(this.worldSizeParams.minY, this.mesherConfig.clipWorldBelowY ?? -Infinity) / 16) * 16
+    return Math.floor(Math.max(this.worldSizeParams.minY, this.worldRendererConfig.clipWorldBelowY ?? -Infinity) / 16) * 16
   }
 
   updateChunksStats () {
@@ -456,7 +465,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
       const loc = new Vec3(x, y, z)
       this.setSectionDirty(loc)
-      if (this.neighborChunkUpdates && (!isLightUpdate || this.mesherConfig.smoothLighting)) {
+      if (this.neighborChunkUpdates && (!isLightUpdate || this.worldRendererConfig.smoothLighting)) {
         this.setSectionDirty(loc.offset(-16, 0, 0))
         this.setSectionDirty(loc.offset(16, 0, 0))
         this.setSectionDirty(loc.offset(0, 0, -16))
@@ -613,11 +622,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
       skyLight = Math.floor(skyLight) // todo: remove this after optimization
 
-      if (this.mesherConfig.skyLight === skyLight) return
-      this.mesherConfig.skyLight = skyLight
-      if (this instanceof WorldRendererThree) {
-        (this).rerenderAllChunks?.()
-      }
+      // if (this.worldRendererConfig.skyLight === skyLight) return
+      // this.worldRendererConfig.skyLight = skyLight
+      // if (this instanceof WorldRendererThree) {
+      //   (this).rerenderAllChunks?.()
+      // }
     })
 
     worldEmitter.emit('listening')
@@ -706,7 +715,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       y: pos.y,
       z: pos.z,
       value,
-      config: this.mesherConfig,
+      config: this.getMesherConfig(),
     })
     this.dispatchMessages()
   }

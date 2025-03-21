@@ -57,6 +57,7 @@ export const loadMinecraftData = async (version: string) => {
   window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
   window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
   window.loadedData = mcData
+  window.mcData = mcData
   window.pathfinder = pathfinder
   miscUiState.loadedDataVersion = version
 }
