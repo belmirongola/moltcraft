@@ -14,6 +14,7 @@ import mojangson from 'mojangson'
 import { snakeCase } from 'change-case'
 import { Item } from 'prismarine-item'
 import { BlockModel } from 'mc-assets'
+import { isEntityAttackable } from 'mineflayer-mouse/dist/attackableEntity'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import * as Entity from './entity/EntityMesh'
 import { getMesh } from './entity/EntityMesh'
@@ -167,7 +168,7 @@ const nametags = {}
 
 const isFirstUpperCase = (str) => str.charAt(0) === str.charAt(0).toUpperCase()
 
-function getEntityMesh (entity, world, options, overrides) {
+function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos: any; name: any }, world: WorldRendererThree | undefined, options: { fontFamily: string }, overrides) {
   if (entity.name) {
     try {
       // https://github.com/PrismarineJS/prismarine-viewer/pull/410
@@ -183,6 +184,7 @@ function getEntityMesh (entity, world, options, overrides) {
     }
   }
 
+  if (!isEntityAttackable(loadedData, entity)) return
   const geometry = new THREE.BoxGeometry(entity.width, entity.height, entity.width)
   geometry.translate(0, entity.height / 2, 0)
   const material = new THREE.MeshBasicMaterial({ color: 0xff_00_ff })
@@ -1018,7 +1020,7 @@ export class Entities {
     const itemObject = this.getItemMesh(item, {
       'minecraft:display_context': 'thirdperson',
     })
-    if (itemObject) {
+    if (itemObject?.mesh) {
       entityMesh.traverse(c => {
         if (c.name.toLowerCase() === parentName) {
           const group = new THREE.Object3D()
