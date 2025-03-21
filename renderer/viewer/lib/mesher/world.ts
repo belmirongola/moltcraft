@@ -51,6 +51,7 @@ export class World {
   }
 
   getLight (pos: Vec3, isNeighbor = false, skipMoreChecks = false, curBlockName = '') {
+    const IS_USING_SERVER_LIGHTING = false
     // for easier testing
     if (!(pos instanceof Vec3)) pos = new Vec3(...pos as [number, number, number])
     const { enableLighting, skyLight } = this.config
@@ -63,25 +64,29 @@ export class World {
       15,
       Math.max(
         column.getBlockLight(posInChunk(pos)),
-        // Math.min(skyLight, column.getSkyLight(posInChunk(pos)))
+        Math.min(skyLight, column.getSkyLight(posInChunk(pos)))
       )
     )
+    const MIN_LIGHT_LEVEL = 2
+    result = Math.max(result, MIN_LIGHT_LEVEL)
     // lightsCache.set(key, result)
-    if (result === 2 && [this.getBlock(pos)?.name ?? '', curBlockName].some(x => /_stairs|slab|glass_pane/.exec(x)) && !skipMoreChecks) { // todo this is obviously wrong
-      const lights = [
-        this.getLight(pos.offset(0, 1, 0), undefined, true),
-        this.getLight(pos.offset(0, -1, 0), undefined, true),
-        this.getLight(pos.offset(0, 0, 1), undefined, true),
-        this.getLight(pos.offset(0, 0, -1), undefined, true),
-        this.getLight(pos.offset(1, 0, 0), undefined, true),
-        this.getLight(pos.offset(-1, 0, 0), undefined, true)
-      ].filter(x => x !== 2)
-      if (lights.length) {
-        const min = Math.min(...lights)
-        result = min
+    if (result === 2 && IS_USING_SERVER_LIGHTING) {
+      if ([this.getBlock(pos)?.name ?? '', curBlockName].some(x => /_stairs|slab|glass_pane/.exec(x)) && !skipMoreChecks) { // todo this is obviously wrong
+        const lights = [
+          this.getLight(pos.offset(0, 1, 0), undefined, true),
+          this.getLight(pos.offset(0, -1, 0), undefined, true),
+          this.getLight(pos.offset(0, 0, 1), undefined, true),
+          this.getLight(pos.offset(0, 0, -1), undefined, true),
+          this.getLight(pos.offset(1, 0, 0), undefined, true),
+          this.getLight(pos.offset(-1, 0, 0), undefined, true)
+        ].filter(x => x !== 2)
+        if (lights.length) {
+          const min = Math.min(...lights)
+          result = min
+        }
       }
+      if (isNeighbor) result = 15 // TODO
     }
-    if (isNeighbor && result === 2) result = 15 // TODO
     return result
   }
 
