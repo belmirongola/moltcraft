@@ -449,26 +449,34 @@ export const onAppLoad = () => {
   customEvents.on('mineflayerBotCreated', () => {
     // todo also handle resourcePack
     const handleResourcePackRequest = async (packet) => {
+      const start = Date.now()
       console.log('Received resource pack request', packet)
-      if (options.serverResourcePacks === 'never') return
       const promptMessagePacket = ('promptMessage' in packet && packet.promptMessage) ? packet.promptMessage : undefined
       const promptMessageText = promptMessagePacket ? '' : 'Do you want to use server resource pack?'
       // TODO!
       const hash = 'hash' in packet ? packet.hash : '-'
       const forced = 'forced' in packet ? packet.forced : false
-      const choice = options.serverResourcePacks === 'always'
-        ? true
-        : await showOptionsModal(promptMessageText, ['Download & Install (recommended)', 'Pretend Installed (not recommended)'], {
-          cancel: !forced,
-          minecraftJsonMessage: promptMessagePacket,
+      const choice = options.serverResourcePacks === 'never'
+        ? false
+        : options.serverResourcePacks === 'always'
+          ? true
+          : await showOptionsModal(promptMessageText, ['Download & Install (recommended)', 'Pretend Installed (not recommended)'], {
+            cancel: !forced,
+            minecraftJsonMessage: promptMessagePacket,
+          })
+      if (Date.now() - start < 700) { // wait for state protocol switch
+        await new Promise(resolve => {
+          setTimeout(resolve, 700)
         })
+      }
+      if (choice === false) {
+        bot.acceptResourcePack()
+        return
+      }
       if (!choice) {
         bot.denyResourcePack()
         return
       }
-      await new Promise(resolve => {
-        setTimeout(resolve, 500)
-      })
       console.log('accepting resource pack')
       bot.acceptResourcePack()
       if (choice === true || choice === 'Download & Install (recommended)') {

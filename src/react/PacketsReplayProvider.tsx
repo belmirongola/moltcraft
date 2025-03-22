@@ -22,7 +22,7 @@ export default function PacketsReplayProvider () {
   return (
     <ReplayPanel
       style={{
-        transform: 'scale(0.5)',
+        transform: 'scale(0.4)',
         transformOrigin: 'top right'
       }}
       replayName={state.replayName}

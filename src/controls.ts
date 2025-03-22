@@ -8,6 +8,7 @@ import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
+import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
@@ -25,11 +26,13 @@ import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
 import { onCameraMove, onControInit } from './cameraRotationControls'
 import { createNotificationProgressReporter } from './core/progressReporter'
+import { appStorage } from './react/appStorageProvider'
+import { switchGameMode } from './packetsReplay/replayPackets'
 
 
-export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
+export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
-  localStorage.keymap = JSON.stringify(customKeymaps)
+  appStorage.keybindings = customKeymaps
 })
 
 const controlOptions = {
@@ -636,28 +639,34 @@ export const f3Keybinds: Array<{
   {
     key: 'F4',
     async action () {
+      let nextGameMode: GameMode
       switch (bot.game.gameMode) {
         case 'creative': {
-          bot.chat('/gamemode survival')
+          nextGameMode = 'survival'
 
           break
         }
         case 'survival': {
-          bot.chat('/gamemode adventure')
+          nextGameMode = 'adventure'
 
           break
         }
         case 'adventure': {
-          bot.chat('/gamemode spectator')
+          nextGameMode = 'spectator'
 
           break
         }
         case 'spectator': {
-          bot.chat('/gamemode creative')
+          nextGameMode = 'creative'
 
           break
         }
       // No default
+      }
+      if (lastConnectOptions.value?.worldStateFileContents) {
+        switchGameMode(nextGameMode)
+      } else {
+        bot.chat(`/gamemode ${nextGameMode}`)
       }
     },
     mobileTitle: 'Cycle Game Mode'
@@ -809,15 +818,16 @@ let allowFlying = false
 export const onBotCreate = () => {
   let wasSpectatorFlying = false
   bot._client.on('abilities', ({ flags }) => {
+    allowFlying = !!(flags & 4)
     if (flags & 2) { // flying
       toggleFly(true, false)
     } else {
       toggleFly(false, false)
     }
-    allowFlying = !!(flags & 4)
   })
   const gamemodeCheck = () => {
     if (bot.game.gameMode === 'spectator') {
+      allowFlying = true
       toggleFly(true, false)
       wasSpectatorFlying = true
     } else if (wasSpectatorFlying) {

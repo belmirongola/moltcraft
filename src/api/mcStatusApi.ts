@@ -15,7 +15,7 @@ export const isServerValid = (ip: string) => {
   return !isInLocalNetwork && VALID_IP_OR_DOMAIN
 }
 
-export async function fetchServerStatus (ip: string, signal?: AbortSignal) {
+export async function fetchServerStatus (ip: string, signal?: AbortSignal, versionOverride?: string) {
   if (!isServerValid(ip)) return
 
   const response = await fetch(`https://api.mcstatus.io/v2/status/java/${ip}`, { signal })
@@ -25,7 +25,7 @@ export async function fetchServerStatus (ip: string, signal?: AbortSignal) {
   return {
     formattedText: data.motd?.raw ?? '',
     textNameRight: data.online ?
-            `${versionClean} ${data.players?.online ?? '??'}/${data.players?.max ?? '??'}` :
+      `${versionOverride ?? versionClean} ${data.players?.online ?? '??'}/${data.players?.max ?? '??'}` :
       '',
     icon: data.icon,
     offline: !data.online,

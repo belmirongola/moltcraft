@@ -781,11 +781,13 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus('Placing blocks (starting viewer)')
     if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
       localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+      if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
+        lockUrl()
+      }
+    } else {
+      localStorage.removeItem('lastConnectOptions')
     }
     connectOptions.onSuccessfulPlay?.()
-    if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
-      lockUrl()
-    }
     updateDataAfterJoin()
     if (connectOptions.autoLoginPassword) {
       bot.chat(`/login ${connectOptions.autoLoginPassword}`)

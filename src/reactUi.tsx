@@ -128,32 +128,36 @@ const InGameUi = () => {
     <RobustPortal to={document.querySelector('#ui-root')}>
       {/* apply scaling */}
       <div style={{ display: showUI ? 'block' : 'none' }}>
-        <GameInteractionOverlay zIndex={7} />
-        {!disabledUiParts.includes('death-screen') && <DeathScreenProvider />}
-        {!disabledUiParts.includes('debug-overlay') && <DebugOverlay />}
-        {!disabledUiParts.includes('mobile-top-buttons') && <MobileTopButtons />}
-        {!disabledUiParts.includes('players-list') && <PlayerListOverlayProvider />}
-        {!disabledUiParts.includes('chat') && <ChatProvider />}
-        <SoundMuffler />
-        {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
-        {!disabledUiParts.includes('title') && <TitleProvider />}
-        {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
-        {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
-        {!disabledUiParts.includes('crosshair') && <Crosshair />}
-        {!disabledUiParts.includes('books') && <BookProvider />}
-        {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
+        <PerComponentErrorBoundary>
+          <GameInteractionOverlay zIndex={7} />
+          {!disabledUiParts.includes('death-screen') && <DeathScreenProvider />}
+          {!disabledUiParts.includes('debug-overlay') && <DebugOverlay />}
+          {!disabledUiParts.includes('mobile-top-buttons') && <MobileTopButtons />}
+          {!disabledUiParts.includes('players-list') && <PlayerListOverlayProvider />}
+          {!disabledUiParts.includes('chat') && <ChatProvider />}
+          <SoundMuffler />
+          {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
+          {!disabledUiParts.includes('title') && <TitleProvider />}
+          {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
+          {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
+          {!disabledUiParts.includes('crosshair') && <Crosshair />}
+          {!disabledUiParts.includes('books') && <BookProvider />}
+          {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
+        </PerComponentErrorBoundary>
       </div>
 
-      <PauseScreen />
-      <MineflayerPluginHud />
-      <MineflayerPluginConsole />
-      {showUI && <TouchInteractionHint />}
-      <div style={{ display: showUI ? 'block' : 'none' }}>
-        {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
-        {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
-        <BedTime />
-      </div>
-      {showUI && !disabledUiParts.includes('hotbar') && <HotbarRenderApp />}
+      <PerComponentErrorBoundary>
+        <PauseScreen />
+        <MineflayerPluginHud />
+        <MineflayerPluginConsole />
+        {showUI && <TouchInteractionHint />}
+        <div style={{ display: showUI ? 'block' : 'none' }}>
+          {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
+          {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
+          <BedTime />
+        </div>
+        {showUI && !disabledUiParts.includes('hotbar') && <HotbarRenderApp />}
+      </PerComponentErrorBoundary>
     </RobustPortal>
     <PerComponentErrorBoundary>
       <SignEditorProvider />

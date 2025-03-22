@@ -15,6 +15,7 @@ import { getFixedFilesize } from './downloadAndOpenFile'
 import { packetsReplayState } from './react/state/packetsReplayState'
 import { createFullScreenProgressReporter } from './core/progressReporter'
 import { showNotification } from './react/NotificationProvider'
+import { resetAppStorage } from './react/appStorageProvider'
 const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive')
 
 browserfs.install(window)
@@ -620,24 +621,13 @@ export const openWorldZip = async (...args: Parameters<typeof openWorldZipInner>
   }
 }
 
-export const resetLocalStorageWorld = () => {
-  for (const key of Object.keys(localStorage)) {
-    if (/^[\da-fA-F]{8}(?:\b-[\da-fA-F]{4}){3}\b-[\da-fA-F]{12}$/g.test(key) || key === '/') {
-      localStorage.removeItem(key)
-    }
-  }
-}
-
-export const resetLocalStorageWithoutWorld = () => {
-  for (const key of Object.keys(localStorage)) {
-    if (!/^[\da-fA-F]{8}(?:\b-[\da-fA-F]{4}){3}\b-[\da-fA-F]{12}$/g.test(key) && key !== '/') {
-      localStorage.removeItem(key)
-    }
-  }
+export const resetLocalStorage = () => {
   resetOptions()
+  resetAppStorage()
 }
 
-window.resetLocalStorageWorld = resetLocalStorageWorld
+window.resetLocalStorage = resetLocalStorage
+
 export const openFilePicker = (specificCase?: 'resourcepack') => {
   // create and show input picker
   let picker: HTMLInputElement = document.body.querySelector('input#file-zip-picker')!

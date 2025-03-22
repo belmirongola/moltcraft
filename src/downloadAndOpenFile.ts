@@ -13,13 +13,43 @@ export const getFixedFilesize = (bytes: number) => {
 const inner = async () => {
   const { replayFileUrl } = appQueryParams
   if (replayFileUrl) {
-    setLoadingScreenStatus('Downloading replay file...')
+    setLoadingScreenStatus('Downloading replay file')
     const response = await fetch(replayFileUrl)
     const contentLength = response.headers?.get('Content-Length')
     const size = contentLength ? +contentLength : undefined
     const filename = replayFileUrl.split('/').pop()
 
-    const contents = await response.text()
+    let downloadedBytes = 0
+    const buffer = await new Response(new ReadableStream({
+      async start (controller) {
+        if (!response.body) throw new Error('Server returned no response!')
+        const reader = response.body.getReader()
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read()
+
+          if (done) {
+            controller.close()
+            break
+          }
+
+          downloadedBytes += value.byteLength
+
+          // Calculate download progress as a percentage
+          const progress = size ? (downloadedBytes / size) * 100 : undefined
+          setLoadingScreenStatus(`Download replay file progress: ${progress === undefined ? '?' : Math.floor(progress)}% (${getFixedFilesize(downloadedBytes)} / ${size && getFixedFilesize(size)})`, false, true)
+
+          // Pass the received data to the controller
+          controller.enqueue(value)
+        }
+      },
+    })).arrayBuffer()
+
+    // Convert buffer to text, handling any compression automatically
+    const decoder = new TextDecoder()
+    const contents = decoder.decode(buffer)
+
     openFile({
       contents,
       filename,
