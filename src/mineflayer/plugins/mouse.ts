@@ -6,6 +6,7 @@ import { isGameActive, showModal } from '../../globalState'
 
 import { isCypress } from '../../standaloneUtils'
 import { playerState } from '../playerState'
+import { sendVideoInteraction, videoCursorInteraction } from '../../customChannels'
 
 function cursorBlockDisplay (bot: Bot) {
   const updateCursorBlock = (data?: { block: Block }) => {
@@ -67,6 +68,12 @@ const domListeners = (bot: Bot) => {
   document.addEventListener('mousedown', (e) => {
     if (e.isTrusted && !document.pointerLockElement && !isCypress()) return
     if (!isGameActive(true)) return
+
+    const videoInteraction = videoCursorInteraction()
+    if (videoInteraction) {
+      sendVideoInteraction(videoInteraction.id, videoInteraction.x, videoInteraction.y, e.button === 0)
+      return
+    }
 
     if (e.button === 0) {
       bot.leftClickStart()

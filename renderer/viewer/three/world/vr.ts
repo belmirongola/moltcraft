@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { buttonMap as standardButtonsMap } from 'contro-max/build/gamepad'
 import * as THREE from 'three'
-import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from '../worldrendererThree'
 
 export async function initVR (worldRenderer: WorldRendererThree) {
   if (!('xr' in navigator) || !worldRenderer.worldRendererConfig.vrSupport) return

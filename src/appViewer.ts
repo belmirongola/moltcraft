@@ -3,7 +3,7 @@ import { IPlayerState } from 'renderer/viewer/lib/basePlayerState'
 import { subscribeKey } from 'valtio/utils'
 import { defaultWorldRendererConfig, WorldRendererConfig } from 'renderer/viewer/lib/worldrendererCommon'
 import { Vec3 } from 'vec3'
-import { SoundSystem } from 'renderer/viewer/lib/threeJsSound'
+import { SoundSystem } from 'renderer/viewer/three/threeJsSound'
 import { proxy } from 'valtio'
 import { getDefaultRendererState } from 'renderer/viewer/baseGraphicsBackend'
 import { playerState } from './mineflayer/playerState'
@@ -20,6 +20,7 @@ export interface RendererReactiveState {
     chunksTotalNumber: number
     allChunksLoaded: boolean
     mesherWork: boolean
+    intersectMedia: { id: string, x: number, y: number } | null
   }
   renderer: string
   preventEscapeMenu: boolean
@@ -57,15 +58,16 @@ export type GraphicsBackendLoader = (options: GraphicsInitOptions) => GraphicsBa
 
 // no sync methods
 export interface GraphicsBackend {
-  NAME: string
+  id: string
+  displayName?: string
   startPanorama: () => void
   // prepareResources: (version: string, progressReporter: ProgressReporter) => Promise<void>
   startWorld: (options: DisplayWorldOptions) => void
   disconnect: () => void
   setRendering: (rendering: boolean) => void
-  getDebugOverlay: () => Record<string, any>
+  getDebugOverlay?: () => Record<string, any>
   updateCamera: (pos: Vec3 | null, yaw: number, pitch: number) => void
-  setRoll: (roll: number) => void
+  setRoll?: (roll: number) => void
   soundSystem: SoundSystem | undefined
 
   backendMethods: Record<string, unknown> | undefined

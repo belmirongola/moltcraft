@@ -6,7 +6,8 @@ export const getDefaultRendererState = (): RendererReactiveState => {
       chunksLoaded: [],
       chunksTotalNumber: 0,
       allChunksLoaded: true,
-      mesherWork: false
+      mesherWork: false,
+      intersectMedia: null
     },
     renderer: '',
     preventEscapeMenu: false

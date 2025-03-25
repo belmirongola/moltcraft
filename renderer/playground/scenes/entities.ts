@@ -2,7 +2,7 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { BasePlaygroundScene } from '../baseScene'
-import { WorldRendererThree } from '../../viewer/lib/worldrendererThree'
+import { WorldRendererThree } from '../../viewer/three/worldrendererThree'
 
 export default class extends BasePlaygroundScene {
   continuousRender = true

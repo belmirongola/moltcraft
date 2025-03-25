@@ -471,13 +471,51 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        return <Category>Developer</Category>
+        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
+      }
+    },
+    {
+      custom () {
+        return <Category>Server Connection</Category>
       },
     },
     {
       custom () {
-        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
-      }
+        const { serversAutoVersionSelect } = useSnapshot(options)
+        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
+        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
+
+        const getDisplayValue = (version: string) => {
+          const versionAutoSelect = getVersionAutoSelect(version)
+          if (version === 'latest') return `latest (${versionAutoSelect})`
+          if (version === 'auto') return `auto (${versionAutoSelect})`
+          return version
+        }
+
+        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Slider
+            style={{ width: 150 }}
+            label='Default Version'
+            title='First version to try to connect with'
+            value={currentIndex}
+            min={0}
+            max={allVersions.length - 1}
+            unit=''
+            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
+            updateValue={(newVal) => {
+              options.serversAutoVersionSelect = allVersions[newVal]
+            }}
+          />
+        </div>
+      },
+    },
+    {
+      preventBackgroundTimeoutKick: {}
+    },
+    {
+      custom () {
+        return <Category>Developer</Category>
+      },
     },
     {
       custom () {
@@ -509,35 +547,6 @@ export const guiOptionsScheme: {
           ['all', 'All'],
           ['no-buffers', 'No Buffers']
         ],
-      },
-    },
-    {
-      custom () {
-        const { serversAutoVersionSelect } = useSnapshot(options)
-        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
-        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
-
-        const getDisplayValue = (version: string) => {
-          const versionAutoSelect = getVersionAutoSelect(version)
-          if (version === 'latest') return `latest (${versionAutoSelect})`
-          if (version === 'auto') return `auto (${versionAutoSelect})`
-          return version
-        }
-
-        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Slider
-            style={{ width: 150 }}
-            label='Prefer Server Version'
-            value={currentIndex}
-            min={0}
-            max={allVersions.length - 1}
-            unit=''
-            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
-            updateValue={(newVal) => {
-              options.serversAutoVersionSelect = allVersions[newVal]
-            }}
-          />
-        </div>
       },
     },
   ],

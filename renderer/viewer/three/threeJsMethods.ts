@@ -3,7 +3,7 @@ import type { ThreeJsBackendMethods } from './graphicsBackend'
 
 export function getThreeJsRendererMethods (): ThreeJsBackendMethods | undefined {
   const renderer = appViewer.backend
-  if (!renderer?.['__isThreeJsRenderer'] || !renderer.backendMethods) return
+  if (renderer?.id !== 'threejs' || !renderer.backendMethods) return
   return new Proxy(renderer.backendMethods, {
     get (target, prop) {
       return async (...args) => {

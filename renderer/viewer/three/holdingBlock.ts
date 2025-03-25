@@ -2,15 +2,15 @@ import * as THREE from 'three'
 import * as tweenJs from '@tweenjs/tween.js'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { BlockModel } from 'mc-assets'
-import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
-import { getMyHand } from './hand'
-import { IPlayerState, MovementState } from './basePlayerState'
-import { DebugGui } from './DebugGui'
-import { SmoothSwitcher } from './smoothSwitcher'
-import { watchProperty } from './utils/proxy'
-import { disposeObject } from './threeJsUtils'
-import { WorldRendererConfig } from './worldrendererCommon'
+import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from '../lib/mesher/standaloneRenderer'
+import { getMyHand } from '../lib/hand'
+import { IPlayerState, MovementState } from '../lib/basePlayerState'
+import { DebugGui } from '../lib/DebugGui'
+import { SmoothSwitcher } from '../lib/smoothSwitcher'
+import { watchProperty } from '../lib/utils/proxy'
+import { WorldRendererConfig } from '../lib/worldrendererCommon'
 import { WorldRendererThree } from './worldrendererThree'
+import { disposeObject } from './threeJsUtils'
 
 export type HandItemBlock = {
   name?
@@ -152,7 +152,9 @@ export default class HoldingBlock {
     const item = this.playerState.getHeldItem(this.offHand)
     if (item) {
       void this.setNewItem(item)
-    } else if (!this.offHand) {
+    } else if (this.offHand) {
+      void this.setNewItem()
+    } else {
       void this.setNewItem({
         type: 'hand',
       })

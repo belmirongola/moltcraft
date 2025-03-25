@@ -1,7 +1,7 @@
 // global variables useful for debugging
 
 import fs from 'fs'
-import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/three/worldrendererThree'
 import { enable, disable, enabled } from 'debug'
 import { Vec3 } from 'vec3'
 

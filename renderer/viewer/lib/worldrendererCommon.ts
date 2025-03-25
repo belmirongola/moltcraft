@@ -11,12 +11,12 @@ import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
 import { DisplayWorldOptions, RendererReactiveState } from '../../../src/appViewer'
+import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { removeStat, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
-import { SoundSystem } from './threeJsSound'
 import { IPlayerState } from './basePlayerState'
 
 function mod (x, n) {
@@ -51,11 +51,8 @@ export type WorldRendererConfig = typeof defaultWorldRendererConfig
 
 export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any> {
   displayStats = true
-  @worldCleanup()
   worldSizeParams = { minY: 0, worldHeight: 256 }
-  cameraRoll = 0
 
-  @worldCleanup()
   active = false
 
   // #region CHUNK & SECTIONS TRACKING
@@ -77,28 +74,22 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   queuedFunctions = [] as Array<() => void>
   // #endregion
 
-  @worldCleanup()
   renderUpdateEmitter = new EventEmitter() as unknown as TypedEmitter<{
     dirty (pos: Vec3, value: boolean): void
     update (/* pos: Vec3, value: boolean */): void
     chunkFinished (key: string): void
   }>
   customTexturesDataUrl = undefined as string | undefined
-  @worldCleanup()
   workers: any[] = []
-  @worldCleanup()
   viewerPosition?: Vec3
   lastCamUpdate = 0
   droppedFpsPercentage = 0
-  @worldCleanup()
   initialChunkLoadWasStartedIn: number | undefined
-  @worldCleanup()
   initialChunksLoad = true
   enableChunksLoadDelay = false
   texturesVersion?: string
   viewDistance = -1
   chunksLength = 0
-  @worldCleanup()
   allChunksFinished = false
 
   handleResize = () => { }

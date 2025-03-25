@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
 import { BasePlayerState, IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'renderer/viewer/lib/basePlayerState'
-import { HandItemBlock } from 'renderer/viewer/lib/holdingBlock'
+import { HandItemBlock } from 'renderer/viewer/three/holdingBlock'
 import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
 import { proxy } from 'valtio'
@@ -27,10 +27,6 @@ export class PlayerStateManager implements IPlayerState {
   onlineMode = false
   get username () {
     return bot.player?.username ?? ''
-  }
-
-  get gameMode () {
-    return bot.game?.gameMode
   }
 
   reactive: IPlayerState['reactive'] = new BasePlayerState().reactive

@@ -37,6 +37,7 @@ export default () => {
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
   const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
+  const [clientTps, setClientTps] = useState(0)
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
   const rendererDevice = appViewer.rendererState.renderer ?? 'No render backend'
@@ -85,6 +86,23 @@ export default () => {
   }
 
   useEffect(() => {
+    let lastTpsReset = 0
+    let lastTps = 0
+    let lastTickDate = 0
+    const updateTps = (increment = false) => {
+      if (Date.now() - lastTpsReset >= 1000) {
+        setClientTps(lastTps)
+        window.lastTpsArray ??= []
+        window.lastTpsArray.push(lastTps)
+        lastTps = 0
+        lastTpsReset = Date.now()
+      }
+      if (increment) {
+        lastTickDate = Date.now()
+        lastTps++
+      }
+    }
+
     document.addEventListener('keydown', handleF3)
     let update = 0
     const packetsUpdateInterval = setInterval(() => {
@@ -97,7 +115,15 @@ export default () => {
         packetsCountByNamePer10Sec.current.received = {}
         packetsCountByNamePer10Sec.current.sent = {}
       }
+      updateTps(false)
     }, 1000)
+
+    bot.on('physicsTick', () => {
+      updateTps(true)
+    })
+    bot._client.on('packet', () => {
+      updateTps(false)
+    })
 
     const freqUpdateInterval = setInterval(() => {
       setPos({ ...bot.entity.position })
@@ -133,6 +159,7 @@ export default () => {
       clearInterval(packetsUpdateInterval)
       clearInterval(freqUpdateInterval)
       clearInterval(notFrequentUpdateInterval)
+      console.log('Last physics tick before disconnect was', Date.now() - lastTickDate, 'ms ago')
     }
   }, [])
 
@@ -146,12 +173,13 @@ export default () => {
   return <>
     <div className={`debug-left-side ${styles['debug-left-side']}`}>
       <p>Prismarine Web Client ({bot.version})</p>
-      {appViewer.backend?.getDebugOverlay().entitiesString && <p>E: {appViewer.backend.getDebugOverlay().entitiesString}</p>}
+      {appViewer.backend?.getDebugOverlay?.().entitiesString && <p>E: {appViewer.backend.getDebugOverlay().entitiesString}</p>}
       <p>{dimension}</p>
       <div className={styles.empty} />
       <p>XYZ: {pos.x.toFixed(3)} / {pos.y.toFixed(3)} / {pos.z.toFixed(3)}</p>
       <p>Chunk: {Math.floor(pos.x % 16)} ~ {Math.floor(pos.z % 16)} in {Math.floor(pos.x / 16)} ~ {Math.floor(pos.z / 16)}</p>
       <p>Packets: {packetsString}</p>
+      <p>Client TPS: {clientTps}</p>
       <p>Facing (viewer): {bot.entity.yaw.toFixed(3)} {bot.entity.pitch.toFixed(3)}</p>
       <p>Facing (minecraft): {quadsDescription[minecraftQuad.current]} ({minecraftYaw.current.toFixed(1)} {(bot.entity.pitch * -180 / Math.PI).toFixed(1)})</p>
       <p>Light: {blockL} ({skyL} sky)</p>
@@ -159,11 +187,11 @@ export default () => {
       <p>Biome: minecraft:{loadedData.biomesArray[biomeId]?.name ?? 'unknown biome'}</p>
       <p>Day: {day}</p>
       <div className={styles.empty} />
-      {Object.entries(appViewer.backend?.getDebugOverlay().left ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
+      {Object.entries(appViewer.backend?.getDebugOverlay?.().left ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
 
     <div className={`debug-right-side ${styles['debug-right-side']}`}>
-      <p>Backend: {appViewer.backend?.NAME}</p>
+      <p>Backend: {appViewer.backend?.displayName}</p>
       <p>Renderer: {rendererDevice}</p>
       <div className={styles.empty} />
       {cursorBlock ? (<>
@@ -201,7 +229,7 @@ export default () => {
           </>
         )
       })()}
-      {Object.entries(appViewer.backend?.getDebugOverlay().right ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
+      {Object.entries(appViewer.backend?.getDebugOverlay?.().right ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
   </>
 }

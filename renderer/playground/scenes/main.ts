@@ -4,8 +4,8 @@ import GUI, { Controller } from 'lil-gui'
 import * as THREE from 'three'
 import JSZip from 'jszip'
 import { BasePlaygroundScene } from '../baseScene'
-import { TWEEN_DURATION } from '../../viewer/lib/entities'
-import { EntityMesh } from '../../viewer/lib/entity/EntityMesh'
+import { TWEEN_DURATION } from '../../viewer/three/entities'
+import { EntityMesh } from '../../viewer/three/entity/EntityMesh'
 
 class MainScene extends BasePlaygroundScene {
   // eslint-disable-next-line @typescript-eslint/no-useless-constructor

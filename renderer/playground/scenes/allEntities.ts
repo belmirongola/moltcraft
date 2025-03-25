@@ -1,6 +1,6 @@
 //@ts-nocheck
 import { BasePlaygroundScene } from '../baseScene'
-import { EntityDebugFlags, EntityMesh, rendererSpecialHandled } from '../../viewer/lib/entity/EntityMesh'
+import { EntityDebugFlags, EntityMesh, rendererSpecialHandled } from '../../viewer/three/entity/EntityMesh'
 
 export default class AllEntities extends BasePlaygroundScene {
   continuousRender = false

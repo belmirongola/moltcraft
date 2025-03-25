@@ -57,11 +57,13 @@ const defaultOptions = {
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
   serversAutoVersionSelect: '1.19.4' as 'auto' | 'latest' | '1.20.4' | string, // TODO! revert
   customChannels: false,
+  remoteContentNotSameOrigin: false as boolean | string[],
   packetsReplayAutoStart: false,
   preciseMouseInput: false,
   // todo ui setting, maybe enable by default?
   waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
+  preventBackgroundTimeoutKick: false,
 
   // antiAliasing: false,
 

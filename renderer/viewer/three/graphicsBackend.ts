@@ -3,7 +3,7 @@ import { Vec3 } from 'vec3'
 import { proxy } from 'valtio'
 import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions, RendererReactiveState } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
-import { WorldRendererThree } from '../lib/worldrendererThree'
+import { WorldRendererThree } from './worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
 import { PanoramaRenderer } from './panorama'
 
@@ -23,7 +23,14 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     updateBreakAnimation: worldRenderer.cursorBlock.updateBreakAnimation.bind(worldRenderer.cursorBlock),
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
     getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer),
-    rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer)
+    rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer),
+    addMedia: worldRenderer.addMedia.bind(worldRenderer),
+    destroyMedia: worldRenderer.destroyMedia.bind(worldRenderer),
+    setVideoPlaying: worldRenderer.setVideoPlaying.bind(worldRenderer),
+    setVideoSeeking: worldRenderer.setVideoSeeking.bind(worldRenderer),
+    setVideoVolume: worldRenderer.setVideoVolume.bind(worldRenderer),
+    setVideoSpeed: worldRenderer.setVideoSpeed.bind(worldRenderer),
+    shakeFromDamage: worldRenderer.cameraShake.shakeFromDamage.bind(worldRenderer.cameraShake),
   }
 }
 
@@ -80,11 +87,9 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
 
   // Public interface
   const backend: GraphicsBackend = {
-    //@ts-expect-error mark as three.js renderer
-    __isThreeJsRenderer: true,
-    NAME: `three.js ${THREE.REVISION}`,
+    id: 'threejs',
+    displayName: `three.js ${THREE.REVISION}`,
     startPanorama,
-    prepareResources,
     startWorld,
     disconnect,
     setRendering (rendering) {
@@ -94,9 +99,6 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     }),
     updateCamera (pos: Vec3 | null, yaw: number, pitch: number) {
       worldRenderer?.setFirstPersonCamera(pos, yaw, pitch)
-    },
-    setRoll (roll: number) {
-      worldRenderer?.setCameraRoll(roll)
     },
     get soundSystem () {
       return worldRenderer?.soundSystem

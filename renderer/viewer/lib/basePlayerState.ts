@@ -4,7 +4,11 @@ import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
 import { proxy } from 'valtio'
 import { GameMode } from 'mineflayer'
+<<<<<<< HEAD
 import { HandItemBlock } from './holdingBlock'
+=======
+import { HandItemBlock } from '../three/holdingBlock'
+>>>>>>> origin/next
 
 export type MovementState = 'NOT_MOVING' | 'WALKING' | 'SPRINTING' | 'SNEAKING'
 export type ItemSpecificContextProperties = Partial<Pick<ItemSelector['properties'], 'minecraft:using_item' | 'minecraft:use_duration' | 'minecraft:use_cycle' | 'minecraft:display_context'>>

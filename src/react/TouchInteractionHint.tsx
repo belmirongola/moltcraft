@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { options } from '../optionsStorage'
 import { activeModalStack } from '../globalState'
+import { videoCursorInteraction } from '../customChannels'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import styles from './TouchInteractionHint.module.css'
 import { useUsingTouch } from './utilsApp'
@@ -14,12 +15,17 @@ export default () => {
 
   useEffect(() => {
     const update = () => {
-      const cursorState = bot.mouse.getCursorState()
-      if (cursorState.entity) {
-        const entityName = cursorState.entity.displayName ?? cursorState.entity.name
-        setHintText(`Attack ${entityName}`)
+      const videoInteraction = videoCursorInteraction()
+      if (videoInteraction) {
+        setHintText(`Interact with video`)
       } else {
-        setHintText(null)
+        const cursorState = bot.mouse.getCursorState()
+        if (cursorState.entity) {
+          const entityName = cursorState.entity.displayName ?? cursorState.entity.name
+          setHintText(`Attack ${entityName}`)
+        } else {
+          setHintText(null)
+        }
       }
     }
 

@@ -3,7 +3,7 @@ import { LineMaterial, LineSegmentsGeometry, Wireframe } from 'three-stdlib'
 import { Vec3 } from 'vec3'
 import { subscribeKey } from 'valtio/utils'
 import { Block } from 'prismarine-block'
-import { WorldRendererThree } from '../../lib/worldrendererThree'
+import { WorldRendererThree } from '../worldrendererThree'
 import destroyStage0 from '../../../../assets/destroy_stage_0.png'
 import destroyStage1 from '../../../../assets/destroy_stage_1.png'
 import destroyStage2 from '../../../../assets/destroy_stage_2.png'
@@ -51,6 +51,8 @@ export class CursorBlock {
     subscribeKey(this.worldRenderer.playerState.reactive, 'gameMode', () => {
       this.updateLineMaterial()
     })
+
+    this.updateLineMaterial()
   }
 
   // Update functions
@@ -86,12 +88,10 @@ export class CursorBlock {
     this.blockBreakMesh.scale.set(width * 1.001, height * 1.001, depth * 1.001)
     position.add(block.position)
     this.blockBreakMesh.position.set(position.x, position.y, position.z)
-    this.blockBreakMesh.visible = true
+    this.blockBreakMesh.visible = true;
 
-    //@ts-expect-error
-    state.blockBreakMesh.material.map = state.breakTextures[stage] ?? state.breakTextures.at(-1)
-    //@ts-expect-error
-    state.blockBreakMesh.material.needsUpdate = true
+    (this.blockBreakMesh.material as THREE.MeshBasicMaterial).map = this.breakTextures[stage] ?? this.breakTextures.at(-1);
+    (this.blockBreakMesh.material as THREE.MeshBasicMaterial).needsUpdate = true
   }
 
   hideBreakAnimation () {
