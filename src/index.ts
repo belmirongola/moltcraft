@@ -15,8 +15,7 @@ import './external'
 import './appConfig'
 import './mineflayer/timers'
 import { getServerInfo } from './mineflayer/mc-protocol'
-import { onGameLoad, renderSlot } from './inventoryWindows'
-import { GeneralInputItem } from './mineflayer/items'
+import { onGameLoad } from './inventoryWindows'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import { Duplex } from 'stream'
 
@@ -53,11 +52,6 @@ import { parseServerAddress } from './parseServerAddress'
 import { setLoadingScreenStatus } from './appStatus'
 import { isCypress } from './standaloneUtils'
 
-import {
-  removePanorama
-} from './panorama'
-import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
-
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
 import dayCycle from './dayCycle'
@@ -82,7 +76,6 @@ import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherG
 import { subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import packetsPatcher from './mineflayer/plugins/packetsPatcher'
 import { mainMenuState } from './react/MainMenuRenderApp'
 import './mobileShim'
@@ -98,9 +91,11 @@ import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
-import { createFullScreenProgressReporter } from './core/progressReporter'
-import { getItemModelName } from './resourcesManager'
-import { importLargeData } from '../generated/large-data-aliases'
+import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
+import { appViewer } from './appViewer'
+import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
+import { subscribeKey } from 'valtio/utils'
+import { getProtocolClientGetter } from './protocolWorker/protocolMain'
 
 window.debug = debug
 window.beforeRenderFrame = []
