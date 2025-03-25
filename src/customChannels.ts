@@ -31,20 +31,6 @@ const registerChannel = (channelName: string, packetStructure: any[], handler: (
   console.debug(`registered custom channel ${channelName} channel`)
 }
 
-const registerChannel = (channelName: string, packetStructure: any[], handler: (data: any) => void, waitForWorld = true) => {
-  bot._client.registerChannel(channelName, packetStructure, true)
-  bot._client.on(channelName as any, async (data) => {
-    if (waitForWorld) {
-      await appViewer.worldReady
-      handler(data)
-    } else {
-      handler(data)
-    }
-  })
-
-  console.debug(`registered custom channel ${channelName} channel`)
-}
-
 const registerBlockModelsChannel = () => {
   const CHANNEL_NAME = 'minecraft-web-client:blockmodels'
 
