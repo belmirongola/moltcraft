@@ -55,13 +55,15 @@ const defaultOptions = {
   viewBobbing: true,
   displayRecordButton: true,
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
-  serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string, // TODO! revert
+  serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
   customChannels: false,
+  remoteContentNotSameOrigin: false as boolean | string[],
   packetsReplayAutoStart: false,
   preciseMouseInput: false,
   // todo ui setting, maybe enable by default?
   waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
+  preventBackgroundTimeoutKick: false,
 
   // antiAliasing: false,
 

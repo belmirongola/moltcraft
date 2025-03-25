@@ -1,5 +1,6 @@
-import { proxy, useSnapshot } from 'valtio'
+import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useMemo } from 'react'
+import { subscribeKey } from 'valtio/utils'
 import { inGameError } from '../utils'
 import { fsState } from '../loadSave'
 import { gameAdditionalState, miscUiState } from '../globalState'
@@ -9,7 +10,6 @@ import { images } from './effectsImages'
 
 export const state = proxy({
   indicators: {
-    chunksLoading: false
   },
   effects: [] as EffectType[]
 })
@@ -52,6 +52,9 @@ const getEffectIndex = (newEffect: EffectType) => {
 
 export default () => {
   const stateIndicators = useSnapshot(state.indicators)
+  const chunksLoading = !useSnapshot(appViewer.rendererState).world.allChunksLoaded
+  const { mesherWork } = useSnapshot(appViewer.rendererState).world
+
   const { hasErrors } = useSnapshot(miscUiState)
   const { disabledUiParts } = useSnapshot(options)
   const { isReadonly, openReadOperations, openWriteOperations } = useSnapshot(fsState)
@@ -62,26 +65,10 @@ export default () => {
     readingFiles: openReadOperations > 0,
     appHasErrors: hasErrors,
     connectionIssues: poorConnection ? 1 : noConnection ? 2 : 0,
+    chunksLoading,
+    // mesherWork,
     ...stateIndicators,
   }
-
-  useEffect(() => {
-    let alreadyWaiting = false
-    const listener = () => {
-      if (alreadyWaiting) return
-      state.indicators.chunksLoading = true
-      alreadyWaiting = true
-      void viewer.waitForChunksToRender().then(() => {
-        state.indicators.chunksLoading = false
-        alreadyWaiting = false
-      })
-    }
-    viewer.world.renderUpdateEmitter.on('dirty', listener)
-
-    return () => {
-      viewer.world.renderUpdateEmitter.off('dirty', listener)
-    }
-  }, [])
 
   const effects = useSnapshot(state.effects)
 

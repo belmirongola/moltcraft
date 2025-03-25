@@ -2,27 +2,26 @@
 import { ItemRenderer, Identifier, ItemStack, NbtString, Structure, StructureRenderer, ItemRendererResources, BlockDefinition, BlockModel, TextureAtlas, Resources, ItemModel } from 'deepslate'
 import { mat4, vec3 } from 'gl-matrix'
 import { AssetsParser } from 'mc-assets/dist/assetsParser'
-import { getLoadedImage } from 'mc-assets/dist/utils'
+import { getLoadedImage, versionToNumber } from 'mc-assets/dist/utils'
 import { BlockModel as BlockModelMcAssets, AtlasParser } from 'mc-assets'
 import { getLoadedBlockstatesStore, getLoadedModelsStore } from 'mc-assets/dist/stores'
 import { makeTextureAtlas } from 'mc-assets/dist/atlasCreator'
 import { proxy, ref } from 'valtio'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
-import { versionToNumber } from '../prepare/utils'
 
 export const activeGuiAtlas = proxy({
   atlas: null as null | { json, image },
 })
 
 export const getNonFullBlocksModels = () => {
-  let version = viewer.world.texturesVersion ?? 'latest'
+  let version = appViewer.resourcesManager.currentResources!.version ?? 'latest'
   if (versionToNumber(version) < versionToNumber('1.13')) version = '1.13'
-  const itemsDefinitions = viewer.world.itemsDefinitionsStore.data.latest
+  const itemsDefinitions = appViewer.resourcesManager.itemsDefinitionsStore.data.latest
   const blockModelsResolved = {} as Record<string, any>
   const itemsModelsResolved = {} as Record<string, any>
   const fullBlocksWithNonStandardDisplay = [] as string[]
   const handledItemsWithDefinitions = new Set()
-  const assetsParser = new AssetsParser(version, getLoadedBlockstatesStore(viewer.world.blockstatesModels), getLoadedModelsStore(viewer.world.blockstatesModels))
+  const assetsParser = new AssetsParser(version, getLoadedBlockstatesStore(appViewer.resourcesManager.currentResources!.blockstatesModels), getLoadedModelsStore(appViewer.resourcesManager.currentResources!.blockstatesModels))
 
   const standardGuiDisplay = {
     'rotation': [
@@ -54,7 +53,7 @@ export const getNonFullBlocksModels = () => {
   }
 
   for (const [name, definition] of Object.entries(itemsDefinitions)) {
-    const item = getItemDefinition(viewer.world.itemsDefinitionsStore, {
+    const item = getItemDefinition(appViewer.resourcesManager.itemsDefinitionsStore, {
       version,
       name,
       properties: {
@@ -97,7 +96,7 @@ export const getNonFullBlocksModels = () => {
     }
   }
 
-  for (const [name, blockstate] of Object.entries(viewer.world.blockstatesModels.blockstates.latest)) {
+  for (const [name, blockstate] of Object.entries(appViewer.resourcesManager.currentResources!.blockstatesModels.blockstates.latest)) {
     if (handledItemsWithDefinitions.has(name)) {
       continue
     }
@@ -120,7 +119,8 @@ export const getNonFullBlocksModels = () => {
 const RENDER_SIZE = 64
 
 const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isItems = false) => {
-  const img = await getLoadedImage(isItems ? viewer.world.itemsAtlasParser!.latestImage : viewer.world.blocksAtlasParser!.latestImage)
+  const { currentResources } = appViewer.resourcesManager
+  const img = await getLoadedImage(isItems ? currentResources!.itemsAtlasParser.latestImage : currentResources!.blocksAtlasParser.latestImage)
   const canvasTemp = document.createElement('canvas')
   canvasTemp.width = img.width
   canvasTemp.height = img.height
@@ -129,7 +129,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
   ctx.imageSmoothingEnabled = false
   ctx.drawImage(img, 0, 0)
 
-  const atlasParser = isItems ? viewer.world.itemsAtlasParser! : viewer.world.blocksAtlasParser!
+  const atlasParser = isItems ? currentResources!.itemsAtlasParser : currentResources!.blocksAtlasParser
   const textureAtlas = new TextureAtlas(
     ctx.getImageData(0, 0, img.width, img.height),
     Object.fromEntries(Object.entries(atlasParser.atlas.latest.textures).map(([key, value]) => {

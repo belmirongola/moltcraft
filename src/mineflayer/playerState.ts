@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
-import { IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'renderer/viewer/lib/basePlayerState'
-import { HandItemBlock } from 'renderer/viewer/lib/holdingBlock'
+import { BasePlayerState, IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'renderer/viewer/lib/basePlayerState'
+import { HandItemBlock } from 'renderer/viewer/three/holdingBlock'
 import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
 import { proxy } from 'valtio'
@@ -29,9 +29,7 @@ export class PlayerStateManager implements IPlayerState {
     return bot.player?.username ?? ''
   }
 
-  reactive = proxy({
-    playerSkin: undefined as string | undefined,
-  })
+  reactive: IPlayerState['reactive'] = new BasePlayerState().reactive
 
   static getInstance (): PlayerStateManager {
     if (!this.instance) {
@@ -40,7 +38,7 @@ export class PlayerStateManager implements IPlayerState {
     return this.instance
   }
 
-  private constructor () {
+  constructor () {
     this.updateState = this.updateState.bind(this)
     customEvents.on('mineflayerBotCreated', () => {
       this.ready = false
@@ -70,6 +68,11 @@ export class PlayerStateManager implements IPlayerState {
     // Initial held items setup
     this.updateHeldItem(false)
     this.updateHeldItem(true)
+
+    bot.on('game', () => {
+      this.reactive.gameMode = bot.game.gameMode
+    })
+    this.reactive.gameMode = bot.game?.gameMode
   }
 
   // #region Movement and Physics State
@@ -132,6 +135,10 @@ export class PlayerStateManager implements IPlayerState {
 
   isSprinting (): boolean {
     return gameAdditionalState.isSprinting
+  }
+
+  getPosition (): Vec3 {
+    return bot.player?.entity.position ?? new Vec3(0, 0, 0)
   }
   // #endregion
 

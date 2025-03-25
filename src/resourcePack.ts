@@ -3,13 +3,11 @@ import { join, dirname, basename } from 'path'
 import fs from 'fs'
 import JSZip from 'jszip'
 import { proxy, subscribe } from 'valtio'
-import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
-import { armorTextures } from 'renderer/viewer/lib/entity/armorModels'
-import { collectFilesToCopy, copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
+import { armorTextures } from 'renderer/viewer/three/entity/armorModels'
+import { copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
 import { showNotification } from './react/NotificationProvider'
 import { options } from './optionsStorage'
 import { showOptionsModal } from './react/SelectOption'
-import { appStatusState } from './react/AppStatusProvider'
 import { appReplacableResources, resourcesContentOriginal } from './generated/resources'
 import { gameAdditionalState, miscUiState } from './globalState'
 import { watchUnloadForCleanup } from './gameUnload'
@@ -312,8 +310,9 @@ export const getResourcepackTiles = async (type: 'blocks' | 'items' | 'armor', e
 }
 
 const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) => {
-  viewer.world.customBlockStates = {}
-  viewer.world.customModels = {}
+  const resources = appViewer.resourcesManager.currentResources!
+  resources.customBlockStates = {}
+  resources.customModels = {}
   const usedBlockTextures = new Set<string>()
   const usedItemTextures = new Set<string>()
   const basePath = await getActiveResourcepackBasePath()
@@ -360,9 +359,9 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
     const blockModelsPath = `${basePath}/assets/${namespaceDir}/models/block`
     const itemModelsPath = `${basePath}/assets/${namespaceDir}/models/item`
 
-    Object.assign(viewer.world.customBlockStates!, await readModelData(blockstatesPath, 'blockstates', namespaceDir))
-    Object.assign(viewer.world.customModels!, await readModelData(blockModelsPath, 'models', namespaceDir))
-    Object.assign(viewer.world.customModels!, await readModelData(itemModelsPath, 'models', namespaceDir))
+    Object.assign(resources.customBlockStates!, await readModelData(blockstatesPath, 'blockstates', namespaceDir))
+    Object.assign(resources.customModels!, await readModelData(blockModelsPath, 'models', namespaceDir))
+    Object.assign(resources.customModels!, await readModelData(itemModelsPath, 'models', namespaceDir))
   }
 
   try {
@@ -372,8 +371,8 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
     }
   } catch (err) {
     console.error('Failed to read some of resource pack blockstates and models', err)
-    viewer.world.customBlockStates = undefined
-    viewer.world.customModels = undefined
+    resources.customBlockStates = undefined
+    resources.customModels = undefined
   }
   return {
     usedBlockTextures,
@@ -531,46 +530,48 @@ const updateAllReplacableTextures = async () => {
 
 const repeatArr = (arr, i) => Array.from({ length: i }, () => arr)
 
-const updateTextures = async (progressReporter = createConsoleLogProgressReporter()) => {
+const updateTextures = async (progressReporter = createConsoleLogProgressReporter(), skipResourcesLoad = false) => {
+  if (!appViewer.resourcesManager.currentResources) {
+    appViewer.resourcesManager.resetResources()
+  }
+  const resources = appViewer.resourcesManager.currentResources!
   currentErrors = []
-  const origBlocksFiles = Object.keys(viewer.world.sourceData.blocksAtlases.latest.textures)
-  const origItemsFiles = Object.keys(viewer.world.sourceData.itemsAtlases.latest.textures)
+  const origBlocksFiles = Object.keys(appViewer.resourcesManager.sourceBlocksAtlases.latest.textures)
+  const origItemsFiles = Object.keys(appViewer.resourcesManager.sourceItemsAtlases.latest.textures)
   const origArmorFiles = Object.keys(armorTextures)
   const { usedBlockTextures, usedItemTextures } = await prepareBlockstatesAndModels(progressReporter) ?? {}
   const blocksData = await getResourcepackTiles('blocks', [...origBlocksFiles, ...usedBlockTextures ?? []], progressReporter)
   const itemsData = await getResourcepackTiles('items', [...origItemsFiles, ...usedItemTextures ?? []], progressReporter)
   const armorData = await getResourcepackTiles('armor', origArmorFiles, progressReporter)
   await updateAllReplacableTextures()
-  viewer.world.customTextures = {}
+  resources.customTextures = {}
+
   if (blocksData) {
-    viewer.world.customTextures.blocks = {
+    resources.customTextures.blocks = {
       tileSize: blocksData.firstTextureSize,
       textures: blocksData.textures
     }
   }
   if (itemsData) {
-    viewer.world.customTextures.items = {
+    resources.customTextures.items = {
       tileSize: itemsData.firstTextureSize,
       textures: itemsData.textures
     }
   }
   if (armorData) {
-    viewer.world.customTextures.armor = {
+    resources.customTextures.armor = {
       tileSize: armorData.firstTextureSize,
       textures: armorData.textures
     }
   }
 
-  if (viewer.world.active) {
-    await viewer.world.updateAssetsData()
-    if (viewer.world instanceof WorldRendererThree) {
-      viewer.world.rerenderAllChunks?.()
-    }
+  if (!skipResourcesLoad) {
+    await appViewer.resourcesManager.updateAssetsData({ })
   }
 }
 
-export const resourcepackReload = async (version) => {
-  await updateTextures()
+export const resourcepackReload = async (skipResourcesLoad = false) => {
+  await updateTextures(undefined, skipResourcesLoad)
 }
 
 export const copyServerResourcePackToRegular = async (name = 'default') => {

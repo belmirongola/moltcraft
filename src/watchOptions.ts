@@ -1,12 +1,12 @@
 // not all options are watched here
 
 import { subscribeKey } from 'valtio/utils'
-import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { isMobile } from 'renderer/viewer/lib/simpleUtils'
+import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
-import { toggleStatsVisibility } from './topRightStats'
+import { isCypress } from './standaloneUtils'
 
 subscribeKey(options, 'renderDistance', reloadChunks)
 subscribeKey(options, 'multiplayerRenderDistance', reloadChunks)
@@ -17,87 +17,104 @@ watchValue(options, o => {
   document.documentElement.style.setProperty('--chatHeight', `${o.chatHeight}px`)
   // gui scale is set in scaleInterface.ts
 })
+const updateTouch = (o) => {
+  miscUiState.currentTouch = o.alwaysShowMobileControls || isMobile()
+}
+watchValue(options, updateTouch)
+window.matchMedia('(pointer: coarse)').addEventListener('change', (e) => {
+  updateTouch(options)
+})
 
 /** happens once */
 export const watchOptionsAfterViewerInit = () => {
-  const updateTouch = (o) => {
-    miscUiState.currentTouch = o.alwaysShowMobileControls || isMobile()
-  }
-
-  watchValue(options, updateTouch)
-  window.matchMedia('(pointer: coarse)').addEventListener('change', (e) => {
-    updateTouch(options)
+  watchValue(options, o => {
+    appViewer.inWorldRenderingConfig.showChunkBorders = o.showChunkBorders
   })
 
   watchValue(options, o => {
-    if (!viewer) return
-    viewer.world.config.showChunkBorders = o.showChunkBorders
-    viewer.entities.setDebugMode(o.showChunkBorders ? 'basic' : 'none')
+    appViewer.inWorldRenderingConfig.mesherWorkers = o.lowMemoryMode ? 1 : o.numWorkers
   })
 
   watchValue(options, o => {
-    if (!viewer) return
-    // todo ideally there shouldnt be this setting and we don't need to send all same chunks to all workers
-    viewer.world.config.numWorkers = o.lowMemoryMode ? 1 : o.numWorkers
+    appViewer.inWorldRenderingConfig.renderEntities = o.renderEntities
   })
 
   watchValue(options, o => {
-    viewer.entities.setRendering(o.renderEntities)
+    const { renderDebug } = o
+    if (renderDebug === 'none' || isCypress()) {
+      appViewer.config.statsVisible = 0
+    } else if (o.renderDebug === 'basic') {
+      appViewer.config.statsVisible = 1
+    } else if (o.renderDebug === 'advanced') {
+      appViewer.config.statsVisible = 2
+    }
   })
 
-  if (options.renderDebug === 'none') {
-    toggleStatsVisibility(false)
-  }
-  subscribeKey(options, 'renderDebug', () => {
-    if (options.renderDebug === 'none') {
-      toggleStatsVisibility(false)
+  // Track window focus state and update FPS limit accordingly
+  let windowFocused = true
+  const updateFpsLimit = (o: typeof options) => {
+    const backgroundFpsLimit = o.backgroundRendering
+    const normalFpsLimit = o.frameLimit
+
+    if (windowFocused) {
+      appViewer.config.fpsLimit = normalFpsLimit || undefined
+    } else if (backgroundFpsLimit === '5fps') {
+      appViewer.config.fpsLimit = 5
+    } else if (backgroundFpsLimit === '20fps') {
+      appViewer.config.fpsLimit = 20
     } else {
-      toggleStatsVisibility(true)
+      appViewer.config.fpsLimit = undefined
     }
+  }
+
+  window.addEventListener('focus', () => {
+    windowFocused = true
+    updateFpsLimit(options)
   })
+  window.addEventListener('blur', () => {
+    windowFocused = false
+    updateFpsLimit(options)
+  })
+
   watchValue(options, o => {
-    viewer.world.displayStats = o.renderDebug === 'advanced'
+    updateFpsLimit(o)
   })
+
   watchValue(options, (o, isChanged) => {
-    viewer.world.mesherConfig.clipWorldBelowY = o.clipWorldBelowY
-    viewer.world.mesherConfig.disableSignsMapsSupport = o.disableSignsMapsSupport
-    if (isChanged) {
-      (viewer.world as WorldRendererThree).rerenderAllChunks()
-    }
+    appViewer.inWorldRenderingConfig.clipWorldBelowY = o.clipWorldBelowY
+    appViewer.inWorldRenderingConfig.extraBlockRenderers = !o.disableSignsMapsSupport
+    appViewer.inWorldRenderingConfig.fetchPlayerSkins = o.loadPlayerSkins
+    appViewer.inWorldRenderingConfig.highlightBlockColor = o.highlightBlockColor
   })
 
-  viewer.world.mesherConfig.smoothLighting = options.smoothLighting
+  appViewer.inWorldRenderingConfig.smoothLighting = options.smoothLighting
   subscribeKey(options, 'smoothLighting', () => {
-    viewer.world.mesherConfig.smoothLighting = options.smoothLighting;
-    (viewer.world as WorldRendererThree).rerenderAllChunks()
+    appViewer.inWorldRenderingConfig.smoothLighting = options.smoothLighting
   })
+
   subscribeKey(options, 'newVersionsLighting', () => {
-    viewer.world.mesherConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting;
-    (viewer.world as WorldRendererThree).rerenderAllChunks()
+    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
   })
+
   customEvents.on('mineflayerBotCreated', () => {
-    viewer.world.mesherConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
+    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
   })
 
   watchValue(options, o => {
-    if (!(viewer.world instanceof WorldRendererThree)) return
-    viewer.world.starField.enabled = o.starfieldRendering
+    appViewer.inWorldRenderingConfig.starfield = o.starfieldRendering
   })
 
   watchValue(options, o => {
-    viewer.world.neighborChunkUpdates = o.neighborChunkUpdates
+    // appViewer.inWorldRenderingConfig.neighborChunkUpdates = o.neighborChunkUpdates
   })
 }
 
-let viewWatched = false
-export const watchOptionsAfterWorldViewInit = () => {
-  if (viewWatched) return
-  viewWatched = true
+export const watchOptionsAfterWorldViewInit = (worldView: WorldDataEmitter) => {
   watchValue(options, o => {
     if (!worldView) return
     worldView.keepChunksDistance = o.keepChunksDistance
-    viewer.world.config.renderEars = o.renderEars
-    viewer.world.config.showHand = o.showHand
-    viewer.world.config.viewBobbing = o.viewBobbing
+    appViewer.inWorldRenderingConfig.renderEars = o.renderEars
+    appViewer.inWorldRenderingConfig.showHand = o.showHand
+    appViewer.inWorldRenderingConfig.viewBobbing = o.viewBobbing
   })
 }

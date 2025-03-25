@@ -40,6 +40,19 @@ export const updateStatText = (id, text) => {
   stats[id].innerText = text
 }
 
+export const removeAllStats = () => {
+  // eslint-disable-next-line guard-for-in
+  for (const id in stats) {
+    removeStat(id)
+  }
+}
+
+export const removeStat = (id) => {
+  if (!stats[id]) return
+  stats[id].remove()
+  delete stats[id]
+}
+
 if (typeof customEvents !== 'undefined') {
   customEvents.on('gameLoaded', () => {
     const chunksLoaded = addNewStat('chunks-loaded', 80, 0, 0)

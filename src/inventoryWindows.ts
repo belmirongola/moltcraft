@@ -6,7 +6,7 @@ import { RecipeItem } from 'minecraft-data'
 import { flat, fromFormattedString } from '@xmcl/text-component'
 import { splitEvery, equals } from 'rambda'
 import PItem, { Item } from 'prismarine-item'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
 import { BlockModel } from 'mc-assets'
@@ -20,8 +20,7 @@ import { displayClientChat } from './botUtils'
 import { currentScaling } from './scaleInterface'
 import { getItemDescription } from './itemsDescriptions'
 import { MessageFormatPart } from './chatUtils'
-import { GeneralInputItem, getItemMetadata, getItemNameRaw, RenderItem } from './mineflayer/items'
-import { getItemModelName } from './resourcesManager'
+import { GeneralInputItem, getItemMetadata, getItemModelName, getItemNameRaw, RenderItem } from './mineflayer/items'
 
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
@@ -46,7 +45,7 @@ export const onGameLoad = (onLoad) => {
   version = bot.version
 
   const checkIfLoaded = () => {
-    if (!viewer.world.itemsAtlasParser) return
+    if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser) return
     if (!allImagesLoadedState.value) {
       onLoad?.()
     }
@@ -55,7 +54,8 @@ export const onGameLoad = (onLoad) => {
       allImagesLoadedState.value = true
     }, 0)
   }
-  viewer.world.renderUpdateEmitter.on('textureDownloaded', checkIfLoaded)
+  appViewer.resourcesManager.on('assetsTexturesUpdated', checkIfLoaded)
+  appViewer.resourcesManager.on('assetsInventoryReady', checkIfLoaded)
   checkIfLoaded()
 
   PrismarineItem = PItem(version)
@@ -137,11 +137,10 @@ export const onGameLoad = (onLoad) => {
 }
 
 const getImageSrc = (path): string | HTMLImageElement => {
-  assertDefined(viewer)
   switch (path) {
     case 'gui/container/inventory': return appReplacableResources.latest_gui_container_inventory.content
-    case 'blocks': return viewer.world.blocksAtlasParser!.latestImage
-    case 'items': return viewer.world.itemsAtlasParser!.latestImage
+    case 'blocks': return appViewer.resourcesManager.currentResources!.blocksAtlasParser.latestImage
+    case 'items': return appViewer.resourcesManager.currentResources!.itemsAtlasParser.latestImage
     case 'gui/container/dispenser': return appReplacableResources.latest_gui_container_dispenser.content
     case 'gui/container/furnace': return appReplacableResources.latest_gui_container_furnace.content
     case 'gui/container/crafting_table': return appReplacableResources.latest_gui_container_crafting_table.content
@@ -223,13 +222,13 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
   }
 
   try {
-    assertDefined(viewer.world.itemsRenderer)
+    assertDefined(appViewer.resourcesManager.currentResources?.itemsRenderer)
     itemTexture =
-      viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
-      ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
+      appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
+      ?? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
-    itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
+    itemTexture = appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('block/errored')!
   }
 
 
@@ -258,12 +257,25 @@ const getItemName = (slot: Item | RenderItem | null) => {
   return text.join('')
 }
 
+let lastMappedSots = [] as any[]
+const itemToVisualKey = (slot: RenderItem | Item | null) => {
+  if (!slot) return null
+  return slot.name + (slot['metadata'] ?? '-') + (slot.nbt ? JSON.stringify(slot.nbt) : '') + (slot['components'] ? JSON.stringify(slot['components']) : '')
+}
 const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
-  return slots.map((slot, i) => {
+  const newSlots = slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
+    if (!isJei) {
+      const oldKey = itemToVisualKey(lastMappedSots[i])
+      if (oldKey && oldKey === itemToVisualKey(slot)) {
+        return lastMappedSots[i]
+      }
+    }
+
     try {
+      if (slot.durabilityUsed && slot.maxDurability) slot.durabilityUsed = Math.min(slot.durabilityUsed, slot.maxDurability)
       const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
       const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', })
       const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
@@ -281,6 +293,8 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
     }
     return slot
   })
+  lastMappedSots = newSlots
+  return newSlots
 }
 
 export const upInventoryItems = (isInventory: boolean, invWindow = lastWindow) => {
@@ -353,7 +367,7 @@ export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {
     return [...allRecipes ?? [], ...itemDescription ? [
       [
         'GenericDescription',
-        mapSlots([item])[0],
+        mapSlots([item], true)[0],
         [],
         itemDescription
       ]
@@ -471,7 +485,7 @@ const openWindow = (type: string | undefined) => {
       if (freeSlot === null) return
       void bot.creative.setInventorySlot(freeSlot, item)
     } else {
-      inv.canvasManager.children[0].showRecipesOrUsages(!isRightclick, mapSlots([item])[0])
+      inv.canvasManager.children[0].showRecipesOrUsages(!isRightclick, mapSlots([item], true)[0])
     }
   }
 
@@ -600,8 +614,8 @@ const getAllItemRecipes = (itemName: string) => {
   return results.map(({ result, ingredients, description }) => {
     return [
       'CraftingTableGuide',
-      mapSlots([result])[0],
-      mapSlots(ingredients),
+      mapSlots([result], true)[0],
+      mapSlots(ingredients, true),
       description
     ]
   })

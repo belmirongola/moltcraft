@@ -1,5 +1,6 @@
 import { BlockType } from '../../../playground/shared'
 
+// only here for easier testing
 export const defaultMesherConfig = {
   version: '',
   enableLighting: true,

@@ -3,7 +3,8 @@ import { Vec3 } from 'vec3'
 import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
 import { proxy } from 'valtio'
-import { HandItemBlock } from './holdingBlock'
+import { GameMode } from 'mineflayer'
+import { HandItemBlock } from '../three/holdingBlock'
 
 export type MovementState = 'NOT_MOVING' | 'WALKING' | 'SPRINTING' | 'SNEAKING'
 export type ItemSpecificContextProperties = Partial<Pick<ItemSelector['properties'], 'minecraft:using_item' | 'minecraft:use_duration' | 'minecraft:use_cycle' | 'minecraft:display_context'>>
@@ -22,6 +23,7 @@ export interface IPlayerState {
   isFlying(): boolean
   isSprinting (): boolean
   getItemUsageTicks?(): number
+  getPosition(): Vec3
   // isUsingItem?(): boolean
   getHeldItem?(isLeftHand: boolean): HandItemBlock | undefined
   username?: string
@@ -31,12 +33,21 @@ export interface IPlayerState {
 
   reactive: {
     playerSkin: string | undefined
+    inWater: boolean
+    backgroundColor: [number, number, number]
+    ambientLight: number
+    directionalLight: number
+    gameMode?: GameMode
   }
 }
 
 export class BasePlayerState implements IPlayerState {
   reactive = proxy({
-    playerSkin: undefined
+    playerSkin: undefined as string | undefined,
+    inWater: false,
+    backgroundColor: [0, 0, 0] as [number, number, number],
+    ambientLight: 0,
+    directionalLight: 0,
   })
   protected movementState: MovementState = 'NOT_MOVING'
   protected velocity = new Vec3(0, 0, 0)
@@ -72,6 +83,10 @@ export class BasePlayerState implements IPlayerState {
 
   isSprinting (): boolean {
     return this.sprinting
+  }
+
+  getPosition (): Vec3 {
+    return new Vec3(0, 0, 0)
   }
 
   // For testing purposes

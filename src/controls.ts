@@ -2,12 +2,10 @@
 
 import { Vec3 } from 'vec3'
 import { proxy, subscribe } from 'valtio'
-import * as THREE from 'three'
 
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
-import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
 import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
@@ -133,21 +131,21 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) return
 
-  if (viewer.world.freeFlyMode) {
-    // Create movement vector from input
-    const direction = new THREE.Vector3(0, 0, 0)
-    if (vector.z !== undefined) direction.z = vector.z
-    if (vector.x !== undefined) direction.x = vector.x
+  // if (viewer.world.freeFlyMode) {
+  //   // Create movement vector from input
+  //   const direction = new THREE.Vector3(0, 0, 0)
+  //   if (vector.z !== undefined) direction.z = vector.z
+  //   if (vector.x !== undefined) direction.x = vector.x
 
-    // Apply camera rotation to movement direction
-    direction.applyQuaternion(viewer.camera.quaternion)
+  //   // Apply camera rotation to movement direction
+  //   direction.applyQuaternion(viewer.camera.quaternion)
 
-    // Update freeFlyState position with normalized direction
-    const moveSpeed = 1
-    direction.multiplyScalar(moveSpeed)
-    viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
-    return
-  }
+  //   // Update freeFlyState position with normalized direction
+  //   const moveSpeed = 1
+  //   direction.multiplyScalar(moveSpeed)
+  //   viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
+  //   return
+  // }
 
   // gamepadIndex will be used for splitscreen in future
   const coordToAction = [
@@ -188,10 +186,10 @@ let lastCommandTrigger = null as { command: string, time: number } | null
 
 const secondActionActivationTimeout = 300
 const secondActionCommands = {
-  // 'general.jump' () {
-  //   // if (bot.game.gameMode === 'spectator') return
-  //   toggleFly()
-  // },
+  'general.jump' () {
+    // if (bot.game.gameMode === 'spectator') return
+    toggleFly()
+  },
   'general.forward' () {
     setSprinting(true)
   }
@@ -355,20 +353,20 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
-        if (viewer.world.freeFlyMode) {
-          const moveSpeed = 0.5
-          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
-        } else {
-          bot.setControlState('jump', pressed)
-        }
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
+        // } else {
+        bot.setControlState('jump', pressed)
+        // }
         break
       case 'general.sneak':
-        if (viewer.world.freeFlyMode) {
-          const moveSpeed = 0.5
-          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
-        } else {
-          setSneaking(pressed)
-        }
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
+        // } else {
+        setSneaking(pressed)
+        // }
         break
       case 'general.sprint':
         // todo add setting to change behavior
@@ -592,12 +590,12 @@ export const f3Keybinds: Array<{
       for (const [x, z] of loadedChunks) {
         worldView!.unloadChunk({ x, z })
       }
-      for (const child of viewer.scene.children) {
-        if (child.name === 'chunk') { // should not happen
-          viewer.scene.remove(child)
-          console.warn('forcefully removed chunk from scene')
-        }
-      }
+      // for (const child of viewer.scene.children) {
+      //   if (child.name === 'chunk') { // should not happen
+      //     viewer.scene.remove(child)
+      //     console.warn('forcefully removed chunk from scene')
+      //   }
+      // }
       if (localServer) {
         //@ts-expect-error not sure why it is private... maybe revisit api?
         localServer.players[0].world.columns = {}
@@ -610,7 +608,6 @@ export const f3Keybinds: Array<{
     key: 'KeyG',
     action () {
       options.showChunkBorders = !options.showChunkBorders
-      viewer.world.updateShowChunksBorder(options.showChunkBorders)
     },
     mobileTitle: 'Toggle chunk borders',
   },
@@ -715,150 +712,40 @@ document.addEventListener('visibilitychange', (e) => {
   }
 })
 
-// #region creative fly
-// these controls are more like for gamemode 3
+const isFlying = () => (bot.entity as any).flying
 
-const makeInterval = (fn, interval) => {
-  const intervalId = setInterval(fn, interval)
-
-  const cleanup = () => {
-    clearInterval(intervalId)
-    cleanup.active = false
+const startFlying = (sendAbilities = true) => {
+  if (sendAbilities) {
+    bot._client.write('abilities', {
+      flags: 2,
+    })
   }
-  cleanup.active = true
-  return cleanup
+  (bot.entity as any).flying = true
 }
 
-// const isFlying = () => bot.physics.gravity === 0
-// let endFlyLoop: ReturnType<typeof makeInterval> | undefined
-
-// const currentFlyVector = new Vec3(0, 0, 0)
-// window.currentFlyVector = currentFlyVector
-
-// todo cleanup
-// const flyingPressedKeys = {
-//   down: false,
-//   up: false
-// }
-
-// const startFlyLoop = () => {
-//   if (!isFlying()) return
-//   endFlyLoop?.()
-
-//   endFlyLoop = makeInterval(() => {
-//     if (!bot) {
-//       endFlyLoop?.()
-//       return
-//     }
-
-//     bot.entity.position.add(currentFlyVector.clone().multiply(new Vec3(0, 0.5, 0)))
-//   }, 50)
-// }
-
-// todo we will get rid of patching it when refactor controls
-// let originalSetControlState
-// const patchedSetControlState = (action, state) => {
-//   if (!isFlying()) {
-//     return originalSetControlState(action, state)
-//   }
-
-//   const actionPerFlyVector = {
-//     jump: new Vec3(0, 1, 0),
-//     sneak: new Vec3(0, -1, 0),
-//   }
-
-//   const changeVec = actionPerFlyVector[action]
-//   if (!changeVec) {
-//     return originalSetControlState(action, state)
-//   }
-//   if (flyingPressedKeys[state === 'jump' ? 'up' : 'down'] === state) return
-//   const toAddVec = changeVec.scaled(state ? 1 : -1)
-//   for (const coord of ['x', 'y', 'z']) {
-//     if (toAddVec[coord] === 0) continue
-//     if (currentFlyVector[coord] === toAddVec[coord]) return
-//   }
-//   currentFlyVector.add(toAddVec)
-//   flyingPressedKeys[state === 'jump' ? 'up' : 'down'] = state
-// }
-
-// const startFlying = (sendAbilities = true) => {
-//   bot.entity['creativeFly'] = true
-//   if (sendAbilities) {
-//     bot._client.write('abilities', {
-//       flags: 2,
-//     })
-//   }
-//   // window.flyingSpeed will be removed
-//   bot.physics['airborneAcceleration'] = window.flyingSpeed ?? 0.1 // todo use abilities
-//   bot.entity.velocity = new Vec3(0, 0, 0)
-//   bot.creative.startFlying()
-//   startFlyLoop()
-// }
-
-// const endFlying = (sendAbilities = true) => {
-//   bot.entity['creativeFly'] = false
-//   if (bot.physics.gravity !== 0) return
-//   if (sendAbilities) {
-//     bot._client.write('abilities', {
-//       flags: 0,
-//     })
-//   }
-//   Object.assign(flyingPressedKeys, {
-//     up: false,
-//     down: false
-//   })
-//   currentFlyVector.set(0, 0, 0)
-//   bot.physics['airborneAcceleration'] = standardAirborneAcceleration
-//   bot.creative.stopFlying()
-//   endFlyLoop?.()
-// }
-
-const allowFlying = false
+const endFlying = (sendAbilities = true) => {
+  if (!isFlying()) return
+  if (sendAbilities) {
+    bot._client.write('abilities', {
+      flags: 0,
+    })
+  }
+  (bot.entity as any).flying = false
+}
 
 export const onBotCreate = () => {
-  // let wasSpectatorFlying = false
-  // bot._client.on('abilities', ({ flags }) => {
-  //   if (flags & 2) { // flying
-  //     toggleFly(true, false)
-  //   } else {
-  //     toggleFly(false, false)
-  //   }
-  //   allowFlying = !!(flags & 4)
-  // })
-  // const gamemodeCheck = () => {
-  //   if (bot.game.gameMode === 'spectator') {
-  //     toggleFly(true, false)
-  //     wasSpectatorFlying = true
-  //   } else if (wasSpectatorFlying) {
-  //     toggleFly(false, false)
-  //     wasSpectatorFlying = false
-  //   }
-  // }
-  // bot.on('game', () => {
-  //   gamemodeCheck()
-  // })
-  // bot.on('login', () => {
-  //   gamemodeCheck()
-  // })
 }
 
-// const standardAirborneAcceleration = 0.02
-// const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
-//   // if (bot.game.gameMode !== 'creative' && bot.game.gameMode !== 'spectator') return
-//   if (!allowFlying) return
-//   if (bot.setControlState !== patchedSetControlState) {
-//     originalSetControlState = bot.setControlState
-//     bot.setControlState = patchedSetControlState
-//   }
+const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
+  if (!bot.entity.canFly) return
 
-//   if (newState) {
-//     startFlying(sendAbilities)
-//   } else {
-//     endFlying(sendAbilities)
-//   }
-//   gameAdditionalState.isFlying = isFlying()
-// }
-// #endregion
+  if (newState) {
+    startFlying(sendAbilities)
+  } else {
+    endFlying(sendAbilities)
+  }
+  gameAdditionalState.isFlying = isFlying()
+}
 
 const selectItem = async () => {
   const block = bot.blockAtCursor(5)
@@ -925,8 +812,15 @@ window.addEventListener('keydown', (e) => {
 
 // #region experimental debug things
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyL' && e.altKey) {
+  if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     console.clear()
+  }
+  if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (sessionStorage.delayLoadUntilFocus) {
+      sessionStorage.removeItem('delayLoadUntilFocus')
+    } else {
+      sessionStorage.setItem('delayLoadUntilFocus', 'true')
+    }
   }
 })
 // #endregion

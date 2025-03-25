@@ -5,6 +5,7 @@ import { options } from '../optionsStorage'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
 import { pointerLock, isInRealGameSession } from '../utils'
+import { videoCursorInteraction } from '../customChannels'
 import { handleMovementStickDelta, joystickPointer } from './TouchAreasControls'
 
 /** after what time of holding the finger start breaking the block */
@@ -153,7 +154,7 @@ function GameInteractionOverlayInner ({
         // single click action
         const MOUSE_BUTTON_RIGHT = 2
         const MOUSE_BUTTON_LEFT = 0
-        const gonnaAttack = !!bot.mouse.getCursorState().entity
+        const gonnaAttack = !!bot.mouse.getCursorState().entity || !!videoCursorInteraction()
         document.dispatchEvent(new MouseEvent('mousedown', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
         bot.mouse.update()
         document.dispatchEvent(new MouseEvent('mouseup', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
