@@ -17,8 +17,6 @@ import './mineflayer/timers'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad } from './inventoryWindows'
 import initCollisionShapes from './getCollisionInteractionShapes'
-import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
-import microsoftAuthflow from './microsoftAuthflow'
 import { Duplex } from 'stream'
 
 import './scaleInterface'
@@ -75,7 +73,7 @@ import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
 import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
-import { ref, subscribe } from 'valtio'
+import { subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
 import packetsPatcher from './mineflayer/plugins/packetsPatcher'
@@ -97,6 +95,7 @@ import { createConsoleLogProgressReporter, createFullScreenProgressReporter, Pro
 import { appViewer } from './appViewer'
 import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
 import { subscribeKey } from 'valtio/utils'
+import { getProtocolClientGetter } from './protocolWorker/protocolMain'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -173,11 +172,6 @@ export async function connect (connectOptions: ConnectOptions) {
       }
     })
   }
-  if (sessionStorage.delayLoadUntilClick) {
-    await new Promise(resolve => {
-      window.addEventListener('click', resolve)
-    })
-  }
 
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
@@ -195,8 +189,8 @@ export async function connect (connectOptions: ConnectOptions) {
 
   const { renderDistance: renderDistanceSingleplayer, multiplayerRenderDistance } = options
 
-  const parsedServer = parseServerAddress(connectOptions.server)
-  const server = { host: parsedServer.host, port: parsedServer.port }
+  const serverParsed = parseServerAddress(connectOptions.server)
+  const server = { host: serverParsed.host, port: serverParsed.port }
   if (connectOptions.proxy?.startsWith(':')) {
     connectOptions.proxy = `${location.protocol}//${location.hostname}${connectOptions.proxy}`
   }
@@ -204,12 +198,12 @@ export async function connect (connectOptions: ConnectOptions) {
     const https = connectOptions.proxy.startsWith('https://') || location.protocol === 'https:'
     connectOptions.proxy = `${connectOptions.proxy}:${https ? 443 : 80}`
   }
-  const parsedProxy = parseServerAddress(connectOptions.proxy, false)
-  const proxy = { host: parsedProxy.host, port: parsedProxy.port }
+  const proxyParsed = parseServerAddress(connectOptions.proxy, false)
+  const proxy = { host: proxyParsed.host, port: proxyParsed.port }
   let { username } = connectOptions
 
   if (connectOptions.server) {
-    console.log(`connecting to ${server.host}:${server.port ?? 25_565}`)
+    console.log(`connecting to ${serverParsed.serverIpFull}`)
   }
   console.log('using player username', username)
 
@@ -249,7 +243,7 @@ export async function connect (connectOptions: ConnectOptions) {
       })
     }
   }
-  let lastPacket = undefined as string | undefined
+  const lastPacket = undefined as string | undefined
   const onPossibleErrorDisconnect = () => {
     if (lastPacket && bot?._client && bot._client.state !== states.PLAY) {
       appStatusState.descriptionHint = `Last Server Packet: ${lastPacket}`
@@ -290,13 +284,12 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let clientDataStream: Duplex | undefined
 
-  if (connectOptions.server && !connectOptions.viewerWsConnect && !parsedServer.isWebSocket) {
+  if (connectOptions.server && !connectOptions.viewerWsConnect && !serverParsed.isWebSocket) {
     console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
     net['setProxy']({ hostname: proxy.host, port: proxy.port })
   }
 
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
-  let updateDataAfterJoin = () => { }
   let localServer
   let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
   try {
@@ -416,23 +409,11 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     setLoadingScreenStatus(initialLoadingText)
 
-    if (parsedServer.isWebSocket) {
+    if (serverParsed.isWebSocket) {
       clientDataStream = (await getWebsocketStream(server.host)).mineflayerStream
     }
 
-    let newTokensCacheResult = null as any
     const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
-    const authData = connectOptions.authenticatedAccount ? await microsoftAuthflow({
-      tokenCaches: cachedTokens,
-      proxyBaseUrl: connectOptions.proxy,
-      setProgressText (text) {
-        setLoadingScreenStatus(text)
-      },
-      setCacheResult (result) {
-        newTokensCacheResult = result
-      },
-      connectingServer: server.host
-    }) : undefined
 
     if (p2pMultiplayer) {
       clientDataStream = await connectToPeer(connectOptions.peerId!, connectOptions.peerOptions)
@@ -463,9 +444,13 @@ export async function connect (connectOptions: ConnectOptions) {
       await downloadMcData(finalVersion)
     }
 
+    const brand = clientDataStream ? 'minecraft-web-client' : undefined
+    const createClient = await getProtocolClientGetter(proxy, connectOptions, serverParsed.serverIpFull)
+
     bot = mineflayer.createBot({
       host: server.host,
       port: server.port ? +server.port : undefined,
+      brand,
       version: finalVersion || false,
       ...clientDataStream ? {
         stream: clientDataStream as any,
@@ -482,53 +467,13 @@ export async function connect (connectOptions: ConnectOptions) {
         connect () { },
         Client: CustomChannelClient as any,
       } : {},
-      onMsaCode (data) {
-        signInMessageState.code = data.user_code
-        signInMessageState.link = data.verification_uri
-        signInMessageState.expiresOn = Date.now() + data.expires_in * 1000
-      },
-      sessionServer: authData?.sessionEndpoint?.toString(),
-      auth: connectOptions.authenticatedAccount ? async (client, options) => {
-        authData!.setOnMsaCodeCallback(options.onMsaCode)
-        authData?.setConnectingVersion(client.version)
-        //@ts-expect-error
-        client.authflow = authData!.authFlow
-        try {
-          signInMessageState.abortController = ref(new AbortController())
-          await Promise.race([
-            protocolMicrosoftAuth.authenticate(client, options),
-            new Promise((_r, reject) => {
-              signInMessageState.abortController.signal.addEventListener('abort', () => {
-                reject(new UserError('Aborted by user'))
-              })
-            })
-          ])
-          if (signInMessageState.shouldSaveToken) {
-            updateAuthenticatedAccountData(accounts => {
-              const existingAccount = accounts.find(a => a.username === client.username)
-              if (existingAccount) {
-                existingAccount.cachedTokens = { ...existingAccount.cachedTokens, ...newTokensCacheResult }
-              } else {
-                accounts.push({
-                  username: client.username,
-                  cachedTokens: { ...cachedTokens, ...newTokensCacheResult }
-                })
-              }
-              return accounts
-            })
-            updateDataAfterJoin = () => {
-              updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: client.username }), connectOptions.serverIndex)
-            }
-          } else {
-            updateDataAfterJoin = () => {
-              updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: undefined }), connectOptions.serverIndex)
-            }
-          }
-          setLoadingScreenStatus('Authentication successful. Logging in to server')
-        } finally {
-          signInMessageState.code = ''
+      get client () {
+        if (clientDataStream || singleplayer || p2pMultiplayer || localReplaySession || connectOptions.viewerWsConnect) {
+          return undefined
         }
-      } : undefined,
+        return createClient.call(this)
+      },
+      // auth: connectOptions.authenticatedAccount ?  : undefined,
       username,
       viewDistance: renderDistance,
       checkTimeoutInterval: 240 * 1000,
@@ -584,16 +529,16 @@ export async function connect (connectOptions: ConnectOptions) {
         })
       }
       // socket setup actually can be delayed because of dns lookup
-      if (bot._client.socket) {
-        setupConnectHandlers()
-      } else {
-        const originalSetSocket = bot._client.setSocket.bind(bot._client)
-        bot._client.setSocket = (socket) => {
-          if (!bot) return
-          originalSetSocket(socket)
-          setupConnectHandlers()
-        }
-      }
+      // if (bot._client.socket) {
+      //   setupConnectHandlers()
+      // } else {
+      //   const originalSetSocket = bot._client.setSocket.bind(bot._client)
+      //   bot._client.setSocket = (socket) => {
+      //     if (!bot) return
+      //     originalSetSocket(socket)
+      //     setupConnectHandlers()
+      //   }
+      // }
 
     }
   } catch (err) {
@@ -628,7 +573,7 @@ export async function connect (connectOptions: ConnectOptions) {
   // bot.emit('kicked', '{"translate":"disconnect.genericReason","with":["Internal Exception: io.netty.handler.codec.EncoderException: com.viaversion.viaversion.exception.InformativeException: Please report this on the Via support Discord or open an issue on the relevant GitHub repository\\nPacket Type: SYSTEM_CHAT, Index: 1, Type: TagType, Data: [], Packet ID: 103, Source 0: com.viaversion.viabackwards.protocol.v1_20_3to1_20_2.Protocol1_20_3To1_20_2$$Lambda/0x00007f9930f63080"]}', false)
 
   const packetBeforePlay = (_, __, ___, fullBuffer) => {
-    lastPacket = fullBuffer.toString()
+    // lastPacket = fullBuffer.toString()
   }
   bot._client.on('packet', packetBeforePlay as any)
   const playStateSwitch = (newState) => {
@@ -680,6 +625,10 @@ export async function connect (connectOptions: ConnectOptions) {
     document.dispatchEvent(new Event('cypress-world-ready'))
   })
 
+  if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
+    localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+  }
+
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   // don't use spawn event, player can be dead
   bot.once(spawnEarlier ? 'forcedMove' : 'health', async () => {
@@ -708,7 +657,6 @@ export async function connect (connectOptions: ConnectOptions) {
       localStorage.removeItem('lastConnectOptions')
     }
     connectOptions.onSuccessfulPlay?.()
-    updateDataAfterJoin()
     if (connectOptions.autoLoginPassword) {
       bot.chat(`/login ${connectOptions.autoLoginPassword}`)
     }

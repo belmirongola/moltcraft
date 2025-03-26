@@ -1,3 +1,10 @@
+import { ref } from 'valtio'
+import { signInMessageState } from '../react/SignInMessageProvider'
+import { updateAuthenticatedAccountData, updateLoadedServerData } from '../react/serversStorage'
+import { setLoadingScreenStatus } from '../appStatus'
+import { ConnectOptions } from '../connect'
+import { showNotification } from '../react/NotificationProvider'
+
 export const getProxyDetails = async (proxyBaseUrl: string) => {
   if (!proxyBaseUrl.startsWith('http')) proxyBaseUrl = `${isPageSecure() ? 'https' : 'http'}://${proxyBaseUrl}`
   const url = `${proxyBaseUrl}/api/vm/net/connect`
@@ -10,13 +17,14 @@ export const getProxyDetails = async (proxyBaseUrl: string) => {
   return result
 }
 
-export default async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => { }, setCacheResult, connectingServer }) => {
+export const getAuthData = async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => { }, connectingServer }) => {
   let onMsaCodeCallback
   let connectingVersion = ''
   // const authEndpoint = 'http://localhost:3000/'
   // const sessionEndpoint = 'http://localhost:3000/session'
   let authEndpoint: URL | undefined
   let sessionEndpoint: URL | undefined
+  let newTokensCacheResult = null as any
   const result = await getProxyDetails(proxyBaseUrl)
 
   try {
@@ -32,7 +40,7 @@ export default async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => {
     async getMinecraftJavaToken () {
       setProgressText('Authenticating with Microsoft account')
       if (!window.crypto && !isPageSecure()) throw new Error('Crypto API is available only in secure contexts. Be sure to use https!')
-      let result = null
+      let result = null as any
       await fetch(authEndpoint, {
         method: 'POST',
         headers: {
@@ -73,7 +81,7 @@ export default async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => {
               }
               if (json.error) throw new Error(json.error)
               if (json.token) result = json
-              if (json.newCache) setCacheResult(json.newCache)
+              if (json.newCache) newTokensCacheResult = json.newCache
             }
 
             const strings = decoder.decode(value)
@@ -86,11 +94,7 @@ export default async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => {
           }
           return reader.read().then(processText)
         })
-      const restoredData = await restoreData(result)
-      if (restoredData?.certificates?.profileKeys?.privatePEM) {
-        restoredData.certificates.profileKeys.private = restoredData.certificates.profileKeys.privatePEM
-      }
-      return restoredData
+      return result
     }
   }
   return {
@@ -101,75 +105,66 @@ export default async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => {
     },
     setConnectingVersion (version) {
       connectingVersion = version
+    },
+    get newTokensCacheResult () {
+      return newTokensCacheResult
     }
   }
+}
+
+export const authFlowMainThread = async (worker: Worker, authData: Awaited<ReturnType<typeof getAuthData>>, connectOptions: ConnectOptions, setActionAfterJoin: (action: () => void) => void) => {
+  const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
+  signInMessageState.abortController = ref(new AbortController())
+  await new Promise<void>(resolve => {
+    worker.addEventListener('message', ({ data }) => {
+      if (data.type === 'authFlow') {
+        authData.setConnectingVersion(data.version)
+        resolve()
+      }
+    })
+  })
+
+  authData.setOnMsaCodeCallback((codeData) => {
+    signInMessageState.code = codeData.user_code
+    signInMessageState.link = codeData.verification_uri
+    signInMessageState.expiresOn = Date.now() + codeData.expires_in * 1000
+  })
+
+  const data = await authData.authFlow.getMinecraftJavaToken()
+  signInMessageState.code = ''
+  if (!data) return
+  const username = data.profile.name
+  if (signInMessageState.shouldSaveToken) {
+    updateAuthenticatedAccountData(accounts => {
+      const existingAccount = accounts.find(a => a.username === username)
+      if (existingAccount) {
+        existingAccount.cachedTokens = { ...existingAccount.cachedTokens, ...authData.newTokensCacheResult }
+      } else {
+        accounts.push({
+          username,
+          cachedTokens: { ...cachedTokens, ...authData.newTokensCacheResult }
+        })
+      }
+      showNotification(`Account ${username} saved`)
+      return accounts
+    })
+    setActionAfterJoin(() => {
+      updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: username }), connectOptions.serverIndex)
+    })
+  } else {
+    setActionAfterJoin(() => {
+      updateLoadedServerData(s => ({ ...s, authenticatedAccountOverride: undefined }), connectOptions.serverIndex)
+    })
+  }
+  worker.postMessage({
+    type: 'authflowResult',
+    data
+  })
+  setLoadingScreenStatus('Authentication successful. Logging in to server')
 }
 
 function isPageSecure (url = window.location.href) {
   return !url.startsWith('http:')
-}
-
-// restore dates from strings
-const restoreData = async (json) => {
-  const promises = [] as Array<Promise<void>>
-  if (typeof json === 'object' && json) {
-    for (const [key, value] of Object.entries(json)) {
-      if (typeof value === 'string') {
-        promises.push(tryRestorePublicKey(value, key, json))
-        if (value.endsWith('Z')) {
-          const date = new Date(value)
-          if (!isNaN(date.getTime())) {
-            json[key] = date
-          }
-        }
-      }
-      if (typeof value === 'object') {
-        // eslint-disable-next-line no-await-in-loop
-        await restoreData(value)
-      }
-    }
-  }
-
-  await Promise.all(promises)
-
-  return json
-}
-
-const tryRestorePublicKey = async (value: string, name: string, parent: { [x: string]: any }) => {
-  value = value.trim()
-  if (!name.endsWith('PEM') || !value.startsWith('-----BEGIN RSA PUBLIC KEY-----') || !value.endsWith('-----END RSA PUBLIC KEY-----')) return
-  const der = pemToArrayBuffer(value)
-  const key = await window.crypto.subtle.importKey(
-    'spki', // Specify that the data is in SPKI format
-    der,
-    {
-      name: 'RSA-OAEP',
-      hash: { name: 'SHA-256' }
-    },
-    true,
-    ['encrypt'] // Specify key usages
-  )
-  const originalName = name.replace('PEM', '')
-  const exported = await window.crypto.subtle.exportKey('spki', key)
-  const exportedBuffer = new Uint8Array(exported)
-  parent[originalName] = {
-    export () {
-      return exportedBuffer
-    }
-  }
-}
-
-function pemToArrayBuffer (pem) {
-  // Fetch the part of the PEM string between header and footer
-  const pemHeader = '-----BEGIN RSA PUBLIC KEY-----'
-  const pemFooter = '-----END RSA PUBLIC KEY-----'
-  const pemContents = pem.slice(pemHeader.length, pem.length - pemFooter.length).trim()
-  const binaryDerString = atob(pemContents.replaceAll(/\s/g, ''))
-  const binaryDer = new Uint8Array(binaryDerString.length)
-  for (let i = 0; i < binaryDerString.length; i++) {
-    binaryDer[i] = binaryDerString.codePointAt(i)!
-  }
-  return binaryDer.buffer
 }
 
 const urlWithBase = (url: string, base: string) => {

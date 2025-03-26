@@ -126,12 +126,6 @@ export const isMajorVersionGreater = (ver1: string, ver2: string) => {
   return +a1 > +a2 || (+a1 === +a2 && +b1 > +b2)
 }
 
-// doesn't support snapshots
-export const toMajorVersion = version => {
-  const [a, b] = (String(version)).split('.')
-  return `${a}.${b}`
-}
-
 let prevRenderDistance = options.renderDistance
 export const setRenderDistance = () => {
   assertDefined(worldView)

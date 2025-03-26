@@ -7,16 +7,10 @@ import { getWebsocketStream } from './websocket-core'
 
 let lastPacketTime = 0
 customEvents.on('mineflayerBotCreated', () => {
-  // todo move more code here
-  if (!appQueryParams.noPacketsValidation) {
-    (bot._client as unknown as Client).on('packet', (data, packetMeta, buffer, fullBuffer) => {
-      validatePacket(packetMeta.name, data, fullBuffer, true)
-      lastPacketTime = performance.now()
-    });
-    (bot._client as unknown as Client).on('writePacket', (name, params) => {
-      validatePacket(name, params, Buffer.alloc(0), false)
-    })
-  }
+  (bot._client as unknown as Client).on('packet', (data, packetMeta, buffer, fullBuffer) => {
+    lastPacketTime = performance.now()
+  })
+
 })
 
 setInterval(() => {
