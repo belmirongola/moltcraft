@@ -219,5 +219,9 @@
       "minecraft-protocol@1.54.0": "patches/minecraft-protocol@1.54.0.patch"
     }
   },
+  "deployAlwaysUpdate": [
+    "@nxg-org/mineflayer-physics-util",
+    "mineflayer"
+  ],
   "packageManager": "pnpm@9.0.4"
 }
