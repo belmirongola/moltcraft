@@ -1,5 +1,4 @@
 import { isMobile } from 'renderer/viewer/lib/simpleUtils'
-import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 
 if (process.env.NODE_ENV === 'development') {
   // mobile devtools

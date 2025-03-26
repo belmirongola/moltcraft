@@ -353,8 +353,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.42
-        version: 0.2.42
+        specifier: ^0.2.47
+        version: 0.2.47
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
@@ -362,8 +362,8 @@ importers:
         specifier: github:zardoy/mineflayer
         version: https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13)
       mineflayer-mouse:
-        specifier: ^0.1.2
-        version: 0.1.2(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
+        specifier: ^0.1.7
+        version: 0.1.7(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.4
@@ -6690,8 +6690,8 @@ packages:
   maxrects-packer@2.7.3:
     resolution: {integrity: sha512-bG6qXujJ1QgttZVIH4WDanhoJtvbud/xP/XPyf6A69C9RdA61BM4TomFALCq2nrTa+tARRIBB4LuIFsnUQU2wA==}
 
-  mc-assets@0.2.42:
-    resolution: {integrity: sha512-j2D1RNYtB5Z9gFu9MVjyDBbiALI0mWZ3xW/A3PPefVAHm3HJ2T1vH+1XBov1spBGPl7u+Zo7mRXza3X0egbeOg==}
+  mc-assets@0.2.47:
+    resolution: {integrity: sha512-L9tOcYctDGTUaG4QKJESw9uOiOMl8F2RZ3h0cF4NRCjBvd4c9GUrGDaaVdTaAByQZNNITXgGspmm9hNAFMWcKg==}
     engines: {node: '>=18.0.0'}
 
   mcraft-fun-mineflayer@0.1.14:
@@ -6925,8 +6925,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
 
-  mineflayer-mouse@0.1.2:
-    resolution: {integrity: sha512-QPGEXkF9PurZEpRq0xakKE8SV6sMY/6kCM9cdMeFbtq95IpYeh8ZJdD/twX2A3g3s8MooxlGovfxbpeHdWcOEQ==}
+  mineflayer-mouse@0.1.7:
+    resolution: {integrity: sha512-sUX77P8Z94N6N/KEvplZdXLwtuCHLx3lmU4Y1FB8189+jFCl3jH/+bdzwtksObmrXWW+evJ5nAPpzmOOxqcfag==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer-pathfinder@2.4.4:
@@ -17588,7 +17588,7 @@ snapshots:
 
   maxrects-packer@2.7.3: {}
 
-  mc-assets@0.2.42:
+  mc-assets@0.2.47:
     dependencies:
       maxrects-packer: 2.7.3
       zod: 3.24.1
@@ -17989,7 +17989,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-mouse@0.1.2(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1):
+  mineflayer-mouse@0.1.7(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1):
     dependencies:
       change-case: 5.4.4
       debug: 4.4.0(supports-color@8.1.1)

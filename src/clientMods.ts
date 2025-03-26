@@ -245,7 +245,11 @@ const activateMod = async (mod: ClientMod, reason: string) => {
     // eslint-disable-next-line no-useless-catch
     try {
       const module = await import(/* webpackIgnore: true */ url)
+      // for accessing global world var
       module.default?.(structuredClone(mod))
+      // todo
+      window.loadedMods[mod.name] ??= {}
+      window.loadedMods[mod.name].threeJsBackendModule = module
     } catch (e) {
       throw e
     }

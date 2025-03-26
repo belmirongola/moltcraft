@@ -204,7 +204,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       if (!serverEditScreen) return
       if (serverEditScreen === true) {
         const server: StoreServerItem = { ...info, lastJoined: Date.now() } // so it appears first
-        appStorage.serversList = [...(appStorage.serversList ?? []), server]
+        appStorage.serversList = [server, ...(appStorage.serversList ?? serversListDisplay)]
       } else {
         const index = appStorage.serversList?.indexOf(serverEditScreen)
         if (index !== undefined) {

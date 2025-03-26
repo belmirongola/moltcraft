@@ -4,7 +4,6 @@ import MinecraftData from 'minecraft-data'
 import PrismarineBlock from 'prismarine-block'
 import PrismarineItem from 'prismarine-item'
 import pathfinder from 'mineflayer-pathfinder'
-import { importLargeData } from '../generated/large-data-aliases'
 import { miscUiState } from './globalState'
 import supportedVersions from './supportedVersions.mjs'
 import { options } from './optionsStorage'
@@ -44,7 +43,7 @@ export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVers
   return autoVersionSelect
 }
 
-export const loadMinecraftData = async (version: string, importBlockstatesModels = false) => {
+export const loadMinecraftData = async (version: string) => {
   await window._LOAD_MC_DATA()
   // setLoadingScreenStatus(`Loading data for ${version}`)
   // // todo expose cache
@@ -58,12 +57,9 @@ export const loadMinecraftData = async (version: string, importBlockstatesModels
   window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
   window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
   window.loadedData = mcData
+  window.mcData = mcData
   window.pathfinder = pathfinder
   miscUiState.loadedDataVersion = version
-
-  if (importBlockstatesModels) {
-    viewer.world.blockstatesModels = await importLargeData('blockStatesModels')
-  }
 }
 
 export const downloadAllMinecraftData = async () => {

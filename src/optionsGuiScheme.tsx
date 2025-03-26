@@ -11,7 +11,7 @@ import Slider from './react/Slider'
 import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorage } from './browserfs'
-import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
+import { completeResourcepackPackInstall, getResourcePackNames, resourcepackReload, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
 import { modsUpdateStatus } from './clientMods'
@@ -109,6 +109,18 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { _renderByChunks } = useSnapshot(options).rendererOptions.three
+        return <Button
+          inScreen
+          label={`Batch Chunks Display ${_renderByChunks ? 'ON' : 'OFF'}`}
+          onClick={() => {
+            options.rendererOptions.three._renderByChunks = !_renderByChunks
+          }}
+        />
+      }
+    },
+    {
+      custom () {
         return <Category>Resource Packs</Category>
       },
       serverResourcePacks: {
@@ -182,6 +194,7 @@ export const guiOptionsScheme: {
               if (!choice) return
               if (choice === 'Disable') {
                 options.enabledResourcepack = null
+                await resourcepackReload()
                 return
               }
               if (choice === 'Enable') {
@@ -477,13 +490,51 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        return <Category>Developer</Category>
+        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
+      }
+    },
+    {
+      custom () {
+        return <Category>Server Connection</Category>
       },
     },
     {
       custom () {
-        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
-      }
+        const { serversAutoVersionSelect } = useSnapshot(options)
+        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
+        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
+
+        const getDisplayValue = (version: string) => {
+          const versionAutoSelect = getVersionAutoSelect(version)
+          if (version === 'latest') return `latest (${versionAutoSelect})`
+          if (version === 'auto') return `auto (${versionAutoSelect})`
+          return version
+        }
+
+        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Slider
+            style={{ width: 150 }}
+            label='Default Version'
+            title='First version to try to connect with'
+            value={currentIndex}
+            min={0}
+            max={allVersions.length - 1}
+            unit=''
+            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
+            updateValue={(newVal) => {
+              options.serversAutoVersionSelect = allVersions[newVal]
+            }}
+          />
+        </div>
+      },
+    },
+    {
+      preventBackgroundTimeoutKick: {}
+    },
+    {
+      custom () {
+        return <Category>Developer</Category>
+      },
     },
     {
       custom () {
@@ -515,35 +566,6 @@ export const guiOptionsScheme: {
           ['all', 'All'],
           ['no-buffers', 'No Buffers']
         ],
-      },
-    },
-    {
-      custom () {
-        const { serversAutoVersionSelect } = useSnapshot(options)
-        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
-        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
-
-        const getDisplayValue = (version: string) => {
-          const versionAutoSelect = getVersionAutoSelect(version)
-          if (version === 'latest') return `latest (${versionAutoSelect})`
-          if (version === 'auto') return `auto (${versionAutoSelect})`
-          return version
-        }
-
-        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Slider
-            style={{ width: 150 }}
-            label='Prefer Server Version'
-            value={currentIndex}
-            min={0}
-            max={allVersions.length - 1}
-            unit=''
-            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
-            updateValue={(newVal) => {
-              options.serversAutoVersionSelect = allVersions[newVal]
-            }}
-          />
-        </div>
       },
     },
   ],

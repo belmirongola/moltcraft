@@ -18,8 +18,7 @@ type Props = {
 
 export type ResultType = {
   plainText: string[]
-} | {
-  dataText: string[]
+  dataText?: string[]
 }
 
 export default ({ handleInput, ProseMirrorView, handleClick }: Props) => {
@@ -70,8 +69,11 @@ export default ({ handleInput, ProseMirrorView, handleClick }: Props) => {
         onClick={async () => {
           if (handleClick) {
             if (isWysiwyg) {
-              const text = markdownToFormattedText(editorView.current!.content)
-              handleClick({ dataText: text })
+              const formattedText = markdownToFormattedText(editorView.current!.content)
+              const plainText = formattedText
+                .map((t) => (Array.isArray(t) && Array.isArray(t[0]) ? t.map((t) => t[0]) : t))
+                .map((t) => (Array.isArray(t) ? t.map((t) => t.text).join('') : t))
+              handleClick({ dataText: formattedText, plainText })
             } else {
               const text = [] as string[]
               for (const input of document.getElementsByClassName('sign-editor')) {

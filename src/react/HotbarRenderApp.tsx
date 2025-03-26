@@ -42,7 +42,7 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
   useEffect(() => {
     const item = bot.heldItem
     if (item) {
-      const customDisplay = getItemNameRaw(item)
+      const customDisplay = getItemNameRaw(item, appViewer.resourcesManager)
       if (customDisplay) {
         setItemName(customDisplay)
       } else {
@@ -110,7 +110,7 @@ const HotbarInner = () => {
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!viewer.world.currentTextureImage || !allImagesLoadedState.value) return
+      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser || !allImagesLoadedState.value) return
       upInventoryItems(true, inv)
     }
 
@@ -124,7 +124,7 @@ const HotbarInner = () => {
 
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
-    viewer.world.renderUpdateEmitter.on('textureDownloaded', upHotbarItems)
+    appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
     const unsub2 = subscribe(allImagesLoadedState, () => {
       upHotbarItems()
     })
@@ -197,7 +197,7 @@ const HotbarInner = () => {
       inv.destroy()
       controller.abort()
       unsub2()
-      viewer.world.renderUpdateEmitter.off('textureDownloaded', upHotbarItems)
+      appViewer.resourcesManager.off('assetsTexturesUpdated', upHotbarItems)
     }
   }, [])
 

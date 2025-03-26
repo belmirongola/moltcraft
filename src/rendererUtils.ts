@@ -74,8 +74,7 @@ const updateFovAnimation = () => {
       currentFov = targetFov
     }
 
-    viewer.camera.fov = currentFov
-    viewer.camera.updateProjectionMatrix()
+    appViewer.inWorldRenderingConfig.fov = currentFov
   }
   lastUpdateTime = now
 }
@@ -91,6 +90,6 @@ export const watchFov = () => {
   })
 
   subscribeKey(gameAdditionalState, 'isSneaking', () => {
-    viewer.setFirstPersonCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
+    appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
   })
 }

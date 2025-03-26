@@ -11,7 +11,7 @@ declare const bot: Omit<import('mineflayer').Bot, 'world' | '_client'> & {
   }
 }
 declare const __type_bot: typeof bot
-declare const viewer: import('renderer/viewer/lib/viewer').Viewer
+declare const appViewer: import('./appViewer').AppViewer
 declare const worldView: import('renderer/viewer/lib/worldDataEmitter').WorldDataEmitter | undefined
 declare const addStatPerSec: (name: string) => void
 declare const localServer: import('flying-squid/dist/index').FullServer & { options } | undefined
@@ -26,7 +26,7 @@ declare const customEvents: import('typed-emitter').default<{
   mineflayerBotCreated (): void
   search (q: string): void
   activateItem (item: Item, slot: number, offhand: boolean): void
-  hurtAnimation (): void
+  hurtAnimation (yaw?: number): void
 }>
 declare const beforeRenderFrame: Array<() => void>
 

@@ -54,6 +54,19 @@ import { UIProvider } from './react/UIProvider'
 import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
 import TouchInteractionHint from './react/TouchInteractionHint'
+import { ua } from './react/utils'
+
+const isFirefox = ua.getBrowser().name === 'Firefox'
+if (isFirefox) {
+  // set custom property
+  document.body.style.setProperty('--thin-if-firefox', 'thin')
+}
+
+const isIphone = ua.getDevice().model === 'iPhone' // todo ipad?
+
+if (isIphone) {
+  document.documentElement.style.setProperty('--hud-bottom-max', '21px') // env-safe-aria-inset-bottom
+}
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -129,32 +142,36 @@ const InGameUi = () => {
     <RobustPortal to={document.querySelector('#ui-root')}>
       {/* apply scaling */}
       <div style={{ display: showUI ? 'block' : 'none' }}>
-        <GameInteractionOverlay zIndex={7} />
-        {!disabledUiParts.includes('death-screen') && <DeathScreenProvider />}
-        {!disabledUiParts.includes('debug-overlay') && <DebugOverlay />}
-        {!disabledUiParts.includes('mobile-top-buttons') && <MobileTopButtons />}
-        {!disabledUiParts.includes('players-list') && <PlayerListOverlayProvider />}
-        {!disabledUiParts.includes('chat') && <ChatProvider />}
-        <SoundMuffler />
-        {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
-        {!disabledUiParts.includes('title') && <TitleProvider />}
-        {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
-        {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
-        {!disabledUiParts.includes('crosshair') && <Crosshair />}
-        {!disabledUiParts.includes('books') && <BookProvider />}
-        {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
+        <PerComponentErrorBoundary>
+          <GameInteractionOverlay zIndex={7} />
+          {!disabledUiParts.includes('death-screen') && <DeathScreenProvider />}
+          {!disabledUiParts.includes('debug-overlay') && <DebugOverlay />}
+          {!disabledUiParts.includes('mobile-top-buttons') && <MobileTopButtons />}
+          {!disabledUiParts.includes('players-list') && <PlayerListOverlayProvider />}
+          {!disabledUiParts.includes('chat') && <ChatProvider />}
+          <SoundMuffler />
+          {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
+          {!disabledUiParts.includes('title') && <TitleProvider />}
+          {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
+          {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
+          {!disabledUiParts.includes('crosshair') && <Crosshair />}
+          {!disabledUiParts.includes('books') && <BookProvider />}
+          {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
+        </PerComponentErrorBoundary>
       </div>
 
-      <PauseScreen />
-      <MineflayerPluginHud />
-      <MineflayerPluginConsole />
-      {showUI && <TouchInteractionHint />}
-      <div style={{ display: showUI ? 'block' : 'none' }}>
-        {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
-        {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
-        <BedTime />
-      </div>
-      {showUI && !disabledUiParts.includes('hotbar') && <HotbarRenderApp />}
+      <PerComponentErrorBoundary>
+        <PauseScreen />
+        <MineflayerPluginHud />
+        <MineflayerPluginConsole />
+        {showUI && <TouchInteractionHint />}
+        <div style={{ display: showUI ? 'block' : 'none' }}>
+          {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
+          {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
+          <BedTime />
+        </div>
+        {showUI && !disabledUiParts.includes('hotbar') && <HotbarRenderApp />}
+      </PerComponentErrorBoundary>
     </RobustPortal>
     <PerComponentErrorBoundary>
       <SignEditorProvider />

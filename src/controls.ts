@@ -2,12 +2,10 @@
 
 import { Vec3 } from 'vec3'
 import { proxy, subscribe } from 'valtio'
-import * as THREE from 'three'
 
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
-import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
 import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
@@ -133,21 +131,21 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) return
 
-  if (viewer.world.freeFlyMode) {
-    // Create movement vector from input
-    const direction = new THREE.Vector3(0, 0, 0)
-    if (vector.z !== undefined) direction.z = vector.z
-    if (vector.x !== undefined) direction.x = vector.x
+  // if (viewer.world.freeFlyMode) {
+  //   // Create movement vector from input
+  //   const direction = new THREE.Vector3(0, 0, 0)
+  //   if (vector.z !== undefined) direction.z = vector.z
+  //   if (vector.x !== undefined) direction.x = vector.x
 
-    // Apply camera rotation to movement direction
-    direction.applyQuaternion(viewer.camera.quaternion)
+  //   // Apply camera rotation to movement direction
+  //   direction.applyQuaternion(viewer.camera.quaternion)
 
-    // Update freeFlyState position with normalized direction
-    const moveSpeed = 1
-    direction.multiplyScalar(moveSpeed)
-    viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
-    return
-  }
+  //   // Update freeFlyState position with normalized direction
+  //   const moveSpeed = 1
+  //   direction.multiplyScalar(moveSpeed)
+  //   viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
+  //   return
+  // }
 
   // gamepadIndex will be used for splitscreen in future
   const coordToAction = [
@@ -355,20 +353,20 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
-        if (viewer.world.freeFlyMode) {
-          const moveSpeed = 0.5
-          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
-        } else {
-          bot.setControlState('jump', pressed)
-        }
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
+        // } else {
+        bot.setControlState('jump', pressed)
+        // }
         break
       case 'general.sneak':
-        if (viewer.world.freeFlyMode) {
-          const moveSpeed = 0.5
-          viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
-        } else {
-          setSneaking(pressed)
-        }
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
+        // } else {
+        setSneaking(pressed)
+        // }
         break
       case 'general.sprint':
         // todo add setting to change behavior
@@ -592,12 +590,12 @@ export const f3Keybinds: Array<{
       for (const [x, z] of loadedChunks) {
         worldView!.unloadChunk({ x, z })
       }
-      for (const child of viewer.scene.children) {
-        if (child.name === 'chunk') { // should not happen
-          viewer.scene.remove(child)
-          console.warn('forcefully removed chunk from scene')
-        }
-      }
+      // for (const child of viewer.scene.children) {
+      //   if (child.name === 'chunk') { // should not happen
+      //     viewer.scene.remove(child)
+      //     console.warn('forcefully removed chunk from scene')
+      //   }
+      // }
       if (localServer) {
         //@ts-expect-error not sure why it is private... maybe revisit api?
         localServer.players[0].world.columns = {}
@@ -610,7 +608,6 @@ export const f3Keybinds: Array<{
     key: 'KeyG',
     action () {
       options.showChunkBorders = !options.showChunkBorders
-      viewer.world.updateShowChunksBorder(options.showChunkBorders)
     },
     mobileTitle: 'Toggle chunk borders',
   },
@@ -926,8 +923,15 @@ window.addEventListener('keydown', (e) => {
 
 // #region experimental debug things
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyL' && e.altKey) {
+  if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     console.clear()
+  }
+  if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (sessionStorage.delayLoadUntilFocus) {
+      sessionStorage.removeItem('delayLoadUntilFocus')
+    } else {
+      sessionStorage.setItem('delayLoadUntilFocus', 'true')
+    }
   }
 })
 // #endregion

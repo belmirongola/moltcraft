@@ -1,4 +1,4 @@
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import * as nbt from 'prismarine-nbt'
 
 export const displayClientChat = (text: string) => {
