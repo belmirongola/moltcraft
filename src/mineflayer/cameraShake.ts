@@ -1,9 +1,5 @@
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 
-customEvents.on('hurtAnimation', () => {
-  cameraShake.shakeFromDamage()
-})
-
 customEvents.on('mineflayerBotCreated', () => {
   customEvents.on('hurtAnimation', (yaw) => {
     getThreeJsRendererMethods()?.shakeFromDamage()
