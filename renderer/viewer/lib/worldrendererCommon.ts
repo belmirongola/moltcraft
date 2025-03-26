@@ -44,7 +44,9 @@ export const defaultWorldRendererConfig = {
   fov: 75,
   fetchPlayerSkins: true,
   highlightBlockColor: 'blue',
-  foreground: true
+  foreground: true,
+  _experimentalSmoothChunkLoading: true,
+  _renderByChunks: false
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -91,10 +93,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   viewDistance = -1
   chunksLength = 0
   allChunksFinished = false
+  messageQueue: any[] = []
+  isProcessingQueue = false
+  ONMESSAGE_TIME_LIMIT = 30 // ms
 
   handleResize = () => { }
   camera: THREE.PerspectiveCamera
-  highestBlocks = new Map<string, HighestBlockInfo>()
+  highestBlocksByChunks = {} as Record<string, { [chunkKey: string]: HighestBlockInfo }>
+  highestBlocksBySections = {} as Record<string, { [sectionKey: string]: HighestBlockInfo }>
   blockEntities = {}
 
   workersProcessAverageTime = 0
@@ -132,6 +138,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   reactiveState: RendererReactiveState
 
   abortController = new AbortController()
+  lastRendered = 0
+  renderingActive = true
 
   constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public version: string) {
     // this.initWorkers(1) // preload script on page load
@@ -167,8 +175,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return this.loadedChunks[chunkKey]
   }
 
-  async getHighestBlocks () {
-    return this.highestBlocks
+  async getHighestBlocks (chunkKey: string) {
+    return this.highestBlocksByChunks[chunkKey]
   }
 
   updateCustomBlock (chunkKey: string, blockPos: string, model: string) {
@@ -209,75 +217,125 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       } else {
         worker = new Worker(src)
       }
-      const handleMessage = (data) => {
-        if (!this.active) return
-        if (data.type !== 'geometry' || !this.debugStopGeometryUpdate) {
-          this.handleWorkerMessage(data)
-        }
-        if (data.type === 'geometry') {
-          this.geometryReceiveCount[data.workerIndex] ??= 0
-          this.geometryReceiveCount[data.workerIndex]++
-          const geometry = data.geometry as MesherGeometryOutput
-          for (const [key, highest] of geometry.highestBlocks.entries()) {
-            const currHighest = this.highestBlocks.get(key)
-            if (!currHighest || currHighest.y < highest.y) {
-              this.highestBlocks.set(key, highest)
-            }
-          }
-          // for (const key in geometry.highestBlocks) {
-          //   const highest = geometry.highestBlocks[key]
-          //   if (!this.highestBlocks[key] || this.highestBlocks[key].y < highest.y) {
-          //     this.highestBlocks[key] = highest
-          //   }
-          // }
-          const chunkCoords = data.key.split(',').map(Number)
-          this.lastChunkDistance = Math.max(...this.getDistance(new Vec3(chunkCoords[0], 0, chunkCoords[2])))
-        }
-        if (data.type === 'sectionFinished') { // on after load & unload section
-          if (!this.sectionsWaiting.get(data.key)) throw new Error(`sectionFinished event for non-outstanding section ${data.key}`)
-          this.sectionsWaiting.set(data.key, this.sectionsWaiting.get(data.key)! - 1)
-          if (this.sectionsWaiting.get(data.key) === 0) {
-            this.sectionsWaiting.delete(data.key)
-            this.finishedSections[data.key] = true
-          }
 
-          const chunkCoords = data.key.split(',').map(Number)
-          if (this.loadedChunks[`${chunkCoords[0]},${chunkCoords[2]}`]) { // ensure chunk data was added, not a neighbor chunk update
-            const loadingKeys = [...this.sectionsWaiting.keys()]
-            if (!loadingKeys.some(key => {
-              const [x, y, z] = key.split(',').map(Number)
-              return x === chunkCoords[0] && z === chunkCoords[2]
-            })) {
-              this.finishedChunks[`${chunkCoords[0]},${chunkCoords[2]}`] = true
-              this.renderUpdateEmitter.emit(`chunkFinished`, `${chunkCoords[0] / 16},${chunkCoords[2] / 16}`)
-            }
-          }
-          this.checkAllFinished()
-
-          this.renderUpdateEmitter.emit('update')
-          if (data.processTime) {
-            this.workersProcessAverageTimeCount++
-            this.workersProcessAverageTime = ((this.workersProcessAverageTime * (this.workersProcessAverageTimeCount - 1)) + data.processTime) / this.workersProcessAverageTimeCount
-            this.maxWorkersProcessTime = Math.max(this.maxWorkersProcessTime, data.processTime)
-          }
-        }
-
-        if (data.type === 'blockStateModelInfo') {
-          for (const [cacheKey, info] of Object.entries(data.info)) {
-            this.blockStateModelInfo.set(cacheKey, info)
-          }
-        }
-      }
       worker.onmessage = ({ data }) => {
         if (Array.isArray(data)) {
-          // eslint-disable-next-line unicorn/no-array-for-each
-          data.forEach(handleMessage)
-          return
+          this.messageQueue.push(...data)
+        } else {
+          this.messageQueue.push(data)
         }
-        handleMessage(data)
+        void this.processMessageQueue()
       }
       if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
       this.workers.push(worker)
+    }
+  }
+
+  async processMessageQueue () {
+    if (this.isProcessingQueue || this.messageQueue.length === 0) return
+    if (this.lastRendered && performance.now() - this.lastRendered > 30 && this.worldRendererConfig._experimentalSmoothChunkLoading && this.renderingActive) {
+      await new Promise(resolve => {
+        requestAnimationFrame(resolve)
+      })
+    }
+    this.isProcessingQueue = true
+
+    const startTime = performance.now()
+    let processedCount = 0
+
+    while (this.messageQueue.length > 0) {
+      const data = this.messageQueue.shift()!
+      this.handleMessage(data)
+      processedCount++
+
+      // Check if we've exceeded the time limit
+      if (performance.now() - startTime > this.ONMESSAGE_TIME_LIMIT && this.renderingActive) {
+        // If we have more messages and exceeded time limit, schedule next batch
+        if (this.messageQueue.length > 0) {
+          requestAnimationFrame(async () => {
+            this.isProcessingQueue = false
+            void this.processMessageQueue()
+          })
+          return
+        }
+        break
+      }
+    }
+
+    this.isProcessingQueue = false
+  }
+
+  handleMessage (data) {
+    if (!this.active) return
+    if (data.type !== 'geometry' || !this.debugStopGeometryUpdate) {
+      this.handleWorkerMessage(data)
+    }
+    if (data.type === 'geometry') {
+      this.geometryReceiveCount[data.workerIndex] ??= 0
+      this.geometryReceiveCount[data.workerIndex]++
+      const geometry = data.geometry as MesherGeometryOutput
+      this.highestBlocksBySections[data.key] = geometry.highestBlocks
+      const chunkCoords = data.key.split(',').map(Number)
+      this.lastChunkDistance = Math.max(...this.getDistance(new Vec3(chunkCoords[0], 0, chunkCoords[2])))
+    }
+    if (data.type === 'sectionFinished') { // on after load & unload section
+      if (!this.sectionsWaiting.has(data.key)) throw new Error(`sectionFinished event for non-outstanding section ${data.key}`)
+      this.sectionsWaiting.set(data.key, this.sectionsWaiting.get(data.key)! - 1)
+      if (this.sectionsWaiting.get(data.key) === 0) {
+        this.sectionsWaiting.delete(data.key)
+        this.finishedSections[data.key] = true
+      }
+
+      const chunkCoords = data.key.split(',').map(Number)
+      const chunkKey = `${chunkCoords[0]},${chunkCoords[2]}`
+      if (this.loadedChunks[chunkKey]) { // ensure chunk data was added, not a neighbor chunk update
+        let loaded = true
+        for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
+          if (!this.finishedSections[`${chunkCoords[0]},${y},${chunkCoords[2]}`]) {
+            loaded = false
+            break
+          }
+        }
+        if (loaded) {
+          // CHUNK FINISHED
+          this.finishedChunks[chunkKey] = true
+          this.renderUpdateEmitter.emit(`chunkFinished`, `${chunkCoords[0]},${chunkCoords[2]}`)
+          this.checkAllFinished()
+          // merge highest blocks by sections into highest blocks by chunks
+          // for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
+          //   const sectionKey = `${chunkCoords[0]},${y},${chunkCoords[2]}`
+          //   for (let x = 0; x < 16; x++) {
+          //     for (let z = 0; z < 16; z++) {
+          //       const posInsideKey = `${chunkCoords[0] + x},${chunkCoords[2] + z}`
+          //       let block = null as HighestBlockInfo | null
+          //       const highestBlock = this.highestBlocksBySections[sectionKey]?.[posInsideKey]
+          //       if (!highestBlock) continue
+          //       if (!block || highestBlock.y > block.y) {
+          //         block = highestBlock
+          //       }
+          //       if (block) {
+          //         this.highestBlocksByChunks[chunkKey] ??= {}
+          //         this.highestBlocksByChunks[chunkKey][posInsideKey] = block
+          //       }
+          //     }
+          //   }
+          //   delete this.highestBlocksBySections[sectionKey]
+          // }
+        }
+      }
+
+      this.renderUpdateEmitter.emit('update')
+      if (data.processTime) {
+        this.workersProcessAverageTimeCount++
+        this.workersProcessAverageTime = ((this.workersProcessAverageTime * (this.workersProcessAverageTimeCount - 1)) + data.processTime) / this.workersProcessAverageTimeCount
+        this.maxWorkersProcessTime = Math.max(this.maxWorkersProcessTime, data.processTime)
+      }
+    }
+
+    if (data.type === 'blockStateModelInfo') {
+      for (const [cacheKey, info] of Object.entries(data.info)) {
+        this.blockStateModelInfo.set(cacheKey, info)
+      }
     }
   }
 
@@ -420,9 +478,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   updateChunksStats () {
     const loadedChunks = Object.keys(this.finishedChunks)
-    this.reactiveState.world.chunksLoaded = loadedChunks
-    this.reactiveState.world.chunksTotalNumber = this.chunksLength
+    this.displayOptions.nonReactiveState.world.chunksLoaded = loadedChunks
+    this.displayOptions.nonReactiveState.world.chunksTotalNumber = this.chunksLength
     this.reactiveState.world.allChunksLoaded = this.allChunksFinished
+
     updateStatText('downloaded-chunks', `${Object.keys(this.loadedChunks).length}/${this.chunksLength} chunks D (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`)
   }
 
@@ -465,7 +524,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   removeColumn (x, z) {
-    this.updateChunksStats()
     delete this.loadedChunks[`${x},${z}`]
     for (const worker of this.workers) {
       worker.postMessage({ type: 'unloadChunk', x, z })
@@ -479,18 +537,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(x, y, z), false)
       delete this.finishedSections[`${x},${y},${z}`]
+      delete this.highestBlocksBySections[`${x},${y},${z}`]
     }
+    delete this.highestBlocksByChunks[`${x},${z}`]
 
-    // remove from highestBlocks
-    const startX = Math.floor(x / 16) * 16
-    const startZ = Math.floor(z / 16) * 16
-    const endX = Math.ceil((x + 1) / 16) * 16
-    const endZ = Math.ceil((z + 1) / 16) * 16
-    for (let x = startX; x < endX; x += 16) {
-      for (let z = startZ; z < endZ; z += 16) {
-        delete this.highestBlocks[`${x},${z}`]
-      }
-    }
+    this.updateChunksStats()
   }
 
   setBlockStateId (pos: Vec3, stateId: number | undefined) {

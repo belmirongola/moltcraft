@@ -38,7 +38,7 @@ export type MesherGeometryOutput = {
   heads: Record<string, any>,
   signs: Record<string, any>,
   // isFull: boolean
-  highestBlocks: Map<string, HighestBlockInfo>
+  highestBlocks: Record<string, HighestBlockInfo>
   hadErrors: boolean
   blocksCount: number
   customBlockModels?: CustomBlockModels

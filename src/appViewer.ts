@@ -1,11 +1,12 @@
 import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
-import { IPlayerState } from 'renderer/viewer/lib/basePlayerState'
+import { BasePlayerState, IPlayerState } from 'renderer/viewer/lib/basePlayerState'
 import { subscribeKey } from 'valtio/utils'
 import { defaultWorldRendererConfig, WorldRendererConfig } from 'renderer/viewer/lib/worldrendererCommon'
 import { Vec3 } from 'vec3'
 import { SoundSystem } from 'renderer/viewer/three/threeJsSound'
 import { proxy } from 'valtio'
 import { getDefaultRendererState } from 'renderer/viewer/baseGraphicsBackend'
+import { getSyncWorld } from 'renderer/playground/shared'
 import { playerState } from './mineflayer/playerState'
 import { createNotificationProgressReporter, ProgressReporter } from './core/progressReporter'
 import { setLoadingScreenStatus } from './appStatus'
@@ -24,6 +25,15 @@ export interface RendererReactiveState {
   }
   renderer: string
   preventEscapeMenu: boolean
+}
+export interface NonReactiveState {
+  world: {
+    chunksLoaded: string[]
+    chunksTotalNumber: number
+    allChunksLoaded: boolean
+    mesherWork: boolean
+    intersectMedia: { id: string, x: number, y: number } | null
+  }
 }
 
 export interface GraphicsBackendConfig {
@@ -52,6 +62,7 @@ export interface DisplayWorldOptions {
   inWorldRenderingConfig: WorldRendererConfig
   playerState: IPlayerState
   rendererState: RendererReactiveState
+  nonReactiveState: NonReactiveState
 }
 
 export type GraphicsBackendLoader = (options: GraphicsInitOptions) => GraphicsBackend
@@ -91,6 +102,7 @@ export class AppViewer {
   lastCamUpdate = 0
   playerState = playerState
   rendererState = proxy(getDefaultRendererState())
+  nonReactiveState: NonReactiveState = getDefaultRendererState()
   worldReady: Promise<void>
   private resolveWorldReady: () => void
 
@@ -128,7 +140,7 @@ export class AppViewer {
     }
   }
 
-  startWorld (world, renderDistance: number, playerStateSend: IPlayerState = playerState) {
+  startWorld (world, renderDistance: number, playerStateSend: IPlayerState = this.playerState) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
     const startPosition = playerStateSend.getPosition()
@@ -141,7 +153,8 @@ export class AppViewer {
       worldView: this.worldView,
       inWorldRenderingConfig: this.inWorldRenderingConfig,
       playerState: playerStateSend,
-      rendererState: this.rendererState
+      rendererState: this.rendererState,
+      nonReactiveState: this.nonReactiveState
     }
     if (this.backend) {
       this.backend.startWorld(displayWorldOptions)
@@ -226,11 +239,13 @@ const initialMenuStart = async () => {
 
   // await appViewer.resourcesManager.loadMcData('1.21.4')
   // const world = getSyncWorld('1.21.4')
-  // await appViewer.prepareResources('1.21.4', createNullProgressReporter())
   // world.setBlockStateId(new Vec3(0, 64, 0), 1)
-  // appViewer.startWorld(world, 3, new Vec3(0, 64, 0), new BasePlayerState())
+  // appViewer.resourcesManager.currentConfig = { version: '1.21.4' }
+  // await appViewer.resourcesManager.updateAssetsData({})
+  // appViewer.playerState = new BasePlayerState() as any
+  // appViewer.startWorld(world, 3)
   // appViewer.backend?.updateCamera(new Vec3(0, 64, 2), 0, 0)
-  // void appViewer.worldView.init(new Vec3(0, 64, 0))
+  // void appViewer.worldView!.init(new Vec3(0, 64, 0))
 }
 window.initialMenuStart = initialMenuStart
 

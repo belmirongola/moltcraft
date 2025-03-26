@@ -201,7 +201,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
     const chunkWorldX = chunkX * 16
     const chunkWorldZ = chunkZ * 16
     if (appViewer.rendererState.world.chunksLoaded.includes(`${chunkWorldX},${chunkWorldZ}`)) {
-      const highestBlocks = await getThreeJsRendererMethods()?.getHighestBlocks()
+      const highestBlocks = await getThreeJsRendererMethods()?.getHighestBlocks(`${chunkWorldX},${chunkWorldZ}`)
       if (!highestBlocks) return undefined
       const heightmap = new Uint8Array(256)
       const colors = Array.from({ length: 256 }).fill('') as string[]
@@ -212,7 +212,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
         for (let x = 0; x < 16; x += 1) {
           const blockX = chunkWorldX + x
           const blockZ = chunkWorldZ + z
-          const hBlock = highestBlocks.get(`${blockX},${blockZ}`)
+          const hBlock = highestBlocks[`${blockX},${blockZ}`]
           blockPos.x = blockX; blockPos.z = blockZ; blockPos.y = hBlock?.y ?? 0
           let block = bot.world.getBlock(blockPos)
           while (block?.name.includes('air')) {
@@ -333,7 +333,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
     const [chunkX, chunkZ] = key.split(',').map(Number)
     const chunkWorldX = chunkX * 16
     const chunkWorldZ = chunkZ * 16
-    const highestBlocks = await getThreeJsRendererMethods()?.getHighestBlocks()
+    const highestBlocks = await getThreeJsRendererMethods()?.getHighestBlocks(`${chunkWorldX},${chunkWorldZ}`)
     if (appViewer.rendererState.world.chunksLoaded.includes(`${chunkWorldX},${chunkWorldZ}`)) {
       const heightmap = new Uint8Array(256)
       const colors = Array.from({ length: 256 }).fill('') as string[]
@@ -342,7 +342,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
         for (let x = 0; x < 16; x += 1) {
           const blockX = chunkWorldX + x
           const blockZ = chunkWorldZ + z
-          const hBlock = highestBlocks.get(`${blockX},${blockZ}`)
+          const hBlock = highestBlocks[`${blockX},${blockZ}`]
           const block = bot.world.getBlock(new Vec3(blockX, hBlock?.y ?? 0, blockZ))
           // const block = Block.fromStateId(hBlock?.stateId ?? -1, hBlock?.biomeId ?? -1)
           const index = z * 16 + x

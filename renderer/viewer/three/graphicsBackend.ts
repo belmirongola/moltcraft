@@ -94,6 +94,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     disconnect,
     setRendering (rendering) {
       documentRenderer.setPaused(!rendering)
+      if (worldRenderer) worldRenderer.renderingActive = rendering
     },
     getDebugOverlay: () => ({
     }),

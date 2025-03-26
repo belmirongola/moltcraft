@@ -173,6 +173,11 @@ export async function connect (connectOptions: ConnectOptions) {
       }
     })
   }
+  if (sessionStorage.delayLoadUntilClick) {
+    await new Promise(resolve => {
+      window.addEventListener('click', resolve)
+    })
+  }
 
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions

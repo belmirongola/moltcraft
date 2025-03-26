@@ -5,7 +5,7 @@ import { Vec3 } from 'vec3'
 import * as tweenJs from '@tweenjs/tween.js'
 import type { GraphicsInitOptions } from '../../../src/appViewer'
 import { WorldDataEmitter } from '../lib/worldDataEmitter'
-import { defaultWorldRendererConfig } from '../lib/worldrendererCommon'
+import { defaultWorldRendererConfig, WorldRendererCommon } from '../lib/worldrendererCommon'
 import { BasePlayerState } from '../lib/basePlayerState'
 import { getDefaultRendererState } from '../baseGraphicsBackend'
 import { WorldRendererThree } from './worldrendererThree'
@@ -29,7 +29,8 @@ export class PanoramaRenderer {
   private panoramaGroup: THREE.Object3D | null = null
   private time = 0
   private readonly abortController = new AbortController()
-  private worldRenderer: WorldRendererThree | undefined
+  private worldRenderer: WorldRendererCommon | WorldRendererThree | undefined
+  public WorldRendererClass = WorldRendererThree
 
   constructor (private readonly documentRenderer: DocumentRenderer, private readonly options: GraphicsInitOptions, private readonly doWorldBlocksPanorama = false) {
     this.scene = new THREE.Scene()
@@ -155,7 +156,7 @@ export class PanoramaRenderer {
     // worldView.addWaitTime = 0
     if (this.abortController.signal.aborted) return
 
-    this.worldRenderer = new WorldRendererThree(
+    this.worldRenderer = new this.WorldRendererClass(
       this.documentRenderer.renderer,
       this.options,
       {
@@ -163,10 +164,13 @@ export class PanoramaRenderer {
         worldView,
         inWorldRenderingConfig: defaultWorldRendererConfig,
         playerState: new BasePlayerState(),
-        rendererState: getDefaultRendererState()
+        rendererState: getDefaultRendererState(),
+        nonReactiveState: getDefaultRendererState()
       }
     )
-    this.scene = this.worldRenderer.scene
+    if (this.worldRenderer instanceof WorldRendererThree) {
+      this.scene = this.worldRenderer.scene
+    }
     void worldView.init(initPos)
 
     await this.worldRenderer.waitForChunksToRender()
@@ -205,3 +209,59 @@ export class PanoramaRenderer {
     this.abortController.abort()
   }
 }
+
+// export class ClassicPanoramaRenderer {
+//   panoramaGroup: THREE.Object3D
+
+//   constructor (private readonly backgroundFiles: string[], onRender: Array<(sizeChanged: boolean) => void>, addSquids = true) {
+//     const panorGeo = new THREE.BoxGeometry(1000, 1000, 1000)
+//     const loader = new THREE.TextureLoader()
+//     const panorMaterials = [] as THREE.MeshBasicMaterial[]
+
+//     for (const file of this.backgroundFiles) {
+//       const texture = loader.load(file)
+
+//       // Instead of using repeat/offset to flip, we'll use the texture matrix
+//       texture.matrixAutoUpdate = false
+//       texture.matrix.set(
+//         -1, 0, 1, 0, 1, 0, 0, 0, 1
+//       )
+
+//       texture.wrapS = THREE.ClampToEdgeWrapping // Changed from RepeatWrapping
+//       texture.wrapT = THREE.ClampToEdgeWrapping // Changed from RepeatWrapping
+//       texture.minFilter = THREE.LinearFilter
+//       texture.magFilter = THREE.LinearFilter
+
+//       panorMaterials.push(new THREE.MeshBasicMaterial({
+//         map: texture,
+//         transparent: true,
+//         side: THREE.DoubleSide,
+//         depthWrite: false,
+//       }))
+//     }
+
+//     const panoramaBox = new THREE.Mesh(panorGeo, panorMaterials)
+//     panoramaBox.onBeforeRender = () => {
+//     }
+
+//     const group = new THREE.Object3D()
+//     group.add(panoramaBox)
+
+//     if (addSquids) {
+//       // Add squids
+//       for (let i = 0; i < 20; i++) {
+//         const m = new EntityMesh('1.16.4', 'squid').mesh
+//         m.position.set(Math.random() * 30 - 15, Math.random() * 20 - 10, Math.random() * 10 - 17)
+//         m.rotation.set(0, Math.PI + Math.random(), -Math.PI / 4, 'ZYX')
+//         const v = Math.random() * 0.01
+//         onRender.push(() => {
+//           m.rotation.y += v
+//           m.rotation.z = Math.cos(panoramaBox.rotation.y * 3) * Math.PI / 4 - Math.PI / 2
+//         })
+//         group.add(m)
+//       }
+//     }
+
+//     this.panoramaGroup = group
+//   }
+// }

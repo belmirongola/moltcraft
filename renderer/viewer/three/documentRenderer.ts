@@ -22,6 +22,7 @@ export class DocumentRenderer {
   sizeChanged = () => { }
   droppedFpsPercentage: number
   config: GraphicsBackendConfig
+  onRender = [] as Array<(sizeChanged: boolean) => void>
 
   constructor (initOptions: GraphicsInitOptions) {
     this.config = initOptions.config
@@ -120,6 +121,9 @@ export class DocumentRenderer {
       this.stats.markStart()
       tween.update()
       this.render(sizeChanged)
+      for (const fn of this.onRender) {
+        fn(sizeChanged)
+      }
       this.renderedFps++
       this.stats.markEnd()
       this.postRender()

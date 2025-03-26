@@ -109,6 +109,12 @@ const defaultOptions = {
   disabledUiParts: [] as string[],
   neighborChunkUpdates: true,
   highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
+  rendererOptions: {
+    three: {
+      _experimentalSmoothChunkLoading: true,
+      _renderByChunks: false
+    }
+  }
 }
 
 function getDefaultTouchControlsPositions () {

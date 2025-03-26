@@ -182,10 +182,17 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   readdDebug () {
     const clonedLoadedChunks = { ...this.loadedChunks }
     this.unloadAllChunks()
+    console.time('readdDebug')
     for (const loadedChunk in clonedLoadedChunks) {
       const [x, z] = loadedChunk.split(',').map(Number)
       void this.loadChunk(new Vec3(x, 0, z))
     }
+    const interval = setInterval(() => {
+      if (appViewer.rendererState.world.allChunksLoaded) {
+        clearInterval(interval)
+        console.timeEnd('readdDebug')
+      }
+    }, 100)
   }
 
   // debugGotChunkLatency = [] as number[]
