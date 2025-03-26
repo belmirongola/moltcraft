@@ -1,6 +1,8 @@
 /* eslint-disable no-await-in-loop */
 import { openDB } from 'idb'
-import * as react from 'react'
+import * as React from 'react'
+import * as valtio from 'valtio'
+import * as valtioUtils from 'valtio/utils'
 import { gt } from 'semver'
 import { proxy } from 'valtio'
 import { options } from './optionsStorage'
@@ -111,10 +113,13 @@ export interface ClientMod {
   scriptMainUnstable?: string;
   serverPlugin?: string
   // serverPlugins?: string[]
-  // workerScript?: string
+  // mesherThread?: string
   stylesGlobal?: string
+  threeJsBackend?: string // three.js
   // stylesLocal?: string
 
+  requiresNetwork?: boolean
+  fullyOffline?: boolean
   description?: string
   author?: string
   section?: string
@@ -135,6 +140,7 @@ export type ClientModDefinition = Omit<ClientMod, 'enabled'> & {
   scriptMainUnstable?: boolean
   stylesGlobal?: boolean
   serverPlugin?: boolean
+  threeJsBackend?: boolean
 }
 
 async function savePlugin (data: ClientMod) {
@@ -198,7 +204,11 @@ window.mcraft = {
   version: process.env.RELEASE_TAG,
   build: process.env.BUILD_VERSION,
   ui: {},
-  react,
+  React,
+  valtio: {
+    ...valtio,
+    ...valtioUtils,
+  },
   // openDB
 }
 
@@ -226,10 +236,17 @@ const activateMod = async (mod: ClientMod, reason: string) => {
       module.default?.(structuredClone(mod))
       window.loadedMods[mod.name] = module
     } catch (e) {
-      // if (e instanceof Error && e.message.startsWith('Cannot find module')) {
-      //   throw new Error(`mainUnstable.js is not valid ES module! Ensure you have default export with function to activate.`)
-      // }
-      // console.error(`Error loading mod ${mod.name}:`, e)
+      throw e
+    }
+  }
+  if (mod.threeJsBackend) {
+    const blob = new Blob([mod.threeJsBackend], { type: 'text/javascript' })
+    const url = URL.createObjectURL(blob)
+    // eslint-disable-next-line no-useless-catch
+    try {
+      const module = await import(/* webpackIgnore: true */ url)
+      module.default?.(structuredClone(mod))
+    } catch (e) {
       throw e
     }
   }
@@ -297,6 +314,14 @@ const installOrUpdateMod = async (repo: Repository, mod: ClientModDefinition, ac
         `Downloading ${mod.name} script`,
         async () => {
           mod.scriptMainUnstable = await fetchData(['mainUnstable.js']) as any
+        }
+      )
+    }
+    if (mod.threeJsBackend) {
+      await progress?.executeWithMessage(
+        `Downloading ${mod.name} three.js backend`,
+        async () => {
+          mod.threeJsBackend = await fetchData(['three.js']) as any
         }
       )
     }
