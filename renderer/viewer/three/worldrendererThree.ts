@@ -23,6 +23,7 @@ import { initVR } from './world/vr'
 import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
+import { FirstPersonEffects } from './firstPersonEffects'
 
 interface MediaProperties {
   position: { x: number, y: number, z: number }
@@ -66,6 +67,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }>()
   cameraShake: CameraShake
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
+  firstPersonEffects: FirstPersonEffects
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -92,6 +94,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.soundSystem = new ThreeJsSound(this)
     this.cameraShake = new CameraShake(this.camera, this.onRender)
+    this.firstPersonEffects = new FirstPersonEffects(this)
 
     this.renderUpdateEmitter.on('chunkFinished', (chunkKey: string) => {
       this.finishChunk(chunkKey)
