@@ -1,7 +1,7 @@
 import { versionToNumber } from 'renderer/viewer/common/utils'
+import { toMajorVersion } from 'renderer/viewer/lib/simpleUtils'
 import { restoreMinecraftData } from '../optimizeJson'
 // import minecraftInitialDataJson from '../../generated/minecraft-initial-data.json'
-import { toMajorVersion } from '../utils'
 import { importLargeData } from '../../generated/large-data-aliases'
 
 const customResolver = () => {
