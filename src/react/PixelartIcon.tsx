@@ -8,7 +8,7 @@ export default ({
   className = undefined as undefined | string,
   onClick = () => { }
 }) => {
-  if (width !== undefined) styles = { width, height: width, ...styles }
+  if (width !== undefined) styles = { width, height: width, fontSize: width, ...styles }
   iconName = iconName.replace('pixelarticons:', '')
 
   return <div

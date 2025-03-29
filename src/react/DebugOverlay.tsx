@@ -1,8 +1,9 @@
-import { useEffect, useRef, useMemo, useState } from 'react'
-import * as THREE from 'three'
+import { useEffect, useRef, useState } from 'react'
 import type { Block } from 'prismarine-block'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
+import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
 import styles from './DebugOverlay.module.css'
 
 export default () => {
@@ -33,12 +34,13 @@ export default () => {
   const [blockL, setBlockL] = useState(0)
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
-  const [entitiesCount, setEntitiesCount] = useState(0)
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
+  const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
+  const [clientTps, setClientTps] = useState(0)
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
-  const { rendererDevice } = viewer.world
+  const rendererDevice = appViewer.rendererState.renderer ?? 'No render backend'
 
   const quadsDescription = [
     'north (towards negative Z)',
@@ -84,6 +86,23 @@ export default () => {
   }
 
   useEffect(() => {
+    let lastTpsReset = 0
+    let lastTps = 0
+    let lastTickDate = 0
+    const updateTps = (increment = false) => {
+      if (Date.now() - lastTpsReset >= 1000) {
+        setClientTps(lastTps)
+        window.lastTpsArray ??= []
+        window.lastTpsArray.push(lastTps)
+        lastTps = 0
+        lastTpsReset = Date.now()
+      }
+      if (increment) {
+        lastTickDate = Date.now()
+        lastTps++
+      }
+    }
+
     document.addEventListener('keydown', handleF3)
     let update = 0
     const packetsUpdateInterval = setInterval(() => {
@@ -96,7 +115,15 @@ export default () => {
         packetsCountByNamePer10Sec.current.received = {}
         packetsCountByNamePer10Sec.current.sent = {}
       }
+      updateTps(false)
     }, 1000)
+
+    bot.on('physicsTick', () => {
+      updateTps(true)
+    })
+    bot._client.on('packet', () => {
+      updateTps(false)
+    })
 
     const freqUpdateInterval = setInterval(() => {
       setPos({ ...bot.entity.position })
@@ -105,9 +132,18 @@ export default () => {
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
-      setCursorBlock(bot.blockAtCursor(5))
-      setEntitiesCount(Object.values(bot.entities).length)
+      setCursorBlock(bot.mouse.getCursorState().cursorBlock)
     }, 100)
+
+    const notFrequentUpdateInterval = setInterval(async () => {
+      const block = bot.mouse.cursorBlock
+      if (!block) {
+        setBlockInfo(null)
+        return
+      }
+      const { customBlockName, modelInfo } = await getThreeJsRendererMethods()?.getBlockInfo(pos, block.stateId) ?? {}
+      setBlockInfo({ customBlockName, modelInfo })
+    }, 300)
 
     // @ts-expect-error
     bot._client.on('packet', readPacket)
@@ -122,6 +158,8 @@ export default () => {
       document.removeEventListener('keydown', handleF3)
       clearInterval(packetsUpdateInterval)
       clearInterval(freqUpdateInterval)
+      clearInterval(notFrequentUpdateInterval)
+      console.log('Last physics tick before disconnect was', Date.now() - lastTickDate, 'ms ago')
     }
   }, [])
 
@@ -133,14 +171,15 @@ export default () => {
   if (!showDebug) return null
 
   return <>
-    <div className={styles['debug-left-side']}>
+    <div className={`debug-left-side ${styles['debug-left-side']}`}>
       <p>Prismarine Web Client ({bot.version})</p>
-      <p>E: {entitiesCount}</p>
+      {appViewer.backend?.getDebugOverlay?.().entitiesString && <p>E: {appViewer.backend.getDebugOverlay().entitiesString}</p>}
       <p>{dimension}</p>
       <div className={styles.empty} />
       <p>XYZ: {pos.x.toFixed(3)} / {pos.y.toFixed(3)} / {pos.z.toFixed(3)}</p>
       <p>Chunk: {Math.floor(pos.x % 16)} ~ {Math.floor(pos.z % 16)} in {Math.floor(pos.x / 16)} ~ {Math.floor(pos.z / 16)}</p>
       <p>Packets: {packetsString}</p>
+      <p>Client TPS: {clientTps}</p>
       <p>Facing (viewer): {bot.entity.yaw.toFixed(3)} {bot.entity.pitch.toFixed(3)}</p>
       <p>Facing (minecraft): {quadsDescription[minecraftQuad.current]} ({minecraftYaw.current.toFixed(1)} {(bot.entity.pitch * -180 / Math.PI).toFixed(1)})</p>
       <p>Light: {blockL} ({skyL} sky)</p>
@@ -148,10 +187,11 @@ export default () => {
       <p>Biome: minecraft:{loadedData.biomesArray[biomeId]?.name ?? 'unknown biome'}</p>
       <p>Day: {day}</p>
       <div className={styles.empty} />
-      {Object.entries(customEntries.current).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
+      {Object.entries(appViewer.backend?.getDebugOverlay?.().left ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
 
-    <div className={styles['debug-right-side']}>
+    <div className={`debug-right-side ${styles['debug-right-side']}`}>
+      <p>Backend: {appViewer.backend?.displayName}</p>
       <p>Renderer: {rendererDevice}</p>
       <div className={styles.empty} />
       {cursorBlock ? (<>
@@ -172,6 +212,24 @@ export default () => {
       {cursorBlock ? (
         <p>Looking at: {cursorBlock.position.x} {cursorBlock.position.y} {cursorBlock.position.z}</p>
       ) : ''}
+      <div className={styles.empty} />
+      {blockInfo && (() => {
+        const { customBlockName, modelInfo } = blockInfo
+        return modelInfo && (
+          <>
+            {customBlockName && <p style={{ fontSize: 7, }}>Custom block: {customBlockName}</p>}
+            {modelInfo.issues.map((issue, i) => (
+              <p key={i} style={{ color: 'yellow', fontSize: 7, }}>{issue}</p>
+            ))}
+            {/* <p style={{ fontSize: 7, }}>Resolved models chain: {modelInfo.modelNames.join(' -> ')}</p> */}
+            <p style={{ fontSize: 7, }}>Resolved model: {modelInfo.modelNames[0] ?? '-'}</p>
+            <p style={{ fontSize: 7, whiteSpace: 'nowrap', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {modelInfo.conditions.join(', ')}
+            </p>
+          </>
+        )
+      })()}
+      {Object.entries(appViewer.backend?.getDebugOverlay?.().right ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
   </>
 }

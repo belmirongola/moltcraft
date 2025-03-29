@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Transition } from 'react-transition-group'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { allImagesLoadedState, getItemNameRaw, openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
+import { getItemNameRaw } from '../mineflayer/items'
+import { isInRealGameSession } from '../utils'
 import MessageFormattedString from './MessageFormattedString'
 import SharedHudVars from './SharedHudVars'
+import { packetsReplayState } from './state/packetsReplayState'
 
 
 const ItemName = ({ itemKey }: { itemKey: string }) => {
@@ -37,20 +40,16 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
   }
 
   useEffect(() => {
-    const itemData = itemKey.split('_split_')
-    if (!itemKey) {
-      setItemName('')
-    } else if (itemData[3]) {
-      const customDisplay = getItemNameRaw({
-        nbt: JSON.parse(itemData[3])
-      })
+    const item = bot.heldItem
+    if (item) {
+      const customDisplay = getItemNameRaw(item, appViewer.resourcesManager)
       if (customDisplay) {
         setItemName(customDisplay)
       } else {
-        setItemName(itemData[0])
+        setItemName(item.displayName)
       }
     } else {
-      setItemName(itemData[0])
+      setItemName('')
     }
     setShow(true)
     const id = setTimeout(() => {
@@ -73,7 +72,7 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
   </Transition>
 }
 
-const Inner = () => {
+const HotbarInner = () => {
   const container = useRef<HTMLDivElement>(null!)
   const [itemKey, setItemKey] = useState('')
   const hasModals = useSnapshot(activeModalStack).length
@@ -111,7 +110,7 @@ const Inner = () => {
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!viewer.world.currentTextureImage || !allImagesLoadedState.value) return
+      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser) return
       upInventoryItems(true, inv)
     }
 
@@ -125,8 +124,8 @@ const Inner = () => {
 
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
-    viewer.world.renderUpdateEmitter.on('textureDownloaded', upHotbarItems)
-    const unsub2 = subscribe(allImagesLoadedState, () => {
+    appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
+    appViewer.resourcesManager.on('assetsInventoryReady', () => {
       upHotbarItems()
     })
 
@@ -144,13 +143,13 @@ const Inner = () => {
       }
       const item = bot.inventory.slots[bot.quickBarSlot + 36]!
       const itemNbt = item.nbt ? JSON.stringify(item.nbt) : ''
-      setItemKey(`${item.displayName}_split_${item.type}_split_${item.metadata}_split_${itemNbt}`)
+      setItemKey(`${item.name}_split_${item.type}_split_${item.metadata}_split_${itemNbt}_split_${JSON.stringify(item['components'] ?? [])}`)
     }
     heldItemChanged()
     bot.on('heldItemChanged' as any, heldItemChanged)
 
     document.addEventListener('wheel', (e) => {
-      if (!isGameActive(true)) return
+      if (!isInRealGameSession()) return
       e.preventDefault()
       const newSlot = ((bot.quickBarSlot + Math.sign(e.deltaY)) % 9 + 9) % 9
       setSelectedSlot(newSlot)
@@ -160,7 +159,7 @@ const Inner = () => {
     })
 
     document.addEventListener('keydown', (e) => {
-      if (!isGameActive(true)) return
+      if (!isInRealGameSession()) return
       const numPressed = +((/Digit(\d)/.exec(e.code))?.[1] ?? -1)
       if (numPressed < 1 || numPressed > 9) return
       setSelectedSlot(numPressed - 1)
@@ -197,8 +196,7 @@ const Inner = () => {
     return () => {
       inv.destroy()
       controller.abort()
-      unsub2()
-      viewer.world.renderUpdateEmitter.off('textureDownloaded', upHotbarItems)
+      appViewer.resourcesManager.off('assetsTexturesUpdated', upHotbarItems)
     }
   }, [])
 
@@ -229,7 +227,7 @@ export default () => {
     })
   }, [])
 
-  return gameMode === 'spectator' ? null : <Inner />
+  return gameMode === 'spectator' ? null : <HotbarInner />
 }
 
 const Portal = ({ children, to = document.body }) => {

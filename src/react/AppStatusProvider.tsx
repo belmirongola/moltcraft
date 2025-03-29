@@ -1,21 +1,20 @@
 import { proxy, useSnapshot } from 'valtio'
 import { useEffect, useRef, useState } from 'react'
-import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, miscUiState, showModal } from '../globalState'
-import { resetLocalStorageWorld } from '../browserfs'
-import { fsState } from '../loadSave'
+import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, miscUiState } from '../globalState'
 import { guessProblem } from '../errorLoadingScreenHelpers'
-import { ConnectOptions } from '../connect'
-import { downloadPacketsReplay, packetsReplaceSessionState } from '../packetsReplay'
+import type { ConnectOptions } from '../connect'
+import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
 import { getProxyDetails } from '../microsoftAuthflow'
+import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/packetsRecording'
+import { appQueryParams } from '../appParams'
 import AppStatus from './AppStatus'
 import DiveTransition from './DiveTransition'
 import { useDidUpdateEffect } from './utils'
 import { useIsModalActive } from './utilsApp'
 import Button from './Button'
-import { AuthenticatedAccount, updateAuthenticatedAccountData, updateLoadedServerData } from './ServersListProvider'
+import { updateAuthenticatedAccountData, updateLoadedServerData, AuthenticatedAccount } from './serversStorage'
 import { showOptionsModal } from './SelectOption'
 import LoadingChunks from './LoadingChunks'
-import MessageFormatted from './MessageFormatted'
 import MessageFormattedString from './MessageFormattedString'
 
 const initialState = {
@@ -28,7 +27,8 @@ const initialState = {
   loadingChunksData: null as null | Record<string, string>,
   loadingChunksDataPlayerChunk: null as null | { x: number, z: number },
   isDisplaying: false,
-  minecraftJsonMessage: null as null | Record<string, any>
+  minecraftJsonMessage: null as null | Record<string, any>,
+  showReconnect: false
 }
 export const appStatusState = proxy(initialState)
 export const resetAppStatusState = () => {
@@ -38,12 +38,35 @@ export const resetAppStatusState = () => {
 export const lastConnectOptions = {
   value: null as ConnectOptions | null
 }
+globalThis.lastConnectOptions = lastConnectOptions
+
+const saveReconnectOptions = (options: ConnectOptions) => {
+  sessionStorage.setItem('reconnectOptions', JSON.stringify({
+    value: options,
+    timestamp: Date.now()
+  }))
+}
+
+export const reconnectReload = () => {
+  if (lastConnectOptions.value) {
+    saveReconnectOptions(lastConnectOptions.value)
+    window.location.reload()
+  }
+}
 
 export default () => {
-  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage } = useSnapshot(appStatusState)
-  const { active: replayActive } = useSnapshot(packetsReplaceSessionState)
+  const lastState = useRef(JSON.parse(JSON.stringify(appStatusState)))
+  const currentState = useSnapshot(appStatusState)
+  const { active: replayActive } = useSnapshot(packetsRecordingState)
 
   const isOpen = useIsModalActive('app-status')
+
+  if (isOpen) {
+    lastState.current = JSON.parse(JSON.stringify(currentState))
+  }
+
+  const usingState = (isOpen ? currentState : lastState.current) as typeof currentState
+  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = usingState
 
   useDidUpdateEffect(() => {
     // todo play effect only when world successfully loaded
@@ -68,7 +91,9 @@ export default () => {
   useEffect(() => {
     const controller = new AbortController()
     window.addEventListener('keyup', (e) => {
+      if ('input textarea select'.split(' ').includes((e.target as HTMLElement).tagName?.toLowerCase() ?? '')) return
       if (activeModalStack.at(-1)?.reactType !== 'app-status') return
+      // todo do only if reconnect is possible
       if (e.code !== 'KeyR' || !lastConnectOptions.value) return
       reconnect()
     }, {
@@ -92,36 +117,50 @@ export default () => {
     reconnect()
   }
 
+  const lastAutoCapturedPackets = getLastAutoCapturedPackets()
+  const lockConnect = appQueryParams.lockConnect === 'true'
+  const wasDisconnected = showReconnect
+  let backAction = undefined as (() => void) | undefined
+  if (maybeRecoverable && (!lockConnect || !wasDisconnected)) {
+    backAction = () => {
+      if (!wasDisconnected) {
+        hideModal(undefined, undefined, { force: true })
+        return
+      }
+      resetAppStatusState()
+      miscUiState.gameLoaded = false
+      miscUiState.loadedDataVersion = null
+      window.loadedData = undefined
+      if (activeModalStacks['main-menu']) {
+        insertActiveModalStack('main-menu')
+        if (activeModalStack.at(-1)?.reactType === 'app-status') {
+          hideModal(undefined, undefined, { force: true }) // workaround: hide loader that was shown on world loading
+        }
+      } else {
+        hideModal(undefined, undefined, { force: true })
+      }
+    }
+  }
   return <DiveTransition open={isOpen}>
     <AppStatus
       status={status}
-      isError={isError || appStatusState.status === ''} // display back button if status is empty as probably our app is errored
+      isError={isError || status === ''} // display back button if status is empty as probably our app is errored // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
+      showReconnect={showReconnect}
+      onReconnect={reconnectReload}
       description={<>{
         displayAuthButton ? '' : (isError ? guessProblem(status) : '') || descriptionHint
       }{
         minecraftJsonMessage && <MessageFormattedString message={minecraftJsonMessage} />
       }</>}
-      backAction={maybeRecoverable ? () => {
-        resetAppStatusState()
-        miscUiState.gameLoaded = false
-        miscUiState.loadedDataVersion = null
-        window.loadedData = undefined
-        if (activeModalStacks['main-menu']) {
-          insertActiveModalStack('main-menu')
-          if (activeModalStack.at(-1)?.reactType === 'app-status') {
-            hideModal(undefined, undefined, { force: true }) // workaround: hide loader that was shown on world loading
-          }
-        } else {
-          hideModal(undefined, undefined, { force: true })
-        }
-      } : undefined}
+      backAction={backAction}
       actionsSlot={
         <>
           {displayAuthButton && <Button label='Authenticate' onClick={authReconnectAction} />}
           {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={reconnect} />}
-          {replayActive && <Button label='Download Packets Replay' onClick={downloadPacketsReplay} />}
+          {replayActive && <Button label={`Download Packets Replay ${replayLogger?.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
+          {wasDisconnected && lastAutoCapturedPackets && <Button label={`Inspect Last ${lastAutoCapturedPackets} Packets`} onClick={() => downloadAutoCapturedPackets()} />}
         </>
       }
     >

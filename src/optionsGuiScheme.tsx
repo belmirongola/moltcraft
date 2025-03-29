@@ -1,17 +1,24 @@
 import { useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
-import { loadedGameState, miscUiState, openOptionsMenu, showModal } from './globalState'
-import { AppOptions, options } from './optionsStorage'
+import { versionToNumber } from 'mc-assets/dist/utils'
+import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
+import { AppOptions, getChangedSettings, options, resetOptions } from './optionsStorage'
 import Button from './react/Button'
 import { OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
-import { getScreenRefreshRate, setLoadingScreenStatus } from './utils'
-import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
-import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallTexturePack } from './resourcePack'
-import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay'
-import { showOptionsModal } from './react/SelectOption'
+import { getScreenRefreshRate } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
+import { openFilePicker, resetLocalStorage } from './browserfs'
+import { completeResourcepackPackInstall, getResourcePackNames, resourcepackReload, resourcePackState, uninstallResourcePack } from './resourcePack'
+import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
+import { showInputsModal, showOptionsModal } from './react/SelectOption'
+import supportedVersions from './supportedVersions.mjs'
+import { getVersionAutoSelect } from './connect'
+import { createNotificationProgressReporter } from './core/progressReporter'
+import { customKeymaps } from './controls'
+import { appStorage } from './react/appStorageProvider'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -88,7 +95,9 @@ export const guiOptionsScheme: {
         unit: '',
         tooltip: 'Additional distance to keep the chunks loading before unloading them by marking them as too far',
       },
-      handDisplay: {},
+      renderEars: {
+        tooltip: 'Enable rendering Deadmau5 ears for all players if their skin contains textures for it',
+      },
       renderDebug: {
         values: [
           'advanced',
@@ -96,6 +105,18 @@ export const guiOptionsScheme: {
           'none'
         ],
       },
+    },
+    {
+      custom () {
+        const { _renderByChunks } = useSnapshot(options).rendererOptions.three
+        return <Button
+          inScreen
+          label={`Batch Chunks Display ${_renderByChunks ? 'ON' : 'OFF'}`}
+          onClick={() => {
+            options.rendererOptions.three._renderByChunks = !_renderByChunks
+          }}
+        />
+      }
     },
     {
       custom () {
@@ -157,7 +178,7 @@ export const guiOptionsScheme: {
     {
       custom () {
         const { resourcePackInstalled } = useSnapshot(resourcePackState)
-        const { usingServerResourcePack } = useSnapshot(loadedGameState)
+        const { usingServerResourcePack } = useSnapshot(gameAdditionalState)
         const { enabledResourcepack } = useSnapshot(options)
         return <Button
           label={`Resource Pack: ${usingServerResourcePack ? 'SERVER ON' : resourcePackInstalled ? enabledResourcepack ? 'ON' : 'OFF' : 'NO'}`} inScreen onClick={async () => {
@@ -172,17 +193,18 @@ export const guiOptionsScheme: {
               if (!choice) return
               if (choice === 'Disable') {
                 options.enabledResourcepack = null
+                await resourcepackReload()
                 return
               }
               if (choice === 'Enable') {
                 options.enabledResourcepack = name
-                await completeTexturePackInstall(name, name, false)
+                await completeResourcepackPackInstall(name, name, false, createNotificationProgressReporter())
                 return
               }
               if (choice === 'Uninstall') {
               // todo make hidable
                 setLoadingScreenStatus('Uninstalling texturepack')
-                await uninstallTexturePack()
+                await uninstallResourcePack()
                 setLoadingScreenStatus(undefined)
               }
             } else {
@@ -231,6 +253,25 @@ export const guiOptionsScheme: {
       chatOpacityOpened: {
       },
       chatSelect: {
+      },
+    },
+    {
+      custom () {
+        return <Category>World</Category>
+      },
+      highlightBlockColor: {
+        text: 'Block Highlight Color',
+        values: [
+          ['auto', 'Auto'],
+          ['blue', 'Blue'],
+          ['classic', 'Classic']
+        ],
+      },
+      showHand: {
+        text: 'Show Hand',
+      },
+      viewBobbing: {
+        text: 'View Bobbing',
       },
     },
     {
@@ -342,33 +383,38 @@ export const guiOptionsScheme: {
       touchButtonsSize: {
         min: 40,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsOpacity: {
         min: 10,
         max: 90,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsPosition: {
         max: 80,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
-      touchControlsType: {
-        values: [['classic', 'Classic'], ['joystick-buttons', 'New']],
+      touchMovementType: {
+        text: 'Movement Controls',
+        values: [['modern', 'Modern'], ['classic', 'Classic']],
+      },
+      touchInteractionType: {
+        text: 'Interaction Controls',
+        values: [['classic', 'Classic'], ['buttons', 'Buttons']],
       },
     },
     {
       custom () {
-        const { touchControlsType } = useSnapshot(options)
-        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchControlsType !== 'joystick-buttons'} />
+        const { touchInteractionType, touchMovementType } = useSnapshot(options)
+        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchInteractionType === 'classic' && touchMovementType === 'classic'} />
       },
     },
     {
@@ -420,10 +466,63 @@ export const guiOptionsScheme: {
         return <Button
           inScreen
           onClick={() => {
-            if (confirm('Are you sure you want to reset all settings?')) resetLocalStorageWithoutWorld()
+            if (confirm('Are you sure you want to reset all settings?')) resetOptions()
           }}
-        >Reset all settings</Button>
+        >Reset settings</Button>
       },
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          onClick={() => {
+            if (confirm('Are you sure you want to remove all data (settings, keybindings, servers, username, auth, proxies)?')) resetLocalStorage()
+          }}
+        >Remove all data</Button>
+      },
+    },
+    {
+      custom () {
+        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
+      }
+    },
+    {
+      custom () {
+        return <Category>Server Connection</Category>
+      },
+    },
+    {
+      custom () {
+        const { serversAutoVersionSelect } = useSnapshot(options)
+        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
+        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
+
+        const getDisplayValue = (version: string) => {
+          const versionAutoSelect = getVersionAutoSelect(version)
+          if (version === 'latest') return `latest (${versionAutoSelect})`
+          if (version === 'auto') return `auto (${versionAutoSelect})`
+          return version
+        }
+
+        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Slider
+            style={{ width: 150 }}
+            label='Default Version'
+            title='First version to try to connect with'
+            value={currentIndex}
+            min={0}
+            max={allVersions.length - 1}
+            unit=''
+            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
+            updateValue={(newVal) => {
+              options.serversAutoVersionSelect = allVersions[newVal]
+            }}
+          />
+        </div>
+      },
+    },
+    {
+      preventBackgroundTimeoutKick: {}
     },
     {
       custom () {
@@ -432,30 +531,125 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        const { active } = useSnapshot(packetsReplaceSessionState)
+        const { active } = useSnapshot(packetsRecordingState)
         return <Button
           inScreen
           onClick={() => {
-            packetsReplaceSessionState.active = !active
+            packetsRecordingState.active = !active
           }}
-        >{active ? 'Disable' : 'Enable'} Packets Replay</Button>
+        >{active ? 'Stop' : 'Start'} Packets Replay Logging</Button>
       },
     },
     {
       custom () {
-        const { active } = useSnapshot(packetsReplaceSessionState)
+        const { active, hasRecordedPackets } = useSnapshot(packetsRecordingState)
         return <Button
-          disabled={!active}
+          disabled={!hasRecordedPackets}
           inScreen
           onClick={() => {
             void downloadPacketsReplay()
           }}
         >Download Packets Replay</Button>
       },
+    },
+    {
+      packetsLoggerPreset: {
+        text: 'Packets Logger Preset',
+        values: [
+          ['all', 'All'],
+          ['no-buffers', 'No Buffers']
+        ],
+      },
+    },
+  ],
+  'export-import': [
+    {
+      custom () {
+        return <Category>Export/Import Data</Category>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled={true}
+          onClick={() => {}}
+        >Import Data</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          onClick={async () => {
+            const data = await showInputsModal('Export Profile', {
+              profileName: {
+                type: 'text',
+              },
+              exportSettings: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              exportKeybindings: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              exportServers: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+              saveUsernameAndProxy: {
+                type: 'checkbox',
+                defaultValue: true,
+              },
+            })
+            const fileName = `${data.profileName ? `${data.profileName}-` : ''}web-client-profile.json`
+            const json = {
+              _about: 'Minecraft Web Client (mcraft.fun) Profile',
+              ...data.exportSettings ? {
+                options: getChangedSettings(),
+              } : {},
+              ...data.exportKeybindings ? {
+                keybindings: customKeymaps,
+              } : {},
+              ...data.exportServers ? {
+                servers: appStorage.serversList,
+              } : {},
+              ...data.saveUsernameAndProxy ? {
+                username: appStorage.username,
+                proxy: appStorage.proxiesData?.selected,
+              } : {},
+            }
+            const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = fileName
+            a.click()
+            URL.revokeObjectURL(url)
+          }}
+        >Export Data</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled
+        >Export Worlds</Button>
+      }
+    },
+    {
+      custom () {
+        return <Button
+          inScreen
+          disabled
+        >Export Resource Pack</Button>
+      }
     }
   ],
 }
-export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR'
+export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR' | 'export-import'
 
 const Category = ({ children }) => <div style={{
   fontSize: 9,

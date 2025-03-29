@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { fromFormattedString } from '@xmcl/text-component'
+import { ErrorBoundary } from '@zardoy/react-util'
 import { formatMessage } from '../chatUtils'
 import MessageFormatted from './MessageFormatted'
 
@@ -25,5 +26,10 @@ export default ({ message, fallbackColor, className }: {
     }
   }, [message])
 
-  return messageJson ? <MessageFormatted parts={messageJson} className={className} /> : null
+  return messageJson ? <ErrorBoundary renderError={(error) => {
+    console.error(error)
+    return <div>[text component crashed]</div>
+  }}>
+    <MessageFormatted parts={messageJson} className={className} />
+  </ErrorBoundary> : null
 }

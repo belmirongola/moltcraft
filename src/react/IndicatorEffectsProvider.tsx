@@ -1,15 +1,15 @@
-import { proxy, useSnapshot } from 'valtio'
+import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useMemo } from 'react'
+import { subscribeKey } from 'valtio/utils'
 import { inGameError } from '../utils'
 import { fsState } from '../loadSave'
-import { miscUiState } from '../globalState'
+import { gameAdditionalState, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import IndicatorEffects, { EffectType, defaultIndicatorsState } from './IndicatorEffects'
 import { images } from './effectsImages'
 
 export const state = proxy({
   indicators: {
-    chunksLoading: false
   },
   effects: [] as EffectType[]
 })
@@ -52,34 +52,23 @@ const getEffectIndex = (newEffect: EffectType) => {
 
 export default () => {
   const stateIndicators = useSnapshot(state.indicators)
+  const chunksLoading = !useSnapshot(appViewer.rendererState).world.allChunksLoaded
+  const { mesherWork } = useSnapshot(appViewer.rendererState).world
+
   const { hasErrors } = useSnapshot(miscUiState)
   const { disabledUiParts } = useSnapshot(options)
   const { isReadonly, openReadOperations, openWriteOperations } = useSnapshot(fsState)
+  const { noConnection, poorConnection } = useSnapshot(gameAdditionalState)
   const allIndicators: typeof defaultIndicatorsState = {
     readonlyFiles: isReadonly,
     writingFiles: openWriteOperations > 0,
     readingFiles: openReadOperations > 0,
     appHasErrors: hasErrors,
+    connectionIssues: poorConnection ? 1 : noConnection ? 2 : 0,
+    chunksLoading,
+    // mesherWork,
     ...stateIndicators,
   }
-
-  useEffect(() => {
-    let alreadyWaiting = false
-    const listener = () => {
-      if (alreadyWaiting) return
-      state.indicators.chunksLoading = true
-      alreadyWaiting = true
-      void viewer.waitForChunksToRender().then(() => {
-        state.indicators.chunksLoading = false
-        alreadyWaiting = false
-      })
-    }
-    viewer.world.renderUpdateEmitter.on('dirty', listener)
-
-    return () => {
-      viewer.world.renderUpdateEmitter.off('dirty', listener)
-    }
-  }, [])
 
   const effects = useSnapshot(state.effects)
 

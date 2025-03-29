@@ -9,6 +9,24 @@ module.exports.resolveSrv = function (hostname, callback) {
   Http.responseType = 'json'
   Http.send()
 
+  const minecraftServerHostname = hostname.startsWith('_minecraft._tcp.') ? hostname.slice('_minecraft._tcp.'.length) : null
+  if (minecraftServerHostname) {
+    Http.onerror = async function () {
+      try {
+        if (!globalThis.resolveDnsFallback) return
+        const result = await globalThis.resolveDnsFallback(minecraftServerHostname)
+        callback(null, result ? [{
+          priority: 0,
+          weight: 0,
+          port: result.port,
+          name: result.host
+        }] : [])
+      } catch (err) {
+        callback(err)
+      }
+    }
+  }
+
   Http.onload = function () {
     const { response } = Http
     if (response.Status === 3) {

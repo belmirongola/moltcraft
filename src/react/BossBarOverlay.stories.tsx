@@ -27,7 +27,8 @@ export const Primary: Story = {
       _title: { text: 'Boss', translate: 'entity.minecraft.ender_dragon' },
       _color: 'red',
       _dividers: 2,
-      _health: 100
+      _health: 100,
+      lastUpdated: 0
     }
   }
 }

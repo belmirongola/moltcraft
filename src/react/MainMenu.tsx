@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import React from 'react'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { haveDirectoryPicker } from '../utils'
-import { activeModalStack } from '../globalState'
+import { ConnectOptions } from '../connect'
 import styles from './mainMenu.module.css'
 import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
+import useLongPress from './useLongPress'
+import PauseLinkButtons from './PauseLinkButtons'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -14,7 +16,6 @@ interface Props {
   singleplayerAction?: Action
   optionsAction?: Action
   githubAction?: Action
-  linksButton?: JSX.Element
   openFileAction?: Action
   mapsProvider?: string
   versionStatus?: string
@@ -23,6 +24,7 @@ interface Props {
   bottomRightLinks?: string
   versionText?: string
   onVersionTextClick?: () => void
+  singleplayerAvailable?: boolean
 }
 
 const httpsRegex = /^https?:\/\//
@@ -33,14 +35,14 @@ export default ({
   singleplayerAction,
   optionsAction,
   githubAction,
-  linksButton,
   openFileAction,
   versionText,
   onVersionTextClick,
   versionStatus,
   versionTitle,
   onVersionStatusClick,
-  bottomRightLinks
+  bottomRightLinks,
+  singleplayerAvailable = true
 }: Props) => {
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -48,6 +50,39 @@ export default ({
     const parts = l.split(':')
     return [parts[0], parts.slice(1).join(':')]
   }) as Array<[string, string]> | undefined
+
+  const singleplayerLongPress = useLongPress(
+    () => {
+      window.location.href = window.location.pathname + '?sp=1'
+    },
+    () => singleplayerAction?.(null as any),
+    { delay: 500 }
+  )
+
+  const versionLongPress = useLongPress(
+    () => {
+      const buildDate = process.env.BUILD_VERSION ? new Date(process.env.BUILD_VERSION + ':00:00.000Z') : null
+      const hoursAgo = buildDate ? Math.round((Date.now() - buildDate.getTime()) / (1000 * 60 * 60)) : null
+      alert(`BUILD DATE:\n${buildDate?.toLocaleString() || 'Development build'}${hoursAgo ? `\nBuilt ${hoursAgo} hours ago` : ''}`)
+    },
+    () => onVersionTextClick?.(),
+  )
+
+  const connectToServerLongPress = useLongPress(
+    () => {
+      if (process.env.NODE_ENV === 'development') {
+      // Connect to <origin>:25565
+        const origin = window.location.hostname
+        const connectOptions: ConnectOptions = {
+          server: `${origin}:25565`,
+          username: 'test',
+        }
+        dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
+      }
+    },
+    () => connectToServerAction?.(null as any),
+    { delay: 500 }
+  )
 
   return (
     <div className={styles.root}>
@@ -64,7 +99,7 @@ export default ({
             content: 'Connect to Java servers!',
             placement: 'top',
           }}
-          onClick={connectToServerAction}
+          {...connectToServerLongPress}
           data-test-id='servers-screen-button'
         >
           Connect to server
@@ -72,8 +107,9 @@ export default ({
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <ButtonWithTooltip
             style={{ width: 150 }}
-            onClick={singleplayerAction}
+            {...singleplayerLongPress}
             data-test-id='singleplayer-button'
+            disabled={!singleplayerAvailable}
             initialTooltip={{
               content: 'Create worlds and play offline',
               placement: 'left',
@@ -107,22 +143,13 @@ export default ({
           Options
         </Button>
         <div className={styles['menu-row']}>
-          <ButtonWithTooltip
-            initialTooltip={{
-              content: 'Report bugs or request features!',
-            }}
-            style={{ width: '98px' }}
-            onClick={githubAction}
-          >
-            GitHub
-          </ButtonWithTooltip>
-          {linksButton}
+          <PauseLinkButtons />
         </div>
       </div>
 
       <div className={styles['bottom-info']}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 10, color: 'gray' }} onClick={onVersionTextClick}>{versionText}</span>
+          <span style={{ fontSize: 10, color: 'gray' }} {...versionLongPress}>{versionText}</span>
           <span
             title={`${versionTitle} (click to reload)`}
             onClick={onVersionStatusClick}
@@ -150,7 +177,7 @@ export default ({
               </div>
             })}
           </div>
-          <span>A Minecraft client in the browser!</span>
+          <span>A Minecraft client clone in the browser!</span>
         </span>
       </div>
     </div>

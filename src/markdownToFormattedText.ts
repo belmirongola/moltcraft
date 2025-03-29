@@ -2,7 +2,7 @@ import { remark } from 'remark'
 
 export default (markdown: string) => {
   const arr = markdown.split('\n\n')
-  const lines = ['', '', '', '']
+  const lines = ['', '', '', ''] as any[]
   for (const [i, ast] of arr.map(md => remark().parse(md)).entries()) {
     lines[i] = transformToMinecraftJSON(ast as Element)
   }
