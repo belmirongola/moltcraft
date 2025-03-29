@@ -54,7 +54,7 @@ jobs:
           GZIP_BYTES=$(du -s self-host.zip 2>/dev/null | cut -f1)
           SIZE=$(echo "scale=2; $SIZE_BYTES/1024/1024" | bc)
           GZIP_SIZE=$(echo "scale=2; $GZIP_BYTES/1024/1024" | bc)
-          echo "{\"total\": \"${SIZE}MB\", \"gzipped\": \"${GZIP_SIZE}MB\"}" > /tmp/bundle-stats.json
+          echo "{\"total\": ${SIZE}, \"gzipped\": ${GZIP_SIZE}}" > /tmp/bundle-stats.json
 
       - name: Compare Bundle Stats
         id: compare
