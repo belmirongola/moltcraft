@@ -52,6 +52,6 @@ jobs:
               const baseStats = content['${{ inputs.branch }}'];
               const newStats = require('/tmp/bundle-stats.json');
 
-              const comparison = `${baseStats.total}MB (${baseStats.gzipped}MB compressed) -> ${newStats.total}MB (${newStats.gzipped}MB compressed)`;
+              const comparison = `minecraft.html (normal build gzip)\n${baseStats.total}MB (${baseStats.gzipped}MB compressed) -> ${newStats.total}MB (${newStats.gzipped}MB compressed)`;
               core.setOutput('stats', comparison);
             }

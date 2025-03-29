@@ -21,6 +21,13 @@ jobs:
         uses: pnpm/action-setup@v4
       - run: pnpm install
       - run: pnpm check-build
+      - name: Create zip package for size comparison
+        run: |
+          mkdir -p package
+          cp -r dist package/
+          cd package
+          zip -r ../self-host.zip .
+      - run: pnpm build-single-file
       - run: pnpm build-playground
       - run: pnpm build-storybook
       - run: pnpm test-unit
@@ -43,9 +50,11 @@ jobs:
 
       - name: Parse Bundle Stats
         run: |
-          SIZE=$(du -sh dist 2>/dev/null | cut -f1)
-          GZIP_SIZE=$(du -sh dist/**/*.gz 2>/dev/null | cut -f1)
-          echo "{\"total\": \"$SIZE\", \"gzipped\": \"$GZIP_SIZE\"}" > /tmp/bundle-stats.json
+          SIZE_BYTES=$(du -s dist/single/minecraft.html 2>/dev/null | cut -f1)
+          GZIP_BYTES=$(du -s self-host.zip 2>/dev/null | cut -f1)
+          SIZE=$(echo "scale=2; $SIZE_BYTES/1024/1024" | bc)
+          GZIP_SIZE=$(echo "scale=2; $GZIP_BYTES/1024/1024" | bc)
+          echo "{\"total\": \"${SIZE}MB\", \"gzipped\": \"${GZIP_SIZE}MB\"}" > /tmp/bundle-stats.json
 
       - name: Compare Bundle Stats
         id: compare
@@ -55,7 +64,7 @@ jobs:
           branch: ${{ github.event.pull_request.base.ref }}
 
       - name: Store Bundle Stats
-        if: github.event.pull_request.base.ref == github.event.pull_request.head.ref
+        if: github.event.pull_request.base.ref == 'next'
         uses: ./.github/workflows/bundle-stats
         with:
           mode: store
