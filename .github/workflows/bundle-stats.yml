@@ -18,7 +18,7 @@ jobs:
   bundle-stats:
     runs-on: ubuntu-latest
     outputs:
-      stats: ${{ steps.compare.outputs.stats }}
+      stats: ${{ steps.gist-ops.outputs.stats }}
     steps:
       - uses: actions/github-script@v6
         id: gist-ops
