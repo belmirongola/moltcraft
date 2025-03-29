@@ -181,13 +181,13 @@ export const createNotificationProgressReporter = (endMessage?: string): Progres
   })
 }
 
-export const createConsoleLogProgressReporter = (): ProgressReporter => {
+export const createConsoleLogProgressReporter = (group?: string): ProgressReporter => {
   return createProgressReporter({
     setMessage (message: string) {
-      console.log(message)
+      console.log(group ? `[${group}] ${message}` : message)
     },
     end () {
-      console.log('done')
+      console.log(group ? `[${group}] done` : 'done')
     },
 
     error (message: string): void {
@@ -214,6 +214,17 @@ export const createWrappedProgressReporter = (reporter: ProgressReporter, messag
 
     error (message: string): void {
       reporter.error(message)
+    }
+  })
+}
+
+export const createNullProgressReporter = (): ProgressReporter => {
+  return createProgressReporter({
+    setMessage (message: string) {
+    },
+    end () {
+    },
+    error (message: string) {
     }
   })
 }

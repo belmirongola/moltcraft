@@ -9,6 +9,7 @@ export const watchedModalsFromHooks = proxy({
 // todo should not be there
 export const hardcodedKnownModals = [
   'player_win:',
+  'divkit:',
   'full-map' // todo
 ]
 

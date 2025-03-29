@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { Vec3 } from 'vec3'
 import * as THREE from 'three'
 import '../../src/getCollisionShapes'

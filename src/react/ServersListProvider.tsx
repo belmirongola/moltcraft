@@ -287,12 +287,15 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         saveServerToHistory: shouldSave,
         onSuccessfulPlay () {
           if (shouldSave && !serversListDisplay.some(s => s.ip === ip)) {
-            const newServersList: StoreServerItem[] = [...serversListDisplay, {
-              ip,
-              lastJoined: Date.now(),
-              versionOverride: overrides.versionOverride,
-              numConnects: 1
-            }]
+            const newServersList: StoreServerItem[] = [
+              {
+                ip,
+                lastJoined: Date.now(),
+                versionOverride: overrides.versionOverride,
+                numConnects: 1
+              },
+              ...serversListDisplay
+            ]
             setNewServersList(newServersList)
             miscUiState.loadedServerIndex = (newServersList.length - 1).toString()
           }

@@ -468,7 +468,7 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     heads: {},
     signs: {},
     // isFull: true,
-    highestBlocks: new Map<string, HighestBlockInfo>([]),
+    highestBlocks: {},
     hadErrors: false,
     blocksCount: 0
   }
@@ -479,9 +479,9 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
       for (cursor.x = sx; cursor.x < sx + 16; cursor.x++) {
         let block = world.getBlock(cursor, blockProvider, attr)!
         if (!INVISIBLE_BLOCKS.has(block.name)) {
-          const highest = attr.highestBlocks.get(`${cursor.x},${cursor.z}`)
+          const highest = attr.highestBlocks[`${cursor.x},${cursor.z}`]
           if (!highest || highest.y < cursor.y) {
-            attr.highestBlocks.set(`${cursor.x},${cursor.z}`, { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id })
+            attr.highestBlocks[`${cursor.x},${cursor.z}`] = { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id }
           }
         }
         if (INVISIBLE_BLOCKS.has(block.name)) continue

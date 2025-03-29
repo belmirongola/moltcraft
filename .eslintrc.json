@@ -102,6 +102,7 @@
         // "@stylistic/multiline-ternary": "error", // not needed
         // "@stylistic/newline-per-chained-call": "error", // not sure if needed
         "@stylistic/new-parens": "error",
+        "@typescript-eslint/class-literal-property-style": "off",
         "@stylistic/no-confusing-arrow": "error",
         "@stylistic/wrap-iife": "error",
         "@stylistic/space-before-blocks": "error",
