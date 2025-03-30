@@ -16,9 +16,20 @@ import destroyStage8 from '../../../../assets/destroy_stage_8.png'
 import destroyStage9 from '../../../../assets/destroy_stage_9.png'
 
 export class CursorBlock {
+  _cursorLinesHidden = false
+  get cursorLinesHidden () {
+    return this._cursorLinesHidden
+  }
+  set cursorLinesHidden (value: boolean) {
+    if (this.interactionLines) {
+      this.interactionLines.mesh.visible = !value
+    }
+    this._cursorLinesHidden = value
+  }
+
   cursorLineMaterial: LineMaterial
-  interactionLines: null | { blockPos; mesh } = null
-  prevColor
+  interactionLines: null | { blockPos: Vec3, mesh: THREE.Group } = null
+  prevColor: string | undefined
   blockBreakMesh: THREE.Mesh
   breakTextures: THREE.Texture[] = []
 
@@ -132,6 +143,7 @@ export class CursorBlock {
       group.add(wireframe)
     }
     this.worldRenderer.scene.add(group)
+    group.visible = this.cursorLinesHidden
     this.interactionLines = { blockPos, mesh: group }
   }
 

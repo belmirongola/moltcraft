@@ -249,7 +249,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       processedCount++
 
       // Check if we've exceeded the time limit
-      if (performance.now() - startTime > this.ONMESSAGE_TIME_LIMIT && this.renderingActive) {
+      if (performance.now() - startTime > this.ONMESSAGE_TIME_LIMIT && this.renderingActive && this.worldRendererConfig._experimentalSmoothChunkLoading) {
         // If we have more messages and exceeded time limit, schedule next batch
         if (this.messageQueue.length > 0) {
           requestAnimationFrame(async () => {

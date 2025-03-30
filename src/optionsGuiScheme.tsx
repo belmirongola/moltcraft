@@ -108,6 +108,18 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { _renderByChunks } = useSnapshot(options).rendererOptions.three
+        return <Button
+          inScreen
+          label={`Batch Chunks Display ${_renderByChunks ? 'ON' : 'OFF'}`}
+          onClick={() => {
+            options.rendererOptions.three._renderByChunks = !_renderByChunks
+          }}
+        />
+      }
+    },
+    {
+      custom () {
         return <Category>Resource Packs</Category>
       },
       serverResourcePacks: {

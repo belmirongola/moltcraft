@@ -26,7 +26,7 @@ export const getItemUv = (item: Record<string, any>, specificProps: ItemSpecific
     const model = getItemModelName({
       ...item,
       name,
-    } as GeneralInputItem, specificProps)
+    } as GeneralInputItem, specificProps, resourcesManager)
 
     const renderInfo = renderSlot({
       modelName: model,

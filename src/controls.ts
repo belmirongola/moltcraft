@@ -7,6 +7,7 @@ import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { GameMode } from 'mineflayer'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
@@ -763,6 +764,7 @@ addEventListener('mousedown', async (e) => {
   if (!isInRealGameSession() && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
+  getThreeJsRendererMethods()?.onPageInteraction()
   // wheel click
   // todo support ctrl+wheel (+nbt)
   if (e.button === 1) {
@@ -772,6 +774,10 @@ addEventListener('mousedown', async (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') return
+  if (!activeModalStack.length) {
+    getThreeJsRendererMethods()?.onPageInteraction()
+  }
+
   if (activeModalStack.length) {
     const hideAll = e.ctrlKey || e.metaKey
     if (hideAll) {
@@ -780,6 +786,7 @@ window.addEventListener('keydown', (e) => {
       hideCurrentModal()
     }
     if (activeModalStack.length === 0) {
+      getThreeJsRendererMethods()?.onPageInteraction()
       pointerLock.justHitEscape = true
     }
   } else if (pointerLock.hasPointerLock) {

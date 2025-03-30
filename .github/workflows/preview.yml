@@ -52,6 +52,19 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
+      - name: Update deployAlwaysUpdate packages
+        run: |
+          if [ -f package.json ]; then
+            PACKAGES=$(node -e "const pkg = require('./package.json'); if (pkg.deployAlwaysUpdate) console.log(pkg.deployAlwaysUpdate.join(' '))")
+            if [ ! -z "$PACKAGES" ]; then
+              echo "Updating packages: $PACKAGES"
+              pnpm up -L $PACKAGES
+            else
+              echo "No deployAlwaysUpdate packages found in package.json"
+            fi
+          else
+            echo "package.json not found"
+          fi
       - name: Install Global Dependencies
         run: pnpm add -g vercel
       - name: Pull Vercel Environment Information

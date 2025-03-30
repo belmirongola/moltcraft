@@ -4,6 +4,7 @@ import { fromFormattedString } from '@xmcl/text-component'
 import { ItemSpecificContextProperties } from 'renderer/viewer/lib/basePlayerState'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 import { MessageFormatPart } from '../chatUtils'
+import { ResourcesManager } from '../resourcesManager'
 import { playerState } from './playerState'
 
 type RenderSlotComponent = {
@@ -27,13 +28,21 @@ export type GeneralInputItem = Pick<import('prismarine-item').Item, 'name' | 'nb
 
 type JsonString = string
 type PossibleItemProps = {
+  CustomModelData?: number
   Damage?: number
   display?: { Name?: JsonString } // {"text":"Knife","color":"white","italic":"true"}
 }
 
-export const getItemMetadata = (item: GeneralInputItem) => {
+export const getItemMetadata = (item: GeneralInputItem, resourcesManager: ResourcesManager) => {
   let customText = undefined as string | any | undefined
   let customModel = undefined as string | undefined
+
+  let itemId = item.name
+  if (!itemId.includes(':')) {
+    itemId = `minecraft:${itemId}`
+  }
+  const customModelDataDefinitions = resourcesManager.currentResources?.customItemModelNames[itemId]
+
   if (item.components) {
     const componentMap = new Map<string, RenderSlotComponent>()
     for (const component of item.components) {
@@ -48,6 +57,15 @@ export const getItemMetadata = (item: GeneralInputItem) => {
     if (customModelComponent) {
       customModel = customModelComponent.data
     }
+    if (customModelDataDefinitions) {
+      const customModelDataComponent: any = componentMap.get('custom_model_data')
+      if (customModelDataComponent?.data && typeof customModelDataComponent.data === 'number') {
+        const customModelData = customModelDataComponent.data
+        if (customModelDataDefinitions[customModelData]) {
+          customModel = customModelDataDefinitions[customModelData]
+        }
+      }
+    }
     const loreComponent = componentMap.get('lore')
     if (loreComponent) {
       customText ??= item.displayName ?? item.name
@@ -61,6 +79,9 @@ export const getItemMetadata = (item: GeneralInputItem) => {
     if (customName) {
       customText = customName
     }
+    if (customModelDataDefinitions && itemNbt.CustomModelData && customModelDataDefinitions[itemNbt.CustomModelData]) {
+      customModel = customModelDataDefinitions[itemNbt.CustomModelData]
+    }
   }
 
   return {
@@ -70,8 +91,8 @@ export const getItemMetadata = (item: GeneralInputItem) => {
 }
 
 
-export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null) => {
-  const { customText } = getItemMetadata(item as any)
+export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null, resourcesManager: ResourcesManager) => {
+  const { customText } = getItemMetadata(item as any, resourcesManager)
   if (!customText) return
   try {
     if (typeof customText === 'object') {
@@ -90,9 +111,9 @@ export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'>
   }
 }
 
-export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpecificContextProperties) => {
+export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpecificContextProperties, resourcesManager: ResourcesManager) => {
   let itemModelName = item.name
-  const { customModel } = getItemMetadata(item)
+  const { customModel } = getItemMetadata(item, resourcesManager)
   if (customModel) {
     itemModelName = customModel
   }

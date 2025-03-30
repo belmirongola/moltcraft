@@ -258,13 +258,40 @@ const registerMediaChannels = () => {
 
   bot._client.registerChannel(MEDIA_INTERACTION_CHANNEL, interactionPacketStructure, true)
 
+  // Media play channel
+  bot._client.registerChannel(MEDIA_PLAY_CHANNEL_CLIENTBOUND, noDataPacketStructure, true)
+  const mediaStopPacketStructure = [
+    'container',
+    [
+      { name: 'id', type: ['pstring', { countType: 'i16' }] },
+      // ended - emitted even when loop is true (will continue playing)
+      // error: ...
+      // stalled - connection drops, server stops sending data
+      // waiting - connection is slow, server is sending data, but not fast enough (buffering)
+      // control
+      { name: 'reason', type: ['pstring', { countType: 'i16' }] },
+      { name: 'time', type: 'f32' }
+    ]
+  ]
+  bot._client.registerChannel(MEDIA_STOP_CHANNEL_CLIENTBOUND, mediaStopPacketStructure, true)
+
   console.debug('Registered media channels')
 }
 
 const MEDIA_INTERACTION_CHANNEL = 'minecraft-web-client:media-interaction'
+const MEDIA_PLAY_CHANNEL_CLIENTBOUND = 'minecraft-web-client:media-play'
+const MEDIA_STOP_CHANNEL_CLIENTBOUND = 'minecraft-web-client:media-stop'
 
 export const sendVideoInteraction = (id: string, x: number, y: number, isRightClick: boolean) => {
   bot._client.writeChannel(MEDIA_INTERACTION_CHANNEL, { id, x, y, isRightClick })
+}
+
+export const sendVideoPlay = (id: string) => {
+  bot._client.writeChannel(MEDIA_PLAY_CHANNEL_CLIENTBOUND, { id })
+}
+
+export const sendVideoStop = (id: string, reason: string, time: number) => {
+  bot._client.writeChannel(MEDIA_STOP_CHANNEL_CLIENTBOUND, { id, reason, time })
 }
 
 export const videoCursorInteraction = () => {

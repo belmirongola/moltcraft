@@ -65,6 +65,13 @@ export default () => {
           })
           hideNotification()
         })
+        const listener = () => {
+          hideNotification()
+        }
+        bot.on('kicked', listener)
+        setTimeout(() => {
+          bot.removeListener('kicked', listener)
+        }, 2000)
       }
       if (!builtinHandled) {
         bot.chat(message)
