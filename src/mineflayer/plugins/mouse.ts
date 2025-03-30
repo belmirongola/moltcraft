@@ -65,9 +65,12 @@ const otherListeners = () => {
 }
 
 const domListeners = (bot: Bot) => {
+  const abortController = new AbortController()
   document.addEventListener('mousedown', (e) => {
     if (e.isTrusted && !document.pointerLockElement && !isCypress()) return
     if (!isGameActive(true)) return
+
+    getThreeJsRendererMethods()?.onPageInteraction()
 
     const videoInteraction = videoCursorInteraction()
     if (videoInteraction) {
@@ -80,7 +83,7 @@ const domListeners = (bot: Bot) => {
     } else if (e.button === 2) {
       bot.rightClickStart()
     }
-  })
+  }, { signal: abortController.signal })
 
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) {
@@ -88,7 +91,7 @@ const domListeners = (bot: Bot) => {
     } else if (e.button === 2) {
       bot.rightClickEnd()
     }
-  })
+  }, { signal: abortController.signal })
 
   bot.mouse.beforeUpdateChecks = () => {
     if (!document.hasFocus()) {
@@ -96,4 +99,8 @@ const domListeners = (bot: Bot) => {
       bot.mouse.buttons.fill(false)
     }
   }
+
+  bot.on('end', () => {
+    abortController.abort()
+  })
 }

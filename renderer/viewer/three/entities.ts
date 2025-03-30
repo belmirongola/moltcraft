@@ -493,6 +493,7 @@ export class Entities {
   }
 
   getItemMesh (item, specificProps: ItemSpecificContextProperties, previousModel?: string) {
+    if (!item.nbt && item.nbtData) item.nbt = item.nbtData
     const textureUv = this.worldRenderer.getItemRenderData(item, specificProps)
     if (previousModel && previousModel === textureUv?.modelName) return undefined
 

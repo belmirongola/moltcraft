@@ -24,13 +24,16 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
     getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer),
     rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer),
-    addMedia: worldRenderer.addMedia.bind(worldRenderer),
-    destroyMedia: worldRenderer.destroyMedia.bind(worldRenderer),
-    setVideoPlaying: worldRenderer.setVideoPlaying.bind(worldRenderer),
-    setVideoSeeking: worldRenderer.setVideoSeeking.bind(worldRenderer),
-    setVideoVolume: worldRenderer.setVideoVolume.bind(worldRenderer),
-    setVideoSpeed: worldRenderer.setVideoSpeed.bind(worldRenderer),
+
+    addMedia: worldRenderer.media.addMedia.bind(worldRenderer.media),
+    destroyMedia: worldRenderer.media.destroyMedia.bind(worldRenderer.media),
+    setVideoPlaying: worldRenderer.media.setVideoPlaying.bind(worldRenderer.media),
+    setVideoSeeking: worldRenderer.media.setVideoSeeking.bind(worldRenderer.media),
+    setVideoVolume: worldRenderer.media.setVideoVolume.bind(worldRenderer.media),
+    setVideoSpeed: worldRenderer.media.setVideoSpeed.bind(worldRenderer.media),
+
     shakeFromDamage: worldRenderer.cameraShake.shakeFromDamage.bind(worldRenderer.cameraShake),
+    onPageInteraction: worldRenderer.media.onPageInteraction.bind(worldRenderer.media),
   }
 }
 

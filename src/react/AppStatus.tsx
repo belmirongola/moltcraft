@@ -46,6 +46,7 @@ export default ({
         <>
           <span style={{
             wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
           }}
           >
             {status}

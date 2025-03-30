@@ -31,6 +31,8 @@ export class LoadedResources {
   // User data (specific to current resourcepack/version)
   customBlockStates?: Record<string, any>
   customModels?: Record<string, any>
+  /** array where the index represents the custom model data value, and the element at that index is the model path to use */
+  customItemModelNames: Record<string, string[]> = {}
   customTextures: {
     items?: { tileSize: number | undefined, textures: Record<string, HTMLImageElement> }
     blocks?: { tileSize: number | undefined, textures: Record<string, HTMLImageElement> }

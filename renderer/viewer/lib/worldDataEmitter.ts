@@ -150,7 +150,12 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
 
     for (const id in bot.entities) {
       const e = bot.entities[id]
-      emitEntity(e)
+      try {
+        emitEntity(e)
+      } catch (err) {
+        // reportError?.(err)
+        console.error('error processing entity', err)
+      }
     }
   }
 

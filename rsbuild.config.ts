@@ -203,6 +203,12 @@ const appConfig = defineConfig({
                     })
                     build.onAfterBuild(async () => {
                         if (SINGLE_FILE_BUILD) {
+                            // check that only index.html is in the dist/single folder
+                            const singleBuildFiles = fs.readdirSync('./dist/single')
+                            if (singleBuildFiles.length !== 1 || singleBuildFiles[0] !== 'index.html') {
+                                throw new Error('Single file build must only have index.html in the dist/single folder. Ensure workers are imported & built correctly.')
+                            }
+
                             // process index.html
                             const singleBuildHtml = './dist/single/index.html'
                             let html = fs.readFileSync(singleBuildHtml, 'utf8')

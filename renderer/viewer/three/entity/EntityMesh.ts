@@ -239,8 +239,8 @@ export function getMesh (
     const blockName = texture.slice(6)
     const textureInfo = worldRenderer.resourcesManager.currentResources!.blocksAtlasParser.getTextureInfo(blockName)
     if (textureInfo) {
-      textureWidth = blocksTexture!.image.width
-      textureHeight = blocksTexture!.image.height
+      textureWidth = blocksTexture?.image.width ?? textureWidth
+      textureHeight = blocksTexture?.image.height ?? textureHeight
       textureOffset = [textureInfo.u, textureInfo.v]
     } else {
       console.error(`Unknown block ${blockName}`)

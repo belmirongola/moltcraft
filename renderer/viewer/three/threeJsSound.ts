@@ -1,26 +1,28 @@
-import { Vec3 } from 'vec3'
 import * as THREE from 'three'
 import { WorldRendererThree } from './worldrendererThree'
 
 export interface SoundSystem {
-  playSound: (position: Vec3, path: string, volume?: number, pitch?: number) => void
+  playSound: (position: { x: number, y: number, z: number }, path: string, volume?: number, pitch?: number) => void
   destroy: () => void
 }
 
 export class ThreeJsSound implements SoundSystem {
   audioListener: THREE.AudioListener | undefined
   private readonly activeSounds = new Set<THREE.PositionalAudio>()
-
+  private readonly audioContext: AudioContext | undefined
   constructor (public worldRenderer: WorldRendererThree) {
   }
 
-  playSound (position: Vec3, path: string, volume = 1, pitch = 1) {
-    if (!this.audioListener) {
-      this.audioListener = new THREE.AudioListener()
-      this.worldRenderer.camera.add(this.audioListener)
-    }
+  initAudioListener () {
+    if (this.audioListener) return
+    this.audioListener = new THREE.AudioListener()
+    this.worldRenderer.camera.add(this.audioListener)
+  }
 
-    const sound = new THREE.PositionalAudio(this.audioListener)
+  playSound (position: { x: number, y: number, z: number }, path: string, volume = 1, pitch = 1) {
+    this.initAudioListener()
+
+    const sound = new THREE.PositionalAudio(this.audioListener!)
     this.activeSounds.add(sound)
 
     const audioLoader = new THREE.AudioLoader()
@@ -57,5 +59,9 @@ export class ThreeJsSound implements SoundSystem {
       this.audioListener.removeFromParent()
       this.audioListener = undefined
     }
+  }
+
+  playTestSound () {
+    this.playSound(this.worldRenderer.camera.position, '/sound.mp3')
   }
 }

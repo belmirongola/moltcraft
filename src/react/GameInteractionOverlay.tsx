@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { subscribe, useSnapshot } from 'valtio'
 import { useUtilsEffect } from '@zardoy/react-util'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options } from '../optionsStorage'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
@@ -47,6 +48,7 @@ function GameInteractionOverlayInner ({
       if (!isGameActive(true) || clickedEl !== cameraControlEl || e.pointerId === undefined) {
         return
       }
+      getThreeJsRendererMethods()?.onPageInteraction()
       screenTouches++
       if (screenTouches === 3) {
         // todo maybe mouse wheel click?

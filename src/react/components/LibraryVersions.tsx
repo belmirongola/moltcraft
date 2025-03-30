@@ -13,9 +13,9 @@ const LibraryVersions: React.FC = () => {
     'minecraft-protocol': mcProtocolPkg.version
   }
 
-  const { gameLoaded } = useSnapshot(miscUiState)
+  // const { gameLoaded } = useSnapshot(miscUiState)
 
-  if (!gameLoaded) return null
+  // if (!gameLoaded) return null
 
   return (
     <div

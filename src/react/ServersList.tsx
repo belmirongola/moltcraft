@@ -72,6 +72,9 @@ export default ({
   const proxiesData = snap.proxiesData ?? { proxies: initialProxies, selected: initialProxies[0] }
   return <Singleplayer
     {...props}
+    worldData={props.worldData ? props.worldData.map(world => ({
+      ...world
+    })) : null}
     firstRowChildrenOverride={<form
       style={{ width: '100%', display: 'flex', justifyContent: 'center' }} onSubmit={(e) => {
         e.preventDefault()
