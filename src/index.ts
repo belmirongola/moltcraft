@@ -669,7 +669,7 @@ export async function connect (connectOptions: ConnectOptions) {
         localStorage.removeItem('lastConnectOptions')
       }
       connectOptions.onSuccessfulPlay?.()
-        if (connectOptions.autoLoginPassword) {
+      if (connectOptions.autoLoginPassword) {
         setTimeout(() => {
           bot.chat(`/login ${connectOptions.autoLoginPassword}`)
         }, 500)
