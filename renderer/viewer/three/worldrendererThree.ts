@@ -70,7 +70,6 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.addDebugOverlay()
     this.resetScene()
-    this.watchReactivePlayerState()
     this.init()
     void initVR(this)
 
@@ -120,22 +119,15 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
   }
 
-  watchReactivePlayerState () {
-    const updateValue = <T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) => {
-      callback(this.displayOptions.playerState.reactive[key])
-      subscribeKey(this.displayOptions.playerState.reactive, key, callback)
-    }
-    updateValue('backgroundColor', (value) => {
-      this.changeBackgroundColor(value)
+  override watchReactivePlayerState () {
+    this.onReactiveValueUpdated('inWater', (value) => {
+      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.displayOptions.playerState.reactive.waterBreathing ? 100 : 20) : null
     })
-    updateValue('inWater', (value) => {
-      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, 100) : null
-    })
-    updateValue('ambientLight', (value) => {
+    this.onReactiveValueUpdated('ambientLight', (value) => {
       if (!value) return
       this.ambientLight.intensity = value
     })
-    updateValue('directionalLight', (value) => {
+    this.onReactiveValueUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
     })
@@ -613,8 +605,6 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   destroy (): void {
-    removeAllStats()
-    this.media.onWorldGone()
     super.destroy()
   }
 }

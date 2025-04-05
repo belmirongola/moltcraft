@@ -7,6 +7,7 @@ import TypedEmitter from 'typed-emitter'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
+import { subscribeKey } from 'valtio/utils'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
@@ -15,7 +16,7 @@ import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
-import { removeStat, updateStatText } from './ui/newStats'
+import { removeAllStats, removeStat, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
 
@@ -105,7 +106,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   workersProcessAverageTime = 0
   workersProcessAverageTimeCount = 0
   maxWorkersProcessTime = 0
-  geometryReceiveCount = {}
+  geometryReceiveCount = {} as Record<number, number>
   allLoadedIn: undefined | number
   onWorldSwitched = [] as Array<() => void>
 
@@ -137,6 +138,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   abortController = new AbortController()
   lastRendered = 0
   renderingActive = true
+  geometryReceiveCountPerSec = 0
   workerLogger = {
     contents: [] as string[],
     active: new URL(location.href).searchParams.get('mesherlog') === 'true'
@@ -155,6 +157,12 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
 
     this.connect(this.displayOptions.worldView)
+
+    setInterval(() => {
+      this.geometryReceiveCountPerSec = Object.values(this.geometryReceiveCount).reduce((acc, curr) => acc + curr, 0)
+      this.geometryReceiveCount = {}
+      this.updateChunksStats()
+    }, 1000)
   }
 
   logWorkerWork (message: string | (() => string)) {
@@ -164,6 +172,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   init () {
     if (this.active) throw new Error('WorldRendererCommon is already initialized')
+    this.watchReactivePlayerState()
     void this.setVersion(this.version).then(() => {
       this.resourcesManager.on('assetsTexturesUpdated', () => {
         if (!this.active) return
@@ -236,6 +245,17 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
       this.workers.push(worker)
     }
+  }
+
+  onReactiveValueUpdated<T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) {
+    callback(this.displayOptions.playerState.reactive[key])
+    subscribeKey(this.displayOptions.playerState.reactive, key, callback)
+  }
+
+  watchReactivePlayerState () {
+    this.onReactiveValueUpdated('backgroundColor', (value) => {
+      this.changeBackgroundColor(value)
+    })
   }
 
   async processMessageQueue (source: string) {
@@ -503,7 +523,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.displayOptions.nonReactiveState.world.chunksTotalNumber = this.chunksLength
     this.reactiveState.world.allChunksLoaded = this.allChunksFinished
 
-    updateStatText('downloaded-chunks', `${Object.keys(this.loadedChunks).length}/${this.chunksLength} chunks D (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`)
+    updateStatText('downloaded-chunks', `${Object.keys(this.loadedChunks).length}/${this.chunksLength} chunks D (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.geometryReceiveCountPerSec}ss/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`)
   }
 
   addColumn (x: number, z: number, chunk: any, isLightUpdate: boolean) {
@@ -884,7 +904,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.renderUpdateEmitter.removeAllListeners()
     this.displayOptions.worldView.removeAllListeners() // todo
     this.abortController.abort()
-    removeStat('chunks-loaded')
-    removeStat('chunks-read')
+    removeAllStats()
   }
 }
