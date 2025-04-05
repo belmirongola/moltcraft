@@ -22,7 +22,8 @@ export const fsState = proxy({
   saveLoaded: false,
   openReadOperations: 0,
   openWriteOperations: 0,
-  remoteBackend: false
+  remoteBackend: false,
+  inMemorySavePath: ''
 })
 
 const PROPOSE_BACKUP = true
@@ -181,6 +182,7 @@ export const loadSave = async (root = '/world') => {
 
   // todo should not be set here
   fsState.saveLoaded = true
+  fsState.inMemorySavePath = root
   window.dispatchEvent(new CustomEvent('singleplayer', {
     // todo check gamemode level.dat data etc
     detail: {

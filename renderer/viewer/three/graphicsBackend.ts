@@ -117,4 +117,5 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   return backend
 }
 
+createGraphicsBackend.id = 'threejs'
 export default createGraphicsBackend

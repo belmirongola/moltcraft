@@ -353,8 +353,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.50
-        version: 0.2.50
+        specifier: ^0.2.52
+        version: 0.2.52
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/f57dd78ca8e3b7cdd724d4272d8cbf6743b0cf00(@types/react@18.2.20)(react@18.2.0)
@@ -3546,6 +3546,9 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  '@zardoy/maxrects-packer@2.7.4':
+    resolution: {integrity: sha512-ZIDcSdtSg6EhKFxGYWCcTnA/0YVbpixBL+psUS6ncw4IvdDF5hWauMU3XeCfYwrT/88QFgAq/Pafxt+P9OJyoQ==}
+
   '@zardoy/react-util@0.2.4':
     resolution: {integrity: sha512-YRBbXi54QOgWGDSn3NLEMMGrWbfL/gn2khxO31HT0WPFB6IW2rSnB4hcy+S/nc+2D6PRNq4kQxGs4vTAe4a7Xg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -6691,11 +6694,8 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  maxrects-packer@2.7.3:
-    resolution: {integrity: sha512-bG6qXujJ1QgttZVIH4WDanhoJtvbud/xP/XPyf6A69C9RdA61BM4TomFALCq2nrTa+tARRIBB4LuIFsnUQU2wA==}
-
-  mc-assets@0.2.50:
-    resolution: {integrity: sha512-X27KLLTyeEAVTlBVKqGmoG/YvZq3tDG29kyRgy3Hj9s03m6+/TI8HvCyxumRjEQE8IYPcjPiX+7iuEZtNQ9N+w==}
+  mc-assets@0.2.52:
+    resolution: {integrity: sha512-6mUI63fcUIjB0Ghjls7bLMnse2XUgvhPajsFkRQf10PcXYbfS/OAnX51X8sNx2pzfoHSlA81U7v+v906YwoAUw==}
     engines: {node: '>=18.0.0'}
 
   mcraft-fun-mineflayer@0.1.14:
@@ -13688,6 +13688,8 @@ snapshots:
       - encoding
       - supports-color
 
+  '@zardoy/maxrects-packer@2.7.4': {}
+
   '@zardoy/react-util@0.2.4(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
       classnames: 2.5.1
@@ -17603,11 +17605,9 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  maxrects-packer@2.7.3: {}
-
-  mc-assets@0.2.50:
+  mc-assets@0.2.52:
     dependencies:
-      maxrects-packer: 2.7.3
+      maxrects-packer: '@zardoy/maxrects-packer@2.7.4'
       zod: 3.24.1
 
   mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13)):
