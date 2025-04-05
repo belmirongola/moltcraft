@@ -580,7 +580,7 @@ contro.on('release', ({ command }) => {
 
 export const f3Keybinds: Array<{
   key?: string,
-  action: () => void,
+  action: () => void | Promise<void>,
   mobileTitle: string
   enabled?: () => boolean
 }> = [

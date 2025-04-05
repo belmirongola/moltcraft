@@ -34,6 +34,7 @@ const defaultOptions = {
   touchButtonsOpacity: 80,
   touchButtonsPosition: 12,
   touchControlsPositions: getDefaultTouchControlsPositions(),
+  touchControlsSize: getTouchControlsSize(),
   touchMovementType: 'modern' as 'modern' | 'classic',
   touchInteractionType: 'classic' as 'classic' | 'buttons',
   gpuPreference: 'default' as 'default' | 'high-performance' | 'low-power',
@@ -136,6 +137,16 @@ function getDefaultTouchControlsPositions () {
       60
     ],
   } as Record<string, [number, number]>
+}
+
+function getTouchControlsSize () {
+  return {
+    joystick: 60,
+    action: 36,
+    break: 36,
+    jump: 36,
+    sneak: 36,
+  }
 }
 
 // const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')
