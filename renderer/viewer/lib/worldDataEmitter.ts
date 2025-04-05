@@ -41,9 +41,10 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   private readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
   private readonly emitter: WorldDataEmitter
-  keepChunksDistance = 0
   addWaitTime = 1
-  isPlayground = false
+  /* config */ keepChunksDistance = 0
+  /* config */ isPlayground = false
+  /* config */ allowPositionUpdate = true
 
   public reactive = proxy({
     cursorBlock: null as Vec3 | null,
@@ -165,6 +166,8 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         console.error('error processing entity', err)
       }
     }
+
+    void this.init(bot.entity.position)
   }
 
   removeListenersFromBot (bot: import('mineflayer').Bot) {
@@ -253,6 +256,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   }
 
   async updatePosition (pos: Vec3, force = false) {
+    if (!this.allowPositionUpdate) return
     const [lastX, lastZ] = chunkPos(this.lastPos)
     const [botX, botZ] = chunkPos(pos)
     if (lastX !== botX || lastZ !== botZ || force) {

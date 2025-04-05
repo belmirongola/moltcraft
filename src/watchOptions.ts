@@ -8,6 +8,8 @@ import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
 import { isCypress } from './standaloneUtils'
 
+globalThis.viewer ??= { world: {} }
+
 subscribeKey(options, 'renderDistance', reloadChunks)
 subscribeKey(options, 'multiplayerRenderDistance', reloadChunks)
 
@@ -85,8 +87,8 @@ export const watchOptionsAfterViewerInit = () => {
     appViewer.inWorldRenderingConfig.extraBlockRenderers = !o.disableSignsMapsSupport
     appViewer.inWorldRenderingConfig.fetchPlayerSkins = o.loadPlayerSkins
     appViewer.inWorldRenderingConfig.highlightBlockColor = o.highlightBlockColor
-    appViewer.inWorldRenderingConfig._experimentalSmoothChunkLoading = o.rendererOptions.three._experimentalSmoothChunkLoading
-    appViewer.inWorldRenderingConfig._renderByChunks = o.rendererOptions.three._renderByChunks
+    appViewer.inWorldRenderingConfig._experimentalSmoothChunkLoading = o.rendererSharedOptions._experimentalSmoothChunkLoading
+    appViewer.inWorldRenderingConfig._renderByChunks = o.rendererSharedOptions._renderByChunks
   })
 
   appViewer.inWorldRenderingConfig.smoothLighting = options.smoothLighting

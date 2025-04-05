@@ -69,7 +69,7 @@ export const exportWorld = async (path: string, type: 'zip' | 'folder', zipName 
 // todo include in help
 const exportLoadedWorld = async () => {
   await saveServer()
-  let { worldFolder } = localServer!.options
+  let worldFolder = fsState.inMemorySavePath
   if (!worldFolder.startsWith('/')) worldFolder = `/${worldFolder}`
   await exportWorld(worldFolder, 'zip')
 }
@@ -141,12 +141,12 @@ export const commands: Array<{
 ]
 //@ts-format-ignore-endregion
 
-export const getBuiltinCommandsList = () => commands.filter(command => command.alwaysAvailable || localServer).flatMap(command => command.command)
+export const getBuiltinCommandsList = () => commands.filter(command => command.alwaysAvailable || miscUiState.singleplayer).flatMap(command => command.command)
 
 export const tryHandleBuiltinCommand = (message: string) => {
   const [userCommand, ...args] = message.split(' ')
 
-  for (const command of commands.filter(command => command.alwaysAvailable || localServer)) {
+  for (const command of commands.filter(command => command.alwaysAvailable || miscUiState.singleplayer)) {
     if (command.command.includes(userCommand)) {
       void command.invoke(args) // ignoring for now
       return true

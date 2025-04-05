@@ -4,7 +4,6 @@ import React from 'react'
 import { loadScript } from 'renderer/viewer/lib/utils'
 import { loadGoogleDriveApi, loadInMemorySave } from './react/SingleplayerProvider'
 import { setLoadingScreenStatus } from './appStatus'
-import { mountGoogleDriveFolder } from './browserfs'
 import { showOptionsModal } from './react/SelectOption'
 import { appQueryParams } from './appParams'
 
@@ -67,7 +66,7 @@ export const possiblyHandleStateVariable = async () => {
       }
       setLoadingScreenStatus('Opening world in read only mode...')
       googleProviderState.accessToken = response.access_token
-      await mountGoogleDriveFolder(true, parsed.ids[0])
+      // await mountGoogleDriveFolder(true, parsed.ids[0])
       await loadInMemorySave('/google')
     }
   })

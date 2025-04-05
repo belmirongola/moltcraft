@@ -65,6 +65,16 @@ export const pointerLock = {
   }
 }
 
+export const logAction = (category: string, action: string, value?: string, label?: string) => {
+  if (!options.externalLoggingService) return
+  window.loggingServiceChannel?.({
+    category,
+    action,
+    value,
+    label
+  })
+}
+
 export const isInRealGameSession = () => {
   return isGameActive(true) && (!packetsReplayState.isOpen || packetsReplayState.isMinimized) && !gameAdditionalState.viewerConnection
 }
@@ -148,11 +158,11 @@ export const setRenderDistance = () => {
     localServer!.players[0].view = 0
     renderDistance = 0
   }
-  worldView.updateViewDistance(renderDistance)
+  worldView?.updateViewDistance(renderDistance)
   prevRenderDistance = renderDistance
 }
 export const reloadChunks = async () => {
-  if (!worldView) return
+  if (!bot || !worldView) return
   setRenderDistance()
   await worldView.updatePosition(bot.entity.position, true)
 }

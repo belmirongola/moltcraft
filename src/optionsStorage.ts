@@ -27,7 +27,7 @@ const defaultOptions = {
   volume: 50,
   enableMusic: false,
   // fov: 70,
-  fov: 75,
+  fov: 90,
   guiScale: 3,
   autoRequestCompletions: true,
   touchButtonsSize: 40,
@@ -95,6 +95,7 @@ const defaultOptions = {
   autoParkour: false,
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
   renderDebug: (isDev ? 'advanced' : 'basic') as 'none' | 'advanced' | 'basic',
+  externalLoggingService: true,
 
   // advanced bot options
   autoRespawn: false,
@@ -109,11 +110,10 @@ const defaultOptions = {
   disabledUiParts: [] as string[],
   neighborChunkUpdates: true,
   highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
-  rendererOptions: {
-    three: {
-      _experimentalSmoothChunkLoading: true,
-      _renderByChunks: false
-    }
+  activeRenderer: 'threejs',
+  rendererSharedOptions: {
+    _experimentalSmoothChunkLoading: true,
+    _renderByChunks: false
   }
 }
 

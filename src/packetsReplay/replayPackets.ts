@@ -4,7 +4,7 @@ import { ParsedReplayPacket, parseReplayContents } from 'mcraft-fun-mineflayer/b
 import { PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraft-fun-mineflayer/build/worldState'
 import MinecraftData from 'minecraft-data'
 import { GameMode } from 'mineflayer'
-import { LocalServer } from '../customServer'
+// import { LocalServer } from '../customServer'
 import { UserError } from '../mineflayer/userError'
 import { packetsReplayState } from '../react/state/packetsReplayState'
 import { getFixedFilesize } from '../react/simpleUtils'

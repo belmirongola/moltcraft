@@ -95,8 +95,7 @@ import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
 import { appViewer } from './appViewer'
-import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
-import { subscribeKey } from 'valtio/utils'
+import './appViewerLoad'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -114,30 +113,6 @@ onAppLoad()
 customChannels()
 
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
-
-const loadBackend = () => {
-  appViewer.loadBackend(createGraphicsBackend)
-}
-window.loadBackend = loadBackend
-if (process.env.SINGLE_FILE_BUILD_MODE) {
-  const unsub = subscribeKey(miscUiState, 'fsReady', () => {
-    if (miscUiState.fsReady) {
-      // don't do it earlier to load fs and display menu faster
-      loadBackend()
-      unsub()
-    }
-  })
-} else {
-  loadBackend()
-}
-
-const animLoop = () => {
-  for (const fn of beforeRenderFrame) fn()
-  requestAnimationFrame(animLoop)
-}
-requestAnimationFrame(animLoop)
-
-watchOptionsAfterViewerInit()
 
 function hideCurrentScreens () {
   activeModalStacks['main-menu'] = [...activeModalStack]
@@ -223,6 +198,7 @@ export async function connect (connectOptions: ConnectOptions) {
   let bot!: typeof __type_bot
   const destroyAll = () => {
     if (ended) return
+    errorAbortController.abort()
     ended = true
     progress.end()
     // dont reset viewer so we can still do debugging
@@ -240,7 +216,6 @@ export async function connect (connectOptions: ConnectOptions) {
       //@ts-expect-error
       window.bot = bot = undefined
     }
-    resetStateAfterDisconnect()
     cleanFs()
   }
   const cleanFs = () => {
@@ -261,7 +236,6 @@ export async function connect (connectOptions: ConnectOptions) {
     if (err === 'ResizeObserver loop completed with undelivered notifications.') {
       return
     }
-    errorAbortController.abort()
     if (isCypress()) throw err
     miscUiState.hasErrors = true
     if (miscUiState.gameLoaded) return
@@ -272,6 +246,7 @@ export async function connect (connectOptions: ConnectOptions) {
     destroyAll()
   }
 
+  // todo(hard): remove it!
   const errorAbortController = new AbortController()
   window.addEventListener('unhandledrejection', (e) => {
     if (e.reason.name === 'ServerPluginLoadFailure') {
@@ -732,7 +707,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
 
       console.log('bot spawned - starting viewer')
-      appViewer.startWorld(bot.world, renderDistance)
+      await appViewer.startWorld(bot.world, renderDistance)
       appViewer.worldView!.listenToBot(bot)
 
       initMotionTracking()

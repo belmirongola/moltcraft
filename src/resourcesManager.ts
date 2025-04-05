@@ -50,7 +50,7 @@ export class LoadedResources {
 export interface ResourcesCurrentConfig {
   version: string
   texturesVersion?: string
-  noBlockstatesModels?: boolean
+  // noBlockstatesModels?: boolean
   noInventoryGui?: boolean
   includeOnlyBlocks?: string[]
 }
@@ -115,34 +115,12 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
       ...resources.customModels
     }
 
-
-    const blocksAssetsParser = new AtlasParser(this.sourceBlocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
-    const itemsAssetsParser = new AtlasParser(this.sourceItemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
-
-    const blockTexturesChanges = {} as Record<string, string>
-    const date = new Date()
-    if ((date.getMonth() === 11 && date.getDate() >= 24) || (date.getMonth() === 0 && date.getDate() <= 6)) {
-      Object.assign(blockTexturesChanges, christmasPack)
-    }
-
-    const customBlockTextures = Object.keys(resources.customTextures.blocks?.textures ?? {})
-    const customItemTextures = Object.keys(resources.customTextures.items?.textures ?? {})
-
-    console.time('createBlocksAtlas')
-    const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(
-      resources.texturesVersion,
-      (textureName) => {
-        if (this.currentConfig!.includeOnlyBlocks && !this.currentConfig!.includeOnlyBlocks.includes(textureName)) return false
-        const texture = resources.customTextures.blocks?.textures[textureName]
-        return blockTexturesChanges[textureName] ?? texture
-      },
-      undefined,
-      undefined,
-      customBlockTextures
-    )
-    console.timeEnd('createBlocksAtlas')
+    await this.recreateBlockAtlas(resources)
 
     if (abortController.signal.aborted) return
+
+    const itemsAssetsParser = new AtlasParser(this.sourceItemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
+    const customItemTextures = Object.keys(resources.customTextures.items?.textures ?? {})
     console.time('createItemsAtlas')
     const { atlas: itemsAtlas, canvas: itemsCanvas } = await itemsAssetsParser.makeNewAtlas(
       resources.texturesVersion,
@@ -157,9 +135,7 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
     )
     console.timeEnd('createItemsAtlas')
 
-    resources.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
     resources.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
-    resources.blocksAtlasImage = await getLoadedImage(blocksCanvas.toDataURL())
     resources.itemsAtlasImage = await getLoadedImage(itemsCanvas.toDataURL())
 
     if (resources.version && resources.blockstatesModels && resources.itemsAtlasParser && resources.blocksAtlasParser) {
@@ -168,11 +144,6 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
         resources.blockstatesModels,
         resources.itemsAtlasParser,
         resources.blocksAtlasParser
-      )
-      resources.worldBlockProvider = worldBlockProvider(
-        resources.blockstatesModels,
-        resources.blocksAtlasParser.atlas,
-        STABLE_MODELS_VERSION
       )
     }
 
@@ -194,6 +165,43 @@ export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<Re
         this._promiseAssetsReadyResolvers.resolve()
       })
     }
+  }
+
+  async recreateBlockAtlas (resources: LoadedResources = this.currentResources!) {
+    const blockTexturesChanges = {} as Record<string, string>
+    const date = new Date()
+    if ((date.getMonth() === 11 && date.getDate() >= 24) || (date.getMonth() === 0 && date.getDate() <= 6)) {
+      Object.assign(blockTexturesChanges, christmasPack)
+    }
+
+    const blocksAssetsParser = new AtlasParser(this.sourceBlocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
+
+    const customBlockTextures = Object.keys(resources.customTextures.blocks?.textures ?? {})
+    console.time('createBlocksAtlas')
+    const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(
+      resources.texturesVersion,
+      (textureName) => {
+        if (this.currentConfig!.includeOnlyBlocks && !this.currentConfig!.includeOnlyBlocks.includes(textureName)) return false
+        const texture = resources.customTextures.blocks?.textures[textureName]
+        return blockTexturesChanges[textureName] ?? texture
+      },
+      undefined,
+      undefined,
+      customBlockTextures,
+      {
+        needHorizontalIndexes: !!this.currentConfig!.includeOnlyBlocks,
+      }
+    )
+    console.timeEnd('createBlocksAtlas')
+
+    resources.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
+    resources.blocksAtlasImage = await getLoadedImage(blocksCanvas.toDataURL())
+
+    resources.worldBlockProvider = worldBlockProvider(
+      resources.blockstatesModels,
+      resources.blocksAtlasParser.atlas,
+      STABLE_MODELS_VERSION
+    )
   }
 
   async generateGuiTextures () {
