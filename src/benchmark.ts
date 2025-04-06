@@ -13,16 +13,21 @@ const DEFAULT_RENDER_DISTANCE = 8
 const fixtures = {
   default: {
     url: 'https://bucket.mcraft.fun/Future CITY 4.4-slim.zip',
-    spawn: [-133, 87, 309] as const,
+    spawn: [-133, 87, 309] as [number, number, number],
   },
 }
-
-const testWorldFixtureUrl = fixtures.default.url
-const testWorldFixtureSpawn = fixtures.default.spawn
 
 Error.stackTraceLimit = Error.stackTraceLimit < 30 ? 30 : Error.stackTraceLimit
 
 export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) => {
+  const fixture: {
+    url: string
+    spawn?: [number, number, number]
+  } = appQueryParams.benchmarkMapZipUrl ? {
+    url: appQueryParams.benchmarkMapZipUrl,
+    spawn: appQueryParams.benchmarkPosition ? appQueryParams.benchmarkPosition.split(',').map(Number) as [number, number, number] : fixtures.default.spawn,
+  } : fixtures.default
+
   let memoryUsageAverage = 0
   let memoryUsageSamples = 0
   let memoryUsageWorst = 0
@@ -37,7 +42,15 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
     }
   }, 200)
 
+  let benchmarkName = `${fixture.url}`
+  if (fixture.spawn) {
+    benchmarkName += ` - ${fixture.spawn.join(',')}`
+  }
+  benchmarkName += ` - ${renderDistance}`
   const benchmarkAdapter: BenchmarkAdapterInfo = {
+    get benchmarkName () {
+      return benchmarkName
+    },
     get worldLoadTimeSeconds () {
       return window.worldLoadTime
     },
@@ -90,14 +103,14 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
 
   disabledSettings.value.add('renderDistance')
   options.renderDistance = renderDistance
-  void downloadAndOpenMapFromUrl(testWorldFixtureUrl, undefined, {
+  void downloadAndOpenMapFromUrl(fixture.url, undefined, {
     connectEvents: {
       serverCreated () {
-        if (testWorldFixtureSpawn) {
-          localServer!.spawnPoint = new Vec3(...testWorldFixtureSpawn)
+        if (fixture.spawn) {
+          localServer!.spawnPoint = new Vec3(...fixture.spawn)
           localServer!.on('newPlayer', (player) => {
             player.on('dataLoaded', () => {
-              player.position = new Vec3(...testWorldFixtureSpawn)
+              player.position = new Vec3(...fixture.spawn!)
             })
           })
         }

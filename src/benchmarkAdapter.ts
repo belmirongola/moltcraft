@@ -1,6 +1,7 @@
 import { noCase } from 'change-case'
 
 export interface BenchmarkAdapterInfo {
+  benchmarkName: string
   // general load info
   worldLoadTimeSeconds: number
 

@@ -56,6 +56,8 @@ export type AppQsParams = {
   openBenchmark?: string
   renderDistance?: string
   downloadBenchmark?: string
+  benchmarkMapZipUrl?: string
+  benchmarkPosition?: string
 }
 
 export type AppQsParamsArray = {
