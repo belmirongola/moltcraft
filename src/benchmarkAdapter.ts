@@ -4,6 +4,11 @@ export interface BenchmarkAdapterInfo {
   // general load info
   worldLoadTimeSeconds: number
 
+  // mesher
+  mesherWorkersCount: number
+  mesherProcessAvgMs: number
+  mesherProcessWorstMs: number
+
   // rendering backend
   averageRenderTimeMs: number
   worstRenderTimeMs: number

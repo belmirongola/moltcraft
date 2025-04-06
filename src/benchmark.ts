@@ -41,6 +41,15 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
     get worldLoadTimeSeconds () {
       return window.worldLoadTime
     },
+    get mesherWorkersCount () {
+      return (window.world as WorldRendererCommon).worldRendererConfig.mesherWorkers
+    },
+    get mesherProcessAvgMs () {
+      return (window.world as WorldRendererCommon).workersProcessAverageTime
+    },
+    get mesherProcessWorstMs () {
+      return (window.world as WorldRendererCommon).maxWorkersProcessTime
+    },
     get averageRenderTimeMs () {
       return (window.world as WorldRendererCommon).renderTimeAvg
     },
