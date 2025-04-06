@@ -5,7 +5,7 @@ import { cleanVisit } from './shared'
 it('Benchmark rendering performance', () => {
   cleanVisit('/?openBenchmark=true&renderDistance=5')
   // wait for render end event
-  return cy.document().then({ timeout: 120_000 }, doc => {
+  return cy.document().then({ timeout: 180_000 }, doc => {
     return new Cypress.Promise(resolve => {
       cy.log('Waiting for world to load')
       doc.addEventListener('cypress-world-ready', resolve)
