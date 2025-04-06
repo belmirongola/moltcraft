@@ -8,11 +8,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # if: >-
-    #   github.event.issue.pull_request != '' &&
-    #   (
-    #     contains(github.event.comment.body, '/benchmark')
-    #   )
+    if: >-
+      github.event.issue.pull_request != '' &&
+      (
+        contains(github.event.comment.body, '/benchmark')
+      )
     permissions:
       pull-requests: write
     steps:
@@ -30,8 +30,15 @@ jobs:
       - run: pnpm build
       - run: nohup pnpm prod-start &
       - run: pnpm test:benchmark
+        id: benchmark
+        continue-on-error: true
       # read benchmark results from stdout
-      - run: echo "BENCHMARK_RESULT=$(cat benchmark.txt)" >> $GITHUB_ENV
+      - run: |
+          if [ -f benchmark.txt ]; then
+            echo "BENCHMARK_RESULT=$(cat benchmark.txt)" >> $GITHUB_ENV
+          else
+            echo "BENCHMARK_RESULT=Benchmark failed to run or produce results" >> $GITHUB_ENV
+          fi
       - uses: mshick/add-pr-comment@v2
         with:
           allow-repeats: true
