@@ -19,19 +19,24 @@ customEvents.on('mineflayerBotCreated', () => {
 
   // wake lock
   const requestWakeLock = async () => {
++  if (!('wakeLock' in navigator)) {
++    console.warn('Wake Lock API is not supported in this browser');
++    return;
++  }
+  
     if (options.preventSleep && !bot.wakeLock && !bot.lockRequested) {
       bot.lockRequested = true
       bot.wakeLock = await navigator.wakeLock.request('screen').finally(() => {
         bot.lockRequested = false
       })
-
+  
       bot.wakeLock.addEventListener('release', () => {
         bot.wakeLock = undefined
       }, {
         once: true,
       })
     }
-
+  
     if (!options.preventSleep && bot.wakeLock) {
       void bot.wakeLock.release()
     }
