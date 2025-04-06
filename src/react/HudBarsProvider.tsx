@@ -90,7 +90,7 @@ export default () => {
     upArmour()
   }, [])
 
-  return <div>
+  return <div className='hud-bars-container'>
     <HealthBar
       gameMode={gameMode}
       isHardcore={isHardcore}

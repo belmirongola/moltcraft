@@ -5,6 +5,7 @@ const isPerformanceTest = process.env.PERFORMANCE_TEST === 'true'
 export default defineConfig({
   video: false,
   chromeWebSecurity: false,
+  screenshotOnRunFailure: true, // Enable screenshots on test failures
   e2e: {
     // We've imported your old cypress plugins here.
     // You may want to clean this up later by importing these.

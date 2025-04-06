@@ -1,122 +1,151 @@
-import React from 'react'
-import { useAutocomplete } from '@mui/base'
-import { omitObj } from '@zardoy/utils'
+import React, { useMemo } from 'react'
+import { useSnapshot } from 'valtio'
+import { miscUiState } from '../globalState'
+import { appQueryParams } from '../appParams'
 import Singleplayer from './Singleplayer'
 import Input from './Input'
 import Button from './Button'
-import PixelartIcon from './PixelartIcon'
+import PixelartIcon, { pixelartIcons } from './PixelartIcon'
+import Select from './Select'
 import { BaseServerInfo } from './AddServerOrConnect'
+import { useIsSmallWidth } from './simpleHooks'
+import { appStorage, SavedProxiesData, ServerHistoryEntry } from './appStorageProvider'
+
+const getInitialProxies = () => {
+  const proxies = [] as string[]
+  if (miscUiState.appConfig?.defaultProxy) {
+    proxies.push(miscUiState.appConfig.defaultProxy)
+  }
+  return proxies
+}
+
+export const getCurrentProxy = (): string | undefined => {
+  return appQueryParams.proxy ?? appStorage.proxiesData?.selected ?? getInitialProxies()[0]
+}
+
+export const getCurrentUsername = () => {
+  return appQueryParams.username ?? appStorage.username
+}
 
 interface Props extends React.ComponentProps<typeof Singleplayer> {
-  joinServer: (info: BaseServerInfo, additional: {
+  joinServer: (info: BaseServerInfo | string, additional: {
     shouldSave?: boolean
     index?: number
   }) => void
-  initialProxies: SavedProxiesLocalStorage
-  updateProxies: (proxies: SavedProxiesLocalStorage) => void
-  username: string
-  setUsername: (username: string) => void
   onProfileClick?: () => void
+  setQuickConnectIp?: (ip: string) => void
 }
 
-export interface SavedProxiesLocalStorage {
-  proxies: readonly string[]
-  selected: string
-}
-
-type ProxyStatusResult = {
-  time: number
-  ping: number
-  status: 'success' | 'error' | 'unknown'
-}
-
-export default ({ initialProxies, updateProxies: updateProxiesProp, joinServer, username, setUsername, onProfileClick, ...props }: Props) => {
-  const [proxies, setProxies] = React.useState(initialProxies)
-
-  const updateProxies = (newData: SavedProxiesLocalStorage) => {
-    setProxies(newData)
-    updateProxiesProp(newData)
-  }
-
-  const autocomplete = useAutocomplete({
-    value: proxies.selected,
-    options: proxies.proxies.filter(proxy => proxy !== proxies.selected),
-    onInputChange (event, value, reason) {
-      // console.log('onChange', { event, value, reason, details })
-      if (value) {
-        updateProxies({
-          ...proxies,
-          selected: value
-        })
-      }
-    },
-    freeSolo: true
-  })
-
+export default ({
+  joinServer,
+  onProfileClick,
+  setQuickConnectIp,
+  ...props
+}: Props) => {
+  const snap = useSnapshot(appStorage)
+  const username = useMemo(() => getCurrentUsername(), [appQueryParams.username, appStorage.username])
   const [serverIp, setServerIp] = React.useState('')
   const [save, setSave] = React.useState(true)
+  const [activeHighlight, setActiveHighlight] = React.useState(undefined as 'quick-connect' | 'server-list' | undefined)
 
-  return <Singleplayer {...props}
-    firstRowChildrenOverride={<form style={{ width: '100%', display: 'flex', justifyContent: 'center' }} onSubmit={(e) => {
-      e.preventDefault()
-      let ip = serverIp
-      let version
-      let msAuth = false
-      const parts = ip.split(':')
-      if (parts.at(-1) === 'ms') {
-        msAuth = true
-        parts.pop()
-      }
-      if (parts.length > 1 && parts.at(-1)!.includes('.')) {
-        version = parts.at(-1)!
-        ip = parts.slice(0, -1).join(':')
-      }
-      joinServer({
-        ip,
-        versionOverride: version,
-        authenticatedAccountOverride: msAuth ? true : undefined, // todo popup selector
-      }, {
-        shouldSave: save,
-      })
-    }}
+  const updateProxies = (newData: SavedProxiesData) => {
+    appStorage.proxiesData = newData
+  }
+
+  const setUsername = (username: string) => {
+    appStorage.username = username
+  }
+
+  const getActiveHighlightStyles = (type: typeof activeHighlight) => {
+    const styles: React.CSSProperties = {
+      transition: 'filter 0.2s',
+    }
+    if (activeHighlight && activeHighlight !== type) {
+      styles.filter = 'brightness(0.7)'
+    }
+    return styles
+  }
+
+  const isSmallWidth = useIsSmallWidth()
+
+  const initialProxies = getInitialProxies()
+  const proxiesData = snap.proxiesData ?? { proxies: initialProxies, selected: initialProxies[0] }
+  return <Singleplayer
+    {...props}
+    worldData={props.worldData ? props.worldData.map(world => ({
+      ...world
+    })) : null}
+    firstRowChildrenOverride={<form
+      style={{ width: '100%', display: 'flex', justifyContent: 'center' }} onSubmit={(e) => {
+        e.preventDefault()
+        joinServer(serverIp, { shouldSave: save })
+      }}
     >
-      <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-        {/* todo history */}
-        <Input required placeholder='Quick Connect IP (:version)' value={serverIp} onChange={({ target: { value } }) => setServerIp(value)} />
+      <div
+        style={{ display: 'flex', gap: 5, alignItems: 'center', ...getActiveHighlightStyles('quick-connect') }}
+        className='quick-connect-row'
+        onMouseEnter={() => setActiveHighlight('quick-connect')}
+        onMouseLeave={() => setActiveHighlight(undefined)}
+      >
+        <Input
+          required
+          placeholder='Quick Connect IP (:version)'
+          value={serverIp}
+          onChange={({ target: { value } }) => {
+            setQuickConnectIp?.(value)
+            setServerIp(value)
+          }}
+          width={isSmallWidth ? 120 : 180}
+          list="server-history"
+          autoComplete="on"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
+        />
+        <datalist id="server-history">
+          {[...(snap.serversHistory ?? [])].sort((a, b) => b.numConnects - a.numConnects).map((server) => (
+            <option key={server.ip} value={`${server.ip}${server.version ? `:${server.version}` : ''}`} />
+          ))}
+        </datalist>
         <label style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 5, height: '100%', marginTop: '-1px' }}>
-          <input type='checkbox' checked={save}
+          <input
+            type='checkbox' checked={save}
             style={{ borderRadius: 0 }}
             onChange={({ target: { checked } }) => setSave(checked)}
-          /> Save</label>
-        <Button style={{ width: 90 }} type='submit'>Join Server</Button>
+          /> Save
+        </label>
+        <Button style={{ width: 90 }} type='submit'>Connect</Button>
       </div>
     </form>}
     searchRowChildrenOverride={
       <div style={{
         // marginTop: 12,
-      }}>
+      }}
+      >
         <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-          <span style={{ color: 'lightgray', fontSize: 14 }}>Proxy:</span>
-          <div {...autocomplete.getRootProps()} style={{ position: 'relative', width: 130 }}>
-            <ProxyRender
-              {...omitObj(autocomplete.getInputProps(), 'ref')}
-              inputRef={autocomplete.getInputProps().ref as any}
-              status='unknown'
-              ip=''
-            />
-            {autocomplete.groupedOptions && <ul {...autocomplete.getListboxProps()} style={{
-              position: 'absolute',
-              zIndex: 1,
-              // marginTop: 10,
-            }}>
-              {autocomplete.groupedOptions.map((proxy, index) => {
-                const { itemRef, ...optionProps } = autocomplete.getOptionProps({ option: proxy, index })
-                return <ProxyRender {...optionProps as any} ip={proxy} disabled />
-              })}
-            </ul>}
-          </div>
+          {isSmallWidth
+            ? <PixelartIcon iconName={pixelartIcons.server} styles={{ fontSize: 14, color: 'lightgray', marginLeft: 2 }} onClick={onProfileClick} />
+            : <span style={{ color: 'lightgray', fontSize: 14 }}>Proxy:</span>}
+          <Select
+            initialOptions={proxiesData.proxies.map(p => { return { value: p, label: p } })}
+            defaultValue={{ value: proxiesData.selected, label: proxiesData.selected }}
+            updateOptions={(newSel) => {
+              updateProxies({ proxies: [...proxiesData.proxies], selected: newSel })
+            }}
+            containerStyle={{
+              width: isSmallWidth ? 140 : 180,
+            }}
+          />
           <PixelartIcon iconName='user' styles={{ fontSize: 14, color: 'lightgray', marginLeft: 2 }} onClick={onProfileClick} />
-          <Input rootStyles={{ width: 80 }} value={username} onChange={({ target: { value } }) => setUsername(value)} />
+          <Input
+            rootStyles={{ width: 80 }}
+            value={username}
+            disabled={appQueryParams.username !== undefined}
+            onChange={({ target: { value } }) => setUsername(value)}
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+          />
         </div>
       </div>
     }
@@ -129,54 +158,10 @@ export default ({ initialProxies, updateProxies: updateProxiesProp, joinServer, 
       }
       props.onWorldAction?.(action, serverName)
     }}
+    setListHovered={(hovered) => {
+      setActiveHighlight(hovered ? 'server-list' : undefined)
+    }}
+    listStyle={getActiveHighlightStyles('server-list')}
+    secondRowStyles={getActiveHighlightStyles('server-list')}
   />
-}
-
-type Status = 'unknown' | 'error' | 'success'
-
-const ProxyRender = ({ status, ip, inputRef, value, setValue, ...props }: {
-  status: Status
-  ip: string
-} & Record<string, any>) => {
-  const iconPerStatus = {
-    unknown: 'cellular-signal-0',
-    error: 'cellular-signal-off',
-    success: 'cellular-signal-3',
-  }
-
-  return <div style={{
-    position: 'relative',
-  }} {...props}>
-    <Input
-      inputRef={inputRef}
-      style={{
-        paddingLeft: 16,
-      }}
-      rootStyles={{
-        width: 130
-      }}
-      value={value}
-      // onChange={({ target: { value } }) => setValue?.(value)}
-      onChange={props.onChange}
-    />
-    <div style={{
-      position: 'absolute',
-      inset: 0,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 2
-    }}>
-      <PixelartIcon iconName={iconPerStatus.unknown} />
-      <div style={{
-        fontSize: 10,
-        // color: 'lightgray',
-        // ellipsis
-        width: '100%',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}>
-        {ip.replace(/^https?:\/\//, '')}
-      </div>
-    </div>
-  </div>
 }

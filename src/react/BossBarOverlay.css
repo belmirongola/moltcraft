@@ -1,11 +1,17 @@
 .bossBars {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
   position: absolute;
-  top: 9px;
+  width: 100%;
+  top: 1px;
   left: 50%;
   transform: translate(-50%);
+  pointer-events: none;
+}
+
+.bossBars.mobile {
+  top: 18px;
 }
 
 .bossbar-container {
@@ -14,11 +20,15 @@
   align-items: center;
 }
 .bossbar-title {
-  font-size: 7px;
+  font-size: 10px;
+  text-align: center;
   color: #fff;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .bossbar {
-  background-image: url("minecraft-assets/minecraft-assets/data/1.18.1/gui/bars.png");
+  background-image: var(--bars-gui-atlas);
   width: 182px;
   height: 5px;
   position: relative;
@@ -30,5 +40,5 @@
   left: 0;
   height: 5px;
   width: 0;
-  background-image: url("minecraft-assets/minecraft-assets/data/1.18.1/gui/bars.png");
+  background-image: var(--bars-gui-atlas);
 }

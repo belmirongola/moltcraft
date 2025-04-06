@@ -15,19 +15,18 @@ try {
 // Create our app
 const app = express()
 
-const isProd = process.argv.includes('--prod')
+const isProd = process.argv.includes('--prod') || process.env.NODE_ENV === 'production'
 app.use(compression())
+app.use(cors())
 app.use(netApi({ allowOrigin: '*' }))
 if (!isProd) {
-  app.use('/blocksStates', express.static(path.join(__dirname, './prismarine-viewer/public/blocksStates')))
-  app.use('/textures', express.static(path.join(__dirname, './prismarine-viewer/public/textures')))
-
   app.use('/sounds', express.static(path.join(__dirname, './generated/sounds/')))
 }
 // patch config
 app.get('/config.json', (req, res, next) => {
   // read original file config
   let config = {}
+  let publicConfig = {}
   try {
     config = require('./config.json')
   } catch {
@@ -35,28 +34,38 @@ app.get('/config.json', (req, res, next) => {
       config = require('./dist/config.json')
     } catch { }
   }
+  try {
+    publicConfig = require('./public/config.json')
+  } catch { }
   res.json({
     ...config,
     'defaultProxy': '', // use current url (this server)
+    ...publicConfig,
   })
 })
-// add headers to enable shared array buffer
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp')
-  next()
-})
-app.use(express.static(path.join(__dirname, './dist')))
+if (isProd) {
+  // add headers to enable shared array buffer
+  app.use((req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp')
+    next()
+  })
 
-const portArg = process.argv.indexOf('--port')
-const port = (require.main === module ? process.argv[2] : portArg !== -1 ? process.argv[portArg + 1] : undefined) || 8080
+  // First serve from the override directory (volume mount)
+  app.use(express.static(path.join(__dirname, './public')))
+
+  // Then fallback to the original dist directory
+  app.use(express.static(path.join(__dirname, './dist')))
+}
+
+const numArg = process.argv.find(x => x.match(/^\d+$/))
+const port = (require.main === module ? numArg : undefined) || 8080
 
 // Start the server
-const server = isProd ?
-  undefined :
+const server =
   app.listen(port, async function () {
-    console.log('Server listening on port ' + server.address().port)
-    if (siModule) {
+    console.log('Proxy server listening on port ' + server.address().port)
+    if (siModule && isProd) {
       const _interfaces = await siModule.networkInterfaces()
       const interfaces = Array.isArray(_interfaces) ? _interfaces : [_interfaces]
       let netInterface = interfaces.find(int => int.default)

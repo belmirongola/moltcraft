@@ -1,11 +1,11 @@
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
 import { proxy, ref, subscribe } from 'valtio'
 import React from 'react'
-import { loadScript } from 'prismarine-viewer/viewer/lib/utils'
+import { loadScript } from 'renderer/viewer/lib/utils'
 import { loadGoogleDriveApi, loadInMemorySave } from './react/SingleplayerProvider'
-import { setLoadingScreenStatus } from './utils'
-import { mountGoogleDriveFolder } from './browserfs'
+import { setLoadingScreenStatus } from './appStatus'
 import { showOptionsModal } from './react/SelectOption'
+import { appQueryParams } from './appParams'
 
 const CLIENT_ID = '137156026346-igv2gkjsj2hlid92rs3q7cjjnc77s132.apps.googleusercontent.com'
 // const CLIENT_ID = process.env.GOOGLE_CLIENT_ID
@@ -45,7 +45,7 @@ export const useGoogleLogIn = () => {
 }
 
 export const possiblyHandleStateVariable = async () => {
-  const stateParam = new URLSearchParams(window.location.search).get('state')
+  const stateParam = appQueryParams.state
   if (!stateParam) return
   setLoadingScreenStatus('Opening world in read only mode, waiting for login...')
   await loadGoogleDriveApi()
@@ -66,7 +66,7 @@ export const possiblyHandleStateVariable = async () => {
       }
       setLoadingScreenStatus('Opening world in read only mode...')
       googleProviderState.accessToken = response.access_token
-      await mountGoogleDriveFolder(true, parsed.ids[0])
+      // await mountGoogleDriveFolder(true, parsed.ids[0])
       await loadInMemorySave('/google')
     }
   })

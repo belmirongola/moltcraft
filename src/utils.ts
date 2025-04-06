@@ -1,27 +1,27 @@
-import { hideModal, isGameActive, miscUiState, showModal } from './globalState'
+import { gameAdditionalState, isGameActive, miscUiState } from './globalState'
 import { options } from './optionsStorage'
-import { appStatusState } from './react/AppStatusProvider'
 import { notificationProxy, showNotification } from './react/NotificationProvider'
+import { packetsReplayState } from './react/state/packetsReplayState'
 
 export const goFullscreen = async (doToggle = false) => {
   if (!document.fullscreenElement) {
     // todo display a message or repeat?
     await document.documentElement.requestFullscreen().catch(() => { })
     // request full keyboard access
-    //@ts-expect-error
-    navigator.keyboard?.lock?.(['Escape', 'KeyW'])
+    await navigator.keyboard?.lock?.(['Escape', 'KeyW'])
   } else if (doToggle) {
     await document.exitFullscreen().catch(() => { })
   }
 }
 
-export const toNumber = (val) => {
+export const toNumber = val => {
   const num = Number(val)
   return isNaN(num) ? undefined : num
 }
 
-export const inGameError = (err) => {
+export const inGameError = err => {
   console.error(err)
+  window.reportError?.(err)
   // todo report
   miscUiState.hasErrors = true
 }
@@ -49,7 +49,7 @@ export const pointerLock = {
       const promise: any = document.documentElement.requestPointerLock({
         unadjustedMovement: options.mouseRawInput
       })
-      promise?.catch((error) => {
+      promise?.catch(error => {
         if (error.name === 'NotSupportedError') {
           // Some platforms may not support unadjusted movement, request again a regular pointer lock.
           document.documentElement.requestPointerLock()
@@ -65,6 +65,10 @@ export const pointerLock = {
   }
 }
 
+export const isInRealGameSession = () => {
+  return isGameActive(true) && (!packetsReplayState.isOpen || packetsReplayState.isMinimized) && !gameAdditionalState.viewerConnection
+}
+
 window.getScreenRefreshRate = getScreenRefreshRate
 
 /**
@@ -77,7 +81,7 @@ export async function getScreenRefreshRate (): Promise<number> {
 
   const DOMHighResTimeStampCollection = [] as number[]
 
-  const triggerAnimation = (DOMHighResTimeStamp) => {
+  const triggerAnimation = DOMHighResTimeStamp => {
     DOMHighResTimeStampCollection.unshift(DOMHighResTimeStamp)
 
     if (DOMHighResTimeStampCollection.length > 10) {
@@ -106,7 +110,7 @@ export async function getScreenRefreshRate (): Promise<number> {
   })
 }
 
-export const getGamemodeNumber = (bot) => {
+export const getGamemodeNumber = bot => {
   switch (bot.game.gameMode) {
     case 'survival': return 0
     case 'creative': return 1
@@ -122,37 +126,8 @@ export const isMajorVersionGreater = (ver1: string, ver2: string) => {
   return +a1 > +a2 || (+a1 === +a2 && +b1 > +b2)
 }
 
-let ourLastStatus: string | undefined = ''
-export const setLoadingScreenStatus = function (status: string | undefined | null, isError = false, hideDots = false, fromFlyingSquid = false) {
-  // null can come from flying squid, should restore our last status
-  if (status === null) {
-    status = ourLastStatus
-  } else if (!fromFlyingSquid) {
-    ourLastStatus = status
-  }
-  fromFlyingSquid = false
-
-  if (status === undefined) {
-    appStatusState.status = ''
-
-    hideModal({ reactType: 'app-status' }, {}, { force: true })
-    return
-  }
-
-  // todo update in component instead
-  showModal({ reactType: 'app-status' })
-  if (appStatusState.isError) {
-    miscUiState.gameLoaded = false
-    return
-  }
-  appStatusState.hideDots = hideDots
-  appStatusState.isError = isError
-  appStatusState.lastStatus = isError ? appStatusState.status : ''
-  appStatusState.status = status
-}
-
 // doesn't support snapshots
-export const toMajorVersion = (version) => {
+export const toMajorVersion = version => {
   const [a, b] = (String(version)).split('.')
   return `${a}.${b}`
 }
@@ -173,17 +148,17 @@ export const setRenderDistance = () => {
     localServer!.players[0].view = 0
     renderDistance = 0
   }
-  worldView.updateViewDistance(renderDistance)
+  worldView?.updateViewDistance(renderDistance)
   prevRenderDistance = renderDistance
 }
 export const reloadChunks = async () => {
-  if (!worldView) return
+  if (!bot || !worldView) return
   setRenderDistance()
   await worldView.updatePosition(bot.entity.position, true)
 }
 
-export const openGithub = () => {
-  window.open(process.env.GITHUB_URL, '_blank')
+export const openGithub = (addUrl = '') => {
+  window.open(`${process.env.GITHUB_URL}${addUrl}`, '_blank')
 }
 
 export const resolveTimeout = async (promise, timeout = 10_000) => {

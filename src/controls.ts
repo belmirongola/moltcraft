@@ -6,25 +6,32 @@ import { proxy, subscribe } from 'valtio'
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
-import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
-import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState } from './globalState'
-import { goFullscreen, pointerLock, reloadChunks } from './utils'
+import { GameMode } from 'mineflayer'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
+import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
 import { openPlayerInventory } from './inventoryWindows'
 import { chatInputValueGlobal } from './react/Chat'
 import { fsState } from './loadSave'
 import { customCommandsConfig } from './customCommands'
-import { CustomCommand } from './react/KeybindingsCustom'
+import type { CustomCommand } from './react/KeybindingsCustom'
 import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
-import { getItemFromBlock } from './botUtils'
+import { getItemFromBlock } from './chatUtils'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
-import { updateBinds } from './react/KeybindingsScreenProvider'
+import { completeResourcepackPackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
+import { showNotification } from './react/NotificationProvider'
+import { lastConnectOptions } from './react/AppStatusProvider'
+import { onCameraMove, onControInit } from './cameraRotationControls'
+import { createNotificationProgressReporter } from './core/progressReporter'
+import { appStorage } from './react/appStorageProvider'
+import { switchGameMode } from './packetsReplay/replayPackets'
 
 
-export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
+export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
-  localStorage.keymap = JSON.stringify(customKeymaps)
+  appStorage.keybindings = customKeymaps
 })
 
 const controlOptions = {
@@ -47,10 +54,18 @@ export const contro = new ControMax({
       chat: [['KeyT', 'Enter']],
       command: ['Slash'],
       swapHands: ['KeyF'],
-      selectItem: ['KeyH'] // default will be removed
+      zoom: ['KeyC'],
+      selectItem: ['KeyH'], // default will be removed
+      rotateCameraLeft: [null],
+      rotateCameraRight: [null],
+      rotateCameraUp: [null],
+      rotateCameraDown: [null],
+      viewerConsole: ['Backquote']
     },
     ui: {
+      toggleFullscreen: ['F11'],
       back: [null/* 'Escape' */, 'B'],
+      toggleMap: ['KeyM'],
       leftClick: [null, 'A'],
       rightClick: [null, 'Y'],
       speedupCursor: [null, 'Left Stick'],
@@ -87,6 +102,8 @@ export const contro = new ControMax({
 window.controMax = contro
 export type Command = CommandEventArgument<typeof contro['_commandsRaw']>['command']
 
+onControInit()
+
 updateBinds(customKeymaps)
 
 const updateDoPreventDefault = () => {
@@ -114,6 +131,23 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) return
+
+  // if (viewer.world.freeFlyMode) {
+  //   // Create movement vector from input
+  //   const direction = new THREE.Vector3(0, 0, 0)
+  //   if (vector.z !== undefined) direction.z = vector.z
+  //   if (vector.x !== undefined) direction.x = vector.x
+
+  //   // Apply camera rotation to movement direction
+  //   direction.applyQuaternion(viewer.camera.quaternion)
+
+  //   // Update freeFlyState position with normalized direction
+  //   const moveSpeed = 1
+  //   direction.multiplyScalar(moveSpeed)
+  //   viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
+  //   return
+  // }
+
   // gamepadIndex will be used for splitscreen in future
   const coordToAction = [
     ['z', -1, 'forward'],
@@ -154,6 +188,7 @@ let lastCommandTrigger = null as { command: string, time: number } | null
 const secondActionActivationTimeout = 300
 const secondActionCommands = {
   'general.jump' () {
+    // if (bot.game.gameMode === 'spectator') return
     toggleFly()
   },
   'general.forward' () {
@@ -239,6 +274,73 @@ const inModalCommand = (command: Command, pressed: boolean) => {
   }
 }
 
+// Camera rotation controls
+const cameraRotationControls = {
+  activeDirections: new Set<'left' | 'right' | 'up' | 'down'>(),
+  interval: null as ReturnType<typeof setInterval> | null,
+  config: {
+    speed: 1, // movement per interval
+    interval: 5 // ms between movements
+  },
+  movements: {
+    left: { movementX: -0.5, movementY: 0 },
+    right: { movementX: 0.5, movementY: 0 },
+    up: { movementX: 0, movementY: -0.5 },
+    down: { movementX: 0, movementY: 0.5 }
+  },
+  updateMovement () {
+    if (cameraRotationControls.activeDirections.size === 0) {
+      if (cameraRotationControls.interval) {
+        clearInterval(cameraRotationControls.interval)
+        cameraRotationControls.interval = null
+      }
+      return
+    }
+
+    if (!cameraRotationControls.interval) {
+      cameraRotationControls.interval = setInterval(() => {
+        // Combine all active movements
+        const movement = { movementX: 0, movementY: 0 }
+        for (const direction of cameraRotationControls.activeDirections) {
+          movement.movementX += cameraRotationControls.movements[direction].movementX
+          movement.movementY += cameraRotationControls.movements[direction].movementY
+        }
+
+        onCameraMove({
+          ...movement,
+          type: 'keyboardRotation',
+          stopPropagation () {}
+        })
+      }, cameraRotationControls.config.interval)
+    }
+  },
+  start (direction: 'left' | 'right' | 'up' | 'down') {
+    cameraRotationControls.activeDirections.add(direction)
+    cameraRotationControls.updateMovement()
+  },
+  stop (direction: 'left' | 'right' | 'up' | 'down') {
+    cameraRotationControls.activeDirections.delete(direction)
+    cameraRotationControls.updateMovement()
+  },
+  handleCommand (command: string, pressed: boolean) {
+    const directionMap = {
+      'general.rotateCameraLeft': 'left',
+      'general.rotateCameraRight': 'right',
+      'general.rotateCameraUp': 'up',
+      'general.rotateCameraDown': 'down'
+    } as const
+
+    const direction = directionMap[command]
+    if (direction) {
+      if (pressed) cameraRotationControls.start(direction)
+      else cameraRotationControls.stop(direction)
+      return true
+    }
+    return false
+  }
+}
+window.cameraRotationControls = cameraRotationControls
+
 const setSneaking = (state: boolean) => {
   gameAdditionalState.isSneaking = state
   bot.setControlState('sneak', state)
@@ -252,10 +354,20 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
+        // } else {
         bot.setControlState('jump', pressed)
+        // }
         break
       case 'general.sneak':
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
+        // } else {
         setSneaking(pressed)
+        // }
         break
       case 'general.sprint':
         // todo add setting to change behavior
@@ -269,13 +381,21 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
         } else if (pressed) {
           setSneaking(!gameAdditionalState.isSneaking)
         }
-
         break
       case 'general.attackDestroy':
         document.dispatchEvent(new MouseEvent(pressed ? 'mousedown' : 'mouseup', { button: 0 }))
         break
       case 'general.interactPlace':
         document.dispatchEvent(new MouseEvent(pressed ? 'mousedown' : 'mouseup', { button: 2 }))
+        break
+      case 'general.zoom':
+        gameAdditionalState.isZooming = pressed
+        break
+      case 'general.rotateCameraLeft':
+      case 'general.rotateCameraRight':
+      case 'general.rotateCameraUp':
+      case 'general.rotateCameraDown':
+        cameraRotationControls.handleCommand(command, pressed)
         break
     }
   }
@@ -290,6 +410,32 @@ const alwaysPressedHandledCommand = (command: Command) => {
       hideCurrentModal()
     }
   }
+  if (command === 'advanced.lockUrl') {
+    lockUrl()
+  }
+}
+
+export function lockUrl () {
+  let newQs = ''
+  if (fsState.saveLoaded && fsState.inMemorySave) {
+    const worldFolder = fsState.inMemorySavePath
+    const save = worldFolder.split('/').at(-1)
+    newQs = `loadSave=${save}`
+  } else if (process.env.NODE_ENV === 'development') {
+    newQs = `reconnect=1`
+  } else if (lastConnectOptions.value?.server) {
+    const qs = new URLSearchParams()
+    const { server, botVersion, proxy, username } = lastConnectOptions.value
+    qs.set('ip', server)
+    if (botVersion) qs.set('version', botVersion)
+    if (proxy) qs.set('proxy', proxy)
+    if (username) qs.set('username', username)
+    newQs = String(qs.toString())
+  }
+
+  if (newQs) {
+    window.history.replaceState({}, '', `${window.location.pathname}?${newQs}`)
+  }
 }
 
 function cycleHotbarSlot (dir: 1 | -1) {
@@ -303,9 +449,7 @@ const customCommandsHandler = ({ command }) => {
   if (!isGameActive(true) || section !== 'custom') return
 
   if (contro.userConfig?.custom) {
-    customCommandsConfig[(contro.userConfig.custom[name] as CustomCommand).type].handler(
-      (contro.userConfig.custom[name] as CustomCommand).inputs
-    )
+    customCommandsConfig[(contro.userConfig.custom[name] as CustomCommand).type].handler((contro.userConfig.custom[name] as CustomCommand).inputs)
   }
 }
 contro.on('trigger', customCommandsHandler)
@@ -338,6 +482,12 @@ contro.on('trigger', ({ command }) => {
       case 'general.toggleSneakOrDown':
       case 'general.sprint':
       case 'general.attackDestroy':
+      case 'general.rotateCameraLeft':
+      case 'general.rotateCameraRight':
+      case 'general.rotateCameraUp':
+      case 'general.rotateCameraDown':
+        // no-op
+        break
       case 'general.swapHands': {
         bot._client.write('entity_action', {
           entityId: bot.entity.id,
@@ -353,7 +503,7 @@ contro.on('trigger', ({ command }) => {
         document.exitPointerLock?.()
         openPlayerInventory()
         break
-      case 'general.drop':
+      case 'general.drop': {
         // if (bot.heldItem/* && ctrl */) bot.tossStack(bot.heldItem)
         bot._client.write('block_dig', {
           'status': 4,
@@ -365,7 +515,14 @@ contro.on('trigger', ({ command }) => {
           'face': 0,
           sequence: 0
         })
+        const slot = bot.inventory.hotbarStart + bot.quickBarSlot
+        const item = bot.inventory.slots[slot]
+        if (item) {
+          item.count--
+          bot.inventory.updateSlot(slot, item.count > 0 ? item : null!)
+        }
         break
+      }
       case 'general.chat':
         showModal({ reactType: 'chat' })
         break
@@ -382,29 +539,35 @@ contro.on('trigger', ({ command }) => {
       case 'general.prevHotbarSlot':
         cycleHotbarSlot(-1)
         break
+      case 'general.zoom':
+        break
+      case 'general.viewerConsole':
+        if (lastConnectOptions.value?.viewerWsConnect) {
+          showModal({ reactType: 'console' })
+        }
+        break
     }
-  }
-  if (command === 'advanced.lockUrl') {
-    let newQs = ''
-    if (fsState.saveLoaded) {
-      const save = localServer!.options.worldFolder.split('/').at(-1)
-      newQs = `loadSave=${save}`
-    } else if (process.env.NODE_ENV === 'development') {
-      newQs = `reconnect=1`
-    } else {
-      const qs = new URLSearchParams()
-      const { server, version } = localStorage
-      qs.set('server', server)
-      if (version) qs.set('version', version)
-      newQs = String(qs.toString())
-    }
-
-    window.history.replaceState({}, '', `${window.location.pathname}?${newQs}`)
-    // return
   }
 
   if (command === 'ui.pauseMenu') {
     showModal({ reactType: 'pause-screen' })
+  }
+
+  if (command === 'ui.toggleFullscreen') {
+    void goFullscreen(true)
+  }
+})
+
+// show-hide Fullmap
+contro.on('trigger', ({ command }) => {
+  if (command !== 'ui.toggleMap') return
+  const isActive = isGameActive(true)
+  if (activeModalStack.at(-1)?.reactType === 'full-map') {
+    miscUiState.displayFullmap = false
+    hideModal({ reactType: 'full-map' })
+  } else if (isActive && !activeModalStack.length) {
+    miscUiState.displayFullmap = true
+    showModal({ reactType: 'full-map' })
   }
 })
 
@@ -415,7 +578,12 @@ contro.on('release', ({ command }) => {
 
 // hard-coded keybindings
 
-export const f3Keybinds = [
+export const f3Keybinds: Array<{
+  key?: string,
+  action: () => void | Promise<void>,
+  mobileTitle: string
+  enabled?: () => boolean
+}> = [
   {
     key: 'KeyA',
     action () {
@@ -424,12 +592,12 @@ export const f3Keybinds = [
       for (const [x, z] of loadedChunks) {
         worldView!.unloadChunk({ x, z })
       }
-      for (const child of viewer.scene.children) {
-        if (child.name === 'chunk') { // should not happen
-          viewer.scene.remove(child)
-          console.warn('forcefully removed chunk from scene')
-        }
-      }
+      // for (const child of viewer.scene.children) {
+      //   if (child.name === 'chunk') { // should not happen
+      //     viewer.scene.remove(child)
+      //     console.warn('forcefully removed chunk from scene')
+      //   }
+      // }
       if (localServer) {
         //@ts-expect-error not sure why it is private... maybe revisit api?
         localServer.players[0].world.columns = {}
@@ -442,12 +610,11 @@ export const f3Keybinds = [
     key: 'KeyG',
     action () {
       options.showChunkBorders = !options.showChunkBorders
-      viewer.world.updateShowChunksBorder(options.showChunkBorders)
     },
     mobileTitle: 'Toggle chunk borders',
   },
   {
-    key: 'KeyT',
+    key: 'KeyY',
     async action () {
       // waypoints
       const widgetNames = widgets.map(widget => widget.name)
@@ -456,6 +623,69 @@ export const f3Keybinds = [
       showModal({ reactType: `widget-${widget}` })
     },
     mobileTitle: 'Open Widget'
+  },
+  {
+    key: 'KeyT',
+    async action () {
+      // TODO!
+      if (resourcePackState.resourcePackInstalled || gameAdditionalState.usingServerResourcePack) {
+        showNotification('Reloading textures...')
+        await completeResourcepackPackInstall('default', 'default', gameAdditionalState.usingServerResourcePack, createNotificationProgressReporter())
+      }
+    },
+    mobileTitle: 'Reload Textures'
+  },
+  {
+    key: 'F4',
+    async action () {
+      let nextGameMode: GameMode
+      switch (bot.game.gameMode) {
+        case 'creative': {
+          nextGameMode = 'survival'
+
+          break
+        }
+        case 'survival': {
+          nextGameMode = 'adventure'
+
+          break
+        }
+        case 'adventure': {
+          nextGameMode = 'spectator'
+
+          break
+        }
+        case 'spectator': {
+          nextGameMode = 'creative'
+
+          break
+        }
+      // No default
+      }
+      if (lastConnectOptions.value?.worldStateFileContents) {
+        switchGameMode(nextGameMode)
+      } else {
+        bot.chat(`/gamemode ${nextGameMode}`)
+      }
+    },
+    mobileTitle: 'Cycle Game Mode'
+  },
+  {
+    key: 'KeyP',
+    async action () {
+      const { uuid, ping: playerPing, username } = bot.player
+      const proxyPing = await bot['pingProxy']()
+      void showOptionsModal(`${username}: last known total latency (ping): ${playerPing}. Connected to ${lastConnectOptions.value?.proxy} with current ping ${proxyPing}. Player UUID: ${uuid}`, [])
+    },
+    mobileTitle: 'Show Player & Ping Details',
+    enabled: () => !lastConnectOptions.value?.singleplayer && !!bot.player
+  },
+  {
+    action () {
+      void copyServerResourcePackToRegular()
+    },
+    mobileTitle: 'Copy Server Resource Pack',
+    enabled: () => !!gameAdditionalState.usingServerResourcePack
   }
 ]
 
@@ -464,8 +694,8 @@ document.addEventListener('keydown', (e) => {
   if (!isGameActive(false)) return
   if (hardcodedPressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
-    if (keybind) {
-      keybind.action()
+    if (keybind && (keybind.enabled?.() ?? true)) {
+      void keybind.action()
       e.stopPropagation()
     }
     return
@@ -551,6 +781,7 @@ const patchedSetControlState = (action, state) => {
 }
 
 const startFlying = (sendAbilities = true) => {
+  bot.entity['creativeFly'] = true
   if (sendAbilities) {
     bot._client.write('abilities', {
       flags: 2,
@@ -564,6 +795,7 @@ const startFlying = (sendAbilities = true) => {
 }
 
 const endFlying = (sendAbilities = true) => {
+  bot.entity['creativeFly'] = false
   if (bot.physics.gravity !== 0) return
   if (sendAbilities) {
     bot._client.write('abilities', {
@@ -583,13 +815,30 @@ const endFlying = (sendAbilities = true) => {
 let allowFlying = false
 
 export const onBotCreate = () => {
+  let wasSpectatorFlying = false
   bot._client.on('abilities', ({ flags }) => {
+    allowFlying = !!(flags & 4)
     if (flags & 2) { // flying
       toggleFly(true, false)
     } else {
       toggleFly(false, false)
     }
-    allowFlying = !!(flags & 4)
+  })
+  const gamemodeCheck = () => {
+    if (bot.game.gameMode === 'spectator') {
+      allowFlying = true
+      toggleFly(true, false)
+      wasSpectatorFlying = true
+    } else if (wasSpectatorFlying) {
+      toggleFly(false, false)
+      wasSpectatorFlying = false
+    }
+  }
+  bot.on('game', () => {
+    gamemodeCheck()
+  })
+  bot.on('login', () => {
+    gamemodeCheck()
   })
 }
 
@@ -624,8 +873,10 @@ const selectItem = async () => {
 
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
+  if (!isInRealGameSession() && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
+  getThreeJsRendererMethods()?.onPageInteraction()
   // wheel click
   // todo support ctrl+wheel (+nbt)
   if (e.button === 1) {
@@ -635,12 +886,21 @@ addEventListener('mousedown', async (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') return
+  if (!activeModalStack.length) {
+    getThreeJsRendererMethods()?.onPageInteraction()
+  }
+
   if (activeModalStack.length) {
-    hideCurrentModal(undefined, () => {
-      if (!activeModalStack.length) {
-        pointerLock.justHitEscape = true
-      }
-    })
+    const hideAll = e.ctrlKey || e.metaKey
+    if (hideAll) {
+      hideAllModals()
+    } else {
+      hideCurrentModal()
+    }
+    if (activeModalStack.length === 0) {
+      getThreeJsRendererMethods()?.onPageInteraction()
+      pointerLock.justHitEscape = true
+    }
   } else if (pointerLock.hasPointerLock) {
     document.exitPointerLock?.()
     if (options.autoExitFullscreen) {
@@ -671,12 +931,46 @@ window.addEventListener('keydown', (e) => {
 
 // #region experimental debug things
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'F11') {
-    e.preventDefault()
-    void goFullscreen(true)
-  }
-  if (e.code === 'KeyL' && e.altKey) {
+  if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     console.clear()
+  }
+  if (e.code === 'KeyK' && e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (sessionStorage.delayLoadUntilFocus) {
+      sessionStorage.removeItem('delayLoadUntilFocus')
+    } else {
+      sessionStorage.setItem('delayLoadUntilFocus', 'true')
+    }
+  }
+  if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    // eslint-disable-next-line no-debugger
+    debugger
   }
 })
 // #endregion
+
+export function updateBinds (commands: any) {
+  contro.inputSchema.commands.custom = Object.fromEntries(Object.entries(commands?.custom ?? {}).map(([key, value]) => {
+    return [key, {
+      keys: [],
+      gamepad: [],
+      type: '',
+      inputs: []
+    }]
+  }))
+
+  for (const [group, actions] of Object.entries(commands)) {
+    contro.userConfig![group] = Object.fromEntries(Object.entries(actions).map(([key, value]) => {
+      const newValue = {
+        keys: value?.keys ?? undefined,
+        gamepad: value?.gamepad ?? undefined,
+      }
+
+      if (group === 'custom') {
+        newValue['type'] = (value).type
+        newValue['inputs'] = (value).inputs
+      }
+
+      return [key, newValue]
+    }))
+  }
+}

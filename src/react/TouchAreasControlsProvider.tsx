@@ -8,12 +8,10 @@ export default () => {
   const usingTouch = useUsingTouch()
   const hasModals = useSnapshot(activeModalStack).length !== 0
   const setupActive = useIsModalActive('touch-buttons-setup')
-  const { touchControlsPositions, touchControlsType } = useSnapshot(options)
 
   return <TouchAreasControls
-    touchActive={!!bot && !!usingTouch && !hasModals && touchControlsType === 'joystick-buttons'}
+    foregroundGameActive={!!bot && !!usingTouch && !hasModals}
     setupActive={setupActive}
-    buttonsPositions={touchControlsPositions as any}
     closeButtonsSetup={(newPositions) => {
       if (newPositions) {
         options.touchControlsPositions = newPositions
@@ -21,5 +19,4 @@ export default () => {
       hideModal()
     }}
   />
-
 }

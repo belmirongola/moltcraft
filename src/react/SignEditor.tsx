@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { focusable } from 'tabbable'
 import markdownToFormattedText from '../markdownToFormattedText'
-import { ProseMirrorView } from './prosemirror-markdown'
+import type { ProseMirrorView } from './prosemirror-markdown'
 import Button from './Button'
 import 'prosemirror-view/style/prosemirror.css'
 import 'prosemirror-menu/style/menu.css'
@@ -12,17 +12,17 @@ const imageSource = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAMCAYAA
 
 type Props = {
   handleInput: (target: HTMLInputElement) => void,
-  isWysiwyg: boolean,
+  ProseMirrorView: typeof ProseMirrorView,
   handleClick?: (view: ResultType) => void
 }
 
 export type ResultType = {
   plainText: string[]
-} | {
-  dataText: string[]
+  dataText?: string[]
 }
 
-export default ({ handleInput, isWysiwyg, handleClick }: Props) => {
+export default ({ handleInput, ProseMirrorView, handleClick }: Props) => {
+  const isWysiwyg = !!ProseMirrorView
   const prosemirrorContainer = useRef(null)
   const editorView = useRef<ProseMirrorView | null>(null)
 
@@ -48,11 +48,12 @@ export default ({ handleInput, isWysiwyg, handleClick }: Props) => {
         const nextElem = elements[focusedElemIndex + dir]
         nextElem?.focus()
       }
-    }}>
+    }}
+  >
     <div className='signs-editor-inner-container'>
       <img className='signs-editor-bg-image' src={imageSource} alt='' />
       {isWysiwyg ? (
-        <p ref={prosemirrorContainer} className='wysiwyg-editor'></p>
+        <p ref={prosemirrorContainer} className='wysiwyg-editor' />
       ) : [1, 2, 3, 4].map((value, index) => {
         return <input
           className='sign-editor'
@@ -61,23 +62,28 @@ export default ({ handleInput, isWysiwyg, handleClick }: Props) => {
           maxLength={15} // overriden by handleInput
           onChange={(e) => {
             handleInput(e.currentTarget)
-          }} />
-      })
-      }
-      <Button onClick={async () => {
-        if (handleClick) {
-          if (isWysiwyg) {
-            const text = markdownToFormattedText(editorView.current!.content)
-            handleClick({ dataText: text })
-          } else {
-            const text = [] as string[]
-            for (const input of document.getElementsByClassName('sign-editor')) {
-              text.push((input as HTMLInputElement).value)
+          }}
+        />
+      })}
+      <Button
+        onClick={async () => {
+          if (handleClick) {
+            if (isWysiwyg) {
+              const formattedText = markdownToFormattedText(editorView.current!.content)
+              const plainText = formattedText
+                .map((t) => (Array.isArray(t) && Array.isArray(t[0]) ? t.map((t) => t[0]) : t))
+                .map((t) => (Array.isArray(t) ? t.map((t) => t.text).join('') : t))
+              handleClick({ dataText: formattedText, plainText })
+            } else {
+              const text = [] as string[]
+              for (const input of document.getElementsByClassName('sign-editor')) {
+                text.push((input as HTMLInputElement).value)
+              }
+              handleClick({ plainText: text })
             }
-            handleClick({ plainText: text })
           }
-        }
-      }} className='sign-editor-button' label={'Done'} />
+        }} className='sign-editor-button' label="Done"
+      />
     </div>
   </div>
 }

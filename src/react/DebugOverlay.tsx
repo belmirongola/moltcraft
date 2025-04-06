@@ -1,7 +1,9 @@
-import { useEffect, useRef, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { Block } from 'prismarine-block'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
-import worldInteractions from '../worldInteractions'
+import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
 import styles from './DebugOverlay.module.css'
 
 export default () => {
@@ -13,10 +15,17 @@ export default () => {
     received: {} as { [key: string]: number },
     sent: {} as { [key: string]: number }
   })
+  window.packetsCountByNamePerSec = packetsCountByNamePerSec
+  const packetsCountByNamePer10Sec = useRef({
+    received: {} as { [key: string]: number },
+    sent: {} as { [key: string]: number }
+  })
+  window.packetsCountByNamePer10Sec = packetsCountByNamePer10Sec
   const packetsCountByName = useRef({
     received: {} as { [key: string]: number },
     sent: {} as { [key: string]: number }
   })
+  window.packetsCountByName = packetsCountByName
   const ignoredPackets = useRef(new Set([] as any[]))
   const [packetsString, setPacketsString] = useState('')
   const [showDebug, setShowDebug] = useState(false)
@@ -25,12 +34,13 @@ export default () => {
   const [blockL, setBlockL] = useState(0)
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
-  const [entitiesCount, setEntitiesCount] = useState(0)
   const [dimension, setDimension] = useState('')
-  const [cursorBlock, setCursorBlock] = useState<typeof worldInteractions.cursorBlock>(null)
-  const [rendererDevice, setRendererDevice] = useState('')
+  const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
+  const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
+  const [clientTps, setClientTps] = useState(0)
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
+  const rendererDevice = appViewer.rendererState.renderer ?? 'No render backend'
 
   const quadsDescription = [
     'north (towards negative Z)',
@@ -61,9 +71,11 @@ export default () => {
   const managePackets = (type, name, data) => {
     packetsCountByName.current[type][name] ??= 0
     packetsCountByName.current[type][name]++
+    packetsCountByNamePerSec.current[type][name] ??= 0
+    packetsCountByNamePerSec.current[type][name]++
+    packetsCountByNamePer10Sec.current[type][name] ??= 0
+    packetsCountByNamePer10Sec.current[type][name]++
     if (options.debugLogNotFrequentPackets && !ignoredPackets.current.has(name) && !hardcodedListOfDebugPacketsToIgnore[type].includes(name)) {
-      packetsCountByNamePerSec.current[type][name] ??= 0
-      packetsCountByNamePerSec.current[type][name]++
       if (packetsCountByNamePerSec.current[type][name] > 5 || packetsCountByName.current[type][name] > 100) { // todo think of tracking the count within 10s
         console.info(`[packet ${name} was ${type} too frequent] Ignoring...`)
         ignoredPackets.current.add(name)
@@ -74,14 +86,44 @@ export default () => {
   }
 
   useEffect(() => {
+    let lastTpsReset = 0
+    let lastTps = 0
+    let lastTickDate = 0
+    const updateTps = (increment = false) => {
+      if (Date.now() - lastTpsReset >= 1000) {
+        setClientTps(lastTps)
+        window.lastTpsArray ??= []
+        window.lastTpsArray.push(lastTps)
+        lastTps = 0
+        lastTpsReset = Date.now()
+      }
+      if (increment) {
+        lastTickDate = Date.now()
+        lastTps++
+      }
+    }
+
     document.addEventListener('keydown', handleF3)
+    let update = 0
     const packetsUpdateInterval = setInterval(() => {
       setPacketsString(`↓ ${received.current.count} (${(received.current.size / 1024).toFixed(2)} KB/s, ${getFixedFilesize(receivedTotal.current)}) ↑ ${sent.current.count}`)
       received.current = { ...defaultPacketsCount }
       sent.current = { ...defaultPacketsCount }
       packetsCountByNamePerSec.current.received = {}
       packetsCountByNamePerSec.current.sent = {}
+      if (update++ % 10 === 0) {
+        packetsCountByNamePer10Sec.current.received = {}
+        packetsCountByNamePer10Sec.current.sent = {}
+      }
+      updateTps(false)
     }, 1000)
+
+    bot.on('physicsTick', () => {
+      updateTps(true)
+    })
+    bot._client.on('packet', () => {
+      updateTps(false)
+    })
 
     const freqUpdateInterval = setInterval(() => {
       setPos({ ...bot.entity.position })
@@ -90,9 +132,18 @@ export default () => {
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
-      setCursorBlock(worldInteractions.cursorBlock)
-      setEntitiesCount(Object.values(bot.entities).length)
+      setCursorBlock(bot.mouse.getCursorState().cursorBlock)
     }, 100)
+
+    const notFrequentUpdateInterval = setInterval(async () => {
+      const block = bot.mouse.cursorBlock
+      if (!block) {
+        setBlockInfo(null)
+        return
+      }
+      const { customBlockName, modelInfo } = await getThreeJsRendererMethods()?.getBlockInfo(block.position, block.stateId) ?? {}
+      setBlockInfo({ customBlockName, modelInfo })
+    }, 300)
 
     // @ts-expect-error
     bot._client.on('packet', readPacket)
@@ -103,17 +154,12 @@ export default () => {
       managePackets('sent', name, data)
     })
 
-    try {
-      const gl = window.renderer.getContext()
-      setRendererDevice(gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info')!.UNMASKED_RENDERER_WEBGL))
-    } catch (err) {
-      console.warn(err)
-    }
-
     return () => {
       document.removeEventListener('keydown', handleF3)
       clearInterval(packetsUpdateInterval)
       clearInterval(freqUpdateInterval)
+      clearInterval(notFrequentUpdateInterval)
+      console.log('Last physics tick before disconnect was', Date.now() - lastTickDate, 'ms ago')
     }
   }, [])
 
@@ -125,47 +171,65 @@ export default () => {
   if (!showDebug) return null
 
   return <>
-    <div className={styles['debug-left-side']}>
+    <div className={`debug-left-side ${styles['debug-left-side']}`}>
       <p>Prismarine Web Client ({bot.version})</p>
-      <p>E: {entitiesCount}</p>
+      {appViewer.backend?.getDebugOverlay?.().entitiesString && <p>E: {appViewer.backend.getDebugOverlay().entitiesString}</p>}
       <p>{dimension}</p>
-      <div className={styles.empty}></div>
+      <div className={styles.empty} />
       <p>XYZ: {pos.x.toFixed(3)} / {pos.y.toFixed(3)} / {pos.z.toFixed(3)}</p>
       <p>Chunk: {Math.floor(pos.x % 16)} ~ {Math.floor(pos.z % 16)} in {Math.floor(pos.x / 16)} ~ {Math.floor(pos.z / 16)}</p>
       <p>Packets: {packetsString}</p>
+      <p>Client TPS: {clientTps}</p>
       <p>Facing (viewer): {bot.entity.yaw.toFixed(3)} {bot.entity.pitch.toFixed(3)}</p>
       <p>Facing (minecraft): {quadsDescription[minecraftQuad.current]} ({minecraftYaw.current.toFixed(1)} {(bot.entity.pitch * -180 / Math.PI).toFixed(1)})</p>
       <p>Light: {blockL} ({skyL} sky)</p>
 
       <p>Biome: minecraft:{loadedData.biomesArray[biomeId]?.name ?? 'unknown biome'}</p>
       <p>Day: {day}</p>
-      <div className={styles.empty}></div>
-      {Object.entries(customEntries.current).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
+      <div className={styles.empty} />
+      {Object.entries(appViewer.backend?.getDebugOverlay?.().left ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
 
-    <div className={styles['debug-right-side']}>
-      <p>Renderer: {rendererDevice} powered by three.js r{THREE.REVISION}</p>
-      <div className={styles.empty}></div>
+    <div className={`debug-right-side ${styles['debug-right-side']}`}>
+      <p>Backend: {appViewer.backend?.displayName}</p>
+      <p>Renderer: {rendererDevice}</p>
+      <div className={styles.empty} />
       {cursorBlock ? (<>
         <p>{cursorBlock.name}</p>
         {
-          Object.entries(cursorBlock.getProperties()).map(
-            ([name, value], idx, arr) => {
-              return <p key={name}>
-                {name}: {
-                  typeof value === 'boolean' ? (
-                    <span style={{ color: value ? 'lightgreen' : 'red' }}>{value}</span>
-                  ) : value
-                }
-              </p>
-            }
-          )
+          Object.entries(cursorBlock.getProperties()).map(([name, value], idx, arr) => {
+            return <p key={name}>
+              {name}: {
+                typeof value === 'boolean' ? (
+                  <span style={{ color: value ? 'lightgreen' : 'red' }}>{String(value)}</span>
+                ) : value
+              }
+            </p>
+          })
         }
       </>)
         : ''}
       {cursorBlock ? (
         <p>Looking at: {cursorBlock.position.x} {cursorBlock.position.y} {cursorBlock.position.z}</p>
       ) : ''}
+      <div className={styles.empty} />
+      {blockInfo && (() => {
+        const { customBlockName, modelInfo } = blockInfo
+        return modelInfo && (
+          <>
+            {customBlockName && <p style={{ fontSize: 7, }}>Custom block: {customBlockName}</p>}
+            {modelInfo.issues.map((issue, i) => (
+              <p key={i} style={{ color: 'yellow', fontSize: 7, }}>{issue}</p>
+            ))}
+            {/* <p style={{ fontSize: 7, }}>Resolved models chain: {modelInfo.modelNames.join(' -> ')}</p> */}
+            <p style={{ fontSize: 7, }}>Resolved model: {modelInfo.modelNames[0] ?? '-'}</p>
+            <p style={{ fontSize: 7, whiteSpace: 'nowrap', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {modelInfo.conditions.join(', ')}
+            </p>
+          </>
+        )
+      })()}
+      {Object.entries(appViewer.backend?.getDebugOverlay?.().right ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
   </>
 }

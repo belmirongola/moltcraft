@@ -2,6 +2,7 @@ name: Release
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  MAIN_MENU_LINKS: ${{ vars.MAIN_MENU_LINKS }}
 on:
   push:
     branches: [release]
@@ -12,17 +13,31 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install pnpm
-        run: npm i -g vercel pnpm@9.0.4
+        uses: pnpm/action-setup@v4
+      - name: Install Global Dependencies
+        run: pnpm add -g vercel
       # - run: pnpm install
       # - run: pnpm build
       - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - run: node scripts/replaceFavicon.mjs ${{ secrets.FAVICON_MAIN }}
       # will install + build to .vercel/output/static
+      - name: Get Release Info
+        run: pnpx zardoy-release empty --skip-github --output-file assets/release.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
+        env:
+          CONFIG_JSON_SOURCE: BUNDLED
       - run: pnpm build-storybook
       - name: Copy playground files
-        run: node prismarine-viewer/esbuild.mjs && cp prismarine-viewer/public/index.html .vercel/output/static/playground.html && cp prismarine-viewer/public/playground.js .vercel/output/static/playground.js
+        run: |
+          mkdir -p .vercel/output/static/playground
+          pnpm build-playground
+          cp -r renderer/dist/* .vercel/output/static/playground/
       - name: Download Generated Sounds map
         run: node scripts/downloadSoundsMap.mjs
       - name: Deploy Project to Vercel
@@ -30,20 +45,43 @@ jobs:
         with:
           run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --prod
         id: deploy
-      - run: |
-          pnpx zardoy-release node --footer "This release URL: ${{ steps.deploy.outputs.stdout }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # has possible output: tag
-        id: release
-      # has output
+      # publish to github
       - run: cp vercel.json .vercel/output/static/vercel.json
       - uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .vercel/output/static
           force_orphan: true
-      - run: pnpm tsx scripts/buildNpmReact.ts ${{ steps.release.outputs.tag }}
-        if: steps.release.outputs.tag
+
+      - name: Build single-file version - minecraft.html
+        run: pnpm build-single-file && mv dist/single/index.html minecraft.html
+      - name: Build self-host version
+        run: pnpm build
+      - name: Bundle server.js
+        run: |
+          pnpm esbuild server.js --bundle --platform=node --outfile=bundled-server.js --define:process.env.NODE_ENV="'production'"
+
+      - name: Create zip package
+        run: |
+          mkdir -p package
+          cp -r dist package/
+          cp bundled-server.js package/server.js
+          cd package
+          zip -r ../self-host.zip .
+
+      - run: |
+          pnpx zardoy-release node --footer "This release URL: ${{ steps.deploy.outputs.stdout }}"
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # has possible output: tag
+        id: release
+
+      # has output
+      - name: Set publishing config
+        run: pnpm config set '//registry.npmjs.org/:_authToken' "${NODE_AUTH_TOKEN}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - run: pnpm tsx scripts/buildNpmReact.ts ${{ steps.release.outputs.tag }}
+      #   if: steps.release.outputs.tag
+      #   env:
+      #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -28,11 +28,11 @@ module.exports = {
   'view-distance': 2,
   'player-list-text': {
     'header': 'Flying squid',
-    'footer': 'Test server'
+    'footer': 'Integrated server'
   },
   keepAlive: false,
   'everybody-op': true,
   'max-entities': 100,
-  'version': '1.14.4',
-  versionMajor: '1.14'
+  'version': '1.18.2',
+  versionMajor: '1.18'
 }

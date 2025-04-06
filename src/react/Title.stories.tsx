@@ -7,7 +7,7 @@ const meta: Meta<typeof Title> = {
 }
 
 export default meta
-type Story = StoryObj<typeof Title>;
+type Story = StoryObj<typeof Title>
 
 export const Primary: Story = {
   args: {
@@ -23,9 +23,9 @@ export const Primary: Story = {
       text: 'Action bar text'
     },
     transitionTimes: {
-      fadeIn: 2500,
-      stay: 17_500,
-      fadeOut: 5000
+      fadeIn: 500,
+      stay: 3500,
+      fadeOut: 1000
     }
   }
 }

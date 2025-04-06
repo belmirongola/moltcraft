@@ -2,7 +2,7 @@ import { remark } from 'remark'
 
 export default (markdown: string) => {
   const arr = markdown.split('\n\n')
-  const lines = ['', '', '', '']
+  const lines = ['', '', '', ''] as any[]
   for (const [i, ast] of arr.map(md => remark().parse(md)).entries()) {
     lines[i] = transformToMinecraftJSON(ast as Element)
   }
@@ -38,21 +38,21 @@ function transformToMinecraftJSON (element: Element): any {
 }
 
 interface Position {
-    start: {
-        line: number;
-        column: number;
-        offset: number;
-    };
-    end: {
-        line: number;
-        column: number;
-        offset: number;
-    };
-  }
+  start: {
+    line: number;
+    column: number;
+    offset: number;
+  };
+  end: {
+    line: number;
+    column: number;
+    offset: number;
+  };
+}
 
-  interface Element {
-    type: string;
-    children?: Element[];
-    value?: string;
-    position: Position;
-  }
+interface Element {
+  type: string;
+  children?: Element[];
+  value?: string;
+  position: Position;
+}

@@ -1,17 +1,16 @@
 import { useSnapshot } from 'valtio'
 import { useState, useEffect, useMemo } from 'react'
-import { isGameActive, miscUiState } from '../globalState'
-import MessageFormattedString from './MessageFormattedString'
+import { isGameActive } from '../globalState'
 import PlayerListOverlay from './PlayerListOverlay'
 import './PlayerListOverlay.css'
-
+import { lastConnectOptions } from './AppStatusProvider'
 
 const MAX_ROWS_PER_COL = 10
 
 type Players = typeof bot.players
 
 export default () => {
-  const { serverIp } = useSnapshot(miscUiState)
+  const serverIp = lastConnectOptions.value?.server
   const [clientId, setClientId] = useState('')
   const [players, setPlayers] = useState<Players>({})
   const [isOpen, setIsOpen] = useState(false)
@@ -31,15 +30,19 @@ export default () => {
     }
   }
 
-  useMemo(() => {
+  useEffect(() => {
     function requestUpdate () {
-      // Placeholder for requestUpdate logic
-      setPlayers(bot.players)
+      setPlayers(bot?.players ?? {})
     }
 
     bot.on('playerUpdated', () => requestUpdate())
     bot.on('playerJoined', () => requestUpdate())
     bot.on('playerLeft', () => requestUpdate())
+    requestUpdate()
+    const interval = setInterval(() => {
+      requestUpdate()
+    }, 1000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -81,10 +84,10 @@ export default () => {
 
   if (!isOpen) return null
 
-  return <PlayerListOverlay 
-    playersLists={lists} 
-    clientId={clientId} 
-    tablistHeader={bot.tablist.header} 
+  return <PlayerListOverlay
+    playersLists={lists}
+    clientId={clientId}
+    tablistHeader={bot.tablist.header}
     tablistFooter={bot.tablist.footer}
     serverIP={serverIp ?? ''}
   />

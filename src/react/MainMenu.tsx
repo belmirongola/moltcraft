@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import React from 'react'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { haveDirectoryPicker } from '../utils'
-import { activeModalStack } from '../globalState'
+import { ConnectOptions } from '../connect'
 import styles from './mainMenu.module.css'
 import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
+import useLongPress from './useLongPress'
+import PauseLinkButtons from './PauseLinkButtons'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -14,64 +16,81 @@ interface Props {
   singleplayerAction?: Action
   optionsAction?: Action
   githubAction?: Action
-  discordAction?: Action
   openFileAction?: Action
   mapsProvider?: string
-}
-
-const refreshApp = async (failedUpdate = false) => {
-  const registration = await navigator.serviceWorker.getRegistration()
-  await registration?.unregister()
-  if (failedUpdate) {
-    await new Promise(resolve => {
-      setTimeout(resolve, 2000)
-    })
-  }
-  if (activeModalStack.length !== 0) return
-  if (failedUpdate) {
-    sessionStorage.justReloaded = false
-    // try to force bypass cache
-    location.search = '?update=true'
-  } else {
-    window.justReloaded = true
-    sessionStorage.justReloaded = true
-    window.location.reload()
-  }
+  versionStatus?: string
+  versionTitle?: string
+  onVersionStatusClick?: () => void
+  bottomRightLinks?: string
+  versionText?: string
+  onVersionTextClick?: () => void
+  singleplayerAvailable?: boolean
 }
 
 const httpsRegex = /^https?:\/\//
 
-export default ({ connectToServerAction, mapsProvider, singleplayerAction, optionsAction, githubAction, discordAction, openFileAction }: Props) => {
-  const [versionStatus, setVersionStatus] = useState('')
-  const [versionTitle, setVersionTitle] = useState('')
+export default ({
+  connectToServerAction,
+  mapsProvider,
+  singleplayerAction,
+  optionsAction,
+  githubAction,
+  openFileAction,
+  versionText,
+  onVersionTextClick,
+  versionStatus,
+  versionTitle,
+  onVersionStatusClick,
+  bottomRightLinks,
+  singleplayerAvailable = true
+}: Props) => {
+  if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+  const linksParsed = bottomRightLinks?.split(/;|\n/g).map(l => {
+    const parts = l.split(':')
+    return [parts[0], parts.slice(1).join(':')]
+  }) as Array<[string, string]> | undefined
 
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      setVersionStatus('(dev)')
-    } else {
-      fetch('./version.txt').then(async (f) => {
-        if (f.status === 404) return
-        const contents = await f.text()
-        const isLatest = contents === process.env.BUILD_VERSION
-        if (!isLatest && sessionStorage.justReloaded) {
-          setVersionStatus('(force reloading, wait)')
-          void refreshApp(true)
-          return
+  const singleplayerLongPress = useLongPress(
+    () => {
+      window.location.href = window.location.pathname + '?sp=1'
+    },
+    () => singleplayerAction?.(null as any),
+    { delay: 500 }
+  )
+
+  const versionLongPress = useLongPress(
+    () => {
+      const buildDate = process.env.BUILD_VERSION ? new Date(process.env.BUILD_VERSION + ':00:00.000Z') : null
+      const hoursAgo = buildDate ? Math.round((Date.now() - buildDate.getTime()) / (1000 * 60 * 60)) : null
+      alert(`BUILD DATE:\n${buildDate?.toLocaleString() || 'Development build'}${hoursAgo ? `\nBuilt ${hoursAgo} hours ago` : ''}`)
+    },
+    () => onVersionTextClick?.(),
+  )
+
+  const connectToServerLongPress = useLongPress(
+    () => {
+      if (process.env.NODE_ENV === 'development') {
+      // Connect to <origin>:25565
+        const origin = window.location.hostname
+        const connectOptions: ConnectOptions = {
+          server: `${origin}:25565`,
+          username: 'test',
         }
-        setVersionStatus(`(${isLatest ? 'latest' : 'new version available'})`)
-        setVersionTitle(`Loaded: ${process.env.BUILD_VERSION}. Remote: ${contents}`)
-      }, () => { })
-    }
-  }, [])
-
+        dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
+      }
+    },
+    () => connectToServerAction?.(null as any),
+    { delay: 500 }
+  )
 
   return (
     <div className={styles.root}>
       <div className={styles['game-title']}>
-        <div className={styles.minec}></div>
-        <div className={styles.raft}></div>
-        <div className={styles.edition}></div>
-        <span className={styles.splash}>Prismarine is a beautiful block</span>
+        <div className={styles.minecraft}>
+          <div className={styles.edition} />
+          <span className={styles.splash}>Prismarine is a beautiful block</span>
+        </div>
       </div>
 
       <div className={styles.menu}>
@@ -80,16 +99,17 @@ export default ({ connectToServerAction, mapsProvider, singleplayerAction, optio
             content: 'Connect to Java servers!',
             placement: 'top',
           }}
-          onClick={connectToServerAction}
+          {...connectToServerLongPress}
           data-test-id='servers-screen-button'
         >
           Connect to server
         </ButtonWithTooltip>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <ButtonWithTooltip
-            style={{ width: 170 }}
-            onClick={singleplayerAction}
+            style={{ width: 150 }}
+            {...singleplayerLongPress}
             data-test-id='singleplayer-button'
+            disabled={!singleplayerAvailable}
             initialTooltip={{
               content: 'Create worlds and play offline',
               placement: 'left',
@@ -98,6 +118,14 @@ export default ({ connectToServerAction, mapsProvider, singleplayerAction, optio
           >
             Singleplayer
           </ButtonWithTooltip>
+
+          <ButtonWithTooltip
+            disabled={!mapsProvider}
+            // className={styles['maps-provider']}
+            icon={pixelartIcons.map}
+            initialTooltip={{ content: 'Explore maps to play from provider!', placement: 'top-start' }}
+            onClick={() => mapsProvider && openURL(httpsRegex.test(mapsProvider) ? mapsProvider : 'https://' + mapsProvider, false)}
+          />
 
           <ButtonWithTooltip
             data-test-id='select-file-folder'
@@ -115,51 +143,43 @@ export default ({ connectToServerAction, mapsProvider, singleplayerAction, optio
           Options
         </Button>
         <div className={styles['menu-row']}>
-          <ButtonWithTooltip
-            initialTooltip={{
-              content: 'Report bugs or request features!',
-            }}
-            style={{ width: '98px' }}
-            onClick={githubAction}
-          >
-            GitHub
-          </ButtonWithTooltip>
-          <Button
-            style={{ width: '98px' }}
-            onClick={discordAction}
-          >
-            Discord
-          </Button>
+          <PauseLinkButtons />
         </div>
       </div>
 
       <div className={styles['bottom-info']}>
-        <span
-          title={`${versionTitle} (click to reload)`}
-          onClick={async () => {
-            setVersionStatus('(reloading)')
-            await refreshApp()
-          }}
-          className={styles['product-info']}
-        >
-          Prismarine Web Client {versionStatus}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 10, color: 'gray' }} {...versionLongPress}>{versionText}</span>
+          <span
+            title={`${versionTitle} (click to reload)`}
+            onClick={onVersionStatusClick}
+            className={styles['product-info']}
+          >
+            Prismarine Web Client {versionStatus}
+          </span>
+        </div>
         <span className={styles['product-description']}>
-          <a style={{
-            color: 'lightgray',
-            fontSize: 9,
-          }} href='https://privacy.mcraft.fun'>Privacy Policy</a>
-          <span>A Minecraft client in the browser!</span>
+          <div className={styles['product-link']}>
+            {linksParsed?.map(([name, link], i, arr) => {
+              if (!link.startsWith('http')) link = `https://${link}`
+              return <div style={{
+                color: 'lightgray',
+                fontSize: 8,
+              }}>
+                <a
+                  key={name}
+                  style={{
+                    whiteSpace: 'nowrap',
+                  }} href={link}
+                >{name}
+                </a>
+                {i < arr.length - 1 && <span style={{ marginLeft: 2 }}>·</span>}
+              </div>
+            })}
+          </div>
+          <span>A Minecraft client clone in the browser!</span>
         </span>
       </div>
-
-      {mapsProvider &&
-        <ButtonWithTooltip
-          className={styles['maps-provider']}
-          icon={pixelartIcons.map}
-          initialTooltip={{ content: 'Explore maps to play from provider!', placement: 'right' }}
-          onClick={() => openURL(httpsRegex.test(mapsProvider) ? mapsProvider : 'https://' + mapsProvider, false)}
-        />}
     </div>
   )
 }

@@ -2,12 +2,13 @@ import { useSnapshot } from 'valtio'
 import { noCase } from 'change-case'
 import { titleCase } from 'title-case'
 import { useMemo } from 'react'
-import { options, qsOptions } from '../optionsStorage'
-import { miscUiState } from '../globalState'
+import { disabledSettings, options, qsOptions } from '../optionsStorage'
+import { hideAllModals, miscUiState } from '../globalState'
 import Button from './Button'
 import Slider from './Slider'
 import Screen from './Screen'
 import { showOptionsModal } from './SelectOption'
+import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 
 type GeneralItem<T extends string | number | boolean> = {
   id?: string
@@ -38,7 +39,7 @@ export type OptionMeta<T = any> = GeneralItem<T & string> & ({
 
 // todo not reactive
 const isLocked = (item: GeneralItem<any>) => {
-  return Object.keys(qsOptions).includes(item.id!)
+  return disabledSettings.value.has(item.id!)
 }
 
 const useCommonComponentsProps = (item: OptionMeta) => {
@@ -63,6 +64,8 @@ export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'togg
   const valuesTitlesMap = useMemo(() => {
     if (!item.values) {
       return {
+        // true: <span style={{ color: 'lime' }}>ON</span>,
+        // false: <span style={{ color: 'red' }}>OFF</span>,
         true: 'ON',
         false: 'OFF',
       }
@@ -82,7 +85,9 @@ export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'togg
   return <Button
     data-setting={item.id}
     label={`${item.text}: ${valuesTitlesMap[optionValue]}`}
-    onClick={async () => {
+    // label={`${item.text}:`}
+    // postLabel={valuesTitlesMap[optionValue]}
+    onClick={async (event) => {
       if (disabledReason) {
         await showOptionsModal(`The option is unavailable. ${disabledReason}`, [])
         return
@@ -106,7 +111,10 @@ export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'togg
         if (currentIndex === -1) {
           options[item.id!] = getOptionValue(values[0])
         } else {
-          options[item.id!] = getOptionValue(values[(currentIndex + 1) % values.length])
+          const nextIndex = event.shiftKey
+            ? (currentIndex - 1 + values.length) % values.length
+            : (currentIndex + 1) % values.length
+          options[item.id!] = getOptionValue(values[nextIndex])
         }
       } else {
         options[item.id!] = !options[item.id!]
@@ -181,10 +189,18 @@ interface Props {
 }
 
 export default ({ items, title, backButtonAction }: Props) => {
+  const { currentTouch } = useSnapshot(miscUiState)
+
   return <Screen
     title={title}
   >
     <div className='screen-items'>
+      {currentTouch && (
+        <div style={{ position: 'fixed', marginLeft: '-30px', display: 'flex', flexDirection: 'column', gap: 1, }}>
+          <Button icon={pixelartIcons['close']} onClick={hideAllModals} style={{ color: '#ff5d5d', }} />
+          <Button icon={pixelartIcons['chevron-left']} onClick={backButtonAction} style={{ color: 'yellow', }} />
+        </div>
+      )}
       {items.map((element, i) => {
         // make sure its unique!
         return <RenderOption key={element.id ?? `${title}-${i}`} item={element} />
