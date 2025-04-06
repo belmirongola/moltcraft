@@ -109,6 +109,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   geometryReceiveCount = {} as Record<number, number>
   allLoadedIn: undefined | number
   onWorldSwitched = [] as Array<() => void>
+  worstRenderTime = 0
+  avgRenderTime = 0
 
   edgeChunks = {} as Record<string, boolean>
   lastAddChunk = null as null | {

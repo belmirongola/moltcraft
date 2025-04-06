@@ -139,7 +139,7 @@ export default async () => {
   try {
     return await inner()
   } catch (err) {
-    setLoadingScreenStatus(`Failed to download. Either refresh page or remove map param from URL. Reason: ${err.message}`)
+    setLoadingScreenStatus(`Failed to download/open. Either refresh page or remove map param from URL. Reason: ${err.message}`)
     return true
   }
 }
