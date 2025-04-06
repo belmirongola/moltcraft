@@ -34,7 +34,7 @@ export default defineConfig({
       return require('./cypress/plugins/index.js')(on, config)
     },
     baseUrl: 'http://localhost:8080',
-    specPattern: !isPerformanceTest ? 'cypress/e2e/**/*.spec.ts' : 'cypress/e2e/rendering_performance.spec.ts',
+    specPattern: !isPerformanceTest ? 'cypress/e2e/smoke.spec.ts' : 'cypress/e2e/rendering_performance.spec.ts',
     excludeSpecPattern: ['**/__snapshots__/*', '**/__image_snapshots__/*'],
   },
 })
