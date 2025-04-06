@@ -1,13 +1,28 @@
 import { Vec3 } from 'vec3'
-import { downloadAndOpenFileFromUrl } from './downloadAndOpenFile'
+import { WorldRendererCommon } from 'renderer/viewer/lib/worldrendererCommon'
+import prettyBytes from 'pretty-bytes'
+import { subscribe } from 'valtio'
+import { downloadAndOpenMapFromUrl } from './downloadAndOpenFile'
 import { activeModalStack, miscUiState } from './globalState'
-import { options } from './optionsStorage'
-import { BenchmarkAdapter } from './benchmarkAdapter'
+import { disabledSettings, options } from './optionsStorage'
+import { BenchmarkAdapterInfo, getAllInfoLines } from './benchmarkAdapter'
+import { appQueryParams } from './appParams'
 
-const testWorldFixtureUrl = 'https://bucket.mcraft.fun/Future CITY 4.4-slim.zip'
-const testWorldFixtureSpawn = [-133, 87, 309] as const
+const DEFAULT_RENDER_DISTANCE = 8
 
-export const openBenchmark = async (renderDistance = 8) => {
+const fixtures = {
+  default: {
+    url: 'https://bucket.mcraft.fun/Future CITY 4.4-slim.zip',
+    spawn: [-133, 87, 309] as const,
+  },
+}
+
+const testWorldFixtureUrl = fixtures.default.url
+const testWorldFixtureSpawn = fixtures.default.spawn
+
+Error.stackTraceLimit = Error.stackTraceLimit < 30 ? 30 : Error.stackTraceLimit
+
+export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) => {
   let memoryUsageAverage = 0
   let memoryUsageSamples = 0
   let memoryUsageWorst = 0
@@ -22,31 +37,51 @@ export const openBenchmark = async (renderDistance = 8) => {
     }
   }, 200)
 
-  const benchmarkAdapter: BenchmarkAdapter = {
-    get worldLoadTime () {
+  const benchmarkAdapter: BenchmarkAdapterInfo = {
+    get worldLoadTimeSeconds () {
       return window.worldLoadTime
     },
-    get averageRenderTime () {
-      return window.viewer.world.avgRenderTime
+    get averageRenderTimeMs () {
+      return (window.world as WorldRendererCommon).renderTimeAvg
     },
-    get worstRenderTime () {
-      return window.viewer.world.worstRenderTime
+    get worstRenderTimeMs () {
+      return (window.world as WorldRendererCommon).renderTimeMax
+    },
+    get fpsAveragePrediction () {
+      const avgRenderTime = (window.world as WorldRendererCommon).renderTimeAvg
+      return 1000 / avgRenderTime
+    },
+    get fpsWorstPrediction () {
+      const maxRenderTime = (window.world as WorldRendererCommon).renderTimeMax
+      return 1000 / maxRenderTime
+    },
+    get fpsAverageReal () {
+      return -1
+    },
+    get fpsWorstReal () {
+      return -1
     },
     get memoryUsageAverage () {
-      return memoryUsageAverage
+      return prettyBytes(memoryUsageAverage)
     },
     get memoryUsageWorst () {
-      return memoryUsageWorst
+      return prettyBytes(memoryUsageWorst)
     },
     get gpuInfo () {
-      const gl = window.viewer.renderer.getContext()
-      return gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info')!.UNMASKED_RENDERER_WEBGL)
-    }
+      return appViewer.rendererState.renderer
+    },
+    get hardwareConcurrency () {
+      return navigator.hardwareConcurrency
+    },
+    get userAgent () {
+      return navigator.userAgent
+    },
   }
   window.benchmarkAdapter = benchmarkAdapter
 
+  disabledSettings.value.add('renderDistance')
   options.renderDistance = renderDistance
-  void downloadAndOpenFileFromUrl(testWorldFixtureUrl, undefined, {
+  void downloadAndOpenMapFromUrl(testWorldFixtureUrl, undefined, {
     connectEvents: {
       serverCreated () {
         if (testWorldFixtureSpawn) {
@@ -60,12 +95,57 @@ export const openBenchmark = async (renderDistance = 8) => {
       },
     }
   })
+  document.addEventListener('cypress-world-ready', () => {
+    let stats = getAllInfoLines(window.benchmarkAdapter)
+    if (appQueryParams.downloadBenchmark) {
+      const a = document.createElement('a')
+      a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(stats.join('\n'))
+      a.download = `benchmark-${appViewer.backend?.id}.txt`
+      a.click()
+    }
+
+    const panel = document.createElement('div')
+    panel.style.position = 'fixed'
+    panel.style.top = '10px'
+    panel.style.right = '10px'
+    panel.style.backgroundColor = 'rgba(0,0,0,0.8)'
+    panel.style.color = 'white'
+    panel.style.padding = '10px'
+    panel.style.zIndex = '1000'
+    panel.style.fontFamily = 'monospace'
+    panel.id = 'benchmark-panel'
+
+    const pre = document.createElement('pre')
+    panel.appendChild(pre)
+
+    pre.textContent = stats.join('\n')
+    const updateStats = () => {
+      stats = getAllInfoLines(window.benchmarkAdapter)
+      pre.textContent = stats.join('\n')
+    }
+
+    document.body.appendChild(panel)
+    // setInterval(updateStats, 100)
+  })
 }
 
+document.addEventListener('pointerlockchange', (e) => {
+  const panel = document.querySelector<HTMLDivElement>('#benchmark-panel')
+  if (panel) {
+    panel.hidden = !!document.pointerLockElement
+  }
+})
+
+subscribe(activeModalStack, () => {
+  const panel = document.querySelector<HTMLDivElement>('#benchmark-panel')
+  if (panel && activeModalStack.length > 1) {
+    panel.hidden = true
+  }
+})
+
 export const registerOpenBenchmarkListener = () => {
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('openBenchmark')) {
-    void openBenchmark(params.has('renderDistance') ? +params.get('renderDistance')! : undefined)
+  if (appQueryParams.openBenchmark) {
+    void openBenchmark(appQueryParams.renderDistance ? +appQueryParams.renderDistance : undefined)
   }
 
   window.addEventListener('keydown', (e) => {

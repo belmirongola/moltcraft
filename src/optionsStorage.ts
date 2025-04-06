@@ -65,6 +65,7 @@ const defaultOptions = {
   waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
   preventBackgroundTimeoutKick: false,
+  preventSleep: false,
 
   // antiAliasing: false,
 

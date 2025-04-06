@@ -1,6 +1,6 @@
 /// <reference types="cypress" />
-import { BenchmarkAdapter } from '../../src/benchmarkAdapter'
-import { setOptions, cleanVisit, visit } from './shared'
+import { BenchmarkAdapterInfo, getAllInfoLines } from '../../src/benchmarkAdapter'
+import { cleanVisit } from './shared'
 
 it('Benchmark rendering performance', () => {
   cleanVisit('/?openBenchmark=true&renderDistance=5')
@@ -14,26 +14,19 @@ it('Benchmark rendering performance', () => {
     })
   }).then(() => {
     cy.window().then(win => {
-      const adapter = win.benchmarkAdapter as BenchmarkAdapter
-      const renderTimeWorst = adapter.worstRenderTime
-      const renderTimeAvg = adapter.averageRenderTime
-      const fpsWorst = 1000 / renderTimeWorst
-      const fpsAvg = 1000 / renderTimeAvg
-      const totalTime = adapter.worldLoadTime
-      const { gpuInfo } = adapter
+      const adapter = win.benchmarkAdapter as BenchmarkAdapterInfo
 
-      const messages = [
-        `Worst FPS: ${fpsWorst.toFixed(2)}`,
-        `Average FPS: ${fpsAvg.toFixed(2)}`,
-        `Total time: ${totalTime.toFixed(2)}s`,
-        `Memory usage average: ${adapter.memoryUsageAverage.toFixed(2)}MB`,
-        `Memory usage worst: ${adapter.memoryUsageWorst.toFixed(2)}MB`,
-        `GPU info: ${gpuInfo}`,
-      ]
+      const messages = getAllInfoLines(adapter)
+      // wait for 10 seconds
+      cy.wait(10_000)
+      const messages2 = getAllInfoLines(adapter, true)
       for (const message of messages) {
         cy.log(message)
       }
-      cy.writeFile('benchmark.txt', messages.join('\n'))
+      for (const message of messages2) {
+        cy.log(message)
+      }
+      cy.writeFile('benchmark.txt', [...messages, ...messages2].join('\n'))
     })
   })
 })

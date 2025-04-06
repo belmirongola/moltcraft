@@ -657,13 +657,15 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus('Loading world')
   })
 
-  const loadStart = Date.now()
   let worldWasReady = false
   const waitForChunksToLoad = async (progress?: ProgressReporter) => {
     await new Promise<void>(resolve => {
+      if (worldWasReady) {
+        resolve()
+        return
+      }
       const unsub = subscribe(appViewer.rendererState, () => {
-        if (worldWasReady) return
-        if (appViewer.rendererState.world.allChunksLoaded) {
+        if (appViewer.rendererState.world.allChunksLoaded && appViewer.nonReactiveState.world.chunksTotalNumber) {
           worldWasReady = true
           resolve()
           unsub()
@@ -674,11 +676,6 @@ export async function connect (connectOptions: ConnectOptions) {
       })
     })
   }
-
-  void waitForChunksToLoad().then(() => {
-    console.log('All chunks done and ready! Time from renderer connect to ready', (Date.now() - loadStart) / 1000, 's')
-    document.dispatchEvent(new Event('cypress-world-ready'))
-  })
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
   const displayWorld = async () => {
@@ -692,10 +689,17 @@ export async function connect (connectOptions: ConnectOptions) {
       })
       await appViewer.resourcesManager.promiseAssetsReady
     }
-    console.log('try to focus window')
-    window.focus?.()
     errorAbortController.abort()
     if (appStatusState.isError) return
+
+    const loadWorldStart = Date.now()
+    console.log('try to focus window')
+    window.focus?.()
+    void waitForChunksToLoad().then(() => {
+      window.worldLoadTime = (Date.now() - loadWorldStart) / 1000
+      console.log('All chunks done and ready! Time from renderer connect to ready', (Date.now() - loadWorldStart) / 1000, 's')
+      document.dispatchEvent(new Event('cypress-world-ready'))
+    })
 
     try {
       if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
