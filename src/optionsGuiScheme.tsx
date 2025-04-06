@@ -526,7 +526,11 @@ export const guiOptionsScheme: {
       },
     },
     {
-      preventBackgroundTimeoutKick: {}
+      preventBackgroundTimeoutKick: {},
+      preventSleep: {
+        disabledReason: navigator.wakeLock ? undefined : 'Your browser does not support wake lock API',
+        enableWarning: 'When connected to a server, prevent PC from sleeping or screen dimming. Useful for purpusely staying AFK for long time. Some events might still prevent this like loosing tab focus or going low power mode.',
+      },
     },
     {
       custom () {

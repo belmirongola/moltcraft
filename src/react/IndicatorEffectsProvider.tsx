@@ -1,5 +1,5 @@
 import { proxy, subscribe, useSnapshot } from 'valtio'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { subscribeKey } from 'valtio/utils'
 import { inGameError } from '../utils'
 import { fsState } from '../loadSave'
@@ -51,6 +51,7 @@ const getEffectIndex = (newEffect: EffectType) => {
 }
 
 export default () => {
+  const [dummyState, setDummyState] = useState(false)
   const stateIndicators = useSnapshot(state.indicators)
   const chunksLoading = !useSnapshot(appViewer.rendererState).world.allChunksLoaded
   const { mesherWork } = useSnapshot(appViewer.rendererState).world
@@ -66,11 +67,20 @@ export default () => {
     appHasErrors: hasErrors,
     connectionIssues: poorConnection ? 1 : noConnection ? 2 : 0,
     chunksLoading,
+    preventSleep: !!bot.wakeLock,
     // mesherWork,
     ...stateIndicators,
   }
 
   const effects = useSnapshot(state.effects)
+
+  useEffect(() => {
+    // update bot related states
+    const interval = setInterval(() => {
+      setDummyState(s => !s)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   useMemo(() => {
     const effectsImages = Object.fromEntries(loadedData.effectsArray.map((effect) => {
