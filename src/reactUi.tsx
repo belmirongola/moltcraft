@@ -224,9 +224,10 @@ const App = () => {
             <MainMenuRenderApp />
             <TouchAreasControlsProvider />
             <SignInMessageProvider />
-            <NoModalFoundProvider />
             <PacketsReplayProvider />
             <NotificationProvider />
+
+            <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>

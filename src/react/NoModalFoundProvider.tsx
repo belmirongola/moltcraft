@@ -18,7 +18,7 @@ const checkModalAvailability = () => {
     }
   }
 
-  componentActive.enabled = !!last && !hardcodedKnownModals.some(x => last.reactType.startsWith(x)) && !watchedModalsFromHooks.value.has(last.reactType) && !withWildCardModal
+  componentActive.enabled = !!last && !hardcodedKnownModals.some(x => last.reactType.startsWith(x)) && !watchedModalsFromHooks.value.includes(last.reactType) && !withWildCardModal
 }
 
 subscribe(activeModalStack, () => {
