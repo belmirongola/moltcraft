@@ -850,8 +850,8 @@ document.body.addEventListener('touchend', (e) => {
   activeTouch = undefined
 })
 document.body.addEventListener('touchstart', (e) => {
-  const ignoreElem = (e.target as HTMLElement).matches('vercel-live-feedback') || (e.target as HTMLElement).closest('.hotbar')
-  if (!isGameActive(true) || ignoreElem) return
+  const targetElement = (e.target as HTMLElement).closest('#ui-root')
+  if (!isGameActive(true) || !targetElement) return
   // we always prevent default behavior to disable magnifier on ios, but by doing so we also disable click events
   e.preventDefault()
   let firstClickable // todo remove composedPath and this workaround when lit-element is fully dropped
