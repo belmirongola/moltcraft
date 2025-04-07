@@ -141,7 +141,7 @@ export default () => {
         setBlockInfo(null)
         return
       }
-      const { customBlockName, modelInfo } = await getThreeJsRendererMethods()?.getBlockInfo(pos, block.stateId) ?? {}
+      const { customBlockName, modelInfo } = await getThreeJsRendererMethods()?.getBlockInfo(block.position, block.stateId) ?? {}
       setBlockInfo({ customBlockName, modelInfo })
     }, 300)
 

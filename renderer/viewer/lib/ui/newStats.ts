@@ -40,6 +40,13 @@ export const updateStatText = (id, text) => {
   stats[id].innerText = text
 }
 
+export const updatePanesVisibility = (visible: boolean) => {
+  // eslint-disable-next-line guard-for-in
+  for (const id in stats) {
+    stats[id].style.display = visible ? 'block' : 'none'
+  }
+}
+
 export const removeAllStats = () => {
   // eslint-disable-next-line guard-for-in
   for (const id in stats) {

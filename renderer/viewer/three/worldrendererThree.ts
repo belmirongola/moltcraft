@@ -49,6 +49,25 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraShake: CameraShake
   media: ThreeJsMedia
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
+  camera: THREE.PerspectiveCamera
+  renderTimeAvg = 0
+  sectionsOffsetsAnimations = {} as {
+    [chunkKey: string]: {
+      time: number,
+      // also specifies direction
+      speedX: number,
+      speedY: number,
+      speedZ: number,
+
+      currentOffsetX: number,
+      currentOffsetY: number,
+      currentOffsetZ: number,
+
+      limitX?: number,
+      limitY?: number,
+      limitZ?: number,
+    }
+  }
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -60,7 +79,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions) {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
-    super(initOptions.resourcesManager, displayOptions, displayOptions.version)
+    super(initOptions.resourcesManager, displayOptions, initOptions)
 
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
     this.starField = new StarField(this.scene)
@@ -69,7 +88,6 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.addDebugOverlay()
     this.resetScene()
-    this.watchReactivePlayerState()
     this.init()
     void initVR(this)
 
@@ -79,6 +97,16 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.renderUpdateEmitter.on('chunkFinished', (chunkKey: string) => {
       this.finishChunk(chunkKey)
+    })
+    this.worldSwitchActions()
+  }
+
+  worldSwitchActions () {
+    this.onWorldSwitched.push(() => {
+      // clear custom blocks
+      this.protocolCustomBlocks.clear()
+      // Reset section animations
+      this.sectionsOffsetsAnimations = {}
     })
   }
 
@@ -111,22 +139,15 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
   }
 
-  watchReactivePlayerState () {
-    const updateValue = <T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) => {
-      callback(this.displayOptions.playerState.reactive[key])
-      subscribeKey(this.displayOptions.playerState.reactive, key, callback)
-    }
-    updateValue('backgroundColor', (value) => {
-      this.changeBackgroundColor(value)
+  override watchReactivePlayerState () {
+    this.onReactiveValueUpdated('inWater', (value) => {
+      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.displayOptions.playerState.reactive.waterBreathing ? 100 : 20) : null
     })
-    updateValue('inWater', (value) => {
-      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, 100) : null
-    })
-    updateValue('ambientLight', (value) => {
+    this.onReactiveValueUpdated('ambientLight', (value) => {
       if (!value) return
       this.ambientLight.intensity = value
     })
-    updateValue('directionalLight', (value) => {
+    this.onReactiveValueUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
     })
@@ -231,9 +252,19 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.debugOverlayAdded = true
     const pane = addNewStat('debug-overlay')
     setInterval(() => {
-      pane.setVisibility(this.displayStats)
-      if (this.displayStats) {
-        pane.updateText(`C: ${this.renderer.info.render.calls} TR: ${this.renderer.info.render.triangles} TE: ${this.renderer.info.memory.textures} F: ${this.tilesRendered} B: ${this.blocksRendered}`)
+      pane.setVisibility(this.displayAdvancedStats)
+      if (this.displayAdvancedStats) {
+        const formatBigNumber = (num: number) => {
+          return new Intl.NumberFormat('en-US', {}).format(num)
+        }
+        let text = ''
+        text += `C: ${formatBigNumber(this.renderer.info.render.calls)} `
+        text += `TR: ${formatBigNumber(this.renderer.info.render.triangles)} `
+        text += `TE: ${formatBigNumber(this.renderer.info.memory.textures)} `
+        text += `F: ${formatBigNumber(this.tilesRendered)} `
+        text += `B: ${formatBigNumber(this.blocksRendered)}`
+        pane.updateText(text)
+        this.backendInfoReport = text
       }
     }, 200)
   }
@@ -288,20 +319,6 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     // if (object) {
     //   this.debugRecomputedDeletedObjects++
-    // }
-
-    // if (!this.initialChunksLoad && this.enableChunksLoadDelay) {
-    //   const newPromise = new Promise(resolve => {
-    //     if (this.droppedFpsPercentage > 0.5) {
-    //       setTimeout(resolve, 1000 / 50 * this.droppedFpsPercentage)
-    //     } else {
-    //       setTimeout(resolve)
-    //     }
-    //   })
-    //   this.promisesQueue.push(newPromise)
-    //   for (const promise of this.promisesQueue) {
-    //     await promise
-    //   }
     // }
 
     const geometry = new THREE.BufferGeometry()
@@ -416,8 +433,11 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   render (sizeChanged = false) {
+    const start = performance.now()
     this.lastRendered = performance.now()
     this.cursorBlock.render()
+
+    this.updateSectionOffsets()
 
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
@@ -440,6 +460,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     for (const onRender of this.onRender) {
       onRender()
     }
+    const end = performance.now()
+    const totalTime = end - start
+    this.renderTimeAvgCount++
+    this.renderTimeAvg = ((this.renderTimeAvg * (this.renderTimeAvgCount - 1)) + totalTime) / this.renderTimeAvgCount
+    this.renderTimeMax = Math.max(this.renderTimeMax, totalTime)
+    this.currentRenderedFrames++
   }
 
   renderHead (position: Vec3, rotation: number, isWall: boolean, blockEntity) {
@@ -613,9 +639,59 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
+  worldStop () {
+    this.media.onWorldStop()
+  }
+
   destroy (): void {
-    removeAllStats()
     super.destroy()
+  }
+
+  updateSectionOffsets () {
+    const currentTime = performance.now()
+    for (const [key, anim] of Object.entries(this.sectionsOffsetsAnimations)) {
+      const timeDelta = (currentTime - anim.time) / 1000 // Convert to seconds
+      anim.time = currentTime
+
+      // Update offsets based on speed and time delta
+      anim.currentOffsetX += anim.speedX * timeDelta
+      anim.currentOffsetY += anim.speedY * timeDelta
+      anim.currentOffsetZ += anim.speedZ * timeDelta
+
+      // Apply limits if they exist
+      if (anim.limitX !== undefined) {
+        if (anim.speedX > 0) {
+          anim.currentOffsetX = Math.min(anim.currentOffsetX, anim.limitX)
+        } else {
+          anim.currentOffsetX = Math.max(anim.currentOffsetX, anim.limitX)
+        }
+      }
+      if (anim.limitY !== undefined) {
+        if (anim.speedY > 0) {
+          anim.currentOffsetY = Math.min(anim.currentOffsetY, anim.limitY)
+        } else {
+          anim.currentOffsetY = Math.max(anim.currentOffsetY, anim.limitY)
+        }
+      }
+      if (anim.limitZ !== undefined) {
+        if (anim.speedZ > 0) {
+          anim.currentOffsetZ = Math.min(anim.currentOffsetZ, anim.limitZ)
+        } else {
+          anim.currentOffsetZ = Math.max(anim.currentOffsetZ, anim.limitZ)
+        }
+      }
+
+      // Apply the offset to the section object
+      const section = this.sectionObjects[key]
+      if (section) {
+        section.position.set(
+          anim.currentOffsetX,
+          anim.currentOffsetY,
+          anim.currentOffsetZ
+        )
+        section.updateMatrix()
+      }
+    }
   }
 }
 

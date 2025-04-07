@@ -457,7 +457,14 @@
         13,
         14
     ],
-    "powder_snow": "PowderSnowBlock",
+    "powder_snow": [
+        0,
+        0,
+        0,
+        16,
+        16,
+        16
+    ],
     "spore_blossom": [
         2,
         13,
@@ -6547,7 +6554,6 @@
         16,
         15
     ],
-    "pink_petals": "PinkPetalsBlock",
     "big_dripleaf_stem": {
         "facing=north": [
             5,

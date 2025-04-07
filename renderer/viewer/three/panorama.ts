@@ -124,7 +124,7 @@ export class PanoramaRenderer {
 
   async worldBlocksPanorama () {
     const version = '1.21.4'
-    this.options.resourcesManager.currentConfig = { version }
+    this.options.resourcesManager.currentConfig = { version, noInventoryGui: true, }
     await this.options.resourcesManager.updateAssetsData({ })
     if (this.abortController.signal.aborted) return
     console.time('load panorama scene')

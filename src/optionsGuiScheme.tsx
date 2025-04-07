@@ -61,14 +61,18 @@ export const guiOptionsScheme: {
       custom () {
         return <Button label='Guide: Disable VSync' onClick={() => openURL('https://gist.github.com/zardoy/6e5ce377d2b4c1e322e660973da069cd')} inScreen />
       },
-    },
-    {
       backgroundRendering: {
         text: 'Background FPS limit',
         values: [
           ['full', 'NO'],
           ['5fps', '5 FPS'],
           ['20fps', '20 FPS'],
+        ],
+      },
+      activeRenderer: {
+        text: 'Renderer',
+        values: [
+          ['threejs', 'Three.js (stable)'],
         ],
       },
     },
@@ -108,12 +112,12 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        const { _renderByChunks } = useSnapshot(options).rendererOptions.three
+        const { _renderByChunks } = useSnapshot(options).rendererSharedOptions
         return <Button
           inScreen
           label={`Batch Chunks Display ${_renderByChunks ? 'ON' : 'OFF'}`}
           onClick={() => {
-            options.rendererOptions.three._renderByChunks = !_renderByChunks
+            options.rendererSharedOptions._renderByChunks = !_renderByChunks
           }}
         />
       }
@@ -522,7 +526,11 @@ export const guiOptionsScheme: {
       },
     },
     {
-      preventBackgroundTimeoutKick: {}
+      preventBackgroundTimeoutKick: {},
+      preventSleep: {
+        disabledReason: navigator.wakeLock ? undefined : 'Your browser does not support wake lock API',
+        enableWarning: 'When connected to a server, prevent PC from sleeping or screen dimming. Useful for purpusely staying AFK for long time. Some events might still prevent this like loosing tab focus or going low power mode.',
+      },
     },
     {
       custom () {

@@ -34,6 +34,7 @@ const defaultOptions = {
   touchButtonsOpacity: 80,
   touchButtonsPosition: 12,
   touchControlsPositions: getDefaultTouchControlsPositions(),
+  touchControlsSize: getTouchControlsSize(),
   touchMovementType: 'modern' as 'modern' | 'classic',
   touchInteractionType: 'classic' as 'classic' | 'buttons',
   gpuPreference: 'default' as 'default' | 'high-performance' | 'low-power',
@@ -64,6 +65,7 @@ const defaultOptions = {
   waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
   preventBackgroundTimeoutKick: false,
+  preventSleep: false,
 
   // antiAliasing: false,
 
@@ -109,11 +111,10 @@ const defaultOptions = {
   disabledUiParts: [] as string[],
   neighborChunkUpdates: true,
   highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
-  rendererOptions: {
-    three: {
-      _experimentalSmoothChunkLoading: true,
-      _renderByChunks: false
-    }
+  activeRenderer: 'threejs',
+  rendererSharedOptions: {
+    _experimentalSmoothChunkLoading: true,
+    _renderByChunks: false
   }
 }
 
@@ -129,13 +130,23 @@ function getDefaultTouchControlsPositions () {
     ],
     break: [
       70,
-      60
+      57
     ],
     jump: [
       84,
-      60
+      57
     ],
   } as Record<string, [number, number]>
+}
+
+function getTouchControlsSize () {
+  return {
+    joystick: 55,
+    action: 36,
+    break: 36,
+    jump: 36,
+    sneak: 36,
+  }
 }
 
 // const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')

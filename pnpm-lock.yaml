@@ -120,8 +120,8 @@ importers:
         specifier: ^10.0.12
         version: 10.1.6
       flying-squid:
-        specifier: npm:@zardoy/flying-squid@^0.0.51
-        version: '@zardoy/flying-squid@0.0.51(encoding@0.1.13)'
+        specifier: npm:@zardoy/flying-squid@^0.0.58
+        version: '@zardoy/flying-squid@0.0.58(encoding@0.1.13)'
       fs-extra:
         specifier: ^11.1.1
         version: 11.3.0
@@ -151,7 +151,7 @@ importers:
         version: 2.0.4
       net-browserify:
         specifier: github:zardoy/prismarinejs-net-browserify
-        version: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/624cc67c16f5e8b23b772e7eaabae16ba84b8590
+        version: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/4c6eccc7d7a7468ec811cb6c7398ded4753aea55
       node-gzip:
         specifier: ^1.1.2
         version: 1.1.2
@@ -353,11 +353,11 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.48
-        version: 0.2.48
+        specifier: ^0.2.52
+        version: 0.2.52
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
-        version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.3.18)(react@18.3.1)
+        version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/f57dd78ca8e3b7cdd724d4272d8cbf6743b0cf00(@types/react@18.2.20)(react@18.2.0)
       mineflayer:
         specifier: github:GenerelSchwerz/mineflayer
         version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e(encoding@0.1.13)
@@ -3442,13 +3442,16 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
-  '@zardoy/flying-squid@0.0.51':
-    resolution: {integrity: sha512-HHZ79H9NkS44lL9vk6gVEuJDJqj88gpiBt9Ihh5p4rHXTVbRid95riiNK5dD0kHI94P5/DXdtNalvmJDPU86oQ==}
+  '@zardoy/flying-squid@0.0.58':
+    resolution: {integrity: sha512-qkSoaYRpVQaAvcVgZDTe0i4PxaK2l2B6i7GfRCEsyYFl3UaNQYBwwocXqLrIwhsc63bwXa0XQe8UNUubz+A4eA==}
     engines: {node: '>=8'}
     hasBin: true
 
-  '@zardoy/react-util@0.2.7':
-    resolution: {integrity: sha512-LJOml3y8wa5OxvNgDKMceP7kaFHkw2nX9y/RQGMv2sijTEnc4gCd3yNtc4fibu1PFWZlupb6UvsNe45o7UwElg==}
+  '@zardoy/maxrects-packer@2.7.4':
+    resolution: {integrity: sha512-ZIDcSdtSg6EhKFxGYWCcTnA/0YVbpixBL+psUS6ncw4IvdDF5hWauMU3XeCfYwrT/88QFgAq/Pafxt+P9OJyoQ==}
+
+  '@zardoy/react-util@0.2.4':
+    resolution: {integrity: sha512-YRBbXi54QOgWGDSn3NLEMMGrWbfL/gn2khxO31HT0WPFB6IW2rSnB4hcy+S/nc+2D6PRNq4kQxGs4vTAe4a7Xg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     peerDependencies:
       '@nextui-org/react': ^2.4.6
@@ -6545,11 +6548,8 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  maxrects-packer@2.7.3:
-    resolution: {integrity: sha512-bG6qXujJ1QgttZVIH4WDanhoJtvbud/xP/XPyf6A69C9RdA61BM4TomFALCq2nrTa+tARRIBB4LuIFsnUQU2wA==}
-
-  mc-assets@0.2.48:
-    resolution: {integrity: sha512-ixFBAkdWuluBZ3RhWXvD+KyLX5jKAK8ksXJamAuJxc7nXHP6xK5rEAR3qQ7JVYh27USl3mE+GWTFy/aF0CGRYg==}
+  mc-assets@0.2.52:
+    resolution: {integrity: sha512-6mUI63fcUIjB0Ghjls7bLMnse2XUgvhPajsFkRQf10PcXYbfS/OAnX51X8sNx2pzfoHSlA81U7v+v906YwoAUw==}
     engines: {node: '>=18.0.0'}
 
   mcraft-fun-mineflayer@0.1.14:
@@ -6770,8 +6770,8 @@ packages:
   minecraft-folder-path@1.2.0:
     resolution: {integrity: sha512-qaUSbKWoOsH9brn0JQuBhxNAzTDMwrOXorwuRxdJKKKDYvZhtml+6GVCUrY5HRiEsieBEjCUnhVpDuQiKsiFaw==}
 
-  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8:
-    resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8}
+  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/f57dd78ca8e3b7cdd724d4272d8cbf6743b0cf00:
+    resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/f57dd78ca8e3b7cdd724d4272d8cbf6743b0cf00}
     version: 1.0.1
 
   minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/3bd4dc1b2002cd7badfa5b9cf8dda35cd6cc9ac1:
@@ -6784,8 +6784,13 @@ packages:
     version: 1.57.0
     engines: {node: '>=22'}
 
-  minecraft-wrap@1.6.0:
-    resolution: {integrity: sha512-A1GjIR72x9H9cEaxAQsXZe5uhw7CPgq1pGwYkdbPe6mQraePinmj/jRIuntXYWEKrYamwQFT3igIafA+PEG11w==}
+  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284:
+    resolution: {tarball: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284}
+    version: 1.57.0
+    engines: {node: '>=22'}
+
+  minecraft-wrap@1.5.1:
+    resolution: {integrity: sha512-7DZ2WhrcRD3fUMau84l9Va0KWzV92SHNdB7mnNdNhgXID2aW6pjWuYPZi8MepEBemA4XKKdnDx7HmhTbkoiR8A==}
     hasBin: true
 
   minecrafthawkeye@1.3.9:
@@ -6964,8 +6969,8 @@ packages:
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
 
-  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/624cc67c16f5e8b23b772e7eaabae16ba84b8590:
-    resolution: {tarball: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/624cc67c16f5e8b23b772e7eaabae16ba84b8590}
+  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/4c6eccc7d7a7468ec811cb6c7398ded4753aea55:
+    resolution: {tarball: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/4c6eccc7d7a7468ec811cb6c7398ded4753aea55}
     version: 0.2.4
 
   nice-try@1.0.5:
@@ -13386,7 +13391,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@zardoy/flying-squid@0.0.51(encoding@0.1.13)':
+  '@zardoy/flying-squid@0.0.58(encoding@0.1.13)':
     dependencies:
       '@tootallnate/once': 2.0.0
       chalk: 5.4.1
@@ -13397,7 +13402,7 @@ snapshots:
       flatmap: 0.0.3
       long: 5.3.1
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/3bd4dc1b2002cd7badfa5b9cf8dda35cd6cc9ac1(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(encoding@0.1.13)
       mkdirp: 2.1.6
       node-gzip: 1.1.2
       node-rsa: 1.1.1
@@ -13422,7 +13427,9 @@ snapshots:
       - encoding
       - supports-color
 
-  '@zardoy/react-util@0.2.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@zardoy/maxrects-packer@2.7.4': {}
+
+  '@zardoy/react-util@0.2.4(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
       classnames: 2.5.1
       react: 18.3.1
@@ -17245,12 +17252,10 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  maxrects-packer@2.7.3: {}
-
-  mc-assets@0.2.48:
+  mc-assets@0.2.52:
     dependencies:
-      maxrects-packer: 2.7.3
-      zod: 3.24.2
+      maxrects-packer: '@zardoy/maxrects-packer@2.7.4'
+      zod: 3.24.1
 
   mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e(encoding@0.1.13)):
     dependencies:
@@ -17567,7 +17572,7 @@ snapshots:
 
   minecraft-folder-path@1.2.0: {}
 
-  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.3.18)(react@18.3.1):
+  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/f57dd78ca8e3b7cdd724d4272d8cbf6743b0cf00(@types/react@18.2.20)(react@18.2.0):
     dependencies:
       valtio: 1.13.2(@types/react@18.3.18)(react@18.3.1)
     transitivePeerDependencies:
@@ -17625,7 +17630,32 @@ snapshots:
       - encoding
       - supports-color
 
-  minecraft-wrap@1.6.0(encoding@0.1.13):
+  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(encoding@0.1.13):
+    dependencies:
+      '@types/node-rsa': 1.1.4
+      '@types/readable-stream': 4.0.12
+      aes-js: 3.1.2
+      buffer-equal: 1.0.1
+      debug: 4.4.0(supports-color@8.1.1)
+      endian-toggle: 0.0.0
+      lodash.merge: 4.6.2
+      minecraft-data: 3.83.1
+      minecraft-folder-path: 1.2.0
+      node-fetch: 2.7.0(encoding@0.1.13)
+      node-rsa: 0.4.2
+      prismarine-auth: 2.4.2(encoding@0.1.13)
+      prismarine-chat: 1.10.1
+      prismarine-nbt: 2.7.0
+      prismarine-realms: 1.3.2(encoding@0.1.13)
+      protodef: 1.18.0
+      readable-stream: 4.5.2
+      uuid-1345: 1.0.2
+      yggdrasil: 1.7.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
+  minecraft-wrap@1.5.1(encoding@0.1.13):
     dependencies:
       adm-zip: 0.5.16
       debug: 4.4.0(supports-color@8.1.1)
@@ -17917,7 +17947,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/624cc67c16f5e8b23b772e7eaabae16ba84b8590:
+  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/4c6eccc7d7a7468ec811cb6c7398ded4753aea55:
     dependencies:
       body-parser: 1.20.3
       express: 4.21.2

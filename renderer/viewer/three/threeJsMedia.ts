@@ -30,6 +30,21 @@ export class ThreeJsMedia {
   }>()
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
+    this.worldRenderer.onWorldSwitched.push(() => {
+      this.onWorldGone()
+    })
+  }
+
+  onWorldGone () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      this.destroyMedia(id)
+    }
+  }
+
+  onWorldStop () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      this.setVideoPlaying(id, false)
+    }
   }
 
   private createErrorTexture (width: number, height: number, background = 0x00_00_00, error = 'Failed to load'): THREE.CanvasTexture {

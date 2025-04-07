@@ -32,8 +32,16 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     setVideoVolume: worldRenderer.media.setVideoVolume.bind(worldRenderer.media),
     setVideoSpeed: worldRenderer.media.setVideoSpeed.bind(worldRenderer.media),
 
+    addSectionAnimation (id: string, animation: typeof worldRenderer.sectionsOffsetsAnimations[string]) {
+      worldRenderer.sectionsOffsetsAnimations[id] = animation
+    },
+    removeSectionAnimation (id: string) {
+      delete worldRenderer.sectionsOffsetsAnimations[id]
+    },
+
     shakeFromDamage: worldRenderer.cameraShake.shakeFromDamage.bind(worldRenderer.cameraShake),
     onPageInteraction: worldRenderer.media.onPageInteraction.bind(worldRenderer.media),
+    downloadMesherLog: worldRenderer.downloadMesherLog.bind(worldRenderer),
   }
 }
 
@@ -116,4 +124,5 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   return backend
 }
 
+createGraphicsBackend.id = 'threejs'
 export default createGraphicsBackend

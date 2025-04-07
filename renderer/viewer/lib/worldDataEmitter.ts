@@ -26,8 +26,10 @@ export type WorldDataEmitterEvents = {
   listening: () => void
   markAsLoaded: (data: { x: number, z: number }) => void
   unloadChunk: (data: { x: number, z: number }) => void
-  loadChunk: (data: { x: number, z: number, chunk: any, blockEntities: any, worldConfig: any, isLightUpdate: boolean }) => void
+  loadChunk: (data: { x: number, z: number, chunk: string, blockEntities: any, worldConfig: any, isLightUpdate: boolean }) => void
   updateLight: (data: { pos: Vec3 }) => void
+  onWorldSwitch: () => void
+  end: () => void
 }
 
 /**
@@ -39,9 +41,10 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   private readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
   private readonly emitter: WorldDataEmitter
-  keepChunksDistance = 0
   addWaitTime = 1
-  isPlayground = false
+  /* config */ keepChunksDistance = 0
+  /* config */ isPlayground = false
+  /* config */ allowPositionUpdate = true
 
   public reactive = proxy({
     cursorBlock: null as Vec3 | null,
@@ -119,7 +122,13 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       },
       time: () => {
         this.emitter.emit('time', bot.time.timeOfDay)
-      }
+      },
+      respawn: () => {
+        this.emitter.emit('onWorldSwitch')
+      },
+      end: () => {
+        this.emitter.emit('end')
+      },
     } satisfies Partial<BotEvents>
 
 
@@ -157,6 +166,8 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         console.error('error processing entity', err)
       }
     }
+
+    void this.init(bot.entity.position)
   }
 
   removeListenersFromBot (bot: import('mineflayer').Bot) {
@@ -245,6 +256,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   }
 
   async updatePosition (pos: Vec3, force = false) {
+    if (!this.allowPositionUpdate) return
     const [lastX, lastZ] = chunkPos(this.lastPos)
     const [botX, botZ] = chunkPos(pos)
     if (lastX !== botX || lastZ !== botZ || force) {

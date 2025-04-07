@@ -53,9 +53,8 @@ export const saveToBrowserMemory = async () => {
         }
       })
     })
-    //@ts-expect-error
-    const { worldFolder } = localServer.options
-    const saveRootPath = await uniqueFileNameFromWorldName(worldFolder.split('/').pop(), `/data/worlds`)
+    const worldFolder = fsState.inMemorySavePath
+    const saveRootPath = await uniqueFileNameFromWorldName(worldFolder.split('/').pop()!, `/data/worlds`)
     await mkdirRecursive(saveRootPath)
     console.log('made world folder', saveRootPath)
     const allRootPaths = [...usedServerPathsV1]
@@ -290,7 +289,7 @@ export default () => {
       ) : null}
       {!lockConnect && <>
         <Button className="button" style={{ width: '204px' }} onClick={disconnect}>
-          {localServer && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
+          {fsState.inMemorySave && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
         </Button>
       </>}
       {noConnection && (
