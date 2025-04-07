@@ -136,7 +136,7 @@ importers:
         version: 4.17.21
       mcraft-fun-mineflayer:
         specifier: ^0.1.14
-        version: 0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e(encoding@0.1.13))
+        version: 0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/fca01b0c5072dcfc296ddd6a0f6dbf54028b1448(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
@@ -360,7 +360,7 @@ importers:
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.3.18)(react@18.3.1)
       mineflayer:
         specifier: github:GenerelSchwerz/mineflayer
-        version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e(encoding@0.1.13)
+        version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/fca01b0c5072dcfc296ddd6a0f6dbf54028b1448(encoding@0.1.13)
       mineflayer-mouse:
         specifier: ^0.1.7
         version: 0.1.7(@types/debug@4.1.12)(@types/node@22.13.9)(jiti@2.4.2)(terser@5.39.0)(tsx@4.19.3)(yaml@2.7.0)
@@ -2004,8 +2004,8 @@ packages:
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     resolution: {integrity: sha512-F5vX/lerlWx/5HVlkDNbvrtQ19PL6iG8i4ItPTIRtjGiFzusDefP7DI226zSFR8Wlaw45qHv0jn814p/4/qVdQ==}
 
-  '@nxg-org/mineflayer-physics-util@1.8.4':
-    resolution: {integrity: sha512-+zo/QFbZ0AiF+2DI7oLXhtOcQTwhowo+vqSVM4aL/ReRw5D6Am4gj89ND+E4E3m0ZOA4oG/zdVHJSnt5BSfLcw==}
+  '@nxg-org/mineflayer-physics-util@1.8.5':
+    resolution: {integrity: sha512-+pqS4dvGzcBqkb2cJPDRSXEmWuFeMvTTOJoKUwuSvpk1xAEsc+z6+PiYebtys1Hbg47yoIW2y6Qb+LXYJ9abBA==}
 
   '@nxg-org/mineflayer-tracker@1.2.1':
     resolution: {integrity: sha512-SI1ffF8zvg3/ZNE021Ja2W0FZPN+WbQDZf8yFqOcXtPRXAtM9W6HvoACdzXep8BZid7WYgYLIgjKpB+9RqvCNQ==}
@@ -6806,8 +6806,8 @@ packages:
     resolution: {integrity: sha512-3bxph4jfbkBh5HpeouorxzrfSLNV+i+1gugNJ2jf52HW+rt+tW7eiiFPxrJEsOVkPT/3O/dEIW7j93LRlojMkQ==}
     engines: {node: '>=22'}
 
-  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e:
-    resolution: {tarball: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e}
+  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/fca01b0c5072dcfc296ddd6a0f6dbf54028b1448:
+    resolution: {tarball: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/fca01b0c5072dcfc296ddd6a0f6dbf54028b1448}
     version: 4.27.0
     engines: {node: '>=22'}
 
@@ -11449,10 +11449,10 @@ snapshots:
 
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.8.4
+      '@nxg-org/mineflayer-physics-util': 1.8.5
       strict-event-emitter-types: 2.0.0
 
-  '@nxg-org/mineflayer-physics-util@1.8.4':
+  '@nxg-org/mineflayer-physics-util@1.8.5':
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.4
 
@@ -17252,12 +17252,12 @@ snapshots:
       maxrects-packer: '@zardoy/maxrects-packer@2.7.4'
       zod: 3.24.2
 
-  mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e(encoding@0.1.13)):
+  mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/fca01b0c5072dcfc296ddd6a0f6dbf54028b1448(encoding@0.1.13)):
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/3bd4dc1b2002cd7badfa5b9cf8dda35cd6cc9ac1(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
-      mineflayer: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e(encoding@0.1.13)
+      mineflayer: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/fca01b0c5072dcfc296ddd6a0f6dbf54028b1448(encoding@0.1.13)
       prismarine-item: 1.16.0
       ws: 8.18.1
     transitivePeerDependencies:
@@ -17719,9 +17719,9 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/83d7687e1567e1966e279ed235c67109bff9d19e(encoding@0.1.13):
+  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/fca01b0c5072dcfc296ddd6a0f6dbf54028b1448(encoding@0.1.13):
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.8.4
+      '@nxg-org/mineflayer-physics-util': 1.8.5
       minecraft-data: 3.83.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)
