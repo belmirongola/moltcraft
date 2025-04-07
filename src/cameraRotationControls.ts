@@ -37,18 +37,19 @@ export const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
   const maxPitch = 0.5 * Math.PI
   const minPitch = -0.5 * Math.PI
 
-  viewer.world.lastCamUpdate = Date.now()
+  appViewer.lastCamUpdate = Date.now()
 
-  if (viewer.world.freeFlyMode) {
-    // Update freeFlyState directly
-    viewer.world.freeFlyState.yaw = (viewer.world.freeFlyState.yaw - x) % (2 * Math.PI)
-    viewer.world.freeFlyState.pitch = Math.max(minPitch, Math.min(maxPitch, viewer.world.freeFlyState.pitch - y))
-    return
-  }
+  // if (viewer.world.freeFlyMode) {
+  //   // Update freeFlyState directly
+  //   viewer.world.freeFlyState.yaw = (viewer.world.freeFlyState.yaw - x) % (2 * Math.PI)
+  //   viewer.world.freeFlyState.pitch = Math.max(minPitch, Math.min(maxPitch, viewer.world.freeFlyState.pitch - y))
+  //   return
+  // }
 
   if (!bot?.entity) return
   const pitch = bot.entity.pitch - y
   void bot.look(bot.entity.yaw - x, Math.max(minPitch, Math.min(maxPitch, pitch)), true)
+  appViewer.backend?.updateCamera(null, bot.entity.yaw, pitch)
 }
 
 window.addEventListener('mousemove', (e: MouseEvent) => {
@@ -76,7 +77,7 @@ function pointerLockChangeCallback () {
   if (notificationProxy.id === 'pointerlockchange') {
     hideNotification()
   }
-  if (viewer.renderer.xr.isPresenting) return // todo
+  if (appViewer.rendererState.preventEscapeMenu) return
   if (!pointerLock.hasPointerLock && activeModalStack.length === 0 && miscUiState.gameLoaded) {
     showModal({ reactType: 'pause-screen' })
   }

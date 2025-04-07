@@ -4,7 +4,6 @@ import MinecraftData from 'minecraft-data'
 import PrismarineBlock from 'prismarine-block'
 import PrismarineItem from 'prismarine-item'
 import pathfinder from 'mineflayer-pathfinder'
-import { importLargeData } from '../generated/large-data-aliases'
 import { miscUiState } from './globalState'
 import supportedVersions from './supportedVersions.mjs'
 import { options } from './optionsStorage'
@@ -16,7 +15,7 @@ export type ConnectOptions = {
   singleplayer?: any
   username: string
   proxy?: string
-  botVersion?: any
+  botVersion?: string
   serverOverrides?
   serverOverridesFlat?
   peerId?: string
@@ -24,7 +23,6 @@ export type ConnectOptions = {
   onSuccessfulPlay?: () => void
   autoLoginPassword?: string
   serverIndex?: string
-  /** If true, will show a UI to authenticate with a new account */
   authenticatedAccount?: AuthenticatedAccount | true
   peerOptions?: any
   viewerWsConnect?: string
@@ -32,6 +30,15 @@ export type ConnectOptions = {
 
   /** Will enable local replay server */
   worldStateFileContents?: string
+
+  connectEvents?: {
+    serverCreated?: () => void
+    // connect: () => void;
+    // disconnect: () => void;
+    // error: (err: any) => void;
+    // ready: () => void;
+    // end: () => void;
+  }
 }
 
 export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVersionSelect) => {
@@ -44,7 +51,7 @@ export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVers
   return autoVersionSelect
 }
 
-export const loadMinecraftData = async (version: string, importBlockstatesModels = false) => {
+export const loadMinecraftData = async (version: string) => {
   await window._LOAD_MC_DATA()
   // setLoadingScreenStatus(`Loading data for ${version}`)
   // // todo expose cache
@@ -58,12 +65,9 @@ export const loadMinecraftData = async (version: string, importBlockstatesModels
   window.PrismarineBlock = PrismarineBlock(mcData.version.minecraftVersion!)
   window.PrismarineItem = PrismarineItem(mcData.version.minecraftVersion!)
   window.loadedData = mcData
+  window.mcData = mcData
   window.pathfinder = pathfinder
   miscUiState.loadedDataVersion = version
-
-  if (importBlockstatesModels) {
-    viewer.world.blockstatesModels = await importLargeData('blockStatesModels')
-  }
 }
 
 export const downloadAllMinecraftData = async () => {

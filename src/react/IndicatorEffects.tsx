@@ -46,7 +46,8 @@ export const defaultIndicatorsState = {
   readonlyFiles: false,
   writingFiles: false, // saving
   appHasErrors: false,
-  connectionIssues: 0
+  connectionIssues: 0,
+  preventSleep: false,
 }
 
 const indicatorIcons: Record<keyof typeof defaultIndicatorsState, string> = {
@@ -56,6 +57,7 @@ const indicatorIcons: Record<keyof typeof defaultIndicatorsState, string> = {
   appHasErrors: 'alert',
   readonlyFiles: 'file-off',
   connectionIssues: pixelartIcons['cellular-signal-off'],
+  preventSleep: pixelartIcons.moon,
 }
 
 const colorOverrides = {

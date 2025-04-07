@@ -53,7 +53,7 @@ function setSectionDirty (pos, value = true) {
   const key = sectionKey(x, y, z)
   if (!value) {
     dirtySections.delete(key)
-    postMessage({ type: 'sectionFinished', key })
+    postMessage({ type: 'sectionFinished', key, workerIndex })
     return
   }
 
@@ -61,7 +61,7 @@ function setSectionDirty (pos, value = true) {
   if (chunk?.getSection(pos)) {
     dirtySections.set(key, (dirtySections.get(key) || 0) + 1)
   } else {
-    postMessage({ type: 'sectionFinished', key })
+    postMessage({ type: 'sectionFinished', key, workerIndex })
   }
 }
 
@@ -121,11 +121,13 @@ const handleMessage = data => {
     }
     case 'blockUpdate': {
       const loc = new Vec3(data.pos.x, data.pos.y, data.pos.z).floored()
-      world.setBlockStateId(loc, data.stateId)
+      if (data.stateId !== undefined && data.stateId !== null) {
+        world?.setBlockStateId(loc, data.stateId)
+      }
 
       const chunkKey = `${Math.floor(loc.x / 16) * 16},${Math.floor(loc.z / 16) * 16}`
       if (data.customBlockModels) {
-        world.customBlockModels.set(chunkKey, data.customBlockModels)
+        world?.customBlockModels.set(chunkKey, data.customBlockModels)
       }
       break
     }
@@ -137,6 +139,13 @@ const handleMessage = data => {
       globalVar.mcData = null
       allDataReady = false
 
+      break
+    }
+    case 'getCustomBlockModel': {
+      const pos = new Vec3(data.pos.x, data.pos.y, data.pos.z)
+      const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
+      const customBlockModel = world.customBlockModels.get(chunkKey)?.[`${pos.x},${pos.y},${pos.z}`]
+      global.postMessage({ type: 'customBlockModel', chunkKey, customBlockModel })
       break
     }
   // No default

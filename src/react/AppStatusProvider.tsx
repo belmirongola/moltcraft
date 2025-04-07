@@ -6,6 +6,7 @@ import type { ConnectOptions } from '../connect'
 import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
 import { getProxyDetails } from '../microsoftAuthflow'
 import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/packetsRecording'
+import { appQueryParams } from '../appParams'
 import AppStatus from './AppStatus'
 import DiveTransition from './DiveTransition'
 import { useDidUpdateEffect } from './utils'
@@ -64,18 +65,42 @@ export default () => {
     lastState.current = JSON.parse(JSON.stringify(currentState))
   }
 
-  const usingState = isOpen ? currentState : lastState.current
+  const usingState = (isOpen ? currentState : lastState.current) as typeof currentState
   const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = usingState
 
   useDidUpdateEffect(() => {
     // todo play effect only when world successfully loaded
     if (!isOpen) {
-      const divingElem: HTMLElement = document.querySelector('#viewer-canvas')!
-      divingElem.style.animationName = 'dive-animation'
-      divingElem.parentElement!.style.perspective = '1200px'
-      divingElem.onanimationend = () => {
-        divingElem.parentElement!.style.perspective = ''
-        divingElem.onanimationend = null
+      const startDiveAnimation = (divingElem: HTMLElement) => {
+        divingElem.style.animationName = 'dive-animation'
+        divingElem.parentElement!.style.perspective = '1200px'
+        divingElem.onanimationend = () => {
+          divingElem.parentElement!.style.perspective = ''
+          divingElem.onanimationend = null
+        }
+      }
+
+      const divingElem = document.querySelector('#viewer-canvas')
+      let observer: MutationObserver | null = null
+      if (divingElem) {
+        startDiveAnimation(divingElem as HTMLElement)
+      } else {
+        observer = new MutationObserver((mutations) => {
+          const divingElem = document.querySelector('#viewer-canvas')
+          if (divingElem) {
+            startDiveAnimation(divingElem as HTMLElement)
+            observer!.disconnect()
+          }
+        })
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
+        })
+      }
+      return () => {
+        if (observer) {
+          observer.disconnect()
+        }
       }
     }
   }, [isOpen])
@@ -92,6 +117,7 @@ export default () => {
     window.addEventListener('keyup', (e) => {
       if ('input textarea select'.split(' ').includes((e.target as HTMLElement).tagName?.toLowerCase() ?? '')) return
       if (activeModalStack.at(-1)?.reactType !== 'app-status') return
+      // todo do only if reconnect is possible
       if (e.code !== 'KeyR' || !lastConnectOptions.value) return
       reconnect()
     }, {
@@ -116,6 +142,29 @@ export default () => {
   }
 
   const lastAutoCapturedPackets = getLastAutoCapturedPackets()
+  const lockConnect = appQueryParams.lockConnect === 'true'
+  const wasDisconnected = showReconnect
+  let backAction = undefined as (() => void) | undefined
+  if (maybeRecoverable && (!lockConnect || !wasDisconnected)) {
+    backAction = () => {
+      if (!wasDisconnected) {
+        hideModal(undefined, undefined, { force: true })
+        return
+      }
+      resetAppStatusState()
+      miscUiState.gameLoaded = false
+      miscUiState.loadedDataVersion = null
+      window.loadedData = undefined
+      if (activeModalStacks['main-menu']) {
+        insertActiveModalStack('main-menu')
+        if (activeModalStack.at(-1)?.reactType === 'app-status') {
+          hideModal(undefined, undefined, { force: true }) // workaround: hide loader that was shown on world loading
+        }
+      } else {
+        hideModal(undefined, undefined, { force: true })
+      }
+    }
+  }
   return <DiveTransition open={isOpen}>
     <AppStatus
       status={status}
@@ -129,26 +178,13 @@ export default () => {
       }{
         minecraftJsonMessage && <MessageFormattedString message={minecraftJsonMessage} />
       }</>}
-      backAction={maybeRecoverable ? () => {
-        resetAppStatusState()
-        miscUiState.gameLoaded = false
-        miscUiState.loadedDataVersion = null
-        window.loadedData = undefined
-        if (activeModalStacks['main-menu']) {
-          insertActiveModalStack('main-menu')
-          if (activeModalStack.at(-1)?.reactType === 'app-status') {
-            hideModal(undefined, undefined, { force: true }) // workaround: hide loader that was shown on world loading
-          }
-        } else {
-          hideModal(undefined, undefined, { force: true })
-        }
-      } : undefined}
+      backAction={backAction}
       actionsSlot={
         <>
           {displayAuthButton && <Button label='Authenticate' onClick={authReconnectAction} />}
           {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={reconnect} />}
           {replayActive && <Button label={`Download Packets Replay ${replayLogger?.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
-          {lastAutoCapturedPackets && <Button label={`Inspect Last ${lastAutoCapturedPackets} Packets`} onClick={() => downloadAutoCapturedPackets()} />}
+          {wasDisconnected && lastAutoCapturedPackets && <Button label={`Inspect Last ${lastAutoCapturedPackets} Packets`} onClick={() => downloadAutoCapturedPackets()} />}
         </>
       }
     >

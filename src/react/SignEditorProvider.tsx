@@ -26,16 +26,16 @@ export default () => {
 
   const handleClick = (result: ResultType) => {
     hideModal({ reactType: 'signs-editor-screen' })
-    if ('plainText' in result) {
-      bot._client.write('update_sign', {
-        location,
-        isFrontText,
-        text1: result.plainText[0],
-        text2: result.plainText[1],
-        text3: result.plainText[2],
-        text4: result.plainText[3]
-      })
-    } else {
+    bot._client.write('update_sign', {
+      location,
+      isFrontText,
+      text1: result.plainText[0],
+      text2: result.plainText[1],
+      text3: result.plainText[2],
+      text4: result.plainText[3]
+    })
+
+    if (result.dataText) {
       if (!location) return
       const command = `/data merge block ${location.x} ${location.y} ${location.z} {Text1:'` + JSON.stringify(result.dataText[0]) + '\',Text2: \'' + JSON.stringify(result.dataText[1]) + '\',Text3:\'' + JSON.stringify(result.dataText[2]) + '\',Text4:\'' + JSON.stringify(result.dataText[3]) + '\'}' // mojangson
       bot.chat(command)

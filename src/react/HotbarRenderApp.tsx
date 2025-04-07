@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Transition } from 'react-transition-group'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { allImagesLoadedState, openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
@@ -42,7 +42,7 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
   useEffect(() => {
     const item = bot.heldItem
     if (item) {
-      const customDisplay = getItemNameRaw(item)
+      const customDisplay = getItemNameRaw(item, appViewer.resourcesManager)
       if (customDisplay) {
         setItemName(customDisplay)
       } else {
@@ -110,7 +110,7 @@ const HotbarInner = () => {
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!viewer.world.currentTextureImage || !allImagesLoadedState.value) return
+      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser) return
       upInventoryItems(true, inv)
     }
 
@@ -124,8 +124,8 @@ const HotbarInner = () => {
 
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
-    viewer.world.renderUpdateEmitter.on('textureDownloaded', upHotbarItems)
-    const unsub2 = subscribe(allImagesLoadedState, () => {
+    appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
+    appViewer.resourcesManager.on('assetsInventoryReady', () => {
       upHotbarItems()
     })
 
@@ -196,8 +196,7 @@ const HotbarInner = () => {
     return () => {
       inv.destroy()
       controller.abort()
-      unsub2()
-      viewer.world.renderUpdateEmitter.off('textureDownloaded', upHotbarItems)
+      appViewer.resourcesManager.off('assetsTexturesUpdated', upHotbarItems)
     }
   }, [])
 

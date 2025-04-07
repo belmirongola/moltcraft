@@ -5,6 +5,8 @@ import { EventEmitter } from 'events'
 import { generateSpiralMatrix, ViewRect } from 'flying-squid/dist/utils'
 import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
+import { proxy } from 'valtio'
+import TypedEmitter from 'typed-emitter'
 import { delayedIterator } from '../../playground/shared'
 import { playerState } from '../../../src/mineflayer/playerState'
 import { chunkPos } from './simpleUtils'
@@ -13,33 +15,49 @@ import { createLightEngine, processLightChunk, updateBlockLight } from './lightE
 export type ChunkPosKey = string
 type ChunkPos = { x: number, z: number }
 
+export type WorldDataEmitterEvents = {
+  chunkPosUpdate: (data: { pos: Vec3 }) => void
+  blockUpdate: (data: { pos: Vec3, stateId: number }) => void
+  entity: (data: any) => void
+  entityMoved: (data: any) => void
+  time: (data: number) => void
+  renderDistance: (viewDistance: number) => void
+  blockEntities: (data: Record<string, any> | { blockEntities: Record<string, any> }) => void
+  listening: () => void
+  markAsLoaded: (data: { x: number, z: number }) => void
+  unloadChunk: (data: { x: number, z: number }) => void
+  loadChunk: (data: { x: number, z: number, chunk: string, blockEntities: any, worldConfig: any, isLightUpdate: boolean }) => void
+  updateLight: (data: { pos: Vec3 }) => void
+  onWorldSwitch: () => void
+  end: () => void
+}
+
 /**
  * Usually connects to mineflayer bot and emits world data (chunks, entities)
  * It's up to the consumer to serialize the data if needed
  */
-export class WorldDataEmitter extends EventEmitter {
+export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
   private loadedChunks: Record<ChunkPosKey, boolean>
   private readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
   private readonly emitter: WorldDataEmitter
-  keepChunksDistance = 0
   addWaitTime = 1
-  isPlayground = false
+  /* config */ keepChunksDistance = 0
+  /* config */ isPlayground = false
+  /* config */ allowPositionUpdate = true
+
+  public reactive = proxy({
+    cursorBlock: null as Vec3 | null,
+    cursorBlockBreakingStage: null as number | null,
+  })
 
   constructor (public world: typeof __type_bot['world'], public viewDistance: number, position: Vec3 = new Vec3(0, 0, 0)) {
+    // eslint-disable-next-line constructor-super
     super()
     this.loadedChunks = {}
     this.lastPos = new Vec3(0, 0, 0).update(position)
     // todo
     this.emitter = this
-
-    this.emitter.on('mouseClick', async (click) => {
-      const ori = new Vec3(click.origin.x, click.origin.y, click.origin.z)
-      const dir = new Vec3(click.direction.x, click.direction.y, click.direction.z)
-      const block = this.world.raycast(ori, dir, 256)
-      if (!block) return
-      this.emit('blockClicked', block, block.face, click.button)
-    })
   }
 
   setBlockStateId (position: Vec3, stateId: number) {
@@ -62,9 +80,10 @@ export class WorldDataEmitter extends EventEmitter {
   }
 
   listenToBot (bot: typeof __type_bot) {
-    const emitEntity = (e) => {
+    const emitEntity = (e, name = 'entity') => {
       if (!e || e === bot.entity) return
-      this.emitter.emit('entity', {
+      if (!e.name) return // mineflayer received update for not spawned entity
+      this.emitter.emit(name as any, {
         ...e,
         pos: e.position,
         username: e.username,
@@ -87,7 +106,7 @@ export class WorldDataEmitter extends EventEmitter {
         emitEntity(e)
       },
       entityMoved (e: any) {
-        emitEntity(e)
+        emitEntity(e, 'entityMoved')
       },
       entityGone: (e: any) => {
         this.emitter.emit('entity', { id: e.id, delete: true })
@@ -104,7 +123,13 @@ export class WorldDataEmitter extends EventEmitter {
       },
       time: () => {
         this.emitter.emit('time', bot.time.timeOfDay)
-      }
+      },
+      respawn: () => {
+        this.emitter.emit('onWorldSwitch')
+      },
+      end: () => {
+        this.emitter.emit('end')
+      },
     } satisfies Partial<BotEvents>
 
 
@@ -135,8 +160,15 @@ export class WorldDataEmitter extends EventEmitter {
 
     for (const id in bot.entities) {
       const e = bot.entities[id]
-      emitEntity(e)
+      try {
+        emitEntity(e)
+      } catch (err) {
+        // reportError?.(err)
+        console.error('error processing entity', err)
+      }
     }
+
+    void this.init(bot.entity.position)
   }
 
   removeListenersFromBot (bot: import('mineflayer').Bot) {
@@ -168,10 +200,17 @@ export class WorldDataEmitter extends EventEmitter {
   readdDebug () {
     const clonedLoadedChunks = { ...this.loadedChunks }
     this.unloadAllChunks()
+    console.time('readdDebug')
     for (const loadedChunk in clonedLoadedChunks) {
       const [x, z] = loadedChunk.split(',').map(Number)
       void this.loadChunk(new Vec3(x, 0, z))
     }
+    const interval = setInterval(() => {
+      if (appViewer.rendererState.world.allChunksLoaded) {
+        clearInterval(interval)
+        console.timeEnd('readdDebug')
+      }
+    }, 100)
   }
 
   // debugGotChunkLatency = [] as number[]
@@ -229,6 +268,7 @@ export class WorldDataEmitter extends EventEmitter {
   }
 
   async updatePosition (pos: Vec3, force = false) {
+    if (!this.allowPositionUpdate) return
     const [lastX, lastZ] = chunkPos(this.lastPos)
     const [botX, botZ] = chunkPos(pos)
     if (lastX !== botX || lastZ !== botZ || force) {

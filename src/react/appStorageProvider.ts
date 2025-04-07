@@ -32,7 +32,9 @@ type StorageData = {
   customCommands: Record<string, CustomCommand> | undefined
   username: string | undefined
   keybindings: UserOverridesConfig | undefined
+  /** @deprecated */
   options: any
+  changedSettings: any
   proxiesData: SavedProxiesData | undefined
   serversHistory: ServerHistoryEntry[]
   authenticatedAccounts: AuthenticatedAccount[]
@@ -72,6 +74,7 @@ const defaultStorageData: StorageData = {
   username: undefined,
   keybindings: undefined,
   options: {},
+  changedSettings: {},
   proxiesData: undefined,
   serversHistory: [],
   authenticatedAccounts: [],

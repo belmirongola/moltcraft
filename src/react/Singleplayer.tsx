@@ -25,6 +25,7 @@ export interface WorldProps {
   formattedTextOverride?: string
   worldNameRight?: string
   worldNameRightGrayed?: string
+  afterTitleUi?: React.ReactNode
   onFocus?: (name: string) => void
   onInteraction?(interaction: 'enter' | 'space')
   elemRef?: React.Ref<HTMLDivElement>
@@ -46,7 +47,7 @@ const GroupHeader = ({ name, count, expanded, onToggle }: { name: string, count:
   </div>
 }
 
-const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, worldNameRightGrayed, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
+const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, worldNameRightGrayed, afterTitleUi, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
   const timeRelativeFormatted = useMemo(() => {
     if (!lastPlayed) return ''
     const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -67,12 +68,17 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
 
   return <div
     ref={elemRef}
-    className={classNames(styles.world_root, isFocused ? styles.world_focused : undefined)} tabIndex={0} onFocus={() => onFocus?.(name)} onKeyDown={(e) => {
+    className={classNames(styles.world_root, isFocused ? styles.world_focused : undefined)}
+    style={{ position: 'relative' }}
+    tabIndex={0}
+    onFocus={() => onFocus?.(name)}
+    onKeyDown={(e) => {
       if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault()
         onInteraction?.(e.code === 'Enter' ? 'enter' : 'space')
       }
-    }} onDoubleClick={() => onInteraction?.('enter')}
+    }}
+    onDoubleClick={() => onInteraction?.('enter')}
   >
     <img className={`${styles.world_image} ${iconSrc ? '' : styles.image_missing}`} src={iconSrc ?? missingWorldPreview} alt='world preview' />
     <div className={styles.world_info}>
@@ -100,6 +106,9 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
           <div className={styles.world_info_description_line}>{timeRelativeFormatted} {detail.slice(-30)}</div>
           <div className={styles.world_info_description_line}>{sizeFormatted}</div>
         </>}
+    </div>
+    <div style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 4, display: 'flex', alignItems: 'center' }}>
+      {afterTitleUi}
     </div>
   </div>
 }
