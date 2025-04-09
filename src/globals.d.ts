@@ -34,4 +34,17 @@ declare interface Document {
   exitPointerLock?(): void
 }
 
+declare module '*.frag' {
+  const png: string
+  export default png
+}
+declare module '*.vert' {
+  const png: string
+  export default png
+}
+declare module '*.wgsl' {
+  const png: string
+  export default png
+}
+
 declare interface Window extends Record<string, any> { }

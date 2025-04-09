@@ -11,6 +11,7 @@ import { isMajorVersionGreater } from './utils'
 
 import { activeModalStacks, insertActiveModalStack, miscUiState } from './globalState'
 import supportedVersions from './supportedVersions.mjs'
+import { ConnectOptions } from './connect'
 import { appQueryParams } from './appParams'
 
 // todo include name of opened handle (zip)!
@@ -22,7 +23,8 @@ export const fsState = proxy({
   saveLoaded: false,
   openReadOperations: 0,
   openWriteOperations: 0,
-  remoteBackend: false
+  remoteBackend: false,
+  inMemorySavePath: ''
 })
 
 const PROPOSE_BACKUP = true
@@ -48,7 +50,7 @@ export const readLevelDat = async (path) => {
   return { levelDat, dataRaw: parsed.value.Data!.value as Record<string, any> }
 }
 
-export const loadSave = async (root = '/world') => {
+export const loadSave = async (root = '/world', connectOptions?: Partial<ConnectOptions>) => {
   // todo test
   if (miscUiState.gameLoaded) {
     await disconnect()
@@ -181,6 +183,7 @@ export const loadSave = async (root = '/world') => {
 
   // todo should not be set here
   fsState.saveLoaded = true
+  fsState.inMemorySavePath = root
   window.dispatchEvent(new CustomEvent('singleplayer', {
     // todo check gamemode level.dat data etc
     detail: {
@@ -192,7 +195,8 @@ export const loadSave = async (root = '/world') => {
       } : {},
       ...root === '/world' ? {} : {
         'worldFolder': root
-      }
+      },
+      connectOptions
     },
   }))
 }

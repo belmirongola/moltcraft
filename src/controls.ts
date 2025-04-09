@@ -417,8 +417,9 @@ const alwaysPressedHandledCommand = (command: Command) => {
 
 export function lockUrl () {
   let newQs = ''
-  if (fsState.saveLoaded) {
-    const save = localServer!.options.worldFolder.split('/').at(-1)
+  if (fsState.saveLoaded && fsState.inMemorySave) {
+    const worldFolder = fsState.inMemorySavePath
+    const save = worldFolder.split('/').at(-1)
     newQs = `loadSave=${save}`
   } else if (process.env.NODE_ENV === 'development') {
     newQs = `reconnect=1`
@@ -579,7 +580,7 @@ contro.on('release', ({ command }) => {
 
 export const f3Keybinds: Array<{
   key?: string,
-  action: () => void,
+  action: () => void | Promise<void>,
   mobileTitle: string
   enabled?: () => boolean
 }> = [
@@ -694,7 +695,7 @@ document.addEventListener('keydown', (e) => {
   if (hardcodedPressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
     if (keybind && (keybind.enabled?.() ?? true)) {
-      keybind.action()
+      void keybind.action()
       e.stopPropagation()
     }
     return
@@ -933,12 +934,16 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     console.clear()
   }
-  if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+  if (e.code === 'KeyK' && e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (sessionStorage.delayLoadUntilFocus) {
       sessionStorage.removeItem('delayLoadUntilFocus')
     } else {
       sessionStorage.setItem('delayLoadUntilFocus', 'true')
     }
+  }
+  if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    // eslint-disable-next-line no-debugger
+    debugger
   }
 })
 // #endregion

@@ -71,12 +71,36 @@ export default () => {
   useDidUpdateEffect(() => {
     // todo play effect only when world successfully loaded
     if (!isOpen) {
-      const divingElem: HTMLElement = document.querySelector('#viewer-canvas')!
-      divingElem.style.animationName = 'dive-animation'
-      divingElem.parentElement!.style.perspective = '1200px'
-      divingElem.onanimationend = () => {
-        divingElem.parentElement!.style.perspective = ''
-        divingElem.onanimationend = null
+      const startDiveAnimation = (divingElem: HTMLElement) => {
+        divingElem.style.animationName = 'dive-animation'
+        divingElem.parentElement!.style.perspective = '1200px'
+        divingElem.onanimationend = () => {
+          divingElem.parentElement!.style.perspective = ''
+          divingElem.onanimationend = null
+        }
+      }
+
+      const divingElem = document.querySelector('#viewer-canvas')
+      let observer: MutationObserver | null = null
+      if (divingElem) {
+        startDiveAnimation(divingElem as HTMLElement)
+      } else {
+        observer = new MutationObserver((mutations) => {
+          const divingElem = document.querySelector('#viewer-canvas')
+          if (divingElem) {
+            startDiveAnimation(divingElem as HTMLElement)
+            observer!.disconnect()
+          }
+        })
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
+        })
+      }
+      return () => {
+        if (observer) {
+          observer.disconnect()
+        }
       }
     }
   }, [isOpen])

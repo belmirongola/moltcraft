@@ -11,6 +11,7 @@ import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 
 export const activeGuiAtlas = proxy({
   atlas: null as null | { json, image },
+  version: 0
 })
 
 export const getNonFullBlocksModels = () => {
@@ -278,5 +279,6 @@ export const generateGuiAtlas = async () => {
   const itemImages = await generateItemsGui(itemsModelsResolved, true)
   console.timeEnd('generate items gui atlas')
   await generateAtlas({ ...blockImages, ...itemImages })
+  activeGuiAtlas.version++
   // await generateAtlas(blockImages)
 }

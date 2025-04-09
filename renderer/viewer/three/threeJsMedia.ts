@@ -30,13 +30,29 @@ export class ThreeJsMedia {
   }>()
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
+    this.worldRenderer.onWorldSwitched.push(() => {
+      this.onWorldGone()
+    })
+  }
+
+  onWorldGone () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      this.destroyMedia(id)
+    }
+  }
+
+  onWorldStop () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      this.setVideoPlaying(id, false)
+    }
   }
 
   private createErrorTexture (width: number, height: number, background = 0x00_00_00, error = 'Failed to load'): THREE.CanvasTexture {
     const canvas = document.createElement('canvas')
-    // Scale up the canvas size for better text quality
-    canvas.width = width * 100
-    canvas.height = height * 100
+    const MAX_DIMENSION = 100
+
+    canvas.width = MAX_DIMENSION
+    canvas.height = MAX_DIMENSION
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return new THREE.CanvasTexture(canvas)
@@ -48,7 +64,7 @@ export class ThreeJsMedia {
     ctx.fillStyle = `rgba(${background >> 16 & 255}, ${background >> 8 & 255}, ${background & 255}, 0.5)`
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Add red text
+    // Add red text with size relative to canvas dimensions
     ctx.fillStyle = '#ff0000'
     ctx.font = 'bold 10px sans-serif'
     ctx.textAlign = 'center'
@@ -513,7 +529,10 @@ export class ThreeJsMedia {
   }
 
   tryIntersectMedia () {
-    const { camera } = this.worldRenderer
+    // hack: need to optimize this by pulling only in distance of interaction instead (or throttle)!
+    if (this.customMedia.size === 0) return
+
+    const { camera, scene } = this.worldRenderer
     const raycaster = new THREE.Raycaster()
 
     // Get mouse position at center of screen
@@ -522,29 +541,36 @@ export class ThreeJsMedia {
     // Update the raycaster
     raycaster.setFromCamera(mouse, camera)
 
-    let result = null as { id: string, x: number, y: number } | null
-    // Check intersection with all video meshes
-    for (const [id, videoData] of this.customMedia.entries()) {
-      // Get the actual mesh (first child of the group)
-      const { mesh } = videoData
-      if (!mesh) continue
+    // Check intersection with all objects in scene
+    const intersects = raycaster.intersectObjects(scene.children, true)
+    if (intersects.length > 0) {
+      const intersection = intersects[0]
+      const intersectedObject = intersection.object
 
-      const intersects = raycaster.intersectObject(mesh, false)
-      if (intersects.length > 0) {
-        const intersection = intersects[0]
-        const { uv } = intersection
-        if (uv) {
-          result = {
-            id,
-            x: uv.x,
-            y: uv.y
+      // Find if this object belongs to any media
+      for (const [id, videoData] of this.customMedia.entries()) {
+        // Check if the intersected object is part of our media mesh
+        if (intersectedObject === videoData.mesh ||
+          videoData.mesh.children.includes(intersectedObject)) {
+          const { uv } = intersection
+          if (uv) {
+            const result = {
+              id,
+              x: uv.x,
+              y: uv.y
+            }
+            this.worldRenderer.reactiveState.world.intersectMedia = result
+            this.worldRenderer['debugVideo'] = videoData
+            this.worldRenderer.cursorBlock.cursorLinesHidden = true
+            return
           }
-          break
         }
       }
     }
-    this.worldRenderer.reactiveState.world.intersectMedia = result
-    this.worldRenderer['debugVideo'] = result ? this.customMedia.get(result.id) : null
-    this.worldRenderer.cursorBlock.cursorLinesHidden = !!result
+
+    // No media intersection found
+    this.worldRenderer.reactiveState.world.intersectMedia = null
+    this.worldRenderer['debugVideo'] = null
+    this.worldRenderer.cursorBlock.cursorLinesHidden = false
   }
 }

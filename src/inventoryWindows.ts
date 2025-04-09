@@ -119,12 +119,13 @@ export const onGameLoad = () => {
 
   if (!appViewer.resourcesManager['_inventoryChangeTracked']) {
     appViewer.resourcesManager['_inventoryChangeTracked'] = true
-    const upWindowItems = () => {
+    const texturesChanged = () => {
       if (!lastWindow) return
       upWindowItemsLocal()
+      upJei(lastJeiSearch)
     }
-    appViewer.resourcesManager.on('assetsInventoryReady', () => upWindowItems())
-    appViewer.resourcesManager.on('assetsTexturesUpdated', () => upWindowItems())
+    appViewer.resourcesManager.on('assetsInventoryReady', () => texturesChanged())
+    appViewer.resourcesManager.on('assetsTexturesUpdated', () => texturesChanged())
   }
 }
 
@@ -176,6 +177,7 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
 
 export type ResolvedItemModelRender = {
   modelName: string,
+  originalItemName?: string
 }
 
 export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = false, fullBlockModelSupport = false): {
@@ -200,7 +202,8 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
   if (!fullBlockModelSupport) {
     const atlas = activeGuiAtlas.atlas?.json
     // todo atlas holds all rendered blocks, not all possibly rendered item/block models, need to request this on demand instead (this is how vanilla works)
-    const item = atlas?.textures[itemModelName.replace('minecraft:', '').replace('block/', '').replace('blocks/', '').replace('item/', '').replace('items/', '').replace('_inventory', '').replace('_bottom', '').replace('_height2', '').replace('_stable', '').replace('_unstable', '')]
+    const tryGetAtlasTexture = (name?: string) => name && atlas?.textures[name.replace('minecraft:', '').replace('block/', '').replace('blocks/', '').replace('item/', '').replace('items/', '').replace('_inventory', '')]
+    const item = tryGetAtlasTexture(itemModelName) ?? tryGetAtlasTexture(model.originalItemName)
     if (item) {
       const x = item.u * atlas.width
       const y = item.v * atlas.height
@@ -217,6 +220,7 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
     assertDefined(appViewer.resourcesManager.currentResources?.itemsRenderer)
     itemTexture =
       appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
+      ?? (model.originalItemName ? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(model.originalItemName, {}, false, fullBlockModelSupport) : undefined)
       ?? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
@@ -245,24 +249,35 @@ const getItemName = (slot: Item | RenderItem | null) => {
   const parsed = getItemNameRaw(slot, appViewer.resourcesManager)
   if (!parsed) return
   // todo display full text renderer from sign renderer
-  const text = flat(parsed as MessageFormatPart).map(x => x.text)
+  const text = flat(parsed as MessageFormatPart).map(x => (typeof x === 'string' ? x : x.text))
   return text.join('')
 }
 
-let lastMappedSots = [] as any[]
+let lastMappedSlots = [] as any[]
 const itemToVisualKey = (slot: RenderItem | Item | null) => {
-  if (!slot) return null
-  return slot.name + slot['count'] + (slot['metadata'] ?? '-') + (slot.nbt ? JSON.stringify(slot.nbt) : '') + (slot['components'] ? JSON.stringify(slot['components']) : '')
+  if (!slot) return ''
+  const keys = [
+    slot.name,
+    slot.durabilityUsed,
+    slot.maxDurability,
+    slot['count'],
+    slot['metadata'],
+    slot.nbt ? JSON.stringify(slot.nbt) : '',
+    slot['components'] ? JSON.stringify(slot['components']) : '',
+    activeGuiAtlas.version,
+  ].join('|')
+  return keys
 }
 const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
   const newSlots = slots.map((slot, i) => {
-    // todo stateid
-    if (!slot) return
+    if (!slot) return null
 
     if (!isJei) {
-      const oldKey = itemToVisualKey(lastMappedSots[i])
-      if (oldKey && oldKey === itemToVisualKey(slot)) {
-        return lastMappedSots[i]
+      const oldKey = lastMappedSlots[i]?.cacheKey
+      const newKey = itemToVisualKey(slot)
+      slot['cacheKey'] = i + '|' + newKey
+      if (oldKey && oldKey === newKey) {
+        return lastMappedSlots[i]
       }
     }
 
@@ -270,7 +285,7 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
       if (slot.durabilityUsed && slot.maxDurability) slot.durabilityUsed = Math.min(slot.durabilityUsed, slot.maxDurability)
       const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
       const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', }, appViewer.resourcesManager)
-      const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
+      const slotCustomProps = renderSlot({ modelName, originalItemName: slot.name }, debugIsQuickbar)
       const itemCustomName = getItemName(slot)
       Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error
@@ -285,7 +300,7 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
     }
     return slot
   })
-  lastMappedSots = newSlots
+  lastMappedSlots = newSlots
   return newSlots
 }
 
@@ -331,7 +346,9 @@ const implementedContainersGuiMap = {
   'minecraft:villager': 'VillagerWin',
 }
 
+let lastJeiSearch = ''
 const upJei = (search: string) => {
+  lastJeiSearch = search
   search = search.toLowerCase()
   // todo fix pre flat
   const itemsArray = [
@@ -461,6 +478,10 @@ const openWindow = (type: string | undefined) => {
     }
   }
   lastWindow.pwindow.onJeiClick = (slotItem, _index, isRightclick) => {
+    if (versionToNumber(bot.version) < versionToNumber('1.13')) {
+      alert('Item give is broken on 1.12.2 and below, we are working on it!')
+      return
+    }
     // slotItem is the slot from mapSlots
     const itemId = loadedData.itemsByName[slotItem.name]?.id
     if (!itemId) {

@@ -49,11 +49,13 @@ const defaultGraphicsBackendConfig: GraphicsBackendConfig = {
   sceneBackground: 'lightblue'
 }
 
-export interface GraphicsInitOptions {
+export interface GraphicsInitOptions<S = any> {
   resourcesManager: ResourcesManager
   config: GraphicsBackendConfig
+  rendererSpecificSettings: S
 
   displayCriticalError: (error: Error) => void
+  setRendererSpecificSettings: (key: string, value: any) => void
 }
 
 export interface DisplayWorldOptions {
@@ -65,7 +67,9 @@ export interface DisplayWorldOptions {
   nonReactiveState: NonReactiveState
 }
 
-export type GraphicsBackendLoader = (options: GraphicsInitOptions) => GraphicsBackend
+export type GraphicsBackendLoader = ((options: GraphicsInitOptions) => GraphicsBackend) & {
+  id: string
+}
 
 // no sync methods
 export interface GraphicsBackend {
@@ -73,7 +77,7 @@ export interface GraphicsBackend {
   displayName?: string
   startPanorama: () => void
   // prepareResources: (version: string, progressReporter: ProgressReporter) => Promise<void>
-  startWorld: (options: DisplayWorldOptions) => void
+  startWorld: (options: DisplayWorldOptions) => Promise<void> | void
   disconnect: () => void
   setRendering: (rendering: boolean) => void
   getDebugOverlay?: () => Record<string, any>
@@ -116,6 +120,13 @@ export class AppViewer {
     }
 
     this.backendLoader = loader
+    const rendererSpecificSettings = {} as Record<string, any>
+    const rendererSettingsKey = `renderer.${this.backendLoader?.id}`
+    for (const key in options) {
+      if (key.startsWith(rendererSettingsKey)) {
+        rendererSpecificSettings[key.slice(rendererSettingsKey.length + 1)] = options[key]
+      }
+    }
     const loaderOptions: GraphicsInitOptions = {
       resourcesManager: this.resourcesManager,
       config: this.config,
@@ -123,6 +134,10 @@ export class AppViewer {
         console.error(error)
         setLoadingScreenStatus(error.message, true)
       },
+      rendererSpecificSettings,
+      setRendererSpecificSettings (key: string, value: any) {
+        options[`${rendererSettingsKey}.${key}`] = value
+      }
     }
     this.backend = loader(loaderOptions)
 
@@ -135,12 +150,18 @@ export class AppViewer {
       const { method, args } = this.currentState
       this.backend[method](...args)
       if (method === 'startWorld') {
-        void this.worldView!.init(args[0].playerState.getPosition())
+        // void this.worldView!.init(args[0].playerState.getPosition())
       }
     }
   }
 
-  startWorld (world, renderDistance: number, playerStateSend: IPlayerState = this.playerState) {
+  async startWithBot () {
+    const renderDistance = miscUiState.singleplayer ? options.renderDistance : options.multiplayerRenderDistance
+    await this.startWorld(bot.world, renderDistance)
+    this.worldView!.listenToBot(bot)
+  }
+
+  async startWorld (world, renderDistance: number, playerStateSend: IPlayerState = this.playerState) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
     const startPosition = playerStateSend.getPosition()
@@ -156,22 +177,21 @@ export class AppViewer {
       rendererState: this.rendererState,
       nonReactiveState: this.nonReactiveState
     }
+    let promise: undefined | Promise<void>
     if (this.backend) {
-      this.backend.startWorld(displayWorldOptions)
-      void this.worldView.init(startPosition)
+      promise = this.backend.startWorld(displayWorldOptions) ?? undefined
+      // void this.worldView.init(startPosition)
     }
     this.currentState = { method: 'startWorld', args: [displayWorldOptions] }
 
+    await promise
     // Resolve the promise after world is started
     this.resolveWorldReady()
+    return !!promise
   }
 
   resetBackend (cleanState = false) {
-    if (cleanState) {
-      this.currentState = undefined
-      this.currentDisplay = null
-      this.worldView = undefined
-    }
+    this.disconnectBackend(cleanState)
     if (this.backendLoader) {
       this.loadBackend(this.backendLoader)
     }
@@ -198,7 +218,12 @@ export class AppViewer {
     this.resourcesManager.destroy()
   }
 
-  disconnectBackend () {
+  disconnectBackend (cleanState = false) {
+    if (cleanState) {
+      this.currentState = undefined
+      this.currentDisplay = null
+      this.worldView = undefined
+    }
     if (this.backend) {
       this.backend.disconnect()
       this.backend = undefined
@@ -207,7 +232,7 @@ export class AppViewer {
     const { promise, resolve } = Promise.withResolvers<void>()
     this.worldReady = promise
     this.resolveWorldReady = resolve
-    Object.assign(this.rendererState, getDefaultRendererState())
+    this.rendererState = proxy(getDefaultRendererState())
     // this.queuedDisplay = undefined
   }
 
@@ -237,13 +262,15 @@ const initialMenuStart = async () => {
   }
   appViewer.startPanorama()
 
-  // await appViewer.resourcesManager.loadMcData('1.21.4')
-  // const world = getSyncWorld('1.21.4')
-  // world.setBlockStateId(new Vec3(0, 64, 0), 1)
-  // appViewer.resourcesManager.currentConfig = { version: '1.21.4' }
+  // const version = '1.18.2'
+  // const version = '1.21.4'
+  // await appViewer.resourcesManager.loadMcData(version)
+  // const world = getSyncWorld(version)
+  // world.setBlockStateId(new Vec3(0, 64, 0), loadedData.blocksByName.water.defaultState)
+  // appViewer.resourcesManager.currentConfig = { version }
   // await appViewer.resourcesManager.updateAssetsData({})
   // appViewer.playerState = new BasePlayerState() as any
-  // appViewer.startWorld(world, 3)
+  // await appViewer.startWorld(world, 3)
   // appViewer.backend?.updateCamera(new Vec3(0, 64, 2), 0, 0)
   // void appViewer.worldView!.init(new Vec3(0, 64, 0))
 }
