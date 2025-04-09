@@ -529,6 +529,9 @@ export class ThreeJsMedia {
   }
 
   tryIntersectMedia () {
+    // hack: need to optimize this by pulling only in distance of interaction instead (or throttle)!
+    if (this.customMedia.size === 0) return
+
     const { camera, scene } = this.worldRenderer
     const raycaster = new THREE.Raycaster()
 

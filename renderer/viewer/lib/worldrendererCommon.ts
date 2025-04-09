@@ -53,6 +53,7 @@ export const defaultWorldRendererConfig = {
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
 
 export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any> {
+  timeOfTheDay = 0
   worldSizeParams = { minY: 0, worldHeight: 256 }
 
   active = false
@@ -184,7 +185,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       if (this.mainThreadRendering) {
         this.fpsUpdate()
       }
-    }, 1000)
+    }, 500)
   }
 
   fpsUpdate () {
@@ -495,10 +496,23 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   getMesherConfig (): MesherConfig {
+    let skyLight = 15
+    const timeOfDay = this.timeOfTheDay
+    if (timeOfDay < 0 || timeOfDay > 24_000) {
+      //
+    } else if (timeOfDay <= 6000 || timeOfDay >= 18_000) {
+      skyLight = 15
+    } else if (timeOfDay > 6000 && timeOfDay < 12_000) {
+      skyLight = 15 - ((timeOfDay - 6000) / 6000) * 15
+    } else if (timeOfDay >= 12_000 && timeOfDay < 18_000) {
+      skyLight = ((timeOfDay - 12_000) / 6000) * 15
+    }
+
+    skyLight = Math.floor(skyLight)
     return {
       version: this.version,
       enableLighting: this.worldRendererConfig.enableLighting,
-      skyLight: 15,
+      skyLight,
       smoothLighting: this.worldRendererConfig.smoothLighting,
       outputFormat: this.outputFormat,
       textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
@@ -608,7 +622,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.logWorkerWork(`-> unloadChunk ${JSON.stringify({ x, z })}`)
     delete this.finishedChunks[`${x},${z}`]
     this.allChunksFinished = Object.keys(this.finishedChunks).length === this.chunksLength
-    if (!this.allChunksFinished) {
+    if (Object.keys(this.finishedChunks).length === 0) {
       this.allLoadedIn = undefined
       this.initialChunkLoadWasStartedIn = undefined
     }
@@ -735,18 +749,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     worldEmitter.on('time', (timeOfDay) => {
       this.timeUpdated?.(timeOfDay)
 
-      let skyLight = 15
       if (timeOfDay < 0 || timeOfDay > 24_000) {
         throw new Error('Invalid time of day. It should be between 0 and 24000.')
-      } else if (timeOfDay <= 6000 || timeOfDay >= 18_000) {
-        skyLight = 15
-      } else if (timeOfDay > 6000 && timeOfDay < 12_000) {
-        skyLight = 15 - ((timeOfDay - 6000) / 6000) * 15
-      } else if (timeOfDay >= 12_000 && timeOfDay < 18_000) {
-        skyLight = ((timeOfDay - 12_000) / 6000) * 15
       }
 
-      skyLight = Math.floor(skyLight) // todo: remove this after optimization
+      this.timeOfTheDay = timeOfDay
 
       // if (this.worldRendererConfig.skyLight === skyLight) return
       // this.worldRendererConfig.skyLight = skyLight
