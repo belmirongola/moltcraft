@@ -46,7 +46,6 @@ import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
 import DebugEdges from './react/DebugEdges'
-import LibraryVersions from './react/components/LibraryVersions'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
 import MineflayerPluginHud from './react/MineflayerPluginHud'
 import MineflayerPluginConsole from './react/MineflayerPluginConsole'
@@ -213,7 +212,6 @@ const App = () => {
           </RobustPortal>
           <EnterFullscreenButton />
           <InGameUi />
-          <LibraryVersions />
           <RobustPortal to={document.querySelector('#ui-root')}>
             <AllWidgets />
             <SingleplayerProvider />
