@@ -467,7 +467,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
     let color: string
     if (this.isOldVersion) {
       color = BlockData.colors[preflatMap.blocks[`${block.type}:${block.metadata}`]?.replaceAll(/\[.*?]/g, '')]
-      ?? 'rgb(0, 0, 255)'
+        ?? 'rgb(0, 0, 255)'
     } else {
       color = this.blockData.get(block.name) ?? 'rgb(0, 255, 0)'
     }
