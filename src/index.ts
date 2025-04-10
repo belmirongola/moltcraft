@@ -93,8 +93,8 @@ import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
 import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
 import { appViewer } from './appViewer'
-import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
-import { subscribeKey } from 'valtio/utils'
+import './appViewerLoad'
+import { registerOpenBenchmarkListener } from './benchmark'
 import { getProtocolClientGetter } from './protocolWorker/protocolMain'
 
 window.debug = debug
@@ -114,42 +114,27 @@ customChannels()
 
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
-const loadBackend = () => {
-  appViewer.loadBackend(createGraphicsBackend)
-}
-window.loadBackend = loadBackend
-if (process.env.SINGLE_FILE_BUILD_MODE) {
-  const unsub = subscribeKey(miscUiState, 'fsReady', () => {
-    if (miscUiState.fsReady) {
-      // don't do it earlier to load fs and display menu faster
-      loadBackend()
-      unsub()
-    }
-  })
-} else {
-  loadBackend()
-}
-
-const animLoop = () => {
-  for (const fn of beforeRenderFrame) fn()
-  requestAnimationFrame(animLoop)
-}
-requestAnimationFrame(animLoop)
-
-watchOptionsAfterViewerInit()
-
 function hideCurrentScreens () {
   activeModalStacks['main-menu'] = [...activeModalStack]
   insertActiveModalStack('', [])
 }
 
-const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}) => {
+const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}, connectOptions?: Partial<ConnectOptions>) => {
   const serverSettingsQsRaw = appQueryParamsArray.serverSetting ?? []
   const serverSettingsQs = serverSettingsQsRaw.map(x => x.split(':')).reduce<Record<string, string>>((acc, [key, value]) => {
     acc[key] = JSON.parse(value)
     return acc
   }, {})
-  void connect({ singleplayer: true, username: options.localUsername, serverOverrides, serverOverridesFlat: { ...flattenedServerOverrides, ...serverSettingsQs } })
+  void connect({
+    singleplayer: true,
+    username: options.localUsername,
+    serverOverrides,
+    serverOverridesFlat: {
+      ...flattenedServerOverrides,
+      ...serverSettingsQs
+    },
+    ...connectOptions
+  })
 }
 function listenGlobalEvents () {
   window.addEventListener('connect', e => {
@@ -157,7 +142,9 @@ function listenGlobalEvents () {
     void connect(options)
   })
   window.addEventListener('singleplayer', (e) => {
-    loadSingleplayer((e as CustomEvent).detail)
+    const { detail } = (e as CustomEvent)
+    const { connectOptions, ...rest } = detail
+    loadSingleplayer(rest, {}, connectOptions)
   })
 }
 
@@ -217,6 +204,7 @@ export async function connect (connectOptions: ConnectOptions) {
   let bot!: typeof __type_bot
   const destroyAll = () => {
     if (ended) return
+    errorAbortController.abort()
     ended = true
     progress.end()
     // dont reset viewer so we can still do debugging
@@ -234,7 +222,6 @@ export async function connect (connectOptions: ConnectOptions) {
       //@ts-expect-error
       window.bot = bot = undefined
     }
-    resetStateAfterDisconnect()
     cleanFs()
   }
   const cleanFs = () => {
@@ -255,7 +242,6 @@ export async function connect (connectOptions: ConnectOptions) {
     if (err === 'ResizeObserver loop completed with undelivered notifications.') {
       return
     }
-    errorAbortController.abort()
     if (isCypress()) throw err
     miscUiState.hasErrors = true
     if (miscUiState.gameLoaded) return
@@ -266,6 +252,7 @@ export async function connect (connectOptions: ConnectOptions) {
     destroyAll()
   }
 
+  // todo(hard): remove it!
   const errorAbortController = new AbortController()
   window.addEventListener('unhandledrejection', (e) => {
     if (e.reason.name === 'ServerPluginLoadFailure') {
@@ -366,6 +353,7 @@ export async function connect (connectOptions: ConnectOptions) {
       // flying-squid: 'login' -> player.login -> now sends 'login' event to the client (handled in many plugins in mineflayer) -> then 'update_health' is sent which emits 'spawn' in mineflayer
 
       localServer = window.localServer = window.server = startLocalServer(serverOptions)
+      connectOptions?.connectEvents?.serverCreated?.()
       // todo need just to call quit if started
       // loadingScreen.maybeRecoverable = false
       // init world, todo: do it for any async plugins
@@ -597,7 +585,7 @@ export async function connect (connectOptions: ConnectOptions) {
     if (ended) return
     console.log('disconnected for', endReason)
     if (endReason === 'socketClosed') {
-      endReason = lastKnownKickReason ?? 'Connection with server lost'
+      endReason = lastKnownKickReason ?? 'Connection with proxy server lost'
     }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason:\n${endReason}`, true)
     appStatusState.showReconnect = true
@@ -612,13 +600,15 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus('Loading world')
   })
 
-  const loadStart = Date.now()
   let worldWasReady = false
   const waitForChunksToLoad = async (progress?: ProgressReporter) => {
     await new Promise<void>(resolve => {
+      if (worldWasReady) {
+        resolve()
+        return
+      }
       const unsub = subscribe(appViewer.rendererState, () => {
-        if (worldWasReady) return
-        if (appViewer.rendererState.world.allChunksLoaded) {
+        if (appViewer.rendererState.world.allChunksLoaded && appViewer.nonReactiveState.world.chunksTotalNumber) {
           worldWasReady = true
           resolve()
           unsub()
@@ -628,15 +618,6 @@ export async function connect (connectOptions: ConnectOptions) {
         }
       })
     })
-  }
-
-  void waitForChunksToLoad().then(() => {
-    console.log('All chunks done and ready! Time from renderer connect to ready', (Date.now() - loadStart) / 1000, 's')
-    document.dispatchEvent(new Event('cypress-world-ready'))
-  })
-
-  if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
-    localStorage.lastConnectOptions = JSON.stringify(connectOptions)
   }
 
   const spawnEarlier = !singleplayer && !p2pMultiplayer
@@ -649,11 +630,19 @@ export async function connect (connectOptions: ConnectOptions) {
           }
         })
       })
+      await appViewer.resourcesManager.promiseAssetsReady
     }
-    console.log('try to focus window')
-    window.focus?.()
     errorAbortController.abort()
     if (appStatusState.isError) return
+
+    const loadWorldStart = Date.now()
+    console.log('try to focus window')
+    window.focus?.()
+    void waitForChunksToLoad().then(() => {
+      window.worldLoadTime = (Date.now() - loadWorldStart) / 1000
+      console.log('All chunks done and ready! Time from renderer connect to ready', (Date.now() - loadWorldStart) / 1000, 's')
+      document.dispatchEvent(new Event('cypress-world-ready'))
+    })
 
     try {
       if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
@@ -662,7 +651,7 @@ export async function connect (connectOptions: ConnectOptions) {
       progress.setMessage('Placing blocks (starting viewer)')
       if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
         localStorage.lastConnectOptions = JSON.stringify(connectOptions)
-        if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
+        if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !location.search.slice(1).length) {
           lockUrl()
         }
       } else {
@@ -677,7 +666,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
 
       console.log('bot spawned - starting viewer')
-      appViewer.startWorld(bot.world, renderDistance)
+      await appViewer.startWorld(bot.world, renderDistance)
       appViewer.worldView!.listenToBot(bot)
 
       initMotionTracking()
@@ -803,8 +792,8 @@ document.body.addEventListener('touchend', (e) => {
   activeTouch = undefined
 })
 document.body.addEventListener('touchstart', (e) => {
-  const ignoreElem = (e.target as HTMLElement).matches('vercel-live-feedback') || (e.target as HTMLElement).closest('.hotbar')
-  if (!isGameActive(true) || ignoreElem) return
+  const targetElement = (e.target as HTMLElement).closest('#ui-root')
+  if (!isGameActive(true) || !targetElement) return
   // we always prevent default behavior to disable magnifier on ios, but by doing so we also disable click events
   e.preventDefault()
   let firstClickable // todo remove composedPath and this workaround when lit-element is fully dropped
@@ -902,7 +891,7 @@ if (!reconnectOptions) {
     }
   }, (err) => {
     console.error(err)
-    alert(`Failed to download file: ${err}`)
+    alert(`Something went wrong: ${err}`)
   })
 }
 
@@ -915,3 +904,4 @@ if (initialLoader) {
 window.pageLoaded = true
 
 void possiblyHandleStateVariable()
+registerOpenBenchmarkListener()

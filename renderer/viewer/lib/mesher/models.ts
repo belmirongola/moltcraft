@@ -2,7 +2,7 @@ import { Vec3 } from 'vec3'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import legacyJson from '../../../../src/preflatMap.json'
 import { BlockType } from '../../../playground/shared'
-import { World, BlockModelPartsResolved, WorldBlock as Block } from './world'
+import { World, BlockModelPartsResolved, WorldBlock as Block, WorldBlock } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 import { MesherGeometryOutput, HighestBlockInfo } from './shared'
@@ -103,7 +103,8 @@ function tintToGl (tint) {
   return [r / 255, g / 255, b / 255]
 }
 
-function getLiquidRenderHeight (world, block, type, pos) {
+function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isRealWater: boolean) {
+  if (!isRealWater || (block && isBlockWaterlogged(block))) return 8 / 9
   if (!block || block.type !== type) return 1 / 9
   if (block.metadata === 0) { // source block
     const blockAbove = world.getBlock(pos.offset(0, 1, 0))
@@ -124,12 +125,12 @@ const isCube = (block: Block) => {
   }))
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>) {
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>, isRealWater: boolean) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
       const pos = cursor.offset(x, 0, z)
-      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos))
+      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, isRealWater))
     }
   }
   const cornerHeights = [
@@ -147,9 +148,8 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
     const neighborPos = cursor.offset(...dir as [number, number, number])
     const neighbor = world.getBlock(neighborPos)
     if (!neighbor) continue
-    if (neighbor.type === type) continue
-    const isGlass = neighbor.name.includes('glass')
-    if ((isCube(neighbor) && !isUp) || neighbor.material === 'plant' || neighbor.getProperties().waterlogged) continue
+    if (neighbor.type === type || (water && (neighbor.name === 'water' || isBlockWaterlogged(neighbor)))) continue
+    if (isCube(neighbor) && !isUp) continue
 
     let tint = [1, 1, 1]
     if (water) {
@@ -253,7 +253,7 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
         if (!neighbor.transparent && (isCube(neighbor) || identicalCull(element, neighbor, new Vec3(...dir)))) continue
       } else {
         needSectionRecomputeOnChange = true
-        continue
+        // continue
       }
     }
 
@@ -539,11 +539,11 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
           const pos = cursor.clone()
           // eslint-disable-next-line @typescript-eslint/no-loop-func
           delayedRender.push(() => {
-            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr)
+            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr, !isWaterlogged)
           })
           attr.blocksCount++
         } else if (block.name === 'lava') {
-          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr)
+          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr, false)
           attr.blocksCount++
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {

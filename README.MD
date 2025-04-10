@@ -43,6 +43,15 @@ These browsers have issues with capturing pointer:
 **Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
 **Vivaldi**: Disable Controls -> *Raw Input* in game settings if experiencing issues
 
+### Versions Support
+
+Server versions 1.8 - 1.21.4 are supported.
+First class versions (most of the features are tested on these versions):
+- 1.19.4
+- 1.21.4
+
+Versions below 1.13 are not tested currently and may not work correctly.
+
 ### World Loading
 
 Zip files and folders are supported. Just drag and drop them into the browser window. You can open folders in readonly and read-write mode. New chunks may be generated incorrectly for now.

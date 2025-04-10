@@ -103,6 +103,7 @@ export async function getScreenRefreshRate (): Promise<number> {
   window.setTimeout(() => {
     window.cancelAnimationFrame(requestId!)
     requestId = null
+    resolve(0)
   }, 500)
 
   return new Promise(_resolve => {
@@ -142,11 +143,11 @@ export const setRenderDistance = () => {
     localServer!.players[0].view = 0
     renderDistance = 0
   }
-  worldView.updateViewDistance(renderDistance)
+  worldView?.updateViewDistance(renderDistance)
   prevRenderDistance = renderDistance
 }
 export const reloadChunks = async () => {
-  if (!worldView) return
+  if (!bot || !worldView) return
   setRenderDistance()
   await worldView.updatePosition(bot.entity.position, true)
 }

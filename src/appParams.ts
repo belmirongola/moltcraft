@@ -51,6 +51,13 @@ export type AppQsParams = {
   replayStopOnError?: string
   replaySkipMissingOnTimeout?: string
   replayPacketsSenderDelay?: string
+
+  // Benchmark params
+  openBenchmark?: string
+  renderDistance?: string
+  downloadBenchmark?: string
+  benchmarkMapZipUrl?: string
+  benchmarkPosition?: string
 }
 
 export type AppQsParamsArray = {

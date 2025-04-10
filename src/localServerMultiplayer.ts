@@ -1,5 +1,5 @@
 import { Duplex } from 'stream'
-import Peer, { DataConnection } from 'peerjs'
+import { Peer, DataConnection } from 'peerjs'
 import Client from 'minecraft-protocol/src/client'
 import { resolveTimeout } from './utils'
 import { setLoadingScreenStatus } from './appStatus'

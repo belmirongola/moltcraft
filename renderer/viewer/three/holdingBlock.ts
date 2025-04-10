@@ -911,6 +911,6 @@ export const getBlockMeshFromModel = (material: THREE.Material, model: BlockMode
   const worldRenderModel = blockProvider.transformModel(model, {
     name,
     properties: {}
-  })
+  }) as any
   return getThreeBlockModelGroup(material, [[worldRenderModel]], undefined, 'plains', loadedData)
 }

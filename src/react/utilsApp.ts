@@ -4,10 +4,11 @@ import { useMedia } from 'react-use'
 import { activeModalStack, miscUiState } from '../globalState'
 
 export const watchedModalsFromHooks = proxy({
-  value: new Set<string>()
+  value: [] as string[]
 })
 // todo should not be there
 export const hardcodedKnownModals = [
+  'empty',
   'player_win:',
   'divkit:',
   'full-map' // todo
@@ -18,12 +19,12 @@ export const useUsingTouch = () => {
 }
 export const useIsModalActive = (modal: string, useIncludes = false) => {
   useMemo(() => {
-    watchedModalsFromHooks.value.add(modal)
+    watchedModalsFromHooks.value.push(modal)
   }, [])
   useEffect(() => {
     // watchedModalsFromHooks.add(modal)
     return () => {
-      watchedModalsFromHooks.value.delete(modal)
+      watchedModalsFromHooks.value = watchedModalsFromHooks.value.filter(x => x !== modal)
     }
   }, [])
 

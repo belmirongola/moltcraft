@@ -3,6 +3,7 @@ import { LineMaterial, LineSegmentsGeometry, Wireframe } from 'three-stdlib'
 import { Vec3 } from 'vec3'
 import { subscribeKey } from 'valtio/utils'
 import { Block } from 'prismarine-block'
+import { BlockShape, BlocksShapes } from 'renderer/viewer/lib/basePlayerState'
 import { WorldRendererThree } from '../worldrendererThree'
 import destroyStage0 from '../../../../assets/destroy_stage_0.png'
 import destroyStage1 from '../../../../assets/destroy_stage_1.png'
@@ -89,15 +90,13 @@ export class CursorBlock {
     this.prevColor = this.worldRenderer.worldRendererConfig.highlightBlockColor
   }
 
-  updateBreakAnimation (block: Block | undefined, stage: number | null) {
+  updateBreakAnimation (blockPosition: { x: number, y: number, z: number } | undefined, stage: number | null, mergedShape?: BlockShape) {
     this.hideBreakAnimation()
-    if (stage === null || !block) return
+    if (stage === null || !blockPosition || !mergedShape) return
 
-    const mergedShape = bot.mouse.getMergedCursorShape(block)
-    if (!mergedShape) return
-    const { position, width, height, depth } = bot.mouse.getDataFromShape(mergedShape)
+    const { position, width, height, depth } = mergedShape
     this.blockBreakMesh.scale.set(width * 1.001, height * 1.001, depth * 1.001)
-    position.add(block.position)
+    position.add(blockPosition)
     this.blockBreakMesh.position.set(position.x, position.y, position.z)
     this.blockBreakMesh.visible = true;
 
@@ -119,7 +118,7 @@ export class CursorBlock {
     }
   }
 
-  setHighlightCursorBlock (blockPos: Vec3 | null, shapePositions?: Array<{ position: any; width: any; height: any; depth: any; }>): void {
+  setHighlightCursorBlock (blockPos: Vec3 | null, shapePositions?: BlocksShapes): void {
     if (blockPos && this.interactionLines && blockPos.equals(this.interactionLines.blockPos)) {
       return
     }
@@ -143,7 +142,7 @@ export class CursorBlock {
       group.add(wireframe)
     }
     this.worldRenderer.scene.add(group)
-    group.visible = this.cursorLinesHidden
+    group.visible = !this.cursorLinesHidden
     this.interactionLines = { blockPos, mesh: group }
   }
 

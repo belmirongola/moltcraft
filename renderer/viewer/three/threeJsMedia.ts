@@ -16,6 +16,8 @@ interface MediaProperties {
   loop?: boolean
   volume?: number
   autoPlay?: boolean
+
+  allowLighting?: boolean
 }
 
 export class ThreeJsMedia {
@@ -30,6 +32,21 @@ export class ThreeJsMedia {
   }>()
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
+    this.worldRenderer.onWorldSwitched.push(() => {
+      this.onWorldGone()
+    })
+  }
+
+  onWorldGone () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      this.destroyMedia(id)
+    }
+  }
+
+  onWorldStop () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      this.setVideoPlaying(id, false)
+    }
   }
 
   private createErrorTexture (width: number, height: number, background = 0x00_00_00, error = 'Failed to load'): THREE.CanvasTexture {
@@ -197,7 +214,8 @@ export class ThreeJsMedia {
     const geometry = new THREE.PlaneGeometry(1, 1)
 
     // Create material with initial properties using background texture
-    const material = new THREE.MeshLambertMaterial({
+    const MaterialClass = props.allowLighting ? THREE.MeshLambertMaterial : THREE.MeshBasicMaterial
+    const material = new MaterialClass({
       map: backgroundTexture,
       transparent: true,
       side: props.doubleSide ? THREE.DoubleSide : THREE.FrontSide,
@@ -514,6 +532,9 @@ export class ThreeJsMedia {
   }
 
   tryIntersectMedia () {
+    // hack: need to optimize this by pulling only in distance of interaction instead (or throttle)!
+    if (this.customMedia.size === 0) return
+
     const { camera, scene } = this.worldRenderer
     const raycaster = new THREE.Raycaster()
 
