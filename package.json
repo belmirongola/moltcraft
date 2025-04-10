@@ -119,11 +119,11 @@
     "workbox-build": "^7.0.0"
   },
   "devDependencies": {
-    "@rsbuild/core": "^1.0.1-beta.9",
-    "@rsbuild/plugin-node-polyfill": "^1.0.3",
-    "@rsbuild/plugin-react": "^1.0.1-beta.9",
-    "@rsbuild/plugin-type-check": "^1.0.1-beta.9",
-    "@rsbuild/plugin-typed-css-modules": "^1.0.1",
+    "@rsbuild/core": "1.0.1-beta.9",
+    "@rsbuild/plugin-node-polyfill": "1.0.3",
+    "@rsbuild/plugin-react": "1.0.1-beta.9",
+    "@rsbuild/plugin-type-check": "1.0.1-beta.9",
+    "@rsbuild/plugin-typed-css-modules": "1.0.1",
     "@storybook/addon-essentials": "^7.4.6",
     "@storybook/addon-links": "^7.4.6",
     "@storybook/blocks": "^7.4.6",
@@ -154,7 +154,7 @@
     "mc-assets": "^0.2.52",
     "mineflayer-mouse": "^0.1.7",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
-    "mineflayer": "github:zardoy/mineflayer",
+    "mineflayer": "github:GenerelSchwerz/mineflayer",
     "mineflayer-pathfinder": "^2.4.4",
     "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
@@ -195,9 +195,9 @@
   },
   "pnpm": {
     "overrides": {
+      "@nxg-org/mineflayer-physics-util": "1.8.6",
       "buffer": "^6.0.3",
       "vec3": "0.1.10",
-      "@nxg-org/mineflayer-physics-util": "1.5.8",
       "three": "0.154.0",
       "diamond-square": "github:zardoy/diamond-square",
       "prismarine-block": "github:zardoy/prismarine-block#next-era",
