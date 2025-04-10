@@ -8,9 +8,8 @@ import { BotEvents } from 'mineflayer'
 import { proxy } from 'valtio'
 import TypedEmitter from 'typed-emitter'
 import { delayedIterator } from '../../playground/shared'
-import { playerState } from '../../../src/mineflayer/playerState'
 import { chunkPos } from './simpleUtils'
-import { createLightEngine, processLightChunk, updateBlockLight } from './lightEngine'
+import { processLightChunk, updateBlockLight } from './lightEngine'
 
 export type ChunkPosKey = string
 type ChunkPos = { x: number, z: number }
@@ -178,7 +177,6 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   }
 
   async init (pos: Vec3) {
-    createLightEngine()
     this.updateViewDistance(this.viewDistance)
     this.emitter.emit('chunkPosUpdate', { pos })
     const [botX, botZ] = chunkPos(pos)

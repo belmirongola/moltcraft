@@ -107,6 +107,9 @@ const handleMessage = data => {
     }
     case 'chunk': {
       world.addColumn(data.x, data.z, data.chunk)
+      if (data.lightData) {
+        world.lightHolder.loadChunk(data.lightData)
+      }
       if (data.customBlockModels) {
         const chunkKey = `${data.x},${data.z}`
         world.customBlockModels.set(chunkKey, data.customBlockModels)

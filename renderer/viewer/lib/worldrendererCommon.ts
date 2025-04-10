@@ -19,6 +19,7 @@ import { chunkPos } from './simpleUtils'
 import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
+import { createLightEngine, getLightEngine, getLightEngineSafe } from './lightEngine'
 
 function mod (x, n) {
   return ((x % n) + n) % n
@@ -161,6 +162,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public initOptions: GraphicsInitOptions) {
+    createLightEngine(this)
+
     // this.initWorkers(1) // preload script on page load
     this.snapshotInitialValues()
     this.worldRendererConfig = displayOptions.inWorldRenderingConfig
@@ -577,7 +580,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         x,
         z,
         chunk,
-        customBlockModels: customBlockModels || undefined
+        customBlockModels: customBlockModels || undefined,
+        lightData: getLightEngineSafe()?.worldLightHolder.dumpChunk(x, z)
       })
     }
     this.logWorkerWork(`-> chunk ${JSON.stringify({ x, z, chunkLength: chunk.length, customBlockModelsLength: customBlockModels ? Object.keys(customBlockModels).length : 0 })}`)

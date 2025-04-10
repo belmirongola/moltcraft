@@ -1,3 +1,4 @@
+import { WorldLightHolder } from 'minecraft-lighting/dist/worldLightHolder'
 import Chunks from 'prismarine-chunk'
 import mcData from 'minecraft-data'
 import { Block } from 'prismarine-block'
@@ -32,6 +33,7 @@ export type WorldBlock = Omit<Block, 'position'> & {
 }
 
 export class World {
+  lightHolder = new WorldLightHolder(0, 0)
   config = defaultMesherConfig
   Chunk: typeof import('prismarine-chunk/types/index').PCChunk
   columns = {} as { [key: string]: import('prismarine-chunk/types/index').PCChunk }
@@ -63,8 +65,8 @@ export class World {
     let result = Math.min(
       15,
       Math.max(
-        column.getBlockLight(posInChunk(pos)),
-        Math.min(skyLight, column.getSkyLight(posInChunk(pos)))
+        this.getBlockLight(pos),
+        Math.min(skyLight, this.getSkyLight(pos))
       )
     )
     const MIN_LIGHT_LEVEL = 2
@@ -88,6 +90,16 @@ export class World {
       if (isNeighbor) result = 15 // TODO
     }
     return result
+  }
+
+  getBlockLight (pos: Vec3) {
+    return this.lightHolder.getBlockLight(pos.x, pos.y, pos.z)
+    // return column.getBlockLight(posInChunk(pos))
+  }
+
+  getSkyLight (pos: Vec3) {
+    return this.lightHolder.getSkyLight(pos.x, pos.y, pos.z)
+    // return column.getSkyLight(posInChunk(pos))
   }
 
   addColumn (x, z, json) {

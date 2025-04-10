@@ -170,7 +170,7 @@
     "typescript": "5.5.4",
     "vitest": "^0.34.6",
     "yaml": "^2.3.2",
-    "minecraft-lighting": "^0.0.4"
+    "minecraft-lighting": "file:../minecraft-lighting"
   },
   "optionalDependencies": {
     "cypress": "^10.11.0",
