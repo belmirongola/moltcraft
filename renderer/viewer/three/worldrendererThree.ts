@@ -140,6 +140,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   override watchReactivePlayerState () {
+    super.watchReactivePlayerState()
     this.onReactiveValueUpdated('inWater', (value) => {
       this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.displayOptions.playerState.reactive.waterBreathing ? 100 : 20) : null
     })
@@ -150,6 +151,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.onReactiveValueUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
+    })
+    this.onReactiveValueUpdated('lookingAtBlock', (value) => {
+      this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
+    })
+    this.onReactiveValueUpdated('diggingBlock', (value) => {
+      this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
     })
   }
 

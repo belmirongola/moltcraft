@@ -714,142 +714,32 @@ document.addEventListener('visibilitychange', (e) => {
   }
 })
 
-// #region creative fly
-// these controls are more like for gamemode 3
-
-const makeInterval = (fn, interval) => {
-  const intervalId = setInterval(fn, interval)
-
-  const cleanup = () => {
-    clearInterval(intervalId)
-    cleanup.active = false
-  }
-  cleanup.active = true
-  return cleanup
-}
-
-const isFlying = () => bot.physics.gravity === 0
-let endFlyLoop: ReturnType<typeof makeInterval> | undefined
-
-const currentFlyVector = new Vec3(0, 0, 0)
-window.currentFlyVector = currentFlyVector
-
-// todo cleanup
-const flyingPressedKeys = {
-  down: false,
-  up: false
-}
-
-const startFlyLoop = () => {
-  if (!isFlying()) return
-  endFlyLoop?.()
-
-  endFlyLoop = makeInterval(() => {
-    if (!bot) {
-      endFlyLoop?.()
-      return
-    }
-
-    bot.entity.position.add(currentFlyVector.clone().multiply(new Vec3(0, 0.5, 0)))
-  }, 50)
-}
-
-// todo we will get rid of patching it when refactor controls
-let originalSetControlState
-const patchedSetControlState = (action, state) => {
-  if (!isFlying()) {
-    return originalSetControlState(action, state)
-  }
-
-  const actionPerFlyVector = {
-    jump: new Vec3(0, 1, 0),
-    sneak: new Vec3(0, -1, 0),
-  }
-
-  const changeVec = actionPerFlyVector[action]
-  if (!changeVec) {
-    return originalSetControlState(action, state)
-  }
-  if (flyingPressedKeys[state === 'jump' ? 'up' : 'down'] === state) return
-  const toAddVec = changeVec.scaled(state ? 1 : -1)
-  for (const coord of ['x', 'y', 'z']) {
-    if (toAddVec[coord] === 0) continue
-    if (currentFlyVector[coord] === toAddVec[coord]) return
-  }
-  currentFlyVector.add(toAddVec)
-  flyingPressedKeys[state === 'jump' ? 'up' : 'down'] = state
-}
+const isFlying = () => (bot.entity as any).flying
 
 const startFlying = (sendAbilities = true) => {
-  bot.entity['creativeFly'] = true
   if (sendAbilities) {
     bot._client.write('abilities', {
       flags: 2,
     })
   }
-  // window.flyingSpeed will be removed
-  bot.physics['airborneAcceleration'] = window.flyingSpeed ?? 0.1 // todo use abilities
-  bot.entity.velocity = new Vec3(0, 0, 0)
-  bot.creative.startFlying()
-  startFlyLoop()
+  (bot.entity as any).flying = true
 }
 
 const endFlying = (sendAbilities = true) => {
-  bot.entity['creativeFly'] = false
-  if (bot.physics.gravity !== 0) return
+  if (!isFlying()) return
   if (sendAbilities) {
     bot._client.write('abilities', {
       flags: 0,
     })
   }
-  Object.assign(flyingPressedKeys, {
-    up: false,
-    down: false
-  })
-  currentFlyVector.set(0, 0, 0)
-  bot.physics['airborneAcceleration'] = standardAirborneAcceleration
-  bot.creative.stopFlying()
-  endFlyLoop?.()
+  (bot.entity as any).flying = false
 }
-
-let allowFlying = false
 
 export const onBotCreate = () => {
-  let wasSpectatorFlying = false
-  bot._client.on('abilities', ({ flags }) => {
-    allowFlying = !!(flags & 4)
-    if (flags & 2) { // flying
-      toggleFly(true, false)
-    } else {
-      toggleFly(false, false)
-    }
-  })
-  const gamemodeCheck = () => {
-    if (bot.game.gameMode === 'spectator') {
-      allowFlying = true
-      toggleFly(true, false)
-      wasSpectatorFlying = true
-    } else if (wasSpectatorFlying) {
-      toggleFly(false, false)
-      wasSpectatorFlying = false
-    }
-  }
-  bot.on('game', () => {
-    gamemodeCheck()
-  })
-  bot.on('login', () => {
-    gamemodeCheck()
-  })
 }
 
-const standardAirborneAcceleration = 0.02
 const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
-  // if (bot.game.gameMode !== 'creative' && bot.game.gameMode !== 'spectator') return
-  if (!allowFlying) return
-  if (bot.setControlState !== patchedSetControlState) {
-    originalSetControlState = bot.setControlState
-    bot.setControlState = patchedSetControlState
-  }
+  if (!bot.entity.canFly) return
 
   if (newState) {
     startFlying(sendAbilities)
@@ -858,7 +748,6 @@ const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
   }
   gameAdditionalState.isFlying = isFlying()
 }
-// #endregion
 
 const selectItem = async () => {
   const block = bot.blockAtCursor(5)

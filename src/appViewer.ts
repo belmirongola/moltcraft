@@ -155,6 +155,12 @@ export class AppViewer {
     }
   }
 
+  async startWithBot () {
+    const renderDistance = miscUiState.singleplayer ? options.renderDistance : options.multiplayerRenderDistance
+    await this.startWorld(bot.world, renderDistance)
+    this.worldView!.listenToBot(bot)
+  }
+
   async startWorld (world, renderDistance: number, playerStateSend: IPlayerState = this.playerState) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
@@ -185,11 +191,7 @@ export class AppViewer {
   }
 
   resetBackend (cleanState = false) {
-    if (cleanState) {
-      this.currentState = undefined
-      this.currentDisplay = null
-      this.worldView = undefined
-    }
+    this.disconnectBackend(cleanState)
     if (this.backendLoader) {
       this.loadBackend(this.backendLoader)
     }
@@ -216,7 +218,12 @@ export class AppViewer {
     this.resourcesManager.destroy()
   }
 
-  disconnectBackend () {
+  disconnectBackend (cleanState = false) {
+    if (cleanState) {
+      this.currentState = undefined
+      this.currentDisplay = null
+      this.worldView = undefined
+    }
     if (this.backend) {
       this.backend.disconnect()
       this.backend = undefined
@@ -225,7 +232,7 @@ export class AppViewer {
     const { promise, resolve } = Promise.withResolvers<void>()
     this.worldReady = promise
     this.resolveWorldReady = resolve
-    Object.assign(this.rendererState, getDefaultRendererState())
+    this.rendererState = proxy(getDefaultRendererState())
     // this.queuedDisplay = undefined
   }
 

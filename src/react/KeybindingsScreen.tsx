@@ -303,10 +303,10 @@ export const ButtonWithMatchesAlert = ({
       <Keybinding type={inputType} val={buttonSign as AllKeyCodes} />
     </Button>
     {userConfig?.[group]?.[action]?.[inputType === 'keyboard' ? 'keys' : 'gamepad']?.some(key => Object.keys(bindsMap[inputType]).includes(key)
-    && bindsMap[inputType][key].length > 1
-    && bindsMap[inputType][key].some(prop => prop.index === index
-    && prop.group === group
-    && prop.action === action)) ? (
+      && bindsMap[inputType][key].length > 1
+      && bindsMap[inputType][key].some(prop => prop.index === index
+        && prop.group === group
+        && prop.action === action)) ? (
       //@ts-format-ignore-region
         <div id={`bind-warning-${group}-${action}-${inputType}-${index}`} className={styles['matched-bind-warning']}>
           <PixelartIcon

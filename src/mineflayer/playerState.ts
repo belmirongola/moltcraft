@@ -77,9 +77,9 @@ export class PlayerStateManager implements IPlayerState {
 
   // #region Movement and Physics State
   private updateState () {
-    if (!bot.player?.entity || this.disableStateUpdates) return
+    if (!bot?.entity || this.disableStateUpdates) return
 
-    const { velocity } = bot.player.entity
+    const { velocity } = bot.entity
     const isOnGround = bot.entity.onGround
     const VELOCITY_THRESHOLD = 0.01
     const SPRINTING_VELOCITY = 0.15
@@ -138,7 +138,7 @@ export class PlayerStateManager implements IPlayerState {
   }
 
   getPosition (): Vec3 {
-    return bot.player?.entity.position ?? new Vec3(0, 0, 0)
+    return bot.entity?.position ?? new Vec3(0, 0, 0)
   }
   // #endregion
 

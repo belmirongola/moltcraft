@@ -34,6 +34,7 @@ export default () => {
   const [blockL, setBlockL] = useState(0)
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
+  const [timeOfDay, setTimeOfDay] = useState(0)
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
   const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
@@ -132,6 +133,7 @@ export default () => {
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
+      setTimeOfDay(bot.time.timeOfDay)
       setCursorBlock(bot.mouse.getCursorState().cursorBlock)
     }, 100)
 
@@ -185,7 +187,7 @@ export default () => {
       <p>Light: {blockL} ({skyL} sky)</p>
 
       <p>Biome: minecraft:{loadedData.biomesArray[biomeId]?.name ?? 'unknown biome'}</p>
-      <p>Day: {day}</p>
+      <p>Day: {day} Time: {timeOfDay}</p>
       <div className={styles.empty} />
       {Object.entries(appViewer.backend?.getDebugOverlay?.().left ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>

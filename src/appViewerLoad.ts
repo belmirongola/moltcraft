@@ -37,3 +37,13 @@ const animLoop = () => {
 requestAnimationFrame(animLoop)
 
 watchOptionsAfterViewerInit()
+
+// reset backend when renderer changes
+
+subscribeKey(options, 'activeRenderer', () => {
+  if (appViewer.currentDisplay === 'world' && bot) {
+    appViewer.resetBackend(true)
+    loadBackend()
+    void appViewer.startWithBot()
+  }
+})

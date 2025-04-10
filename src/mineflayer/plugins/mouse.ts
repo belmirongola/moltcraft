@@ -11,20 +11,32 @@ import { sendVideoInteraction, videoCursorInteraction } from '../../customChanne
 function cursorBlockDisplay (bot: Bot) {
   const updateCursorBlock = (data?: { block: Block }) => {
     if (!data?.block) {
-      getThreeJsRendererMethods()?.setHighlightCursorBlock(null)
+      playerState.reactive.lookingAtBlock = undefined
       return
     }
 
     const { block } = data
-    getThreeJsRendererMethods()?.setHighlightCursorBlock(block.position, bot.mouse.getBlockCursorShapes(block).map(shape => {
-      return bot.mouse.getDataFromShape(shape)
-    }))
+    playerState.reactive.lookingAtBlock = {
+      x: block.position.x,
+      y: block.position.y,
+      z: block.position.z,
+      shapes: bot.mouse.getBlockCursorShapes(block).map(shape => {
+        return bot.mouse.getDataFromShape(shape)
+      })
+    }
   }
 
   bot.on('highlightCursorBlock', updateCursorBlock)
 
   bot.on('blockBreakProgressStage', (block, stage) => {
-    getThreeJsRendererMethods()?.updateBreakAnimation(block, stage)
+    const mergedShape = bot.mouse.getMergedCursorShape(block)
+    playerState.reactive.diggingBlock = stage === null ? undefined : {
+      x: block.position.x,
+      y: block.position.y,
+      z: block.position.z,
+      stage,
+      mergedShape: mergedShape ? bot.mouse.getDataFromShape(mergedShape) : undefined
+    }
   })
 }
 

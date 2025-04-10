@@ -5,9 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@nxg-org/mineflayer-physics-util': 1.8.6
   buffer: ^6.0.3
   vec3: 0.1.10
-  '@nxg-org/mineflayer-physics-util': 1.5.8
   three: 0.154.0
   diamond-square: github:zardoy/diamond-square
   prismarine-block: github:zardoy/prismarine-block#next-era
@@ -136,7 +136,7 @@ importers:
         version: 4.17.21
       mcraft-fun-mineflayer:
         specifier: ^0.1.14
-        version: 0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13))
+        version: 0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
@@ -257,19 +257,19 @@ importers:
         version: 5.22.7
     devDependencies:
       '@rsbuild/core':
-        specifier: ^1.0.1-beta.9
+        specifier: 1.0.1-beta.9
         version: 1.0.1-beta.9
       '@rsbuild/plugin-node-polyfill':
-        specifier: ^1.0.3
+        specifier: 1.0.3
         version: 1.0.3(@rsbuild/core@1.0.1-beta.9)
       '@rsbuild/plugin-react':
-        specifier: ^1.0.1-beta.9
+        specifier: 1.0.1-beta.9
         version: 1.0.1-beta.9(@rsbuild/core@1.0.1-beta.9)
       '@rsbuild/plugin-type-check':
-        specifier: ^1.0.1-beta.9
+        specifier: 1.0.1-beta.9
         version: 1.0.1-beta.9(@rsbuild/core@1.0.1-beta.9)(esbuild@0.19.11)(typescript@5.5.4)
       '@rsbuild/plugin-typed-css-modules':
-        specifier: ^1.0.1
+        specifier: 1.0.1
         version: 1.0.1(@rsbuild/core@1.0.1-beta.9)
       '@storybook/addon-essentials':
         specifier: ^7.4.6
@@ -362,8 +362,8 @@ importers:
         specifier: file:../minecraft-lighting
         version: file:../minecraft-lighting
       mineflayer:
-        specifier: github:zardoy/mineflayer
-        version: https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13)
+        specifier: github:GenerelSchwerz/mineflayer
+        version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)
       mineflayer-mouse:
         specifier: ^0.1.7
         version: 0.1.7(@types/debug@4.1.12)(@types/node@22.8.1)(terser@5.31.3)(tsx@4.7.0)(yaml@2.4.1)
@@ -441,7 +441,7 @@ importers:
         version: 1.3.6
       prismarine-block:
         specifier: github:zardoy/prismarine-block#next-era
-        version: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+        version: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-chunk:
         specifier: github:zardoy/prismarine-chunk#master
         version: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
@@ -2144,8 +2144,8 @@ packages:
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     resolution: {integrity: sha512-F5vX/lerlWx/5HVlkDNbvrtQ19PL6iG8i4ItPTIRtjGiFzusDefP7DI226zSFR8Wlaw45qHv0jn814p/4/qVdQ==}
 
-  '@nxg-org/mineflayer-physics-util@1.5.8':
-    resolution: {integrity: sha512-KmCkAqpUo8BbuRdIBs6+V2hWHehz++PRz3lRwIsb47CuG0u4sgLYh37RY3ifAznC6uWvmPK+q3B4ZXwJzPy1MQ==}
+  '@nxg-org/mineflayer-physics-util@1.8.6':
+    resolution: {integrity: sha512-eRn9e9OMvl1+kEfwPPshAl1A5MX0eDWaI7WVRf7ht9qo9N3fKiw+mM/AGPuhVjEr16zUls77P6Sn9cVZJuUdlw==}
 
   '@nxg-org/mineflayer-tracker@1.2.1':
     resolution: {integrity: sha512-SI1ffF8zvg3/ZNE021Ja2W0FZPN+WbQDZf8yFqOcXtPRXAtM9W6HvoACdzXep8BZid7WYgYLIgjKpB+9RqvCNQ==}
@@ -4962,9 +4962,6 @@ packages:
   es-module-lexer@0.9.3:
     resolution: {integrity: sha512-1HQ2M2sPtxwnvOvT1ZClHyQDiggdNjURWpY2we6aMKCQiUVxTmVs2UYPLIrD84sS+kMdUwfBSylbJPwNnBrnHQ==}
 
-  es-module-lexer@1.5.4:
-    resolution: {integrity: sha512-MVNK56NiMrOwitFB7cqDwq0CQutbw+0BvLshJSse0MUNU+y1FC3bUS/AQg7oUng+/wKrrki7JfmwtVHkVfPLlw==}
-
   es-module-lexer@1.6.0:
     resolution: {integrity: sha512-qqnD1yMU6tk/jnaMosogGySTZP8YtUgAffA9nMN+E/rjxcfRQ6IEk7IiozUjgxKoFHBGjTLnrHB/YC45r/59EQ==}
 
@@ -6955,14 +6952,14 @@ packages:
   mineflayer-pathfinder@2.4.4:
     resolution: {integrity: sha512-HAXakZrJRb1UC+5dv8EaDrqjW3ZnBnBk3nkb6x/YWyhHCUKn/E7VU0FO+UN9whuqPlkSaVumEdXJdydE6lSYxQ==}
 
-  mineflayer@4.25.0:
-    resolution: {integrity: sha512-q7cmpZFaSI6sodcMJxc2GkV8IO84HbsUP+xNipGKfGg+FMISKabzdJ838Axb60qRtZrp6ny7LluQE7lesHvvxQ==}
-    engines: {node: '>=18'}
+  mineflayer@4.27.0:
+    resolution: {integrity: sha512-3bxph4jfbkBh5HpeouorxzrfSLNV+i+1gugNJ2jf52HW+rt+tW7eiiFPxrJEsOVkPT/3O/dEIW7j93LRlojMkQ==}
+    engines: {node: '>=22'}
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d:
-    resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d}
-    version: 4.25.0
-    engines: {node: '>=18'}
+  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a:
+    resolution: {tarball: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a}
+    version: 4.27.0
+    engines: {node: '>=22'}
 
   minimalistic-assert@1.0.1:
     resolution: {integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==}
@@ -7673,6 +7670,9 @@ packages:
 
   prismarine-entity@2.3.1:
     resolution: {integrity: sha512-HOv8l7IetHNf4hwZ7V/W4vM3GNl+e6VCtKDkH9h02TRq7jWngsggKtJV+VanCce/sNwtJUhJDjORGs728ep4MA==}
+
+  prismarine-entity@2.5.0:
+    resolution: {integrity: sha512-nRPCawUwf9r3iKqi4I7mZRlir1Ix+DffWYdWq6p/KNnmiXve+xHE5zv8XCdhZlUmOshugHv5ONl9o6ORAkCNIA==}
 
   prismarine-item@1.16.0:
     resolution: {integrity: sha512-88Tz+/6HquYIsDuseae5G3IbqLeMews2L+ba2gX+p6K6soU9nuFhCfbwN56QuB7d/jZFcWrCYAPE5+UhwWh67w==}
@@ -11685,10 +11685,10 @@ snapshots:
 
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.5.8
+      '@nxg-org/mineflayer-physics-util': 1.8.6
       strict-event-emitter-types: 2.0.0
 
-  '@nxg-org/mineflayer-physics-util@1.5.8':
+  '@nxg-org/mineflayer-physics-util@1.8.6':
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.3
 
@@ -13044,7 +13044,7 @@ snapshots:
   '@types/eslint-scope@3.7.7':
     dependencies:
       '@types/eslint': 9.6.0
-      '@types/estree': 1.0.5
+      '@types/estree': 1.0.6
 
   '@types/eslint@9.6.0':
     dependencies:
@@ -15484,8 +15484,6 @@ snapshots:
 
   es-module-lexer@0.9.3: {}
 
-  es-module-lexer@1.5.4: {}
-
   es-module-lexer@1.6.0: {}
 
   es-object-atoms@1.1.1:
@@ -16236,7 +16234,7 @@ snapshots:
       minimatch: 3.1.2
       node-abort-controller: 3.1.1
       schema-utils: 3.3.0
-      semver: 7.6.0
+      semver: 7.7.1
       tapable: 2.2.1
       typescript: 5.5.4
       webpack: 5.93.0(esbuild@0.19.11)
@@ -17621,12 +17619,12 @@ snapshots:
       maxrects-packer: '@zardoy/maxrects-packer@2.7.4'
       zod: 3.24.1
 
-  mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13)):
+  mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)):
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/3bd4dc1b2002cd7badfa5b9cf8dda35cd6cc9ac1(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
-      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13)
+      mineflayer: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)
       prismarine-item: 1.16.0
       ws: 8.18.0
     transitivePeerDependencies:
@@ -18046,7 +18044,7 @@ snapshots:
 
   mineflayer-item-map-downloader@https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824(patch_hash=bck55yjvd4wrgz46x7o4vfur5q)(encoding@0.1.13):
     dependencies:
-      mineflayer: 4.25.0(encoding@0.1.13)
+      mineflayer: 4.27.0(encoding@0.1.13)
       sharp: 0.30.7
     transitivePeerDependencies:
       - encoding
@@ -18083,22 +18081,22 @@ snapshots:
   mineflayer-pathfinder@2.4.4:
     dependencies:
       minecraft-data: 3.83.1
-      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-entity: 2.3.1
       prismarine-item: 1.16.0
       prismarine-nbt: 2.5.0
       prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
       vec3: 0.1.10
 
-  mineflayer@4.25.0(encoding@0.1.13):
+  mineflayer@4.27.0(encoding@0.1.13):
     dependencies:
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)
-      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-chat: 1.10.1
       prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
-      prismarine-entity: 2.3.1
+      prismarine-entity: 2.5.0
       prismarine-item: 1.16.0
       prismarine-nbt: 2.5.0
       prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
@@ -18113,17 +18111,18 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13):
+  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13):
     dependencies:
+      '@nxg-org/mineflayer-physics-util': 1.8.6
       minecraft-data: 3.83.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/5ec3dd4b367fcc039fbcb3edd214fe3cf8178a6d(patch_hash=dkeyukcqlupmk563gwxsmjr3yu)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)
-      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-chat: 1.10.1
       prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
-      prismarine-entity: 2.3.1
+      prismarine-entity: 2.5.0
       prismarine-item: 1.16.0
-      prismarine-nbt: 2.5.0
+      prismarine-nbt: 2.7.0
       prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
       prismarine-recipe: 1.3.1(prismarine-registry@1.11.0)
       prismarine-registry: 1.11.0
@@ -18907,7 +18906,7 @@ snapshots:
       minecraft-data: 3.83.1
       prismarine-registry: 1.11.0
 
-  prismarine-block@https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0):
+  prismarine-block@https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9:
     dependencies:
       minecraft-data: 3.83.1
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)
@@ -18915,8 +18914,6 @@ snapshots:
       prismarine-item: 1.16.0
       prismarine-nbt: 2.5.0
       prismarine-registry: 1.11.0
-    transitivePeerDependencies:
-      - prismarine-registry
 
   prismarine-chat@1.10.1:
     dependencies:
@@ -18927,7 +18924,7 @@ snapshots:
   prismarine-chunk@https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1):
     dependencies:
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)
-      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-nbt: 2.5.0
       prismarine-registry: 1.11.0
       smart-buffer: 4.2.0
@@ -18938,6 +18935,13 @@ snapshots:
       - minecraft-data
 
   prismarine-entity@2.3.1:
+    dependencies:
+      prismarine-chat: 1.10.1
+      prismarine-item: 1.16.0
+      prismarine-registry: 1.11.0
+      vec3: 0.1.10
+
+  prismarine-entity@2.5.0:
     dependencies:
       prismarine-chat: 1.10.1
       prismarine-item: 1.16.0
@@ -18965,7 +18969,7 @@ snapshots:
 
   prismarine-provider-anvil@https://codeload.github.com/zardoy/prismarine-provider-anvil/tar.gz/1d548fac63fe977c8281f0a9a522b37e4d92d0b7(minecraft-data@3.83.1):
     dependencies:
-      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/e68e9a423b5b1907535878fb636f12c28a1a9374(minecraft-data@3.83.1)
       prismarine-nbt: 2.5.0
       prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
@@ -18989,13 +18993,13 @@ snapshots:
   prismarine-registry@1.11.0:
     dependencies:
       minecraft-data: 3.83.1
-      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-nbt: 2.7.0
 
   prismarine-schematic@1.2.3:
     dependencies:
       minecraft-data: 3.83.1
-      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-nbt: 2.5.0
       prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
       vec3: 0.1.10
@@ -19840,8 +19844,7 @@ snapshots:
     dependencies:
       lru-cache: 6.0.0
 
-  semver@7.7.1:
-    optional: true
+  semver@7.7.1: {}
 
   send@0.18.0:
     dependencies:
@@ -21275,7 +21278,7 @@ snapshots:
   webpack@5.93.0(esbuild@0.19.11):
     dependencies:
       '@types/eslint-scope': 3.7.7
-      '@types/estree': 1.0.5
+      '@types/estree': 1.0.6
       '@webassemblyjs/ast': 1.12.1
       '@webassemblyjs/wasm-edit': 1.12.1
       '@webassemblyjs/wasm-parser': 1.12.1
@@ -21284,7 +21287,7 @@ snapshots:
       browserslist: 4.23.2
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.17.1
-      es-module-lexer: 1.5.4
+      es-module-lexer: 1.6.0
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1
