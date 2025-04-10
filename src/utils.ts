@@ -103,6 +103,7 @@ export async function getScreenRefreshRate (): Promise<number> {
   window.setTimeout(() => {
     window.cancelAnimationFrame(requestId!)
     requestId = null
+    resolve(0)
   }, 500)
 
   return new Promise(_resolve => {
