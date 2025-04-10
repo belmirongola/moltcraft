@@ -4,8 +4,8 @@ FROM node:18-alpine AS build
 RUN apk add git
 WORKDIR /app
 COPY . /app
-# install pnpm
-RUN npm i -g pnpm@9.0.4
+# install pnpm with corepack
+RUN corepack enable
 # Build arguments
 ARG DOWNLOAD_SOUNDS=false
 ARG DISABLE_SERVICE_WORKER=false
@@ -35,7 +35,7 @@ WORKDIR /app
 COPY --from=build /app/dist /app/dist
 COPY server.js /app/server.js
 # Install express
-RUN npm i -g pnpm@9.0.4
+RUN npm corepack enable
 RUN npm init -yp
 RUN pnpm i express github:zardoy/prismarinejs-net-browserify compression cors
 EXPOSE 8080

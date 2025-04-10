@@ -81,13 +81,13 @@
     "google-drive-browserfs": "github:zardoy/browserfs#google-drive",
     "jszip": "^3.10.1",
     "lodash-es": "^4.17.21",
+    "mcraft-fun-mineflayer": "^0.1.14",
     "minecraft-data": "3.83.1",
     "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
     "mineflayer-item-map-downloader": "github:zardoy/mineflayer-item-map-downloader",
     "mojangson": "^2.0.4",
     "net-browserify": "github:zardoy/prismarinejs-net-browserify",
     "node-gzip": "^1.1.2",
-    "mcraft-fun-mineflayer": "^0.1.14",
     "peerjs": "^1.5.0",
     "pixelarticons": "^1.8.1",
     "pretty-bytes": "^6.1.1",
@@ -119,11 +119,11 @@
     "workbox-build": "^7.0.0"
   },
   "devDependencies": {
-    "@rsbuild/core": "1.0.1-beta.9",
-    "@rsbuild/plugin-node-polyfill": "1.0.3",
-    "@rsbuild/plugin-react": "1.0.1-beta.9",
-    "@rsbuild/plugin-type-check": "1.0.1-beta.9",
-    "@rsbuild/plugin-typed-css-modules": "1.0.1",
+    "@rsbuild/core": "1.3.5",
+    "@rsbuild/plugin-node-polyfill": "1.3.0",
+    "@rsbuild/plugin-react": "1.2.0",
+    "@rsbuild/plugin-type-check": "1.2.1",
+    "@rsbuild/plugin-typed-css-modules": "1.0.2",
     "@storybook/addon-essentials": "^7.4.6",
     "@storybook/addon-links": "^7.4.6",
     "@storybook/blocks": "^7.4.6",
@@ -152,16 +152,16 @@
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
     "mc-assets": "^0.2.52",
-    "mineflayer-mouse": "^0.1.7",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:GenerelSchwerz/mineflayer",
+    "mineflayer-mouse": "^0.1.7",
     "mineflayer-pathfinder": "^2.4.4",
     "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "path-exists-cli": "^2.0.0",
-    "renderer": "link:renderer",
     "process": "github:PrismarineJS/node-process",
+    "renderer": "link:renderer",
     "rimraf": "^5.0.1",
     "storybook": "^7.4.6",
     "stream-browserify": "^3.0.0",
@@ -214,11 +214,10 @@
       "ignoreDependencies": []
     },
     "patchedDependencies": {
-      "three@0.154.0": "patches/three@0.154.0.patch",
       "pixelarticons@1.8.1": "patches/pixelarticons@1.8.1.patch",
       "mineflayer-item-map-downloader@1.2.0": "patches/mineflayer-item-map-downloader@1.2.0.patch",
-      "minecraft-protocol@1.54.0": "patches/minecraft-protocol@1.54.0.patch"
+      "minecraft-protocol": "patches/minecraft-protocol.patch"
     }
   },
-  "packageManager": "pnpm@9.0.4"
+  "packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b"
 }
