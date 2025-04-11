@@ -119,6 +119,7 @@
     "workbox-build": "^7.0.0"
   },
   "devDependencies": {
+    "@rsbuild/core": "1.3.5",
     "@rsbuild/plugin-node-polyfill": "1.3.0",
     "@rsbuild/plugin-react": "1.2.0",
     "@rsbuild/plugin-type-check": "1.2.1",
