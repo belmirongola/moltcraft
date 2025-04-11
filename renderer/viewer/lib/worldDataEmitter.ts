@@ -12,8 +12,8 @@ import { delayedIterator } from '../../playground/shared'
 import { playerState } from '../../../src/mineflayer/playerState'
 import { chunkPos } from './simpleUtils'
 
-export type ChunkPosKey = string
-type ChunkPos = { x: number, z: number }
+export type ChunkPosKey = string // like '16,16'
+type ChunkPos = { x: number, z: number } // like { x: 16, z: 16 }
 
 export type WorldDataEmitterEvents = {
   chunkPosUpdate: (data: { pos: Vec3 }) => void
@@ -41,6 +41,9 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   private readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
   private readonly emitter: WorldDataEmitter
+
+  waitingSpiralChunksLoad = {} as Record<ChunkPosKey, (value: boolean) => void>
+
   addWaitTime = 1
   /* config */ keepChunksDistance = 0
   /* config */ isPlayground = false
@@ -65,7 +68,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     if (val) throw new Error('setBlockStateId returned promise (not supported)')
     const chunkX = Math.floor(position.x / 16)
     const chunkZ = Math.floor(position.z / 16)
-    if (!this.loadedChunks[`${chunkX},${chunkZ}`]) {
+    if (!this.loadedChunks[`${chunkX},${chunkZ}`] && !this.waitingSpiralChunksLoad[`${chunkX},${chunkZ}`]) {
       void this.loadChunk({ x: chunkX, z: chunkZ })
       return
     }
@@ -111,7 +114,10 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         this.emitter.emit('entity', { id: e.id, delete: true })
       },
       chunkColumnLoad: (pos: Vec3) => {
-        void this.loadChunk(pos)
+        if (this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`]) {
+          this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`](true)
+          delete this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`]
+        }
       },
       chunkColumnUnload: (pos: Vec3) => {
         this.unloadChunk(pos)
@@ -134,7 +140,9 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
 
     bot._client.on('update_light', ({ chunkX, chunkZ }) => {
       const chunkPos = new Vec3(chunkX * 16, 0, chunkZ * 16)
-      void this.loadChunk(chunkPos, true)
+      if (!this.waitingSpiralChunksLoad[`${chunkX},${chunkZ}`]) {
+        void this.loadChunk(chunkPos, true)
+      }
     })
 
     this.emitter.on('listening', () => {
@@ -188,9 +196,27 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   }
 
   async _loadChunks (positions: Vec3[], sliceSize = 5) {
+    // stop loading previous chunks
+    for (const pos of Object.keys(this.waitingSpiralChunksLoad)) {
+      this.waitingSpiralChunksLoad[pos](false)
+      delete this.waitingSpiralChunksLoad[pos]
+    }
+
     const promises = [] as Array<Promise<void>>
-    await delayedIterator(positions, this.addWaitTime, (pos) => {
-      promises.push(this.loadChunk(pos))
+    let continueLoading = true
+    await delayedIterator(positions, this.addWaitTime, async (pos) => {
+      const promise = (async () => {
+        if (!continueLoading || this.loadedChunks[`${pos.x},${pos.z}`]) return
+
+        if (!this.world.getColumnAt(pos)) {
+          continueLoading = await new Promise<boolean>(resolve => {
+            this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`] = resolve
+          })
+        }
+        if (!continueLoading) return
+        await this.loadChunk(pos)
+      })()
+      promises.push(promise)
     })
     await Promise.all(promises)
   }
@@ -261,6 +287,8 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     const [botX, botZ] = chunkPos(pos)
     if (lastX !== botX || lastZ !== botZ || force) {
       this.emitter.emit('chunkPosUpdate', { pos })
+
+      // unload chunks that are no longer in view
       const newViewToUnload = new ViewRect(botX, botZ, this.viewDistance + this.keepChunksDistance)
       const chunksToUnload: Vec3[] = []
       for (const coords of Object.keys(this.loadedChunks)) {
@@ -276,6 +304,8 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       for (const p of chunksToUnload) {
         this.unloadChunk(p)
       }
+
+      // load new chunks
       const positions = generateSpiralMatrix(this.viewDistance).map(([x, z]) => {
         const pos = new Vec3((botX + x) * 16, 0, (botZ + z) * 16)
         if (!this.loadedChunks[`${pos.x},${pos.z}`]) return pos
