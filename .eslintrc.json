@@ -199,7 +199,8 @@
         "no-bitwise": "off",
         "unicorn/filename-case": "off",
         "max-depth": "off",
-        "unicorn/no-typeof-undefined": "off"
+        "unicorn/no-typeof-undefined": "off",
+        "unicorn/relative-url-style": "off"
     },
     "overrides": [
         {

@@ -1,9 +1,15 @@
 import { versionToNumber } from 'renderer/viewer/common/utils'
+import { getProtocolWorkerChannel } from '../../protocolWorker/protocolMain'
 
 export default () => {
   let i = 0
   bot.pingProxy = async () => {
     const curI = ++i
+    if (bot && (!bot._client as any)._ws) {
+      const result = await getProtocolWorkerChannel()?.pingProxy(curI)
+      return result ?? -1
+    }
+
     return new Promise(resolve => {
       //@ts-expect-error
       bot._client.socket._ws.send(`ping:${curI}`)

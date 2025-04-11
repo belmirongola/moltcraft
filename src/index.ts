@@ -238,7 +238,6 @@ export async function connect (connectOptions: ConnectOptions) {
     }
   }
   const handleError = (err) => {
-    console.error(err)
     if (err === 'ResizeObserver loop completed with undelivered notifications.') {
       return
     }
@@ -280,7 +279,6 @@ export async function connect (connectOptions: ConnectOptions) {
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
   let localServer
   let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
-  let lastKnownKickReason = undefined as string | undefined
   try {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
@@ -399,18 +397,12 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     setLoadingScreenStatus(initialLoadingText)
 
-    if (serverParsed.isWebSocket) {
-      clientDataStream = (await getWebsocketStream(server.host)).mineflayerStream
-    }
-
-    const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
-
     if (p2pMultiplayer) {
       clientDataStream = await connectToPeer(connectOptions.peerId!, connectOptions.peerOptions)
     }
     if (connectOptions.viewerWsConnect) {
       const { version, time, requiresPass } = await getViewerVersionData(connectOptions.viewerWsConnect)
-      let password
+      let password: string | null = null
       if (requiresPass) {
         password = prompt('Enter password')
         if (!password) {
@@ -435,7 +427,7 @@ export async function connect (connectOptions: ConnectOptions) {
     }
 
     const brand = clientDataStream ? 'minecraft-web-client' : undefined
-    const createClient = await getProtocolClientGetter(proxy, connectOptions, serverParsed.serverIpFull)
+    const createClient = await getProtocolClientGetter(proxy, connectOptions, serverParsed)
 
     bot = mineflayer.createBot({
       host: server.host,
@@ -458,7 +450,7 @@ export async function connect (connectOptions: ConnectOptions) {
         Client: CustomChannelClient as any,
       } : {},
       get client () {
-        if (clientDataStream || singleplayer || p2pMultiplayer || localReplaySession || connectOptions.viewerWsConnect) {
+        if (clientDataStream || singleplayer || p2pMultiplayer || localReplaySession || connectOptions.viewerWsConnect || (!options.protocolWorkerOptimisation && !serverParsed.isWebSocket)) {
           return undefined
         }
         return createClient.call(this)
@@ -497,48 +489,6 @@ export async function connect (connectOptions: ConnectOptions) {
       // bot.emit('inject_allowed')
       bot._client.emit('connect')
     } else {
-      const setupConnectHandlers = () => {
-        Socket.prototype['handleStringMessage'] = function (message: string) {
-          if (message.startsWith('proxy-message') || message.startsWith('proxy-command:')) { // for future
-            return false
-          }
-          if (message.startsWith('proxy-shutdown:')) {
-            lastKnownKickReason = message.slice('proxy-shutdown:'.length)
-            return false
-          }
-          return true
-        }
-        bot._client.socket.on('connect', () => {
-          console.log('Proxy WebSocket connection established')
-          //@ts-expect-error
-          bot._client.socket._ws.addEventListener('close', () => {
-            console.log('WebSocket connection closed')
-            setTimeout(() => {
-              if (bot) {
-                bot.emit('end', 'WebSocket connection closed with unknown reason')
-              }
-            }, 1000)
-          })
-          bot._client.socket.on('close', () => {
-            setTimeout(() => {
-              if (bot) {
-                bot.emit('end', 'WebSocket connection closed with unknown reason')
-              }
-            })
-          })
-        })
-      }
-      // socket setup actually can be delayed because of dns lookup
-      // if (bot._client.socket) {
-      //   setupConnectHandlers()
-      // } else {
-      //   const originalSetSocket = bot._client.setSocket.bind(bot._client)
-      //   bot._client.setSocket = (socket) => {
-      //     if (!bot) return
-      //     originalSetSocket(socket)
-      //     setupConnectHandlers()
-      //   }
-      // }
 
     }
   } catch (err) {
@@ -584,9 +534,6 @@ export async function connect (connectOptions: ConnectOptions) {
   bot.on('end', (endReason) => {
     if (ended) return
     console.log('disconnected for', endReason)
-    if (endReason === 'socketClosed') {
-      endReason = lastKnownKickReason ?? 'Connection with proxy server lost'
-    }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason:\n${endReason}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()

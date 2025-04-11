@@ -66,6 +66,7 @@ const defaultOptions = {
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
   preventBackgroundTimeoutKick: false,
   preventSleep: false,
+  protocolWorkerOptimisation: true,
 
   // antiAliasing: false,
 

@@ -1,11 +1,20 @@
 import EventEmitter from 'events'
-import { ClientOptions } from 'minecraft-protocol'
+import { Client, ClientOptions } from 'minecraft-protocol'
+import { useWorkerProxy } from 'renderer/viewer/lib/workerProxy'
 import { appQueryParams } from '../appParams'
 import { ConnectOptions } from '../connect'
 import { setLoadingScreenStatus } from '../appStatus'
+import { ParsedServerAddress } from '../parseServerAddress'
 import { authFlowMainThread, getAuthData } from './microsoftAuthflow'
+import type { PROXY_WORKER_TYPE } from './protocolWorker'
 
 const debug = require('debug')('minecraft-protocol')
+
+let protocolWorkerChannel: typeof PROXY_WORKER_TYPE['__workerProxy'] | undefined
+
+export const getProtocolWorkerChannel = () => {
+  return protocolWorkerChannel
+}
 
 const copyPrimitiveValues = (obj: any, deep = false, ignoreKeys: string[] = []) => {
   const copy = {} as Record<string, any>
@@ -20,7 +29,7 @@ const copyPrimitiveValues = (obj: any, deep = false, ignoreKeys: string[] = []) 
   return copy
 }
 
-export const getProtocolClientGetter = async (proxy: { host: string, port?: string }, connectOptions: ConnectOptions, serverIp: string) => {
+export const getProtocolClientGetter = async (proxy: { host: string, port?: string }, connectOptions: ConnectOptions, server: ParsedServerAddress) => {
   const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
   const authData = connectOptions.authenticatedAccount ?
     await getAuthData({
@@ -29,7 +38,7 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
       setProgressText (text) {
         setLoadingScreenStatus(text)
       },
-      connectingServer: serverIp.replace(/:25565$/, '')
+      connectingServer: server.serverIpFull.replace(/:25565$/, '')
     })
     : undefined
 
@@ -41,6 +50,7 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
     createClientOptions.sessionServer = authData?.sessionEndpoint.toString()
 
     const worker = new Worker(new URL('./protocolWorker.ts', import.meta.url))
+    protocolWorkerChannel = useWorkerProxy<typeof PROXY_WORKER_TYPE>(worker)
     setTimeout(() => {
       if (bot) {
         bot.on('end', () => {
@@ -51,16 +61,15 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
       }
     })
 
-    worker.postMessage({
-      type: 'setProxy',
+    protocolWorkerChannel.setProxy({
       hostname: proxy.host,
-      port: proxy.port
+      port: proxy.port ? +proxy.port : undefined
     })
-    worker.postMessage({
-      type: 'init',
+    void protocolWorkerChannel.init({
       options: createClientOptions,
-      noPacketsValidation: appQueryParams.noPacketsValidation,
-      useAuthFlow: !!authData
+      noPacketsValidation: appQueryParams.noPacketsValidation === 'true',
+      useAuthFlow: !!authData,
+      isWebSocket: server.isWebSocket
     })
 
     const eventEmitter = new EventEmitter() as any
@@ -141,6 +150,13 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
           }
         }
       }
+
+      if (data.type === 'properties') {
+        // eslint-disable-next-line guard-for-in
+        for (const property in data.properties) {
+          eventEmitter[property] = data.properties[property]
+        }
+      }
     })
 
     eventEmitter.on('writePacket', (...args: any[]) => {
@@ -149,9 +165,9 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
 
     const redirectMethodsToWorker = (names: string[]) => {
       for (const name of names) {
+        // eslint-disable-next-line @typescript-eslint/no-loop-func
         eventEmitter[name] = async (...args: any[]) => {
-          worker.postMessage({
-            type: 'call',
+          protocolWorkerChannel?.call({
             name,
             args: JSON.parse(JSON.stringify(args))
           })
@@ -163,7 +179,16 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
       }
     }
 
-    redirectMethodsToWorker(['write', 'registerChannel', 'writeChannel'])
+    redirectMethodsToWorker([
+      'write',
+      'writeRaw',
+      'writeChannel',
+      'registerChannel',
+      'unregisterChannel',
+      'chat',
+      'reportPlayer',
+      'end'
+    ])
 
     if (authData) {
       void authFlowMainThread(worker, authData, connectOptions, (onJoin) => {
