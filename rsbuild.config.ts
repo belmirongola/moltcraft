@@ -209,9 +209,11 @@ const appConfig = defineConfig({
                                 throw new Error('Single file build must only have index.html in the dist/single folder. Ensure workers are imported & built correctly.')
                             }
                             // check if dist/static/js/async is empty
-                            const asyncFiles = fs.readdirSync('./dist/static/js/async')
-                            if (asyncFiles.length > 0) {
-                                throw new Error('dist/static/js/async must be empty. Ensure workers are imported & built correctly.')
+                            if (fs.existsSync('./dist/static/js/async')) {
+                                const asyncFiles = fs.readdirSync('./dist/static/js/async')
+                                if (asyncFiles.length > 0) {
+                                    throw new Error('dist/static/js/async must be empty. Ensure workers are imported & built correctly.')
+                                }
                             }
 
                             // process index.html
