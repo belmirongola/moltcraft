@@ -231,8 +231,8 @@ const appConfig = defineConfig({
                             // write output file size
                             console.log('single file size', (fs.statSync(singleBuildHtml).size / 1024 / 1024).toFixed(2), 'mb')
                         } else {
+                            patchWorkerImport()
                             if (!disableServiceWorker) {
-                                patchWorkerImport()
                                 const { count, size, warnings } = await generateSW({
                                     // dontCacheBustURLsMatching: [new RegExp('...')],
                                     globDirectory: 'dist',
@@ -271,10 +271,12 @@ const patchWorkerImport = () => {
         const content = fs.readFileSync(filePath, 'utf8')
         const matches = content.match(/importScripts\([^)]+\)/g) || []
         if (matches.length > 1) throw new Error('Multiple importScripts found in ' + filePath)
-        const newContent = content.replace(/importScripts\((['"])([^'"]+)(['"])\)/, 
-            "importScripts($1" + "/'+location.pathname.split('/').slice(0, -4).join('/')+'/$3)")
-        fs.writeFileSync(filePath, newContent, 'utf8')
-        patched = matches.length > 0
+        const newContent = content.replace(/importScripts\(\w+\.\w+/,
+            "importScripts('/'+location.pathname.split('/').slice(0, -4).join('/')")
+        if (newContent !== content) {
+            fs.writeFileSync(filePath, newContent, 'utf8')
+            patched = true
+        }
     }
     if (!patched) throw new Error('No importScripts found in any worker files')
 }
