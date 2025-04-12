@@ -34,6 +34,7 @@ const fixtures: Record<string, BenchmarkFixture> = {
 
 Error.stackTraceLimit = Error.stackTraceLimit < 30 ? 30 : Error.stackTraceLimit
 
+const SESSION_STORAGE_BACKUP_KEY = 'benchmark-backup'
 export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) => {
   let fixtureNameOpen = appQueryParams.openBenchmark
   if (!fixtureNameOpen || fixtureNameOpen === '1' || fixtureNameOpen === 'true' || fixtureNameOpen === 'zip') {
@@ -41,7 +42,6 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
   }
 
 
-  const SESSION_STORAGE_BACKUP_KEY = 'benchmark-backup'
   if (sessionStorage.getItem(SESSION_STORAGE_BACKUP_KEY)) {
     const backup = JSON.stringify(JSON.parse(sessionStorage.getItem(SESSION_STORAGE_BACKUP_KEY)!), null, 2)
     setLoadingScreenStatus('Either other tab with benchmark is open or page crashed. Last data backup is downloaded. Reload page to retry.')
@@ -103,6 +103,7 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
   if (fixture.spawn) {
     fixtureName += ` - ${fixture.spawn.join(' ')}`
   }
+
   fixtureName += ` - ${renderDistance}`
   if (process.env.NODE_ENV !== 'development') { // do not delay
     setLoadingScreenStatus('Benchmark requested... Getting screen refresh rate')
@@ -212,6 +213,7 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
       },
     }
   })
+
   document.addEventListener('cypress-world-ready', () => {
     clearInterval(saveBackupInterval)
     sessionStorage.removeItem(SESSION_STORAGE_BACKUP_KEY)
@@ -270,6 +272,12 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
     // setInterval(updateStats, 100)
   })
 }
+
+// add before unload
+window.addEventListener('beforeunload', () => {
+  // remove sessionStorage backup
+  sessionStorage.removeItem(SESSION_STORAGE_BACKUP_KEY)
+})
 
 document.addEventListener('pointerlockchange', (e) => {
   const panel = document.querySelector<HTMLDivElement>('#benchmark-panel')

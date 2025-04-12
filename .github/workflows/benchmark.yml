@@ -13,17 +13,17 @@ jobs:
       (
         github.event_name == 'issue_comment' &&
         github.event.issue.pull_request != '' &&
-        contains(github.event.comment.body, '/benchmark')
+        (startsWith(github.event.comment.body, '/benchmark'))
       )
     permissions:
       pull-requests: write
     steps:
       - run: lscpu
+
       - name: Checkout
         uses: actions/checkout@v2
-        # with:
-          # ref: refs/pull/${{ github.event.issue.number }}/head
-      - run: npm i -g pnpm@9.0.4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -33,8 +33,10 @@ jobs:
           jq '.dependencies.cypress = .optionalDependencies.cypress | del(.optionalDependencies.cypress)' package.json > package.json.tmp
           mv package.json.tmp package.json
       - run: pnpm install --no-frozen-lockfile
+
       - run: pnpm build
       - run: nohup pnpm prod-start &
+
       - run: pnpm test:benchmark
         id: benchmark
         continue-on-error: true
@@ -49,6 +51,7 @@ jobs:
           else
             echo "BENCHMARK_RESULT=Benchmark failed to run or produce results" >> $GITHUB_ENV
           fi
+
       - uses: mshick/add-pr-comment@v2
         with:
           allow-repeats: true
