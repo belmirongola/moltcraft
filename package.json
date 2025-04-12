@@ -195,7 +195,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@nxg-org/mineflayer-physics-util": "1.8.6",
+      "@nxg-org/mineflayer-physics-util": "1.5.8",
       "buffer": "^6.0.3",
       "vec3": "0.1.10",
       "three": "0.154.0",
