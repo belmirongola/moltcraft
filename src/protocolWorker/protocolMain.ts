@@ -6,7 +6,7 @@ import { ConnectOptions } from '../connect'
 import { setLoadingScreenStatus } from '../appStatus'
 import { ParsedServerAddress } from '../parseServerAddress'
 import { authFlowMainThread, getAuthData } from './microsoftAuthflow'
-import type { PROXY_WORKER_TYPE } from './protocolWorker'
+import type { PROXY_WORKER_TYPE } from './protocol.worker'
 
 const debug = require('debug')('minecraft-protocol')
 
@@ -49,7 +49,7 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
 
     createClientOptions.sessionServer = authData?.sessionEndpoint.toString()
 
-    const worker = new Worker(new URL('./protocolWorker.ts', import.meta.url))
+    const worker = new Worker(new URL('./protocol.worker.ts', import.meta.url))
     protocolWorkerChannel = useWorkerProxy<typeof PROXY_WORKER_TYPE>(worker)
     setTimeout(() => {
       if (bot) {

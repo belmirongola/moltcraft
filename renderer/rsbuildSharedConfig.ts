@@ -61,6 +61,16 @@ export const appAndRendererSharedConfig = () => defineConfig({
     ],
     tools: {
         rspack (config, helpers) {
+            if (process.env.SINGLE_FILE_BUILD === 'true') {
+                config.module.rules.push({
+                    test: /\.worker\.(js|ts)$/,
+                    loader: "worker-rspack-loader",
+                    options: {
+                        inline: "no-fallback",
+                    },
+                })
+            }
+
             const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'))
             const hasFileProtocol = Object.values(packageJson.pnpm.overrides).some((dep) => (dep as string).startsWith('file:'))
             if (hasFileProtocol) {
