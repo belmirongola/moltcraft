@@ -488,8 +488,6 @@ export async function connect (connectOptions: ConnectOptions) {
     } else if (clientDataStream) {
       // bot.emit('inject_allowed')
       bot._client.emit('connect')
-    } else {
-
     }
   } catch (err) {
     handleError(err)
