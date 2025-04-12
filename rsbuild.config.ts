@@ -272,7 +272,7 @@ const patchWorkerImport = () => {
         const matches = content.match(/importScripts\([^)]+\)/g) || []
         if (matches.length > 1) throw new Error('Multiple importScripts found in ' + filePath)
         const newContent = content.replace(/importScripts\(\w+\.\w+/,
-            "importScripts('/'+location.pathname.split('/').slice(0, -4).join('/')")
+            "importScripts(location.pathname.split('/').slice(0, -4).join('/')+'/'")
         if (newContent !== content) {
             fs.writeFileSync(filePath, newContent, 'utf8')
             patched = true
