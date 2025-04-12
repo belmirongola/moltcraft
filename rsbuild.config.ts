@@ -225,7 +225,8 @@ const appConfig = defineConfig({
                             console.log('single file size', (fs.statSync(singleBuildHtml).size / 1024 / 1024).toFixed(2), 'mb')
                         } else {
                             if (!disableServiceWorker) {
-                            const { count, size, warnings } = await generateSW({
+                                patchWorkerImport()
+                                const { count, size, warnings } = await generateSW({
                                     // dontCacheBustURLsMatching: [new RegExp('...')],
                                     globDirectory: 'dist',
                                     skipWaiting: true,
@@ -254,3 +255,18 @@ export default mergeRsbuildConfig(
     appAndRendererSharedConfig(),
     appConfig
 )
+
+const patchWorkerImport = () => {
+    const workerFiles = fs.readdirSync('./dist/static/js/async').filter(x => x.endsWith('.js'))
+    let patched = false
+    for (const file of workerFiles) {
+        const filePath = `./dist/static/js/async/${file}`
+        const content = fs.readFileSync(filePath, 'utf8')
+        const match = content.match(/importScripts\([^)]+\)/)
+        if (match?.length > 1) throw new Error('Multiple importScripts found in ' + filePath)
+        const newContent = content.replace(/importScripts\(\w+\.\w+/, "'/'+location.pathname.split('/').slice(0, -4).join('/')")
+        fs.writeFileSync(filePath, newContent, 'utf8')
+        patched = true
+    }
+    if (!patched) throw new Error('No importScripts found in any worker files')
+}
