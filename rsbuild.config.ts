@@ -267,11 +267,12 @@ const patchWorkerImport = () => {
     for (const file of workerFiles) {
         const filePath = `./dist/static/js/async/${file}`
         const content = fs.readFileSync(filePath, 'utf8')
-        const match = content.match(/importScripts\([^)]+\)/)
-        if (match?.length > 1) throw new Error('Multiple importScripts found in ' + filePath)
-        const newContent = content.replace(/importScripts\(\w+\.\w+/, "'/'+location.pathname.split('/').slice(0, -4).join('/')")
+        const matches = content.match(/importScripts\([^)]+\)/g) || []
+        if (matches.length > 1) throw new Error('Multiple importScripts found in ' + filePath)
+        const newContent = content.replace(/importScripts\((['"])([^'"]+)(['"])\)/, 
+            "importScripts($1" + "/'+location.pathname.split('/').slice(0, -4).join('/')+'/$3)")
         fs.writeFileSync(filePath, newContent, 'utf8')
-        patched = true
+        patched = matches.length > 0
     }
     if (!patched) throw new Error('No importScripts found in any worker files')
 }
