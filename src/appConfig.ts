@@ -15,11 +15,13 @@ export type AppConfig = {
   mapsProvider?: string
 
   appParams?: Record<string, any> // query string params
+  rightSideText?: string
 
   defaultSettings?: Record<string, any>
   forceSettings?: Record<string, boolean>
   // hideSettings?: Record<string, boolean>
   allowAutoConnect?: boolean
+  splashText?: string
   pauseLinks?: Array<Array<Record<string, any>>>
 }
 

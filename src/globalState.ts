@@ -8,7 +8,11 @@ import { AppConfig } from './appConfig'
 
 // todo: refactor structure with support of hideNext=false
 
-export const notHideableModalsWithoutForce = new Set(['app-status'])
+export const notHideableModalsWithoutForce = new Set([
+  'app-status',
+  'divkit:nonclosable',
+  'only-connect-server',
+])
 
 type Modal = ({ elem?: HTMLElement & Record<string, any> } & { reactType: string })
 
@@ -35,10 +39,10 @@ const showModalInner = (modal: Modal) => {
   return true
 }
 
-export const showModal = (elem: /* (HTMLElement & Record<string, any>) |  */{ reactType: string }) => {
-  const resolved = elem
+export const showModal = (elem: /* (HTMLElement & Record<string, any>) |  */{ reactType: string } | string) => {
+  const resolved = typeof elem === 'string' ? { reactType: elem } : elem
   const curModal = activeModalStack.at(-1)
-  if (/* elem === curModal?.elem ||  */(elem.reactType && elem.reactType === curModal?.reactType) || !showModalInner(resolved)) return
+  if ((resolved.reactType && resolved.reactType === curModal?.reactType) || !showModalInner(resolved)) return
   activeModalStack.push(resolved)
 }
 
@@ -49,7 +53,7 @@ export const showModal = (elem: /* (HTMLElement & Record<string, any>) |  */{ re
 export const hideModal = (modal = activeModalStack.at(-1), data: any = undefined, options: { force?: boolean; restorePrevious?: boolean } = {}) => {
   const { force = false, restorePrevious = true } = options
   if (!modal) return
-  let cancel = notHideableModalsWithoutForce.has(modal.reactType) ? !force : undefined
+  let cancel = [...notHideableModalsWithoutForce].some(m => modal.reactType.startsWith(m)) ? !force : undefined
   if (force) {
     cancel = undefined
   }

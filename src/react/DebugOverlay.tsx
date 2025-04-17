@@ -180,6 +180,7 @@ export default () => {
       <div className={styles.empty} />
       <p>XYZ: {pos.x.toFixed(3)} / {pos.y.toFixed(3)} / {pos.z.toFixed(3)}</p>
       <p>Chunk: {Math.floor(pos.x % 16)} ~ {Math.floor(pos.z % 16)} in {Math.floor(pos.x / 16)} ~ {Math.floor(pos.z / 16)}</p>
+      <p>Section: {Math.floor(pos.x / 16) * 16}, {Math.floor(pos.y / 16) * 16}, {Math.floor(pos.z / 16) * 16}</p>
       <p>Packets: {packetsString}</p>
       <p>Client TPS: {clientTps}</p>
       <p>Facing (viewer): {bot.entity.yaw.toFixed(3)} {bot.entity.pitch.toFixed(3)}</p>

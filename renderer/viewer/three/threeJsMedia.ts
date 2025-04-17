@@ -16,6 +16,8 @@ interface MediaProperties {
   loop?: boolean
   volume?: number
   autoPlay?: boolean
+
+  allowLighting?: boolean
 }
 
 export class ThreeJsMedia {
@@ -212,7 +214,8 @@ export class ThreeJsMedia {
     const geometry = new THREE.PlaneGeometry(1, 1)
 
     // Create material with initial properties using background texture
-    const material = new THREE.MeshLambertMaterial({
+    const MaterialClass = props.allowLighting ? THREE.MeshLambertMaterial : THREE.MeshBasicMaterial
+    const material = new MaterialClass({
       map: backgroundTexture,
       transparent: true,
       side: props.doubleSide ? THREE.DoubleSide : THREE.FrontSide,

@@ -97,6 +97,7 @@ import { createConsoleLogProgressReporter, createFullScreenProgressReporter, Pro
 import { appViewer } from './appViewer'
 import './appViewerLoad'
 import { registerOpenBenchmarkListener } from './benchmark'
+import { tryHandleBuiltinCommand } from './builtinCommands'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -208,8 +209,12 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let ended = false
   let bot!: typeof __type_bot
-  const destroyAll = () => {
+  const destroyAll = (wasKicked = false) => {
     if (ended) return
+    const hadConnected = !!bot
+    if (!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadConnected) {
+      location.reload()
+    }
     errorAbortController.abort()
     ended = true
     progress.end()
@@ -251,6 +256,10 @@ export async function connect (connectOptions: ConnectOptions) {
     if (isCypress()) throw err
     miscUiState.hasErrors = true
     if (miscUiState.gameLoaded) return
+    // close all modals
+    for (const modal of activeModalStack) {
+      hideModal(modal)
+    }
 
     setLoadingScreenStatus(`Error encountered. ${err}`, true)
     appStatusState.showReconnect = true
@@ -280,7 +289,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
   if (connectOptions.server && !connectOptions.viewerWsConnect && !parsedServer.isWebSocket) {
     console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
-    net['setProxy']({ hostname: proxy.host, port: proxy.port })
+    net['setProxy']({ hostname: proxy.host, port: proxy.port, headers: { Authorization: `Bearer ${new URLSearchParams(location.search).get('token') ?? ''}` } })
   }
 
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
@@ -622,9 +631,13 @@ export async function connect (connectOptions: ConnectOptions) {
   bot.on('kicked', (kickReason) => {
     console.log('You were kicked!', kickReason)
     const { formatted: kickReasonFormatted, plain: kickReasonString } = parseFormattedMessagePacket(kickReason)
+    // close all modals
+    for (const modal of activeModalStack) {
+      hideModal(modal)
+    }
     setLoadingScreenStatus(`The Minecraft server kicked you. Kick reason: ${kickReasonString}`, true, undefined, undefined, kickReasonFormatted)
     appStatusState.showReconnect = true
-    destroyAll()
+    destroyAll(true)
   })
 
   const packetBeforePlay = (_, __, ___, fullBuffer) => {
@@ -643,6 +656,10 @@ export async function connect (connectOptions: ConnectOptions) {
     console.log('disconnected for', endReason)
     if (endReason === 'socketClosed') {
       endReason = lastKnownKickReason ?? 'Connection with proxy server lost'
+    }
+    // close all modals
+    for (const modal of activeModalStack) {
+      hideModal(modal)
     }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason:\n${endReason}`, true)
     appStatusState.showReconnect = true
@@ -799,7 +816,10 @@ export async function connect (connectOptions: ConnectOptions) {
       const commands = appQueryParamsArray.command ?? []
       for (let command of commands) {
         if (!command.startsWith('/')) command = `/${command}`
-        bot.chat(command)
+        const builtinHandled = tryHandleBuiltinCommand(command)
+        if (!builtinHandled) {
+          bot.chat(command)
+        }
       }
     })
   }
@@ -888,7 +908,11 @@ if (!reconnectOptions) {
       const waitAppConfigLoad = !appQueryParams.proxy
       const openServerEditor = () => {
         hideModal()
-        showModal({ reactType: 'editServer' })
+        if (appQueryParams.onlyConnect) {
+          showModal({ reactType: 'only-connect-server' })
+        } else {
+          showModal({ reactType: 'editServer' })
+        }
       }
       showModal({ reactType: 'empty' })
       if (waitAppConfigLoad) {

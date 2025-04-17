@@ -2,6 +2,7 @@ import { defineConfig, ModifyRspackConfigUtils } from '@rsbuild/core';
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
 import { pluginReact } from '@rsbuild/plugin-react';
 import path from 'path'
+import fs from 'fs'
 
 export const appAndRendererSharedConfig = () => defineConfig({
     dev: {
@@ -60,6 +61,12 @@ export const appAndRendererSharedConfig = () => defineConfig({
     ],
     tools: {
         rspack (config, helpers) {
+            const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'))
+            const hasFileProtocol = Object.values(packageJson.pnpm.overrides).some((dep) => (dep as string).startsWith('file:'))
+            if (hasFileProtocol) {
+                // enable node_modules watching
+                config.watchOptions.ignored = /\.git/
+            }
             rspackViewerConfig(config, helpers)
         }
     },

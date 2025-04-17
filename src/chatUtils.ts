@@ -89,7 +89,10 @@ export const formatMessage = (message: MessageInput, mcData: IndexedData = globa
     }
 
     if (msg.extra) {
-      for (const ex of msg.extra) {
+      for (let ex of msg.extra) {
+        if (typeof ex === 'string') {
+          ex = { text: ex }
+        }
         readMsg({ ...styles, ...ex })
       }
     }

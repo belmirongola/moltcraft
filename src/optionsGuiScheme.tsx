@@ -569,6 +569,11 @@ export const guiOptionsScheme: {
         ],
       },
     },
+    {
+      debugContro: {
+        text: 'Debug Controls',
+      },
+    }
   ],
   'export-import': [
     {

@@ -39,6 +39,7 @@ export const pointerLock = {
       void goFullscreen()
     }
     const displayBrowserProblem = () => {
+      if (notificationProxy.id === 'auto-login') return // prevent notification hide
       showNotification('Browser Delay Limitation', navigator['keyboard'] ? 'Click on screen, enable Auto Fullscreen or F11' : 'Click on screen or use fullscreen in Chrome')
       notificationProxy.id = 'pointerlockchange'
     }
@@ -103,6 +104,7 @@ export async function getScreenRefreshRate (): Promise<number> {
   window.setTimeout(() => {
     window.cancelAnimationFrame(requestId!)
     requestId = null
+    resolve(0)
   }, 500)
 
   return new Promise(_resolve => {

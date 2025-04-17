@@ -26,7 +26,7 @@ export const addNewStat = (id: string, width = 80, x = rightOffset, y = lastY) =
 
   return {
     updateText (text: string) {
-      if (pane.innerText === text) return
+      if (pane.innerText === text || pane.style.display === 'none') return
       pane.innerText = text
     },
     setVisibility (visible: boolean) {

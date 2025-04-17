@@ -41,35 +41,42 @@ const controlOptions = {
 export const contro = new ControMax({
   commands: {
     general: {
+      // movement
       jump: ['Space', 'A'],
       inventory: ['KeyE', 'X'],
       drop: ['KeyQ', 'B'],
       sneak: ['ShiftLeft'],
       toggleSneakOrDown: [null, 'Right Stick'],
       sprint: ['ControlLeft', 'Left Stick'],
+      // game interactions
       nextHotbarSlot: [null, 'Right Bumper'],
       prevHotbarSlot: [null, 'Left Bumper'],
       attackDestroy: [null, 'Right Trigger'],
       interactPlace: [null, 'Left Trigger'],
-      chat: [['KeyT', 'Enter']],
-      command: ['Slash'],
       swapHands: ['KeyF'],
-      zoom: ['KeyC'],
       selectItem: ['KeyH'], // default will be removed
       rotateCameraLeft: [null],
       rotateCameraRight: [null],
       rotateCameraUp: [null],
       rotateCameraDown: [null],
-      viewerConsole: ['Backquote']
+      // ui?
+      chat: [['KeyT', 'Enter']],
+      command: ['Slash'],
+      // client side
+      zoom: ['KeyC'],
+      viewerConsole: ['Backquote'],
     },
     ui: {
       toggleFullscreen: ['F11'],
       back: [null/* 'Escape' */, 'B'],
-      toggleMap: ['KeyM'],
+      toggleMap: ['KeyJ'],
       leftClick: [null, 'A'],
       rightClick: [null, 'Y'],
       speedupCursor: [null, 'Left Stick'],
       pauseMenu: [null, 'Start']
+    },
+    communication: {
+      toggleMicrophone: ['KeyK'],
     },
     advanced: {
       lockUrl: ['KeyY'],
@@ -177,6 +184,7 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
       if (action) {
         void contro.emit('trigger', { command: 'general.forward' } as any)
       } else {
+        void contro.emit('release', { command: 'general.forward' } as any)
         setSprinting(false)
       }
     }
@@ -549,6 +557,10 @@ contro.on('trigger', ({ command }) => {
     }
   }
 
+  if (command === 'communication.toggleMicrophone') {
+    // toggleMicrophoneMuted()
+  }
+
   if (command === 'ui.pauseMenu') {
     showModal({ reactType: 'pause-screen' })
   }
@@ -612,6 +624,13 @@ export const f3Keybinds: Array<{
       options.showChunkBorders = !options.showChunkBorders
     },
     mobileTitle: 'Toggle chunk borders',
+  },
+  {
+    key: 'KeyH',
+    action () {
+      showModal({ reactType: 'chunks-debug' })
+    },
+    mobileTitle: 'Show Chunks Debug',
   },
   {
     key: 'KeyY',
@@ -761,6 +780,11 @@ const selectItem = async () => {
 }
 
 addEventListener('mousedown', async (e) => {
+  // always prevent default for side buttons (back / forward navigation)
+  if (e.button === 3 || e.button === 4) {
+    e.preventDefault()
+  }
+
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
   if (!isInRealGameSession() && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()

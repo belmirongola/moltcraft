@@ -1,7 +1,7 @@
 import { proxy, subscribe } from 'valtio/vanilla'
 import { subscribeKey } from 'valtio/utils'
 import { omitObj } from '@zardoy/utils'
-import { appQueryParamsArray } from './appParams'
+import { appQueryParams, appQueryParamsArray } from './appParams'
 import type { AppConfig } from './appConfig'
 import { appStorage } from './react/appStorageProvider'
 
@@ -66,6 +66,7 @@ const defaultOptions = {
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
   preventBackgroundTimeoutKick: false,
   preventSleep: false,
+  debugContro: false,
 
   // antiAliasing: false,
 
@@ -235,6 +236,7 @@ Object.defineProperty(window, 'debugChangedOptions', {
 })
 
 subscribe(options, (ops) => {
+  if (appQueryParams.freezeSettings === 'true') return
   for (const op of ops) {
     const [type, path, value] = op
     // let patch
