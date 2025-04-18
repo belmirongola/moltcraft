@@ -134,10 +134,12 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   const movementHappening = async () => {
     if (!bot.entity || !soundMap) return // no info yet
     const VELOCITY_THRESHOLD = 0.1
+    const RUN_THRESHOLD = 0.15
     const { x, z, y } = bot.entity.velocity
-    if (bot.entity.onGround && Math.abs(x) < VELOCITY_THRESHOLD && (Math.abs(z) > VELOCITY_THRESHOLD || Math.abs(y) > VELOCITY_THRESHOLD)) {
+    if (bot.entity.onGround && (Math.abs(x) > VELOCITY_THRESHOLD || Math.abs(z) > VELOCITY_THRESHOLD)) {
+      const isRunning = (Math.abs(x) > RUN_THRESHOLD || Math.abs(z) > RUN_THRESHOLD)
       // movement happening
-      if (Date.now() - lastStepSound > 300) {
+      if (Date.now() - lastStepSound > (isRunning ? 100 : 300)) {
         const blockUnder = bot.world.getBlock(bot.entity.position.offset(0, -1, 0))
         if (blockUnder) {
           const stepSound = soundMap.getStepSound(blockUnder.name)

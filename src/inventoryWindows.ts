@@ -216,6 +216,8 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
     }
   }
 
+  const blockToTopTexture = (r) => r.top ?? r
+
   try {
     assertDefined(appViewer.resourcesManager.currentResources?.itemsRenderer)
     itemTexture =
@@ -224,8 +226,10 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
       ?? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
     inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
-    itemTexture = appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('block/errored')!
+    itemTexture = blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('errored')!)
   }
+
+  itemTexture ??= blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('unknown')!)
 
 
   if ('type' in itemTexture) {

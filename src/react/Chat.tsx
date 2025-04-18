@@ -283,10 +283,8 @@ export default ({
             const message = chatInput.current.value
             if (message) {
               setSendHistory([...sendHistoryRef.current, message])
-              const result = sendMessage?.(message)
-              if (result !== false) {
-                onClose?.()
-              }
+              onClose?.()
+              sendMessage?.(message)
               // Always scroll to bottom after sending a message
               scrollToBottom()
             }
