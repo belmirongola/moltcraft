@@ -180,7 +180,7 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
                   url.searchParams.set('serverPlugin', mod.name)
                   openURL(url.toString())
                 }}
-                // icon={pixelartIcons['arrow-up-box']}
+                icon={pixelartIcons.play}
                 title="Try in blank world"
               />
             )}

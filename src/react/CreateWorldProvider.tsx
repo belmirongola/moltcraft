@@ -31,16 +31,7 @@ export default () => {
         // todo display path in ui + disable if exist
         const savePath = await uniqueFileNameFromWorldName(title, getWorldsPath())
         await mkdirRecursive(savePath)
-        for (const plugin of plugins) {
-          // eslint-disable-next-line no-await-in-loop
-          const { content, version } = await getServerPlugin(plugin) ?? {}
-          if (content) {
-            // eslint-disable-next-line no-await-in-loop
-            await mkdirRecursive(path.join(savePath, 'plugins'))
-            // eslint-disable-next-line no-await-in-loop
-            await fs.promises.writeFile(path.join(savePath, 'plugins', `${plugin}-${version}.js`), content)
-          }
-        }
+        await loadPluginsIntoWorld(savePath, plugins)
         let generation
         if (type === 'flat') {
           generation = {
@@ -80,4 +71,17 @@ export default () => {
     return <WorldCustomize backClick={() => hideCurrentModal()} />
   }
   return null
+}
+
+export const loadPluginsIntoWorld = async (worldPath: string, plugins: string[]) => {
+  for (const plugin of plugins) {
+    // eslint-disable-next-line no-await-in-loop
+    const { content, version } = await getServerPlugin(plugin) ?? {}
+    if (content) {
+      // eslint-disable-next-line no-await-in-loop
+      await mkdirRecursive(path.join(worldPath, 'plugins'))
+      // eslint-disable-next-line no-await-in-loop
+      await fs.promises.writeFile(path.join(worldPath, 'plugins', `${plugin}-${version}.js`), content)
+    }
+  }
 }
