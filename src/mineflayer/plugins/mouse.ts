@@ -11,20 +11,32 @@ import { sendVideoInteraction, videoCursorInteraction } from '../../customChanne
 function cursorBlockDisplay (bot: Bot) {
   const updateCursorBlock = (data?: { block: Block }) => {
     if (!data?.block) {
-      getThreeJsRendererMethods()?.setHighlightCursorBlock(null)
+      playerState.reactive.lookingAtBlock = undefined
       return
     }
 
     const { block } = data
-    getThreeJsRendererMethods()?.setHighlightCursorBlock(block.position, bot.mouse.getBlockCursorShapes(block).map(shape => {
-      return bot.mouse.getDataFromShape(shape)
-    }))
+    playerState.reactive.lookingAtBlock = {
+      x: block.position.x,
+      y: block.position.y,
+      z: block.position.z,
+      shapes: bot.mouse.getBlockCursorShapes(block).map(shape => {
+        return bot.mouse.getDataFromShape(shape)
+      })
+    }
   }
 
   bot.on('highlightCursorBlock', updateCursorBlock)
 
   bot.on('blockBreakProgressStage', (block, stage) => {
-    getThreeJsRendererMethods()?.updateBreakAnimation(block, stage)
+    const mergedShape = bot.mouse.getMergedCursorShape(block)
+    playerState.reactive.diggingBlock = stage === null ? undefined : {
+      x: block.position.x,
+      y: block.position.y,
+      z: block.position.z,
+      stage,
+      mergedShape: mergedShape ? bot.mouse.getDataFromShape(mergedShape) : undefined
+    }
   })
 }
 
@@ -65,9 +77,12 @@ const otherListeners = () => {
 }
 
 const domListeners = (bot: Bot) => {
+  const abortController = new AbortController()
   document.addEventListener('mousedown', (e) => {
     if (e.isTrusted && !document.pointerLockElement && !isCypress()) return
     if (!isGameActive(true)) return
+
+    getThreeJsRendererMethods()?.onPageInteraction()
 
     const videoInteraction = videoCursorInteraction()
     if (videoInteraction) {
@@ -80,7 +95,7 @@ const domListeners = (bot: Bot) => {
     } else if (e.button === 2) {
       bot.rightClickStart()
     }
-  })
+  }, { signal: abortController.signal })
 
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) {
@@ -88,7 +103,7 @@ const domListeners = (bot: Bot) => {
     } else if (e.button === 2) {
       bot.rightClickEnd()
     }
-  })
+  }, { signal: abortController.signal })
 
   bot.mouse.beforeUpdateChecks = () => {
     if (!document.hasFocus()) {
@@ -96,4 +111,8 @@ const domListeners = (bot: Bot) => {
       bot.mouse.buttons.fill(false)
     }
   }
+
+  bot.on('end', () => {
+    abortController.abort()
+  })
 }

@@ -42,6 +42,9 @@ export type AppQsParams = {
   suggest_save?: string
   noPacketsValidation?: string
   testCrashApp?: string
+  onlyConnect?: string
+  connectText?: string
+  freezeSettings?: string
 
   // Replay params
   replayFilter?: string
@@ -51,6 +54,13 @@ export type AppQsParams = {
   replayStopOnError?: string
   replaySkipMissingOnTimeout?: string
   replayPacketsSenderDelay?: string
+
+  // Benchmark params
+  openBenchmark?: string
+  renderDistance?: string
+  downloadBenchmark?: string
+  benchmarkMapZipUrl?: string
+  benchmarkPosition?: string
 }
 
 export type AppQsParamsArray = {

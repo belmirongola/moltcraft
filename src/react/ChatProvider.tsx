@@ -7,7 +7,7 @@ import { options } from '../optionsStorage'
 import { viewerVersionState } from '../viewerConnector'
 import Chat, { Message, fadeMessage } from './Chat'
 import { useIsModalActive } from './utilsApp'
-import { hideNotification, showNotification } from './NotificationProvider'
+import { hideNotification, notificationProxy, showNotification } from './NotificationProvider'
 import { updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
 
@@ -65,6 +65,14 @@ export default () => {
           })
           hideNotification()
         })
+        notificationProxy.id = 'auto-login'
+        const listener = () => {
+          hideNotification()
+        }
+        bot.on('kicked', listener)
+        setTimeout(() => {
+          bot.removeListener('kicked', listener)
+        }, 2000)
       }
       if (!builtinHandled) {
         bot.chat(message)

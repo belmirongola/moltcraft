@@ -72,6 +72,7 @@ export const localRelayServerPlugin = (bot: Bot) => {
         position: position++,
         timestamp: Date.now(),
       })
+      packetsReplayState.progress.current++
     }
   })
   bot._client.on('packet', (data, { name }) => {
@@ -86,8 +87,22 @@ export const localRelayServerPlugin = (bot: Bot) => {
         position: position++,
         timestamp: Date.now(),
       })
+      packetsReplayState.progress.total++
     }
   })
+  const oldWriteChannel = bot._client.writeChannel.bind(bot._client)
+  bot._client.writeChannel = (channel, params) => {
+    packetsReplayState.packetsPlayback.push({
+      name: channel,
+      data: params,
+      isFromClient: true,
+      isUpcoming: false,
+      position: position++,
+      timestamp: Date.now(),
+      isCustomChannel: true,
+    })
+    oldWriteChannel(channel, params)
+  }
 
   upPacketsReplayPanel()
 }
@@ -95,6 +110,8 @@ export const localRelayServerPlugin = (bot: Bot) => {
 const upPacketsReplayPanel = () => {
   if (packetsRecordingState.active && bot) {
     packetsReplayState.isOpen = true
+    packetsReplayState.isMinimized = true
+    packetsReplayState.isRecording = true
     packetsReplayState.replayName = 'Recording all packets for ' + bot.username
   }
 }

@@ -34,10 +34,12 @@ export default () => {
   const [blockL, setBlockL] = useState(0)
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
+  const [timeOfDay, setTimeOfDay] = useState(0)
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
   const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
   const [clientTps, setClientTps] = useState(0)
+  const [serverTps, setServerTps] = useState(null as null | { value: number, frozen: boolean })
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
   const rendererDevice = appViewer.rendererState.renderer ?? 'No render backend'
@@ -132,6 +134,7 @@ export default () => {
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
+      setTimeOfDay(bot.time.timeOfDay)
       setCursorBlock(bot.mouse.getCursorState().cursorBlock)
     }, 100)
 
@@ -141,7 +144,7 @@ export default () => {
         setBlockInfo(null)
         return
       }
-      const { customBlockName, modelInfo } = await getThreeJsRendererMethods()?.getBlockInfo(pos, block.stateId) ?? {}
+      const { customBlockName, modelInfo } = await getThreeJsRendererMethods()?.getBlockInfo(block.position, block.stateId) ?? {}
       setBlockInfo({ customBlockName, modelInfo })
     }, 300)
 
@@ -152,6 +155,9 @@ export default () => {
     bot._client.on('writePacket' as any, (name, data) => {
       sent.current.count++
       managePackets('sent', name, data)
+    })
+    bot._client.on('set_ticking_state' as any, (data) => {
+      setServerTps({ value: data.tick_rate, frozen: data.is_frozen })
     })
 
     return () => {
@@ -178,14 +184,15 @@ export default () => {
       <div className={styles.empty} />
       <p>XYZ: {pos.x.toFixed(3)} / {pos.y.toFixed(3)} / {pos.z.toFixed(3)}</p>
       <p>Chunk: {Math.floor(pos.x % 16)} ~ {Math.floor(pos.z % 16)} in {Math.floor(pos.x / 16)} ~ {Math.floor(pos.z / 16)}</p>
+      <p>Section: {Math.floor(pos.x / 16) * 16}, {Math.floor(pos.y / 16) * 16}, {Math.floor(pos.z / 16) * 16}</p>
       <p>Packets: {packetsString}</p>
-      <p>Client TPS: {clientTps}</p>
+      <p>Client TPS: {clientTps} {serverTps ? `Server TPS: ${serverTps.value} ${serverTps.frozen ? '(frozen)' : ''}` : ''}</p>
       <p>Facing (viewer): {bot.entity.yaw.toFixed(3)} {bot.entity.pitch.toFixed(3)}</p>
       <p>Facing (minecraft): {quadsDescription[minecraftQuad.current]} ({minecraftYaw.current.toFixed(1)} {(bot.entity.pitch * -180 / Math.PI).toFixed(1)})</p>
       <p>Light: {blockL} ({skyL} sky)</p>
 
       <p>Biome: minecraft:{loadedData.biomesArray[biomeId]?.name ?? 'unknown biome'}</p>
-      <p>Day: {day}</p>
+      <p>Day: {day} Time: {timeOfDay}</p>
       <div className={styles.empty} />
       {Object.entries(appViewer.backend?.getDebugOverlay?.().left ?? {}).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>

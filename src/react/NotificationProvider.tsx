@@ -25,7 +25,8 @@ export const showNotification = (
   isError = false,
   icon = '',
   action = undefined as (() => void) | undefined,
-  autoHide = true
+  autoHide = true,
+  id = ''
 ) => {
   notificationProxy.message = message
   notificationProxy.subMessage = subMessage
@@ -34,11 +35,14 @@ export const showNotification = (
   notificationProxy.open = true
   notificationProxy.autoHide = autoHide
   notificationProxy.action = action
+  notificationProxy.id = id
 }
 globalThis.showNotification = showNotification
-export const hideNotification = () => {
-  // openNotification('') // reset
-  notificationProxy.open = false
+export const hideNotification = (id?: string) => {
+  if (id === undefined || notificationProxy.id === id) {
+    // openNotification('') // reset
+    notificationProxy.open = false
+  }
 }
 
 export default () => {
@@ -47,7 +51,7 @@ export default () => {
   useEffect(() => {
     if (autoHide && open) {
       setTimeout(() => {
-        hideNotification()
+        hideNotification(notificationProxy.id)
       }, 7000)
     }
   }, [autoHide, open])

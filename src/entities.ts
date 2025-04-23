@@ -6,6 +6,7 @@ import { subscribeKey } from 'valtio/utils'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options, watchValue } from './optionsStorage'
 import { miscUiState } from './globalState'
+import { EntityStatus } from './mineflayer/entityStatus'
 
 
 const updateAutoJump = () => {
@@ -85,7 +86,7 @@ customEvents.on('gameLoaded', () => {
   bot._client.on('entity_status', (data) => {
     if (versionToNumber(bot.version) >= versionToNumber('1.19.4')) return
     const { entityId, entityStatus } = data
-    if (entityStatus === 2) {
+    if (entityStatus === EntityStatus.HURT) {
       getThreeJsRendererMethods()?.damageEntity(entityId, entityStatus)
     }
   })

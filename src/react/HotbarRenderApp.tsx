@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Transition } from 'react-transition-group'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { allImagesLoadedState, openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
@@ -110,7 +110,7 @@ const HotbarInner = () => {
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser || !allImagesLoadedState.value) return
+      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser) return
       upInventoryItems(true, inv)
     }
 
@@ -125,7 +125,7 @@ const HotbarInner = () => {
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
     appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
-    const unsub2 = subscribe(allImagesLoadedState, () => {
+    appViewer.resourcesManager.on('assetsInventoryReady', () => {
       upHotbarItems()
     })
 
@@ -196,7 +196,6 @@ const HotbarInner = () => {
     return () => {
       inv.destroy()
       controller.abort()
-      unsub2()
       appViewer.resourcesManager.off('assetsTexturesUpdated', upHotbarItems)
     }
   }, [])

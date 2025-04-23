@@ -1,7 +1,9 @@
+import { defaultsDeep } from 'lodash'
 import { disabledSettings, options, qsOptions } from './optionsStorage'
 import { miscUiState } from './globalState'
 import { setLoadingScreenStatus } from './appStatus'
 import { setStorageDataOnAppConfigLoad } from './react/appStorageProvider'
+import { customKeymaps, updateBinds } from './controls'
 
 export type AppConfig = {
   // defaultHost?: string
@@ -15,12 +17,18 @@ export type AppConfig = {
   mapsProvider?: string
 
   appParams?: Record<string, any> // query string params
+  rightSideText?: string
 
   defaultSettings?: Record<string, any>
   forceSettings?: Record<string, boolean>
   // hideSettings?: Record<string, boolean>
   allowAutoConnect?: boolean
+  splashText?: string
   pauseLinks?: Array<Array<Record<string, any>>>
+  keybindings?: Record<string, any>
+  defaultLanguage?: string
+  displayLanguageSelector?: boolean
+  supportedLanguages?: string[]
 }
 
 export const loadAppConfig = (appConfig: AppConfig) => {
@@ -42,6 +50,11 @@ export const loadAppConfig = (appConfig: AppConfig) => {
         disabledSettings.value.delete(key)
       }
     }
+  }
+
+  if (appConfig.keybindings) {
+    Object.assign(customKeymaps, defaultsDeep(appConfig.keybindings, customKeymaps))
+    updateBinds(customKeymaps)
   }
 
   setStorageDataOnAppConfigLoad()

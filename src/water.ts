@@ -1,3 +1,4 @@
+import { ref } from 'valtio'
 import { watchUnloadForCleanup } from './gameUnload'
 
 let inWater = false
@@ -9,9 +10,10 @@ customEvents.on('gameLoaded', () => {
   watchUnloadForCleanup(cleanup)
 
   const updateInWater = () => {
-    const waterBr = Object.keys(bot.entity.effects).find((effect: any) => loadedData.effects[effect.id].name === 'water_breathing')
+    const waterBr = Object.keys(bot.entity.effects).find((effect: any) => loadedData.effects[effect.id]?.name === 'water_breathing')
     if (inWater) {
       appViewer.playerState.reactive.inWater = true
+      appViewer.playerState.reactive.waterBreathing = waterBr !== undefined
     } else {
       cleanup()
     }
@@ -31,5 +33,5 @@ let sceneBg = { r: 0, g: 0, b: 0 }
 export const updateBackground = (newSceneBg = sceneBg) => {
   sceneBg = newSceneBg
   const color: [number, number, number] = inWater ? [0, 0, 1] : [sceneBg.r, sceneBg.g, sceneBg.b]
-  appViewer.playerState.reactive.backgroundColor = color
+  appViewer.playerState.reactive.backgroundColor = ref(color)
 }

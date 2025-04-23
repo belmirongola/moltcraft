@@ -124,12 +124,12 @@ export const preventThrottlingWithSound = () => {
     // Start playing
     oscillator.start()
 
-    return () => {
+    return async () => {
       try {
         oscillator.stop()
-        audioContext.close()
+        await audioContext.close()
       } catch (err) {
-        console.error('Error stopping silent audio:', err)
+        console.warn('Error stopping silent audio:', err)
       }
     }
   } catch (err) {

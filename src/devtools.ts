@@ -21,7 +21,8 @@ window.inspectPlayer = () => require('fs').promises.readFile('/world/playerdata/
 
 Object.defineProperty(window, 'debugSceneChunks', {
   get () {
-    return (window.world as WorldRendererThree)?.getLoadedChunksRelative?.(bot.entity.position, true)
+    if (!(window.world instanceof WorldRendererThree)) return undefined
+    return (window.world)?.getLoadedChunksRelative?.(bot.entity.position, true)
   },
 })
 
@@ -149,7 +150,7 @@ Object.defineProperty(window, 'debugToggle', {
 })
 
 customEvents.on('gameLoaded', () => {
-  window.holdingBlock = (window.world as WorldRendererThree).holdingBlock
+  window.holdingBlock = (window.world as WorldRendererThree | undefined)?.holdingBlock
 })
 
 window.clearStorage = (...keysToKeep: string[]) => {

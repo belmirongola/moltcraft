@@ -18,18 +18,27 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     playEntityAnimation: worldRenderer.entities.playAnimation.bind(worldRenderer.entities),
     damageEntity: worldRenderer.entities.handleDamageEvent.bind(worldRenderer.entities),
     updatePlayerSkin: worldRenderer.entities.updatePlayerSkin.bind(worldRenderer.entities),
-    setHighlightCursorBlock: worldRenderer.cursorBlock.setHighlightCursorBlock.bind(worldRenderer.cursorBlock),
-    updateBreakAnimation: worldRenderer.cursorBlock.updateBreakAnimation.bind(worldRenderer.cursorBlock),
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
     getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer),
     rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer),
-    addMedia: worldRenderer.addMedia.bind(worldRenderer),
-    destroyMedia: worldRenderer.destroyMedia.bind(worldRenderer),
-    setVideoPlaying: worldRenderer.setVideoPlaying.bind(worldRenderer),
-    setVideoSeeking: worldRenderer.setVideoSeeking.bind(worldRenderer),
-    setVideoVolume: worldRenderer.setVideoVolume.bind(worldRenderer),
-    setVideoSpeed: worldRenderer.setVideoSpeed.bind(worldRenderer),
+
+    addMedia: worldRenderer.media.addMedia.bind(worldRenderer.media),
+    destroyMedia: worldRenderer.media.destroyMedia.bind(worldRenderer.media),
+    setVideoPlaying: worldRenderer.media.setVideoPlaying.bind(worldRenderer.media),
+    setVideoSeeking: worldRenderer.media.setVideoSeeking.bind(worldRenderer.media),
+    setVideoVolume: worldRenderer.media.setVideoVolume.bind(worldRenderer.media),
+    setVideoSpeed: worldRenderer.media.setVideoSpeed.bind(worldRenderer.media),
+
+    addSectionAnimation (id: string, animation: typeof worldRenderer.sectionsOffsetsAnimations[string]) {
+      worldRenderer.sectionsOffsetsAnimations[id] = animation
+    },
+    removeSectionAnimation (id: string) {
+      delete worldRenderer.sectionsOffsetsAnimations[id]
+    },
+
     shakeFromDamage: worldRenderer.cameraShake.shakeFromDamage.bind(worldRenderer.cameraShake),
+    onPageInteraction: worldRenderer.media.onPageInteraction.bind(worldRenderer.media),
+    downloadMesherLog: worldRenderer.downloadMesherLog.bind(worldRenderer),
   }
 }
 
@@ -59,12 +68,13 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     await initOptions.resourcesManager.updateAssetsData({ })
   }
 
-  const startWorld = (displayOptions: DisplayWorldOptions) => {
+  const startWorld = async (displayOptions: DisplayWorldOptions) => {
     if (panoramaRenderer) {
       panoramaRenderer.dispose()
       panoramaRenderer = null
     }
     worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions)
+    await worldRenderer.worldReadyPromise
     documentRenderer.render = (sizeChanged: boolean) => {
       worldRenderer?.render(sizeChanged)
     }
@@ -124,4 +134,5 @@ const callModsMethod = (method: string, ...args: any[]) => {
   }
 }
 
+createGraphicsBackend.id = 'threejs'
 export default createGraphicsBackend

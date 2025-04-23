@@ -12,6 +12,7 @@ For building the project yourself / contributing, see [Development, Debugging & 
 
 ### Big Features
 
+- Official Mineflayer [plugin integration](https://github.com/zardoy/mcraft-fun-mineflayer-plugin)! View / Control your bot remotely.
 - Open any zip world file or even folder in read-write mode!
 - Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
 - Integrated JS server clone capable of opening Java world saves in any way (folders, zip, web chunks streaming, etc)
@@ -42,6 +43,15 @@ These browsers have issues with capturing pointer:
 
 **Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
 **Vivaldi**: Disable Controls -> *Raw Input* in game settings if experiencing issues
+
+### Versions Support
+
+Server versions 1.8 - 1.21.4 are supported.
+First class versions (most of the features are tested on these versions):
+- 1.19.4
+- 1.21.4
+
+Versions below 1.13 are not tested currently and may not work correctly.
 
 ### World Loading
 
