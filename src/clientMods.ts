@@ -241,6 +241,7 @@ const activateMod = async (mod: ClientMod, reason: string) => {
     } catch (e) {
       throw e
     }
+    URL.revokeObjectURL(url)
   }
   if (mod.threeJsBackend) {
     const blob = new Blob([mod.threeJsBackend], { type: 'text/javascript' })
@@ -255,6 +256,7 @@ const activateMod = async (mod: ClientMod, reason: string) => {
     } catch (e) {
       throw e
     }
+    URL.revokeObjectURL(url)
   }
   mod.enabled = true
   return true
