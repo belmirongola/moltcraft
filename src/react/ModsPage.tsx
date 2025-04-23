@@ -355,7 +355,7 @@ export default () => {
 
   const selectedMod = selectedModIndex === null ? null : allModsArray[selectedModIndex]
 
-  return <Screen backdrop="dirt" title="Client Mods" titleMarginTop={0} contentStyle={{ paddingTop: 15, height: '100%', width: '100%' }}>
+  return <Screen backdrop="dirt" title="Client Mods (Preview)" titleMarginTop={0} contentStyle={{ paddingTop: 15, height: '100%', width: '100%' }}>
     <div className={styles.root}>
       <div className={styles.header}>
         <Button
