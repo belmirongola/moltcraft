@@ -985,5 +985,5 @@ if (initialLoader) {
 window.pageLoaded = true
 
 void possiblyHandleStateVariable()
-void appStartup()
+appViewer.waitBackendLoadPromises.push(appStartup())
 registerOpenBenchmarkListener()

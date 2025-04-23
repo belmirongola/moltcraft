@@ -175,3 +175,19 @@
   padding-left: 10px;
   list-style-type: disc;
 }
+
+.fieldEditorTextarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 7px;
+}
+
+.fieldEditorTextarea {
+  position: absolute;
+
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+}

@@ -125,6 +125,7 @@ export interface ClientMod {
   section?: string
   autoUpdateOverride?: boolean
   lastUpdated?: number
+  wasModifiedLocally?: boolean
   // todo depends, hashsum
 }
 
@@ -133,17 +134,18 @@ const cleanupFetchedModData = (mod: ClientModDefinition | Record<string, any>) =
   delete mod['repo']
   delete mod['autoUpdateOverride']
   delete mod['lastUpdated']
+  delete mod['wasModifiedLocally']
   return mod
 }
 
-export type ClientModDefinition = Omit<ClientMod, 'enabled'> & {
+export type ClientModDefinition = Omit<ClientMod, 'enabled' | 'wasModifiedLocally'> & {
   scriptMainUnstable?: boolean
   stylesGlobal?: boolean
   serverPlugin?: boolean
   threeJsBackend?: boolean
 }
 
-async function savePlugin (data: ClientMod) {
+export async function saveClientModData (data: ClientMod) {
   const db = await dbPromise
   data.lastUpdated = Date.now()
   await db.put('mods', data)
@@ -234,7 +236,8 @@ const activateMod = async (mod: ClientMod, reason: string) => {
     try {
       const module = await import(/* webpackIgnore: true */ url)
       module.default?.(structuredClone(mod))
-      window.loadedMods[mod.name] = module
+      window.loadedMods[mod.name] ??= {}
+      window.loadedMods[mod.name].mainUnstableModule = module
     } catch (e) {
       throw e
     }
@@ -345,7 +348,7 @@ const installOrUpdateMod = async (repo: Repository, mod: ClientModDefinition, ac
         await activateMod(mod as ClientMod, 'install')
       }
     }
-    await savePlugin(mod as ClientMod)
+    await saveClientModData(mod as ClientMod)
     delete modsUpdateStatus[mod.name]
   } catch (e) {
     // console.error(`Error installing mod ${mod.name}:`, e)
@@ -449,12 +452,22 @@ export const setEnabledModAction = async (name: string, newEnabled: boolean) => 
   } else {
     // todo deactivate mod
     mod.enabled = false
-    if (window.loadedMods?.[mod.name]?.deactivate) {
-      window.loadedMods[mod.name].deactivate()
-      delete window.loadedMods[mod.name]
+    if (window.loadedMods?.[mod.name]) {
+      if (window.loadedMods[mod.name]?.threeJsBackendModule) {
+        window.loadedMods[mod.name].threeJsBackendModule.deactivate()
+        delete window.loadedMods[mod.name].threeJsBackendModule
+      }
+      if (window.loadedMods[mod.name]?.mainUnstableModule) {
+        window.loadedMods[mod.name].mainUnstableModule.deactivate()
+        delete window.loadedMods[mod.name].mainUnstableModule
+      }
+
+      if (Object.keys(window.loadedMods[mod.name]).length === 0) {
+        delete window.loadedMods[mod.name]
+      }
     }
   }
-  await savePlugin(mod)
+  await saveClientModData(mod)
 }
 
 export const modsReactiveUpdater = proxy({
@@ -467,7 +480,7 @@ export const getAllModsDisplayList = async () => {
   const modsWithoutRepos = installedMods.filter(mod => !repos.some(repo => repo.packages.some(m => m.name === mod.name)))
   const mapMods = (mapMods: ClientMod[]) => mapMods.map(mod => ({
     ...mod,
-    installed: installedMods.some(m => m.name === mod.name),
+    installed: installedMods.find(m => m.name === mod.name),
     activated: !!window.loadedMods?.[mod.name],
     installedVersion: installedMods.find(m => m.name === mod.name)?.version,
     canBeActivated: mod.scriptMainUnstable || mod.stylesGlobal,
@@ -526,3 +539,42 @@ export const getAvailableServerPlugins = async () => {
 }
 
 window.inspectInstalledMods = getAllMods
+
+type ModifiableField = {
+  field: string
+  label: string
+  language: string
+  getContent?: () => string
+}
+
+// ---
+
+export const getAllModsModifiableFields = () => {
+  const fields: ModifiableField[] = [
+    {
+      field: 'scriptMainUnstable',
+      label: 'Main Thread Script (unstable)',
+      language: 'js'
+    },
+    {
+      field: 'stylesGlobal',
+      label: 'Global CSS Styles',
+      language: 'css'
+    },
+    {
+      field: 'threeJsBackend',
+      label: 'Three.js Renderer Backend Thread',
+      language: 'js'
+    },
+    {
+      field: 'serverPlugin',
+      label: 'Built-in server plugin',
+      language: 'js'
+    }
+  ]
+  return fields
+}
+
+export const getModModifiableFields = (mod: ClientMod): ModifiableField[] => {
+  return getAllModsModifiableFields().filter(field => mod[field.field])
+}

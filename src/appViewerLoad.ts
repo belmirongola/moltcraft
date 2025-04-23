@@ -15,7 +15,7 @@ const loadBackend = () => {
     showNotification(`No backend found for renderer ${options.activeRenderer}`, `Falling back to ${backends[0].id}`, true)
     backend = backends[0]
   }
-  appViewer.loadBackend(backend)
+  void appViewer.loadBackend(backend)
 }
 window.loadBackend = loadBackend
 if (process.env.SINGLE_FILE_BUILD_MODE) {
@@ -27,7 +27,9 @@ if (process.env.SINGLE_FILE_BUILD_MODE) {
     }
   })
 } else {
-  loadBackend()
+  setTimeout(() => {
+    loadBackend()
+  })
 }
 
 const animLoop = () => {

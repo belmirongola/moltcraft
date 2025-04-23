@@ -29,6 +29,7 @@ export type AppConfig = {
   defaultLanguage?: string
   displayLanguageSelector?: boolean
   supportedLanguages?: string[]
+  showModsButton?: boolean
 }
 
 export const loadAppConfig = (appConfig: AppConfig) => {

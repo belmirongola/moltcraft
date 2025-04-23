@@ -230,7 +230,10 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { appConfig } = useSnapshot(miscUiState)
         const modsUpdateSnapshot = useSnapshot(modsUpdateStatus)
+
+        if (appConfig?.showModsButton === false) return null
         return <Button label={`Client Mods: ${Object.keys(window.loadedMods ?? {}).length} (${Object.keys(modsUpdateSnapshot).length})`} onClick={() => showModal({ reactType: 'mods' })} inScreen />
       },
     },

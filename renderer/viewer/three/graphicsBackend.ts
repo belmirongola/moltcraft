@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
+import { showNotification } from '../../../src/react/NotificationProvider'
 import { WorldRendererThree } from './worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
 import { PanoramaRenderer } from './panorama'
@@ -52,13 +53,14 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let panoramaRenderer: PanoramaRenderer | null = null
   let worldRenderer: WorldRendererThree | null = null
 
-  const startPanorama = () => {
+  const startPanorama = async () => {
     if (worldRenderer) return
     if (!panoramaRenderer) {
       panoramaRenderer = new PanoramaRenderer(documentRenderer, initOptions, !!process.env.SINGLE_FILE_BUILD_MODE)
       window.panoramaRenderer = panoramaRenderer
+      callModsMethod('panoramaCreated', panoramaRenderer)
+      await panoramaRenderer.start()
       callModsMethod('panoramaReady', panoramaRenderer)
-      void panoramaRenderer.start()
     }
   }
 
@@ -130,7 +132,13 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
 
 const callModsMethod = (method: string, ...args: any[]) => {
   for (const mod of Object.values((window.loadedMods ?? {}) as Record<string, any>)) {
-    mod.threeJsBackendModule?.[method]?.(...args)
+    try {
+      mod.threeJsBackendModule?.[method]?.(...args)
+    } catch (err) {
+      const errorMessage = `[mod three.js] Error calling ${method} on ${mod.name}: ${err}`
+      showNotification(errorMessage, 'error')
+      throw new Error(errorMessage)
+    }
   }
 }
 

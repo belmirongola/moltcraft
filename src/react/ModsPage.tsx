@@ -1,12 +1,13 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSnapshot } from 'valtio'
-import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors, fetchRepository } from '../clientMods'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
+import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors, fetchRepository, getModModifiableFields, saveClientModData, getAllModsModifiableFields } from '../clientMods'
 import { createNotificationProgressReporter, ProgressReporter } from '../core/progressReporter'
 import { useIsModalActive } from './utilsApp'
 import Input from './Input'
 import Button from './Button'
 import styles from './mods.module.css'
-import { showOptionsModal } from './SelectOption'
+import { showOptionsModal, showInputsModal } from './SelectOption'
 import Screen from './Screen'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import { showNotification } from './NotificationProvider'
@@ -50,6 +51,7 @@ const ModListItem = ({
 
 const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { repo?: string }) | null }) => {
   const errors = useSnapshot(modsErrors)
+  const [editingField, setEditingField] = useState<{ name: string, content: string, language: string } | null>(null)
 
   const handleAction = async (action: () => Promise<void>, errorMessage: string, progress?: ProgressReporter) => {
     try {
@@ -66,11 +68,42 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
     return <div className={styles.modInfoText}>Select a mod to view details</div>
   }
 
+  const modifiableFields = mod.installed ? getModModifiableFields(mod.installed) : []
+
+  const handleSaveField = async (newContents: string) => {
+    if (!editingField) return
+    try {
+      mod[editingField.name] = newContents
+      mod.wasModifiedLocally = true
+      await saveClientModData(mod)
+      setEditingField(null)
+      showNotification('Success', 'Contents saved successfully')
+    } catch (error) {
+      showNotification('Error', 'Failed to save contents: ' + error.message, true)
+    }
+  }
+
+  if (editingField) {
+    return (
+      <EditingCodeWindow
+        contents={editingField.content}
+        language={editingField.language}
+        onClose={newContents => {
+          if (newContents === undefined) {
+            setEditingField(null)
+            return
+          }
+          void handleSaveField(newContents)
+        }}
+      />
+    )
+  }
+
   return (
     <>
       <div className={styles.modInfo}>
         <div className={styles.modInfoTitle}>
-          {mod.name}
+          {mod.name} {mod.installed?.wasModifiedLocally ? '(modified)' : ''}
         </div>
         <div className={styles.modInfoText}>
           {mod.description}
@@ -139,6 +172,18 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
                 title="Update"
               />
             )}
+            {mod.serverPlugin && (
+              <Button
+                onClick={async () => {
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('sp', '1')
+                  url.searchParams.set('serverPlugin', mod.name)
+                  openURL(url.toString())
+                }}
+                // icon={pixelartIcons['arrow-up-box']}
+                title="Try in blank world"
+              />
+            )}
           </>
         ) : (
           <Button
@@ -157,9 +202,78 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
             title="Install"
           />
         )}
+        {modifiableFields.length > 0 && (
+          <Button
+            onClick={async (e) => {
+              const fields = e.shiftKey ? getAllModsModifiableFields() : modifiableFields
+              const result = await showInputsModal('Edit Mod Field', Object.fromEntries(fields.map(field => {
+                return [field.field, {
+                  type: 'button' as const,
+                  label: field.label,
+                  onButtonClick () {
+                    setEditingField({
+                      name: field.field,
+                      content: field.getContent?.() || mod.installed![field.field] || '',
+                      language: field.language
+                    })
+                  }
+                }]
+              })), {
+                showConfirm: false
+              })
+            }}
+            icon={pixelartIcons['edit']}
+            title="Edit Mod"
+          />
+        )}
       </div>
     </>
   )
+}
+
+const EditingCodeWindow = ({
+  contents,
+  language,
+  onClose
+}: {
+  contents: string,
+  language: string,
+  onClose: (newContents?: string) => void
+}) => {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
+  }, [])
+
+  return <Screen title="Editing code">
+    <div className="">
+      <textarea
+        ref={ref}
+        className={styles.fieldEditorTextarea}
+        defaultValue={contents}
+      />
+      <Button
+        style={{ position: 'absolute', bottom: 10, left: 10, backgroundColor: 'red' }}
+        onClick={() => onClose(undefined)}
+        icon={pixelartIcons.close}
+        title="Cancel"
+      />
+      <Button
+        style={{ position: 'absolute', bottom: 10, right: 10, backgroundColor: '#4CAF50' }}
+        onClick={() => onClose(ref.current?.value)}
+        icon={pixelartIcons.check}
+        title="Save"
+      />
+    </div>
+  </Screen>
 }
 
 export default () => {
@@ -288,7 +402,7 @@ export default () => {
           className={styles.searchBar}
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search mods..."
+          placeholder="Search mods in added repositories..."
           autoFocus
         />
       </div>

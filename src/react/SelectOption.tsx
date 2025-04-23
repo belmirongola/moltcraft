@@ -58,13 +58,23 @@ export type InputOption = {
 export const showInputsModal = async <T extends Record<string, InputOption>>(
   title: string,
   inputs: T,
-  { cancel = true, minecraftJsonMessage }: { cancel?: boolean, minecraftJsonMessage? } = {}
+  {
+    cancel = true,
+    minecraftJsonMessage,
+    showConfirm = true
+  }: {
+    cancel?: boolean,
+    minecraftJsonMessage?
+    showConfirm?: boolean
+  } = {}
 ): Promise<{
   [K in keyof T]: T[K] extends { type: 'text' }
     ? string
     : T[K] extends { type: 'checkbox' }
       ? boolean
-      : never
+      : T[K] extends { type: 'button' }
+        ? string
+        : never
 }> => {
   showModal({ reactType: 'general-select' })
   let minecraftJsonMessageParsed
@@ -83,7 +93,7 @@ export const showInputsModal = async <T extends Record<string, InputOption>>(
       showCancel: cancel,
       minecraftJsonMessage: minecraftJsonMessageParsed,
       options: [],
-      inputsConfirmButton: 'Confirm'
+      inputsConfirmButton: showConfirm ? 'Confirm' : ''
     })
   })
 }
