@@ -3,6 +3,7 @@ import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors, fetchRepository, getModModifiableFields, saveClientModData, getAllModsModifiableFields } from '../clientMods'
 import { createNotificationProgressReporter, ProgressReporter } from '../core/progressReporter'
+import { hideModal } from '../globalState'
 import { useIsModalActive } from './utilsApp'
 import Input from './Input'
 import Button from './Button'
@@ -356,6 +357,18 @@ export default () => {
   const selectedMod = selectedModIndex === null ? null : allModsArray[selectedModIndex]
 
   return <Screen backdrop="dirt" title="Client Mods (Preview)" titleMarginTop={0} contentStyle={{ paddingTop: 15, height: '100%', width: '100%' }}>
+    <Button
+      icon={pixelartIcons['close']}
+      onClick={() => {
+        hideModal()
+      }}
+      style={{
+        color: '#ff5d5d',
+        position: 'fixed',
+        top: 10,
+        left: 20
+      }}
+    />
     <div className={styles.root}>
       <div className={styles.header}>
         <Button
