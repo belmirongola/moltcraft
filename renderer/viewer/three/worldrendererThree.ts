@@ -25,8 +25,41 @@ import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
+import { BLOCK_VERTEX_SHADER, BLOCK_FRAGMENT_SHADER, ANIMATED_BLOCK_VERTEX_SHADER, ANIMATED_BLOCK_FRAGMENT_SHADER } from './shadersThree'
 
 type SectionKey = string
+
+class CustomBlockMaterial extends THREE.ShaderMaterial {
+  constructor () {
+    super({
+      uniforms: {
+        map: { value: null }
+      },
+      vertexShader: BLOCK_VERTEX_SHADER,
+      fragmentShader: BLOCK_FRAGMENT_SHADER,
+      transparent: true,
+      alphaTest: 0.1
+    })
+  }
+}
+
+class AnimatedBlockMaterial extends THREE.ShaderMaterial {
+  constructor () {
+    super({
+      uniforms: {
+        map: { value: null },
+        animationFrameHeight: { value: 1 },
+        animationFrameIndex: { value: 0 },
+        animationInterpolationFrameIndex: { value: 0 },
+        animationInterpolation: { value: 0 }
+      },
+      vertexShader: ANIMATED_BLOCK_VERTEX_SHADER,
+      fragmentShader: ANIMATED_BLOCK_FRAGMENT_SHADER,
+      transparent: true,
+      alphaTest: 0.1
+    })
+  }
+}
 
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
@@ -35,14 +68,15 @@ export class WorldRendererThree extends WorldRendererCommon {
   signsCache = new Map<string, any>()
   starField: StarField
   cameraSectionPos: Vec3 = new Vec3(0, 0, 0)
-  holdingBlock: HoldingBlock
-  holdingBlockLeft: HoldingBlock
+  holdingBlock: HoldingBlock | undefined
+  holdingBlockLeft: HoldingBlock | undefined
   scene = new THREE.Scene()
   ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
   directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
   entities = new Entities(this)
   cameraObjectOverride?: THREE.Object3D // for xr
-  material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
+  material = new CustomBlockMaterial()
+  animatedMaterial = new AnimatedBlockMaterial()
   itemsTexture: THREE.Texture
   cursorBlock = new CursorBlock(this)
   onRender: Array<() => void> = []
@@ -66,8 +100,8 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
     this.starField = new StarField(this.scene)
-    this.holdingBlock = new HoldingBlock(this)
-    this.holdingBlockLeft = new HoldingBlock(this, true)
+    // this.holdingBlock = new HoldingBlock(this)
+    // this.holdingBlockLeft = new HoldingBlock(this, true)
 
     this.addDebugOverlay()
     this.resetScene()
@@ -137,23 +171,23 @@ export class WorldRendererThree extends WorldRendererCommon {
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
     const holdingBlock = isLeft ? this.holdingBlockLeft : this.holdingBlock
     if (isAnimationPlaying) {
-      holdingBlock.startSwing()
+      holdingBlock?.startSwing()
     } else {
-      holdingBlock.stopSwing()
+      holdingBlock?.stopSwing()
     }
   }
 
   async updateAssetsData (): Promise<void> {
     const resources = this.resourcesManager.currentResources!
 
-    const oldTexture = this.material.map
+    const oldTexture = this.material.uniforms.map.value
     const oldItemsTexture = this.itemsTexture
 
     const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
     texture.magFilter = THREE.NearestFilter
     texture.minFilter = THREE.NearestFilter
     texture.flipY = false
-    this.material.map = texture
+    this.material.uniforms.map.value = texture
 
     const itemsTexture = await new THREE.TextureLoader().loadAsync(resources.itemsAtlasParser.latestImage)
     itemsTexture.magFilter = THREE.NearestFilter
@@ -177,10 +211,14 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   onAllTexturesLoaded () {
-    this.holdingBlock.ready = true
-    this.holdingBlock.updateItem()
-    this.holdingBlockLeft.ready = true
-    this.holdingBlockLeft.updateItem()
+    if (this.holdingBlock) {
+      this.holdingBlock.ready = true
+      this.holdingBlock.updateItem()
+    }
+    if (this.holdingBlockLeft) {
+      this.holdingBlockLeft.ready = true
+      this.holdingBlockLeft.updateItem()
+    }
   }
 
   changeBackgroundColor (color: [number, number, number]): void {
@@ -432,8 +470,8 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.renderer.render(this.scene, cam)
 
     if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
-      this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
-      this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+      this.holdingBlock?.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+      this.holdingBlockLeft?.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
     }
 
     for (const onRender of this.onRender) {
