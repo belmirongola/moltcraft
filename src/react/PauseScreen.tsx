@@ -36,6 +36,7 @@ import { appStatusState, reconnectReload } from './AppStatusProvider'
 import NetworkStatus from './NetworkStatus'
 import PauseLinkButtons from './PauseLinkButtons'
 import { pixelartIcons } from './PixelartIcon'
+import LoadingTimer from './LoadingTimer'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -298,5 +299,6 @@ export default () => {
         </Button>
       )}
     </div>
+    <LoadingTimer />
   </Screen>
 }

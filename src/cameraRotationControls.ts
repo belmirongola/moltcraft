@@ -74,9 +74,8 @@ export const onControInit = () => {
 }
 
 function pointerLockChangeCallback () {
-  if (notificationProxy.id === 'pointerlockchange') {
-    hideNotification()
-  }
+  hideNotification('pointerlockchange')
+
   if (appViewer.rendererState.preventEscapeMenu) return
   if (!pointerLock.hasPointerLock && activeModalStack.length === 0 && miscUiState.gameLoaded) {
     showModal({ reactType: 'pause-screen' })

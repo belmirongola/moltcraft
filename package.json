@@ -81,7 +81,7 @@
     "google-drive-browserfs": "github:zardoy/browserfs#google-drive",
     "jszip": "^3.10.1",
     "lodash-es": "^4.17.21",
-    "mcraft-fun-mineflayer": "^0.1.14",
+    "mcraft-fun-mineflayer": "^0.1.21",
     "minecraft-data": "3.83.1",
     "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
     "mineflayer-item-map-downloader": "github:zardoy/mineflayer-item-map-downloader",
@@ -151,7 +151,7 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "^0.2.52",
+    "mc-assets": "^0.2.53",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:GenerelSchwerz/mineflayer",
     "mineflayer-mouse": "^0.1.7",
@@ -196,7 +196,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@nxg-org/mineflayer-physics-util": "1.8.6",
+      "@nxg-org/mineflayer-physics-util": "1.8.7",
       "buffer": "^6.0.3",
       "vec3": "0.1.10",
       "three": "0.154.0",

@@ -43,7 +43,7 @@ export default function ReplayPanel ({
   style
 }: Props) {
   const [filter, setFilter] = useState(defaultFilter)
-  const { isMinimized } = useSnapshot(packetsReplayState)
+  const { isMinimized, isRecording } = useSnapshot(packetsReplayState)
   const { filtered: filteredPackets, hiddenCount } = filterPackets(packets.slice(-500), filter)
 
   useEffect(() => {
@@ -70,7 +70,9 @@ export default function ReplayPanel ({
       }}
     >
       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-        {isPlaying ? (
+        {isRecording ? (
+          <circle cx="12" cy="12" r="8" fill="red" />
+        ) : isPlaying ? (
           <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
         ) : (
           <path d="M8 5v14l11-7z"/>
@@ -137,7 +139,9 @@ export default function ReplayPanel ({
         </button>
       </div>
 
-      <div style={{ fontSize: '8px', color: '#888888', marginTop: '-8px' }}>Integrated server emulation. Testing client...</div>
+      <div style={{ fontSize: '8px', color: '#888888', marginTop: '-8px' }}>
+        {isRecording ? 'Recording packets...' : 'Integrated server emulation. Testing client...'}
+      </div>
 
       <FilterInput
         value={filter}
@@ -155,7 +159,14 @@ export default function ReplayPanel ({
         maxHeight={300}
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        // grayscale if recording
+        filter: isRecording ? 'grayscale(100%)' : 'none',
+        cursor: isRecording ? 'not-allowed' : 'default'
+      }}>
         {playPauseButton}
         <ProgressBar current={progress.current} total={progress.total} />
       </div>
@@ -228,4 +239,5 @@ export interface PacketData {
   actualVersion?: any
   position: number
   timestamp: number
+  isCustomChannel?: boolean
 }

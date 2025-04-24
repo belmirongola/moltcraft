@@ -14,6 +14,7 @@ import { openFilePicker, resetLocalStorage } from './browserfs'
 import { completeResourcepackPackInstall, getResourcePackNames, resourcepackReload, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
+import { modsUpdateStatus } from './clientMods'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
 import { createNotificationProgressReporter } from './core/progressReporter'
@@ -229,7 +230,28 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        const modsUpdateSnapshot = useSnapshot(modsUpdateStatus)
+
+        if (appConfig?.showModsButton === false) return null
+        return <Button label={`Client Mods: ${Object.keys(window.loadedMods ?? {}).length} (${Object.keys(modsUpdateSnapshot).length})`} onClick={() => showModal({ reactType: 'mods' })} inScreen />
+      },
+    },
+    {
+      custom () {
         return <Button label='VR...' onClick={() => openOptionsMenu('VR')} inScreen />
+      },
+    },
+    {
+      custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        if (!appConfig?.displayLanguageSelector) return null
+        return <Button
+          label='Language...' onClick={async () => {
+            const newLang = await showOptionsModal('Set Language', (appConfig.supportedLanguages ?? []) as string[])
+            if (!newLang) return
+            options.language = newLang.split(' - ')[0]
+          }} inScreen />
       },
     }
   ],
@@ -569,6 +591,11 @@ export const guiOptionsScheme: {
         ],
       },
     },
+    {
+      debugContro: {
+        text: 'Debug Controls',
+      },
+    }
   ],
   'export-import': [
     {
