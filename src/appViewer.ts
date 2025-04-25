@@ -89,6 +89,8 @@ export interface GraphicsBackend {
 }
 
 export class AppViewer {
+  waitBackendLoadPromises = [] as Array<Promise<void>>
+
   resourcesManager = new ResourcesManager()
   worldView: WorldDataEmitter | undefined
   readonly config: GraphicsBackendConfig = {
@@ -114,10 +116,13 @@ export class AppViewer {
     this.disconnectBackend()
   }
 
-  loadBackend (loader: GraphicsBackendLoader) {
+  async loadBackend (loader: GraphicsBackendLoader) {
     if (this.backend) {
       this.disconnectBackend()
     }
+
+    await Promise.all(this.waitBackendLoadPromises)
+    this.waitBackendLoadPromises = []
 
     this.backendLoader = loader
     const rendererSpecificSettings = {} as Record<string, any>

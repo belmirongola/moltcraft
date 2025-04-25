@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@nxg-org/mineflayer-physics-util': 1.8.6
+  '@nxg-org/mineflayer-physics-util': 1.8.7
   buffer: ^6.0.3
   vec3: 0.1.10
   three: 0.154.0
@@ -132,8 +132,8 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
       mcraft-fun-mineflayer:
-        specifier: ^0.1.14
-        version: 0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13))
+        specifier: ^0.1.21
+        version: 0.1.21(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
@@ -2025,8 +2025,8 @@ packages:
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     resolution: {integrity: sha512-F5vX/lerlWx/5HVlkDNbvrtQ19PL6iG8i4ItPTIRtjGiFzusDefP7DI226zSFR8Wlaw45qHv0jn814p/4/qVdQ==}
 
-  '@nxg-org/mineflayer-physics-util@1.8.6':
-    resolution: {integrity: sha512-eRn9e9OMvl1+kEfwPPshAl1A5MX0eDWaI7WVRf7ht9qo9N3fKiw+mM/AGPuhVjEr16zUls77P6Sn9cVZJuUdlw==}
+  '@nxg-org/mineflayer-physics-util@1.8.7':
+    resolution: {integrity: sha512-wtLYvHqoEFr/j0ny2lyogwjbMvwpFuG2aWI8sI14+EAiGFRpL5+cog2ujSDsnRTZruO7tUXMTiPc1kebjXwfJg==}
 
   '@nxg-org/mineflayer-tracker@1.2.1':
     resolution: {integrity: sha512-SI1ffF8zvg3/ZNE021Ja2W0FZPN+WbQDZf8yFqOcXtPRXAtM9W6HvoACdzXep8BZid7WYgYLIgjKpB+9RqvCNQ==}
@@ -6459,9 +6459,9 @@ packages:
     resolution: {integrity: sha512-Ucsu2pDLr/cs8bxbxU9KTszdf/vPTLphYgEHUEWxuYlMkPQUCpsQwkn3YgyykJ7RXaca7zZGlZXaTPXBAqJT6A==}
     engines: {node: '>=18.0.0'}
 
-  mcraft-fun-mineflayer@0.1.14:
-    resolution: {integrity: sha512-q/qXQaNbkGJIvXjRvudUT7/k0EsJgphFcvYjrSRWYyGDJeb61MKRVqq1hhMjqx7UK7FMfBKvjfPSxq/QlAP7WQ==}
-    version: 0.1.14
+  mcraft-fun-mineflayer@0.1.21:
+    resolution: {integrity: sha512-FtzebYMvLvunApQy9ilF1RGqiX01DJn8y7q4xAONiIhBrIT7BrHK3O63IA50YgklldvdgVxn7s3m4QANvsH2JA==}
+    version: 0.1.21
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     peerDependencies:
       '@roamhq/wrtc': '*'
@@ -11353,10 +11353,10 @@ snapshots:
 
   '@nxg-org/mineflayer-auto-jump@0.7.12':
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.8.6
+      '@nxg-org/mineflayer-physics-util': 1.8.7
       strict-event-emitter-types: 2.0.0
 
-  '@nxg-org/mineflayer-physics-util@1.8.6':
+  '@nxg-org/mineflayer-physics-util@1.8.7':
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.4
 
@@ -16993,7 +16993,7 @@ snapshots:
       maxrects-packer: '@zardoy/maxrects-packer@2.7.4'
       zod: 3.24.2
 
-  mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)):
+  mcraft-fun-mineflayer@0.1.21(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)):
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
@@ -17437,7 +17437,7 @@ snapshots:
 
   mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13):
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.8.6
+      '@nxg-org/mineflayer-physics-util': 1.8.7
       minecraft-data: 3.83.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(patch_hash=3a55a278c417cc34ff3172cd1de8e22852935cba0586875cbd0635f1ffdaa5ab)(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.83.1)(prismarine-registry@1.11.0)

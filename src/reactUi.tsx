@@ -45,6 +45,7 @@ import SignInMessageProvider from './react/SignInMessageProvider'
 import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
+import ModsPage from './react/ModsPage'
 import DebugEdges from './react/DebugEdges'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
 import MineflayerPluginHud from './react/MineflayerPluginHud'
@@ -226,7 +227,6 @@ const App = () => {
             <CreateWorldProvider />
             <AppStatusProvider />
             <KeybindingsScreenProvider />
-            <SelectOption />
             <ServersListProvider />
             <OptionsRenderApp />
             <MainMenuRenderApp />
@@ -235,6 +235,9 @@ const App = () => {
             <SignInMessageProvider />
             <PacketsReplayProvider />
             <NotificationProvider />
+            <ModsPage />
+
+            <SelectOption />
 
             <NoModalFoundProvider />
           </RobustPortal>

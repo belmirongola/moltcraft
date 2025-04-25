@@ -29,6 +29,8 @@ jobs:
         run: pnpx zardoy-release empty --skip-github --output-file assets/release.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download Generated Sounds map
+        run: node scripts/downloadSoundsMap.mjs
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
         env:
           CONFIG_JSON_SOURCE: BUNDLED
@@ -38,8 +40,6 @@ jobs:
           mkdir -p .vercel/output/static/playground
           pnpm build-playground
           cp -r renderer/dist/* .vercel/output/static/playground/
-      - name: Download Generated Sounds map
-        run: node scripts/downloadSoundsMap.mjs
       - name: Deploy Project to Vercel
         uses: mathiasvr/command-output@v2.0.0
         with:

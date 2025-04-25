@@ -39,6 +39,7 @@ export default () => {
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
   const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
   const [clientTps, setClientTps] = useState(0)
+  const [serverTps, setServerTps] = useState(null as null | { value: number, frozen: boolean })
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
   const rendererDevice = appViewer.rendererState.renderer ?? 'No render backend'
@@ -155,6 +156,9 @@ export default () => {
       sent.current.count++
       managePackets('sent', name, data)
     })
+    bot._client.on('set_ticking_state' as any, (data) => {
+      setServerTps({ value: data.tick_rate, frozen: data.is_frozen })
+    })
 
     return () => {
       document.removeEventListener('keydown', handleF3)
@@ -182,7 +186,7 @@ export default () => {
       <p>Chunk: {Math.floor(pos.x % 16)} ~ {Math.floor(pos.z % 16)} in {Math.floor(pos.x / 16)} ~ {Math.floor(pos.z / 16)}</p>
       <p>Section: {Math.floor(pos.x / 16) * 16}, {Math.floor(pos.y / 16) * 16}, {Math.floor(pos.z / 16) * 16}</p>
       <p>Packets: {packetsString}</p>
-      <p>Client TPS: {clientTps}</p>
+      <p>Client TPS: {clientTps} {serverTps ? `Server TPS: ${serverTps.value} ${serverTps.frozen ? '(frozen)' : ''}` : ''}</p>
       <p>Facing (viewer): {bot.entity.yaw.toFixed(3)} {bot.entity.pitch.toFixed(3)}</p>
       <p>Facing (minecraft): {quadsDescription[minecraftQuad.current]} ({minecraftYaw.current.toFixed(1)} {(bot.entity.pitch * -180 / Math.PI).toFixed(1)})</p>
       <p>Light: {blockL} ({skyL} sky)</p>
@@ -267,14 +271,17 @@ const hardcodedListOfDebugPacketsToIgnore = {
     'playerlist_header',
     'scoreboard_objective',
     'scoreboard_score',
-    'entity_status'
+    'entity_status',
+    'set_ticking_state',
+    'ping_response'
   ],
   sent: [
     'pong',
     'position',
     'look',
     'keep_alive',
-    'position_look'
+    'position_look',
+    'ping_request'
   ]
 }
 

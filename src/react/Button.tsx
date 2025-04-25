@@ -14,6 +14,7 @@ interface Props extends React.ComponentProps<'button'> {
   inScreen?: boolean
   rootRef?: Ref<HTMLButtonElement>
   overlayColor?: string
+  noTranslate?: boolean
 }
 
 const ButtonContext = createContext({
@@ -24,7 +25,7 @@ export const ButtonProvider: FC<{ children, onClick }> = ({ children, onClick })
   return <ButtonContext.Provider value={{ onClick }}>{children}</ButtonContext.Provider>
 }
 
-export default (({ label, icon, children, inScreen, rootRef, type = 'button', postLabel, overlayColor, ...args }) => {
+export default (({ label, icon, children, inScreen, rootRef, type = 'button', postLabel, overlayColor, noTranslate, ...args }) => {
   const ctx = useContext(ButtonContext)
 
   const onClick = (e) => {
@@ -40,12 +41,23 @@ export default (({ label, icon, children, inScreen, rootRef, type = 'button', po
     args.style.width = 20
   }
 
+  const tryToTranslate = (maybeText: any) => {
+    if (noTranslate) return maybeText
+    if (typeof maybeText === 'string') {
+      return window.translateText?.(maybeText) ?? maybeText
+    }
+    if (Array.isArray(maybeText)) {
+      return maybeText.map(tryToTranslate)
+    }
+    return maybeText
+  }
+
   return <SharedHudVars>
     <button ref={rootRef} {...args} className={classNames(buttonCss.button, args.className)} onClick={onClick} type={type}>
       {icon && <PixelartIcon className={buttonCss.icon} iconName={icon} />}
-      {label}
+      {tryToTranslate(label)}
       {postLabel}
-      {children}
+      {tryToTranslate(children)}
       {overlayColor && <div style={{
         position: 'absolute',
         inset: 0,

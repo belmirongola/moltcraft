@@ -23,6 +23,13 @@ export const useScrollBehavior = (
   const scrollToBottom = () => {
     if (elementRef.current) {
       elementRef.current.scrollTop = elementRef.current.scrollHeight
+      setTimeout(() => {
+        if (!elementRef.current) return
+        elementRef.current.scrollTo({
+          top: elementRef.current.scrollHeight,
+          behavior: 'instant'
+        })
+      }, 0)
     }
   }
 

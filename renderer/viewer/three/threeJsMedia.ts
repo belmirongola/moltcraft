@@ -35,6 +35,10 @@ export class ThreeJsMedia {
     this.worldRenderer.onWorldSwitched.push(() => {
       this.onWorldGone()
     })
+
+    this.worldRenderer.onRender.push(() => {
+      this.render()
+    })
   }
 
   onWorldGone () {
@@ -304,6 +308,18 @@ export class ThreeJsMedia {
     return id
   }
 
+  render () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      const chunkX = Math.floor(videoData.props.position.x / 16) * 16
+      const chunkZ = Math.floor(videoData.props.position.z / 16) * 16
+      const sectionY = Math.floor(videoData.props.position.y / 16) * 16
+
+      const chunkKey = `${chunkX},${chunkZ}`
+      const sectionKey = `${chunkX},${sectionY},${chunkZ}`
+      videoData.mesh.visible = !!this.worldRenderer.sectionObjects[sectionKey] || !!this.worldRenderer.finishedChunks[chunkKey]
+    }
+  }
+
   setVideoPlaying (id: string, playing: boolean) {
     const videoData = this.customMedia.get(id)
     if (videoData?.video) {
@@ -531,9 +547,13 @@ export class ThreeJsMedia {
     console.log('Exact test mesh added with dimensions:', width, height, 'and rotation:', rotation)
   }
 
+  lastCheck = 0
+  THROTTLE_TIME = 100
   tryIntersectMedia () {
-    // hack: need to optimize this by pulling only in distance of interaction instead (or throttle)!
+    // hack: need to optimize this by pulling only in distance of interaction instead and throttle
     if (this.customMedia.size === 0) return
+    if (Date.now() - this.lastCheck < this.THROTTLE_TIME) return
+    this.lastCheck = Date.now()
 
     const { camera, scene } = this.worldRenderer
     const raycaster = new THREE.Raycaster()

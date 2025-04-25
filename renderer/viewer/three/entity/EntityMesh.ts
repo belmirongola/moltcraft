@@ -551,3 +551,4 @@ export class EntityMesh {
     }
   }
 }
+window.EntityMesh = EntityMesh

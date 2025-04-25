@@ -16,11 +16,12 @@ const formatters: Record<string, (data: any) => string> = {
   default: (data) => processPacketDataForLogging(data)
 }
 
-const getPacketIcon = (name: string): string => {
-  if (name.includes('position')) return '📍'
-  if (name.includes('chat')) return '💬'
-  if (name.includes('block') || name.includes('chunk') || name.includes('light')) return '📦'
-  if (name.includes('entity') || name.includes('player') || name.includes('passenger')) return '🎯'
+const getPacketIcon = (packet: PacketData): string => {
+  if (packet.isCustomChannel) return '🔗'
+  if (packet.name.includes('position')) return '📍'
+  if (packet.name.includes('chat')) return '💬'
+  if (packet.name.includes('block') || packet.name.includes('chunk') || packet.name.includes('light')) return '📦'
+  if (packet.name.includes('entity') || packet.name.includes('player') || packet.name.includes('passenger')) return '🎯'
   return '📄'
 }
 
@@ -102,7 +103,7 @@ export default function PacketList ({ packets, filter, maxHeight = 300 }: Props)
                     opacity: packet.isUpcoming ? 0.5 : 1
                   }}
                 >
-                  <span>{getPacketIcon(packet.name)}</span>
+                  <span>{getPacketIcon(packet)}</span>
                   <span style={{ color: DARK_COLORS.textDim }}>
                     #{packet.position}
                     {timeDiff && <span style={{ marginLeft: '4px' }}>{timeDiff}</span>}

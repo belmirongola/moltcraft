@@ -3,7 +3,7 @@ import { PacketsLogger } from 'mcraft-fun-mineflayer/build/packetsLogger'
 import { options } from '../optionsStorage'
 
 export const packetsRecordingState = proxy({
-  active: options.packetsReplayAutoStart,
+  active: options.packetsRecordingAutoStart,
   hasRecordedPackets: false
 })
 

@@ -16,6 +16,11 @@ import { showOptionsModal } from './SelectOption'
 import { useCopyKeybinding } from './simpleHooks'
 import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList } from './serversStorage'
 import { appStorage, StoreServerItem } from './appStorageProvider'
+import Button from './Button'
+import { pixelartIcons } from './PixelartIcon'
+import { showNotification } from './NotificationProvider'
+
+const EXPLICIT_SHARE_SERVER_MODE = false
 
 if (appQueryParams.lockConnect) {
   notHideableModalsWithoutForce.add('editServer')
@@ -350,6 +355,27 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     }}
     worldData={serversListSorted.map(server => {
       const additional = additionalServerData[server.ip]
+      const handleShare = async () => {
+        try {
+          const qs = new URLSearchParams()
+          qs.set('ip', server.ip)
+          if (server.proxyOverride) qs.set('proxy', server.proxyOverride)
+          if (server.versionOverride) qs.set('version', server.versionOverride)
+          qs.set('username', server.usernameOverride ?? '')
+          const shareUrl = `${window.location.origin}${window.location.pathname}?${qs.toString()}`
+          await navigator.clipboard.writeText(shareUrl)
+          const MESSAGE = 'Server link copied to clipboard'
+          if (EXPLICIT_SHARE_SERVER_MODE) {
+            await showOptionsModal(MESSAGE, [])
+          } else {
+            showNotification(MESSAGE)
+          }
+        } catch (err) {
+          console.error(err)
+          showNotification('Failed to copy server link to clipboard')
+        }
+      }
+
       return {
         name: server.index.toString(),
         title: server.name || server.ip,
@@ -359,6 +385,16 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         worldNameRightGrayed: additional?.textNameRightGrayed ?? '',
         iconSrc: additional?.icon,
         offline: additional?.offline,
+        afterTitleUi: (
+          <Button
+            icon="external-link"
+            style={{ marginRight: 8, width: 20, height: 20 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              void handleShare()
+            }}
+          />
+        ),
         group: customServersList ? 'Provided Servers' : 'Saved Servers'
       }
     })}
@@ -397,6 +433,8 @@ export default () => {
   const modalStack = useSnapshot(activeModalStack)
   const hasServersListModal = modalStack.some(x => x.reactType === 'serversList')
   const editServerModalActive = useIsModalActive('editServer')
+  const generalSelectActive = useIsModalActive('general-select')
+  // const isServersListModalActive = useIsModalActive('serversList') || (modalStack.some(x => x.reactType === 'serversList') && generalSelectActive)
   const isServersListModalActive = useIsModalActive('serversList')
 
   const eitherModal = isServersListModalActive || editServerModalActive

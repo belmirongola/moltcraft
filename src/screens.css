@@ -44,9 +44,25 @@
     gap: 10px;
 }
 
+.scaled-content-container {
+    font-size: calc(16px * var(--scale));
+}
+
+.scaled-content-container .screen-title {
+    font-size: calc(10px * var(--scale));
+    margin-top: calc(35px * var(--scale));
+}
+
+.scaled-content-container .dirt-bg {
+    image-rendering: pixelated;
+    background-size: calc(32px * var(--scale));
+    transform: none;
+}
+
 @media screen and (max-height: 426px) {
     .fullscreen:not(.small-content) {
         .screen-content {
+            /* margin-top: calc(14px * var(--scale)); */
             margin-top: 14px;
         }
 

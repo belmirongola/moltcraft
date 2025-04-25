@@ -423,13 +423,19 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
 
     if (!needTiles) {
       if (doAO && aos[0] + aos[3] >= aos[1] + aos[2]) {
-        attr.indices.push(
-          ndx, ndx + 3, ndx + 2, ndx, ndx + 1, ndx + 3
-        )
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 3
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 3
       } else {
-        attr.indices.push(
-          ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3
-        )
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 3
       }
     }
   }
@@ -463,6 +469,8 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     t_colors: [],
     t_uvs: [],
     indices: [],
+    indicesCount: 0, // Track current index position
+    using32Array: true,
     tiles: {},
     // todo this can be removed here
     heads: {},
@@ -605,12 +613,19 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
 
   let ndx = attr.positions.length / 3
   for (let i = 0; i < attr.t_positions!.length / 12; i++) {
-    attr.indices.push(
-      ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3,
-      // eslint-disable-next-line @stylistic/function-call-argument-newline
-      // back face
-      ndx, ndx + 2, ndx + 1, ndx + 2, ndx + 3, ndx + 1
-    )
+    attr.indices[attr.indicesCount++] = ndx
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 3
+    // back face
+    attr.indices[attr.indicesCount++] = ndx
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 3
+    attr.indices[attr.indicesCount++] = ndx + 1
     ndx += 4
   }
 
@@ -628,6 +643,12 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
   attr.normals = new Float32Array(attr.normals) as any
   attr.colors = new Float32Array(attr.colors) as any
   attr.uvs = new Float32Array(attr.uvs) as any
+  attr.using32Array = arrayNeedsUint32(attr.indices)
+  if (attr.using32Array) {
+    attr.indices = new Uint32Array(attr.indices)
+  } else {
+    attr.indices = new Uint16Array(attr.indices)
+  }
 
   if (needTiles) {
     delete attr.positions
@@ -637,6 +658,21 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
   }
 
   return attr
+}
+
+// copied from three.js
+function arrayNeedsUint32 (array) {
+
+  // assumes larger values usually on last
+
+  for (let i = array.length - 1; i >= 0; -- i) {
+
+    if (array[i] >= 65_535) return true // account for PRIMITIVE_RESTART_FIXED_INDEX, #24565
+
+  }
+
+  return false
+
 }
 
 export const setBlockStatesData = (blockstatesModels, blocksAtlas: any, _needTiles = false, useUnknownBlockModel = true, version = 'latest') => {

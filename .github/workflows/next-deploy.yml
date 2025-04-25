@@ -30,6 +30,8 @@ jobs:
       - name: Write Release Info
         run: |
           echo "{\"latestTag\": \"$(git rev-parse --short $GITHUB_SHA)\", \"isCommit\": true}" > assets/release.json
+      - name: Download Generated Sounds map
+        run: node scripts/downloadSoundsMap.mjs
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
         env:
@@ -40,8 +42,6 @@ jobs:
           mkdir -p .vercel/output/static/playground
           pnpm build-playground
           cp -r renderer/dist/* .vercel/output/static/playground/
-      - name: Download Generated Sounds map
-        run: node scripts/downloadSoundsMap.mjs
       - name: Deploy Project Artifacts to Vercel
         uses: mathiasvr/command-output@v2.0.0
         with:

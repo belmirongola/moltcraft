@@ -1,6 +1,7 @@
 import { setLoadingScreenStatus } from '../appStatus'
 import { appStatusState } from '../react/AppStatusProvider'
 import { hideNotification, showNotification } from '../react/NotificationProvider'
+import { pixelartIcons } from '../react/PixelartIcon'
 
 export interface ProgressReporter {
   currentMessage: string | undefined
@@ -170,7 +171,7 @@ export const createNotificationProgressReporter = (endMessage?: string): Progres
     },
     end () {
       if (endMessage) {
-        showNotification(endMessage, '', false, '', undefined, true)
+        showNotification(endMessage, '', false, pixelartIcons.check, undefined, true)
       } else {
         hideNotification(id)
       }

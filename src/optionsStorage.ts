@@ -4,6 +4,7 @@ import { omitObj } from '@zardoy/utils'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 import type { AppConfig } from './appConfig'
 import { appStorage } from './react/appStorageProvider'
+import { miscUiState } from './globalState'
 
 const isDev = process.env.NODE_ENV === 'development'
 const initialAppConfig = process.env?.INLINED_APP_CONFIG as AppConfig ?? {}
@@ -59,11 +60,15 @@ const defaultOptions = {
   serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
   customChannels: false,
   remoteContentNotSameOrigin: false as boolean | string[],
-  packetsReplayAutoStart: false,
+  packetsRecordingAutoStart: false,
+  language: 'auto',
   preciseMouseInput: false,
   // todo ui setting, maybe enable by default?
-  waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
+  waitForChunksRender: false as 'sp-only' | boolean,
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
+  modsSupport: false,
+  modsAutoUpdate: 'check' as 'check' | 'never' | 'always',
+  modsUpdatePeriodCheck: 24, // hours
   preventBackgroundTimeoutKick: false,
   preventSleep: false,
   debugContro: false,
@@ -292,4 +297,11 @@ watchValue(options, o => {
 export const useOptionValue = (setting, valueCallback) => {
   valueCallback(setting)
   subscribe(setting, valueCallback)
+}
+
+export const getAppLanguage = () => {
+  if (options.language === 'auto') {
+    return miscUiState.appConfig?.defaultLanguage ?? navigator.language
+  }
+  return options.language
 }

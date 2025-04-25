@@ -252,7 +252,6 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
 
   async loadChunk (pos: ChunkPos, isLightUpdate = false, reason = 'spiral') {
     const [botX, botZ] = chunkPos(this.lastPos)
-    console.log('loadChunk', botX - pos.x / 16, botZ - pos.z / 16)
 
     const dx = Math.abs(botX - Math.floor(pos.x / 16))
     const dz = Math.abs(botZ - Math.floor(pos.z / 16))
@@ -280,7 +279,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         this.debugChunksInfo[`${pos.x},${pos.z}`].loads.push({
           dataLength: chunk.length,
           reason,
-          time: Math.floor(performance.now()),
+          time: Date.now(),
         })
       } else if (this.isPlayground) { // don't allow in real worlds pre-flag chunks as loaded to avoid race condition when the chunk might still be loading. In playground it's assumed we always pre-load all chunks first
         this.emitter.emit('markAsLoaded', { x: pos.x, z: pos.z })
