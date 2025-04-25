@@ -120,7 +120,9 @@ export class DocumentRenderer {
       this.preRender()
       this.stats.markStart()
       tween.update()
-      this.render(sizeChanged)
+      if (!window.freezeRender) {
+        this.render(sizeChanged)
+      }
       for (const fn of this.onRender) {
         fn(sizeChanged)
       }
@@ -189,6 +191,10 @@ class TopRightStats {
     const hasRamPanel = this.stats2.dom.children.length === 3
 
     this.addStat(this.stats.dom)
+    if (process.env.NODE_ENV === 'development' && document.exitPointerLock) {
+      this.stats.dom.style.top = ''
+      this.stats.dom.style.bottom = '0'
+    }
     if (hasRamPanel) {
       this.addStat(this.stats2.dom)
     }

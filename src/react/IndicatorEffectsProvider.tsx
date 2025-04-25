@@ -67,7 +67,7 @@ export default () => {
     appHasErrors: hasErrors,
     connectionIssues: poorConnection ? 1 : noConnection ? 2 : 0,
     chunksLoading,
-    preventSleep: !!bot.wakeLock,
+    preventSleep: !!bot?.wakeLock,
     // mesherWork,
     ...stateIndicators,
   }

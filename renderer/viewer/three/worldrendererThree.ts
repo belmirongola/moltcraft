@@ -26,6 +26,7 @@ import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { BLOCK_VERTEX_SHADER, BLOCK_FRAGMENT_SHADER, ANIMATED_BLOCK_VERTEX_SHADER, ANIMATED_BLOCK_FRAGMENT_SHADER } from './shadersThree'
+import { Fountain } from './threeJsParticles'
 
 type SectionKey = string
 
@@ -63,7 +64,7 @@ class AnimatedBlockMaterial extends THREE.ShaderMaterial {
 
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
-  sectionObjects: Record<string, THREE.Object3D> = {}
+  sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean }> = {}
   chunkTextures = new Map<string, { [pos: string]: THREE.Texture }>()
   signsCache = new Map<string, any>()
   starField: StarField
@@ -85,6 +86,24 @@ export class WorldRendererThree extends WorldRendererCommon {
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
   camera: THREE.PerspectiveCamera
   renderTimeAvg = 0
+  sectionsOffsetsAnimations = {} as {
+    [chunkKey: string]: {
+      time: number,
+      // also specifies direction
+      speedX: number,
+      speedY: number,
+      speedZ: number,
+
+      currentOffsetX: number,
+      currentOffsetY: number,
+      currentOffsetZ: number,
+
+      limitX?: number,
+      limitY?: number,
+      limitZ?: number,
+    }
+  }
+  fountains: Fountain[] = []
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -105,12 +124,15 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.addDebugOverlay()
     this.resetScene()
-    this.init()
+    void this.init()
     void initVR(this)
 
     this.soundSystem = new ThreeJsSound(this)
     this.cameraShake = new CameraShake(this.camera, this.onRender)
     this.media = new ThreeJsMedia(this)
+    // this.fountain = new Fountain(this.scene, this.scene, {
+    //   position: new THREE.Vector3(0, 10, 0),
+    // })
 
     this.renderUpdateEmitter.on('chunkFinished', (chunkKey: string) => {
       this.finishChunk(chunkKey)
@@ -122,6 +144,8 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.onWorldSwitched.push(() => {
       // clear custom blocks
       this.protocolCustomBlocks.clear()
+      // Reset section animations
+      this.sectionsOffsetsAnimations = {}
     })
   }
 
@@ -155,6 +179,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   override watchReactivePlayerState () {
+    super.watchReactivePlayerState()
     this.onReactiveValueUpdated('inWater', (value) => {
       this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.displayOptions.playerState.reactive.waterBreathing ? 100 : 20) : null
     })
@@ -165,6 +190,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.onReactiveValueUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
+    })
+    this.onReactiveValueUpdated('lookingAtBlock', (value) => {
+      this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
+    })
+    this.onReactiveValueUpdated('diggingBlock', (value) => {
+      this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
     })
   }
 
@@ -345,7 +376,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     geometry.setAttribute('normal', new THREE.BufferAttribute(data.geometry.normals, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(data.geometry.colors, 3))
     geometry.setAttribute('uv', new THREE.BufferAttribute(data.geometry.uvs, 2))
-    geometry.setIndex(data.geometry.indices)
+    geometry.index = new THREE.BufferAttribute(data.geometry.indices as Uint32Array | Uint16Array, 1)
 
     const mesh = new THREE.Mesh(geometry, this.material)
     mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
@@ -455,6 +486,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     const start = performance.now()
     this.lastRendered = performance.now()
     this.cursorBlock.render()
+    this.updateSectionOffsets()
 
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
@@ -472,6 +504,22 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
       this.holdingBlock?.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft?.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+    }
+
+    for (const fountain of this.fountains) {
+      if (this.sectionObjects[fountain.sectionId] && !this.sectionObjects[fountain.sectionId].foutain) {
+        fountain.createParticles(this.sectionObjects[fountain.sectionId])
+        this.sectionObjects[fountain.sectionId].foutain = true
+      }
+      fountain.render()
+    }
+
+    for (const fountain of this.fountains) {
+      if (this.sectionObjects[fountain.sectionId] && !this.sectionObjects[fountain.sectionId].foutain) {
+        fountain.createParticles(this.sectionObjects[fountain.sectionId])
+        this.sectionObjects[fountain.sectionId].foutain = true
+      }
+      fountain.render()
     }
 
     for (const onRender of this.onRender) {
@@ -662,6 +710,53 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   destroy (): void {
     super.destroy()
+  }
+
+  updateSectionOffsets () {
+    const currentTime = performance.now()
+    for (const [key, anim] of Object.entries(this.sectionsOffsetsAnimations)) {
+      const timeDelta = (currentTime - anim.time) / 1000 // Convert to seconds
+      anim.time = currentTime
+
+      // Update offsets based on speed and time delta
+      anim.currentOffsetX += anim.speedX * timeDelta
+      anim.currentOffsetY += anim.speedY * timeDelta
+      anim.currentOffsetZ += anim.speedZ * timeDelta
+
+      // Apply limits if they exist
+      if (anim.limitX !== undefined) {
+        if (anim.speedX > 0) {
+          anim.currentOffsetX = Math.min(anim.currentOffsetX, anim.limitX)
+        } else {
+          anim.currentOffsetX = Math.max(anim.currentOffsetX, anim.limitX)
+        }
+      }
+      if (anim.limitY !== undefined) {
+        if (anim.speedY > 0) {
+          anim.currentOffsetY = Math.min(anim.currentOffsetY, anim.limitY)
+        } else {
+          anim.currentOffsetY = Math.max(anim.currentOffsetY, anim.limitY)
+        }
+      }
+      if (anim.limitZ !== undefined) {
+        if (anim.speedZ > 0) {
+          anim.currentOffsetZ = Math.min(anim.currentOffsetZ, anim.limitZ)
+        } else {
+          anim.currentOffsetZ = Math.max(anim.currentOffsetZ, anim.limitZ)
+        }
+      }
+
+      // Apply the offset to the section object
+      const section = this.sectionObjects[key]
+      if (section) {
+        section.position.set(
+          anim.currentOffsetX,
+          anim.currentOffsetY,
+          anim.currentOffsetZ
+        )
+        section.updateMatrix()
+      }
+    }
   }
 }
 

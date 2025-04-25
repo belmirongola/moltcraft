@@ -35,7 +35,6 @@ const Input = ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, w
   return <div id='input-container' className={styles.container} style={rootStyles}>
     <input
       ref={ref}
-      className={styles.input}
       autoComplete='off'
       autoCapitalize='off'
       autoCorrect='off'
@@ -43,6 +42,7 @@ const Input = ({ autoFocus, rootStyles, inputRef, validateInput, defaultValue, w
       spellCheck='false'
       style={{ ...validationStyle }}
       {...inputProps}
+      className={styles.input + ' ' + (inputProps.className ?? '')}
       value={value}
       onChange={(e) => {
         setValue(e.target.value)

@@ -16,6 +16,8 @@ interface MediaProperties {
   loop?: boolean
   volume?: number
   autoPlay?: boolean
+
+  allowLighting?: boolean
 }
 
 export class ThreeJsMedia {
@@ -32,6 +34,10 @@ export class ThreeJsMedia {
   constructor (private readonly worldRenderer: WorldRendererThree) {
     this.worldRenderer.onWorldSwitched.push(() => {
       this.onWorldGone()
+    })
+
+    this.worldRenderer.onRender.push(() => {
+      this.render()
     })
   }
 
@@ -212,7 +218,8 @@ export class ThreeJsMedia {
     const geometry = new THREE.PlaneGeometry(1, 1)
 
     // Create material with initial properties using background texture
-    const material = new THREE.MeshLambertMaterial({
+    const MaterialClass = props.allowLighting ? THREE.MeshLambertMaterial : THREE.MeshBasicMaterial
+    const material = new MaterialClass({
       map: backgroundTexture,
       transparent: true,
       side: props.doubleSide ? THREE.DoubleSide : THREE.FrontSide,
@@ -299,6 +306,18 @@ export class ThreeJsMedia {
     this.customMedia.set(id, videoData)
 
     return id
+  }
+
+  render () {
+    for (const [id, videoData] of this.customMedia.entries()) {
+      const chunkX = Math.floor(videoData.props.position.x / 16) * 16
+      const chunkZ = Math.floor(videoData.props.position.z / 16) * 16
+      const sectionY = Math.floor(videoData.props.position.y / 16) * 16
+
+      const chunkKey = `${chunkX},${chunkZ}`
+      const sectionKey = `${chunkX},${sectionY},${chunkZ}`
+      videoData.mesh.visible = !!this.worldRenderer.sectionObjects[sectionKey] || !!this.worldRenderer.finishedChunks[chunkKey]
+    }
   }
 
   setVideoPlaying (id: string, playing: boolean) {
@@ -528,7 +547,14 @@ export class ThreeJsMedia {
     console.log('Exact test mesh added with dimensions:', width, height, 'and rotation:', rotation)
   }
 
+  lastCheck = 0
+  THROTTLE_TIME = 100
   tryIntersectMedia () {
+    // hack: need to optimize this by pulling only in distance of interaction instead and throttle
+    if (this.customMedia.size === 0) return
+    if (Date.now() - this.lastCheck < this.THROTTLE_TIME) return
+    this.lastCheck = Date.now()
+
     const { camera, scene } = this.worldRenderer
     const raycaster = new THREE.Raycaster()
 

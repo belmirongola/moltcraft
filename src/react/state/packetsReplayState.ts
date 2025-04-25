@@ -6,6 +6,7 @@ export const packetsReplayState = proxy({
   packetsPlayback: [] as PacketData[],
   isOpen: false,
   isMinimized: false,
+  isRecording: false,
   replayName: '',
   isPlaying: false,
   progress: {

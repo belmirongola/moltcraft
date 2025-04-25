@@ -14,6 +14,9 @@ export type PlayerStateEvents = {
   heldItemChanged: (item: HandItemBlock | undefined, isLeftHand: boolean) => void
 }
 
+export type BlockShape = { position: any; width: any; height: any; depth: any; }
+export type BlocksShapes = BlockShape[]
+
 export interface IPlayerState {
   getEyeHeight(): number
   getMovementState(): MovementState
@@ -39,6 +42,21 @@ export interface IPlayerState {
     ambientLight: number
     directionalLight: number
     gameMode?: GameMode
+    lookingAtBlock?: {
+      x: number
+      y: number
+      z: number
+      face?: number
+      shapes: BlocksShapes
+    }
+    diggingBlock?: {
+      x: number
+      y: number
+      z: number
+      stage: number
+      face?: number
+      mergedShape?: BlockShape
+    }
   }
 }
 

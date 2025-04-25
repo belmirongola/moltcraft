@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
-import { proxy } from 'valtio'
-import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions, RendererReactiveState } from '../../../src/appViewer'
+import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
+import { showNotification } from '../../../src/react/NotificationProvider'
 import { WorldRendererThree } from './worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
 import { PanoramaRenderer } from './panorama'
@@ -19,8 +19,6 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     playEntityAnimation: worldRenderer.entities.playAnimation.bind(worldRenderer.entities),
     damageEntity: worldRenderer.entities.handleDamageEvent.bind(worldRenderer.entities),
     updatePlayerSkin: worldRenderer.entities.updatePlayerSkin.bind(worldRenderer.entities),
-    setHighlightCursorBlock: worldRenderer.cursorBlock.setHighlightCursorBlock.bind(worldRenderer.cursorBlock),
-    updateBreakAnimation: worldRenderer.cursorBlock.updateBreakAnimation.bind(worldRenderer.cursorBlock),
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
     getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer),
     rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer),
@@ -31,6 +29,13 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     setVideoSeeking: worldRenderer.media.setVideoSeeking.bind(worldRenderer.media),
     setVideoVolume: worldRenderer.media.setVideoVolume.bind(worldRenderer.media),
     setVideoSpeed: worldRenderer.media.setVideoSpeed.bind(worldRenderer.media),
+
+    addSectionAnimation (id: string, animation: typeof worldRenderer.sectionsOffsetsAnimations[string]) {
+      worldRenderer.sectionsOffsetsAnimations[id] = animation
+    },
+    removeSectionAnimation (id: string) {
+      delete worldRenderer.sectionsOffsetsAnimations[id]
+    },
 
     shakeFromDamage: worldRenderer.cameraShake.shakeFromDamage.bind(worldRenderer.cameraShake),
     onPageInteraction: worldRenderer.media.onPageInteraction.bind(worldRenderer.media),
@@ -48,12 +53,14 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let panoramaRenderer: PanoramaRenderer | null = null
   let worldRenderer: WorldRendererThree | null = null
 
-  const startPanorama = () => {
+  const startPanorama = async () => {
     if (worldRenderer) return
     if (!panoramaRenderer) {
       panoramaRenderer = new PanoramaRenderer(documentRenderer, initOptions, !!process.env.SINGLE_FILE_BUILD_MODE)
-      void panoramaRenderer.start()
       window.panoramaRenderer = panoramaRenderer
+      callModsMethod('panoramaCreated', panoramaRenderer)
+      await panoramaRenderer.start()
+      callModsMethod('panoramaReady', panoramaRenderer)
     }
   }
 
@@ -63,16 +70,18 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     await initOptions.resourcesManager.updateAssetsData({ })
   }
 
-  const startWorld = (displayOptions: DisplayWorldOptions) => {
+  const startWorld = async (displayOptions: DisplayWorldOptions) => {
     if (panoramaRenderer) {
       panoramaRenderer.dispose()
       panoramaRenderer = null
     }
     worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions)
+    await worldRenderer.worldReadyPromise
     documentRenderer.render = (sizeChanged: boolean) => {
       worldRenderer?.render(sizeChanged)
     }
     window.world = worldRenderer
+    callModsMethod('worldReady', worldRenderer)
   }
 
   const disconnect = () => {
@@ -114,7 +123,23 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     }
   }
 
+  globalThis.threeJsBackend = backend
+  globalThis.resourcesManager = initOptions.resourcesManager
+  callModsMethod('default', backend)
+
   return backend
+}
+
+const callModsMethod = (method: string, ...args: any[]) => {
+  for (const mod of Object.values((window.loadedMods ?? {}) as Record<string, any>)) {
+    try {
+      mod.threeJsBackendModule?.[method]?.(...args)
+    } catch (err) {
+      const errorMessage = `[mod three.js] Error calling ${method} on ${mod.name}: ${err}`
+      showNotification(errorMessage, 'error')
+      throw new Error(errorMessage)
+    }
+  }
 }
 
 createGraphicsBackend.id = 'threejs'

@@ -8,8 +8,6 @@ import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
 import { isCypress } from './standaloneUtils'
 
-globalThis.viewer ??= { world: {} }
-
 subscribeKey(options, 'renderDistance', reloadChunks)
 subscribeKey(options, 'multiplayerRenderDistance', reloadChunks)
 

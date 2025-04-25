@@ -33,6 +33,7 @@ export interface BenchmarkAdapterInfo {
   gpuInfo: string
   hardwareConcurrency: number
   userAgent: string
+  clientVersion: string
 }
 
 export const getAllInfo = (adapter: BenchmarkAdapterInfo) => {

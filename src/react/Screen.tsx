@@ -6,14 +6,15 @@ interface Props {
   className?: string
   titleSelectable?: boolean
   titleMarginTop?: number
+  contentStyle?: React.CSSProperties
 }
 
-export default ({ title, children, backdrop = true, style, className = '', titleSelectable, titleMarginTop }: Props) => {
+export default ({ title, children, backdrop = true, style, className = '', titleSelectable, titleMarginTop, contentStyle }: Props) => {
   return (
     <>
       {backdrop === 'dirt' ? <div className='dirt-bg' /> : backdrop ? <div className="backdrop" /> : null}
       <div className={`fullscreen ${className}`} style={{ overflow: 'auto', ...style }}>
-        <div className="screen-content" style={titleMarginTop === undefined ? {} : { marginTop: titleMarginTop }}>
+        <div className="screen-content" style={{ ...contentStyle, ...(titleMarginTop === undefined ? {} : { marginTop: titleMarginTop }) }}>
           <div className={`screen-title ${titleSelectable ? 'text-select' : ''}`}>{title}</div>
           {children}
         </div>

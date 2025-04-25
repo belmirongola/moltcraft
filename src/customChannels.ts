@@ -13,6 +13,7 @@ export default () => {
     })
     registerBlockModelsChannel()
     registerMediaChannels()
+    registerSectionAnimationChannels()
     registeredJeiChannel()
   })
 }
@@ -70,6 +71,86 @@ const registerBlockModelsChannel = () => {
 
     getThreeJsRendererMethods()?.updateCustomBlock(chunkKey, blockPosKey, model)
   }, true)
+}
+
+const registerSectionAnimationChannels = () => {
+  const ADD_CHANNEL = 'minecraft-web-client:section-animation-add'
+  const REMOVE_CHANNEL = 'minecraft-web-client:section-animation-remove'
+
+  /**
+   * Add a section animation
+   * @param id - Section position for animation like `16,32,16`
+   * @param offset - Initial offset in blocks
+   * @param speedX - Movement speed in blocks per second on X axis
+   * @param speedY - Movement speed in blocks per second on Y axis
+   * @param speedZ - Movement speed in blocks per second on Z axis
+   * @param limitX - Maximum offset in blocks on X axis (0 means no limit)
+   * @param limitY - Maximum offset in blocks on Y axis (0 means no limit)
+   * @param limitZ - Maximum offset in blocks on Z axis (0 means no limit)
+   */
+  const addPacketStructure = [
+    'container',
+    [
+      { name: 'id', type: ['pstring', { countType: 'i16' }] },
+      { name: 'offset', type: 'f32' },
+      { name: 'speedX', type: 'f32' },
+      { name: 'speedY', type: 'f32' },
+      { name: 'speedZ', type: 'f32' },
+      { name: 'limitX', type: 'f32' },
+      { name: 'limitY', type: 'f32' },
+      { name: 'limitZ', type: 'f32' }
+    ]
+  ]
+
+  /**
+   * Remove a section animation
+   * @param id - Identifier of the animation to remove
+   */
+  const removePacketStructure = [
+    'container',
+    [
+      { name: 'id', type: ['pstring', { countType: 'i16' }] }
+    ]
+  ]
+
+  registerChannel(ADD_CHANNEL, addPacketStructure, (data) => {
+    const { id, offset, speedX, speedY, speedZ, limitX, limitY, limitZ } = data
+    getThreeJsRendererMethods()?.addSectionAnimation(id, {
+      time: performance.now(),
+      speedX,
+      speedY,
+      speedZ,
+      currentOffsetX: offset,
+      currentOffsetY: offset,
+      currentOffsetZ: offset,
+      limitX: limitX === 0 ? undefined : limitX,
+      limitY: limitY === 0 ? undefined : limitY,
+      limitZ: limitZ === 0 ? undefined : limitZ
+    })
+  }, true)
+
+  registerChannel(REMOVE_CHANNEL, removePacketStructure, (data) => {
+    const { id } = data
+    getThreeJsRendererMethods()?.removeSectionAnimation(id)
+  }, true)
+
+  console.debug('Registered section animation channels')
+}
+
+window.testSectionAnimation = (speedY = 1) => {
+  const pos = bot.entity.position
+  const id = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.y / 16) * 16},${Math.floor(pos.z / 16) * 16}`
+  getThreeJsRendererMethods()?.addSectionAnimation(id, {
+    time: performance.now(),
+    speedX: 0,
+    speedY,
+    speedZ: 0,
+    currentOffsetX: 0,
+    currentOffsetY: 0,
+    currentOffsetZ: 0,
+    // limitX: 10,
+    // limitY: 10,
+  })
 }
 
 const registeredJeiChannel = () => {
@@ -137,10 +218,6 @@ const registerMediaChannels = () => {
       { name: 'z', type: 'f32' },
       { name: 'width', type: 'f32' },
       { name: 'height', type: 'f32' },
-      // N, 0
-      // W, 3
-      // S, 2
-      // E, 1
       { name: 'rotation', type: 'i16' }, // 0: 0° - towards positive z, 1: 90° - positive x, 2: 180° - negative z, 3: 270° - negative x (3-6 is same but double side)
       { name: 'source', type: ['pstring', { countType: 'i16' }] },
       { name: 'loop', type: 'bool' },

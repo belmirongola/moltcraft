@@ -25,6 +25,8 @@
       "description": "Very nice a polite server. Must try for everyone!"
     }
   ],
+  "rightSideText": "A Minecraft client clone in the browser!",
+  "splashText": "Gen is cooking!",
   "pauseLinks": [
     [
       {

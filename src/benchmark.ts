@@ -34,6 +34,7 @@ const fixtures: Record<string, BenchmarkFixture> = {
 
 Error.stackTraceLimit = Error.stackTraceLimit < 30 ? 30 : Error.stackTraceLimit
 
+const SESSION_STORAGE_BACKUP_KEY = 'benchmark-backup'
 export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) => {
   let fixtureNameOpen = appQueryParams.openBenchmark
   if (!fixtureNameOpen || fixtureNameOpen === '1' || fixtureNameOpen === 'true' || fixtureNameOpen === 'zip') {
@@ -41,7 +42,6 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
   }
 
 
-  const SESSION_STORAGE_BACKUP_KEY = 'benchmark-backup'
   if (sessionStorage.getItem(SESSION_STORAGE_BACKUP_KEY)) {
     const backup = JSON.stringify(JSON.parse(sessionStorage.getItem(SESSION_STORAGE_BACKUP_KEY)!), null, 2)
     setLoadingScreenStatus('Either other tab with benchmark is open or page crashed. Last data backup is downloaded. Reload page to retry.')
@@ -103,6 +103,7 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
   if (fixture.spawn) {
     fixtureName += ` - ${fixture.spawn.join(' ')}`
   }
+
   fixtureName += ` - ${renderDistance}`
   if (process.env.NODE_ENV !== 'development') { // do not delay
     setLoadingScreenStatus('Benchmark requested... Getting screen refresh rate')
@@ -186,6 +187,7 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
     get userAgent () {
       return navigator.userAgent
     },
+    clientVersion: `${process.env.RELEASE_TAG} ${process.env.BUILD_VERSION} ${process.env.RELEASE_LINK ?? ''}`,
   }
   window.benchmarkAdapter = benchmarkAdapter
 
@@ -211,6 +213,7 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
       },
     }
   })
+
   document.addEventListener('cypress-world-ready', () => {
     clearInterval(saveBackupInterval)
     sessionStorage.removeItem(SESSION_STORAGE_BACKUP_KEY)
@@ -229,16 +232,34 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
 
     const panel = document.createElement('div')
     panel.style.position = 'fixed'
-    panel.style.top = '10px'
+    panel.style.top = '20px'
     panel.style.right = '10px'
     panel.style.backgroundColor = 'rgba(0,0,0,0.8)'
     panel.style.color = 'white'
     panel.style.padding = '10px'
     panel.style.zIndex = '1000'
     panel.style.fontFamily = 'monospace'
+    panel.style.maxWidth = '80%'
+    panel.style.maxHeight = '90vh'
+    panel.style.overflow = 'auto'
     panel.id = 'benchmark-panel'
 
+    // Add download button
+    const downloadButton = document.createElement('button')
+    downloadButton.textContent = 'Download Results'
+    downloadButton.style.marginBottom = '10px'
+    downloadButton.style.padding = '5px 10px'
+    downloadButton.style.backgroundColor = '#4CAF50'
+    downloadButton.style.color = 'white'
+    downloadButton.style.border = 'none'
+    downloadButton.style.borderRadius = '4px'
+    downloadButton.style.cursor = 'pointer'
+    downloadButton.onclick = downloadFile
+    panel.appendChild(downloadButton)
+
     const pre = document.createElement('pre')
+    pre.style.whiteSpace = 'pre-wrap'
+    pre.style.wordBreak = 'break-word'
     panel.appendChild(pre)
 
     pre.textContent = stats.join('\n')
@@ -251,6 +272,12 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
     // setInterval(updateStats, 100)
   })
 }
+
+// add before unload
+window.addEventListener('beforeunload', () => {
+  // remove sessionStorage backup
+  sessionStorage.removeItem(SESSION_STORAGE_BACKUP_KEY)
+})
 
 document.addEventListener('pointerlockchange', (e) => {
   const panel = document.querySelector<HTMLDivElement>('#benchmark-panel')
