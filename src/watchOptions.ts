@@ -95,6 +95,7 @@ export const watchOptionsAfterViewerInit = () => {
   })
 
   const updateLightingStrategy = () => {
+    if (!bot) return
     const clientSideLighting = options.lightingStrategy === 'always-client' || (options.lightingStrategy === 'prefer-server' && bot.supportFeature('blockStateId'))
     appViewer.inWorldRenderingConfig.clientSideLighting = clientSideLighting
     appViewer.inWorldRenderingConfig.enableLighting = options.dayCycleAndLighting && (!bot.supportFeature('blockStateId') || clientSideLighting)
