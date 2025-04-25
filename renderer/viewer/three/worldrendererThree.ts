@@ -514,14 +514,6 @@ export class WorldRendererThree extends WorldRendererCommon {
       fountain.render()
     }
 
-    for (const fountain of this.fountains) {
-      if (this.sectionObjects[fountain.sectionId] && !this.sectionObjects[fountain.sectionId].foutain) {
-        fountain.createParticles(this.sectionObjects[fountain.sectionId])
-        this.sectionObjects[fountain.sectionId].foutain = true
-      }
-      fountain.render()
-    }
-
     for (const onRender of this.onRender) {
       onRender()
     }
