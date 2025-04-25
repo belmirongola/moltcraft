@@ -2,7 +2,9 @@ import { ShaderChunk } from 'three'
 
 // Original simple shader for non-animated blocks
 export const BLOCK_VERTEX_SHADER = `
-// Three.js already provides position and uv attributes
+#include <common>
+${ShaderChunk.logdepthbuf_pars_vertex}
+
 attribute vec3 color;
 
 varying vec2 vUv;
@@ -12,17 +14,25 @@ void main() {
   vUv = uv;
   vColor = color;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+
+  ${ShaderChunk.logdepthbuf_vertex}
 }
 `
 
 export const BLOCK_FRAGMENT_SHADER = `
+#include <common>
+${ShaderChunk.logdepthbuf_pars_fragment}
+
 uniform sampler2D map;
 varying vec2 vUv;
 varying vec3 vColor;
 
 void main() {
   vec4 texColor = texture2D(map, vUv);
+  if (texColor.a < 0.1) discard;
   gl_FragColor = vec4(vColor * texColor.rgb, texColor.a);
+
+  ${ShaderChunk.logdepthbuf_fragment}
 }
 `
 
@@ -52,6 +62,7 @@ void main() {
 `
 
 export const ANIMATED_BLOCK_FRAGMENT_SHADER = `
+#include <common>
 ${ShaderChunk.logdepthbuf_pars_fragment}
 
 uniform sampler2D map;
@@ -75,6 +86,7 @@ void main() {
     currentFrame = mix(currentFrame, nextFrame, vAnimationInterpolation);
   }
 
+  if (currentFrame.a < 0.1) discard;
   gl_FragColor = vec4(vColor * currentFrame.rgb, currentFrame.a);
 
   ${ShaderChunk.logdepthbuf_fragment}

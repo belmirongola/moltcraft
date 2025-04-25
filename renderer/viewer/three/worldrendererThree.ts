@@ -39,7 +39,10 @@ class CustomBlockMaterial extends THREE.ShaderMaterial {
       vertexShader: BLOCK_VERTEX_SHADER,
       fragmentShader: BLOCK_FRAGMENT_SHADER,
       transparent: true,
-      alphaTest: 0.1
+      alphaTest: 0.1,
+      depthWrite: true,
+      depthTest: true,
+      side: THREE.FrontSide
     })
   }
 }
@@ -57,7 +60,10 @@ class AnimatedBlockMaterial extends THREE.ShaderMaterial {
       vertexShader: ANIMATED_BLOCK_VERTEX_SHADER,
       fragmentShader: ANIMATED_BLOCK_FRAGMENT_SHADER,
       transparent: true,
-      alphaTest: 0.1
+      alphaTest: 0.1,
+      depthWrite: true,
+      depthTest: true,
+      side: THREE.FrontSide
     })
   }
 }
@@ -119,8 +125,8 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
     this.starField = new StarField(this.scene)
-    // this.holdingBlock = new HoldingBlock(this)
-    // this.holdingBlockLeft = new HoldingBlock(this, true)
+    this.holdingBlock = new HoldingBlock(this)
+    this.holdingBlockLeft = new HoldingBlock(this, true)
 
     this.addDebugOverlay()
     this.resetScene()
