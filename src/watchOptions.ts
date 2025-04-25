@@ -94,12 +94,16 @@ export const watchOptionsAfterViewerInit = () => {
     appViewer.inWorldRenderingConfig.smoothLighting = options.smoothLighting
   })
 
-  subscribeKey(options, 'newVersionsLighting', () => {
-    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
-  })
+  const updateLightingStrategy = () => {
+    const clientSideLighting = options.lightingStrategy === 'always-client' || (options.lightingStrategy === 'prefer-server' && bot.supportFeature('blockStateId'))
+    appViewer.inWorldRenderingConfig.clientSideLighting = clientSideLighting
+    appViewer.inWorldRenderingConfig.enableLighting = options.dayCycleAndLighting && (!bot.supportFeature('blockStateId') || clientSideLighting)
+  }
+
+  subscribeKey(options, 'lightingStrategy', updateLightingStrategy)
 
   customEvents.on('mineflayerBotCreated', () => {
-    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
+    updateLightingStrategy()
   })
 
   watchValue(options, o => {

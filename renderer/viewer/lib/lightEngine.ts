@@ -1,4 +1,4 @@
-import { LightWorld, createLightEngineForSyncWorld, convertPrismarineBlockToWorldBlock, fillColumnWithZeroLight } from 'minecraft-lighting'
+import { LightWorld, createLightEngineForSyncWorld, convertPrismarineBlockToWorldBlock } from 'minecraft-lighting'
 import { world } from 'prismarine-world'
 import { WorldRendererCommon } from './worldrendererCommon'
 
@@ -15,7 +15,7 @@ export const createLightEngine = (world: WorldRendererCommon) => {
   lightEngine = createLightEngineForSyncWorld(world.displayOptions.worldView.world as unknown as world.WorldSync, loadedData, {
     minY: world.worldSizeParams.minY,
     height: world.worldSizeParams.worldHeight,
-    enableSkyLight: false,
+    // enableSkyLight: false,
   })
   lightEngine.PARALLEL_CHUNK_PROCESSING = false
   globalThis.lightEngine = lightEngine
@@ -26,7 +26,14 @@ export const processLightChunk = async (x: number, z: number) => {
   const chunkZ = Math.floor(z / 16)
   const engine = getLightEngine()
   // fillColumnWithZeroLight(engine.externalWorld, chunkX, chunkZ)
-  return engine.receiveUpdateColumn(chunkX, chunkZ)
+
+  const updated = engine.receiveUpdateColumn(chunkX, chunkZ)
+  return updated
+}
+
+export const dumpLightData = (x: number, z: number) => {
+  const engine = getLightEngineSafe()
+  return engine?.worldLightHolder.dumpChunk(Math.floor(x / 16), Math.floor(z / 16))
 }
 
 export const updateBlockLight = (x: number, y: number, z: number, stateId: number) => {

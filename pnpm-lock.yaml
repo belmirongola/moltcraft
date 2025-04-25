@@ -343,8 +343,8 @@ importers:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/98bc5bb8ee6da8b4b771c05b404cee796318ccd4(@types/react@18.3.18)(react@18.3.1)
       minecraft-lighting:
-        specifier: file:../minecraft-lighting
-        version: file:../minecraft-lighting
+        specifier: ^0.0.8
+        version: 0.0.8
       mineflayer:
         specifier: github:GenerelSchwerz/mineflayer
         version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)
@@ -6680,8 +6680,9 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/98bc5bb8ee6da8b4b771c05b404cee796318ccd4}
     version: 1.0.1
 
-  minecraft-lighting@file:../minecraft-lighting:
-    resolution: {directory: ../minecraft-lighting, type: directory}
+  minecraft-lighting@0.0.8:
+    resolution: {integrity: sha512-HEew4qycmHv2r5+FR4vZ81YJkOR9Q8jbpj6nO9nEoiKRFvo9HamcbA6uQmSxJZKkkgt1uOp/EQ61rQXFw3nnGQ==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284:
     resolution: {tarball: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284}
@@ -17322,7 +17323,7 @@ snapshots:
       - '@types/react'
       - react
 
-  minecraft-lighting@file:../minecraft-lighting:
+  minecraft-lighting@0.0.8:
     dependencies:
       vec3: 0.1.10
 

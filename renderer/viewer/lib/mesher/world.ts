@@ -62,11 +62,14 @@ export class World {
     // if (lightsCache.has(key)) return lightsCache.get(key)
     const column = this.getColumnByPos(pos)
     if (!column || !hasChunkSection(column, pos)) return 15
-    let result = Math.min(
-      15,
-      Math.max(
-        this.getBlockLight(pos),
-        Math.min(skyLight, this.getSkyLight(pos))
+    let result = Math.max(
+      3,
+      Math.min(
+        15,
+        Math.max(
+          this.getBlockLight(pos),
+          Math.min(skyLight, this.getSkyLight(pos))
+        )
       )
     )
     const MIN_LIGHT_LEVEL = 2

@@ -19,7 +19,7 @@ import { chunkPos } from './simpleUtils'
 import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
-import { createLightEngine, getLightEngine, getLightEngineSafe } from './lightEngine'
+import { createLightEngine, dumpLightData, getLightEngine, getLightEngineSafe } from './lightEngine'
 import { MesherLogReader } from './mesherlogReader'
 
 function mod (x, n) {
@@ -40,6 +40,7 @@ export const defaultWorldRendererConfig = {
   clipWorldBelowY: undefined as number | undefined,
   smoothLighting: true,
   enableLighting: true,
+  clientSideLighting: false,
   starfield: true,
   addChunksBatchWaitTime: 200,
   vrSupport: true,
@@ -614,7 +615,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         z,
         chunk,
         customBlockModels: customBlockModels || undefined,
-        lightData: getLightEngineSafe()?.worldLightHolder.dumpChunk(x, z)
+        lightData: dumpLightData(x, z)
       })
     }
     this.logWorkerWork(() => `-> chunk ${JSON.stringify({ x, z, chunkLength: chunk.length, customBlockModelsLength: customBlockModels ? Object.keys(customBlockModels).length : 0 })}`)
