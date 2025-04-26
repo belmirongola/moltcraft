@@ -115,6 +115,9 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       entityUpdate (e: any) {
         emitEntity(e)
       },
+      entityEquip (e: any) {
+        emitEntity(e)
+      },
       entityMoved (e: any) {
         emitEntity(e, 'entityMoved')
       },
@@ -139,11 +142,16 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       time: () => {
         this.emitter.emit('time', bot.time.timeOfDay)
       },
-      respawn: () => {
-        this.emitter.emit('onWorldSwitch')
-      },
       end: () => {
         this.emitter.emit('end')
+      },
+      // when dimension might change
+      login: () => {
+        void this.updatePosition(bot.entity.position, true)
+      },
+      respawn: () => {
+        void this.updatePosition(bot.entity.position, true)
+        this.emitter.emit('onWorldSwitch')
       },
     } satisfies Partial<BotEvents>
 

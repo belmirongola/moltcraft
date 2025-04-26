@@ -1,6 +1,6 @@
 import { proxy, subscribe } from 'valtio'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MessageFormatPart } from '../chatUtils'
+import { isStringAllowed, MessageFormatPart } from '../chatUtils'
 import { MessagePart } from './MessageFormatted'
 import './Chat.css'
 import { isIos, reactKeyForMessage } from './utils'
@@ -34,12 +34,13 @@ type Props = {
   opacity?: number
   opened?: boolean
   onClose?: () => void
-  sendMessage?: (message: string) => boolean | void
+  sendMessage?: (message: string) => Promise<void> | void
   fetchCompletionItems?: (triggerKind: 'implicit' | 'explicit', completeValue: string, fullValue: string, abortController?: AbortController) => Promise<string[] | void>
   // width?: number
   allowSelection?: boolean
   inputDisabled?: string
   placeholder?: string
+  chatVanillaRestrictions?: boolean
 }
 
 export const chatInputValueGlobal = proxy({
@@ -67,7 +68,8 @@ export default ({
   usingTouch,
   allowSelection,
   inputDisabled,
-  placeholder
+  placeholder,
+  chatVanillaRestrictions
 }: Props) => {
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
   const [isInputFocused, setIsInputFocused] = useState(false)
@@ -278,13 +280,13 @@ export default ({
               </div>
             </div>
           ) : null}
-          <form onSubmit={(e) => {
+          <form onSubmit={async (e) => {
             e.preventDefault()
             const message = chatInput.current.value
             if (message) {
               setSendHistory([...sendHistoryRef.current, message])
               onClose?.()
-              sendMessage?.(message)
+              await sendMessage?.(message)
               // Always scroll to bottom after sending a message
               scrollToBottom()
             }
@@ -301,6 +303,7 @@ export default ({
               onChange={() => { }}
             />}
             <input
+              maxLength={chatVanillaRestrictions ? 256 : undefined}
               defaultValue=''
               // ios doesn't support toggling autoCorrect on the fly so we need to re-create the input
               key={spellCheckEnabled ? 'true' : 'false'}

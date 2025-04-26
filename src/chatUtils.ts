@@ -125,3 +125,37 @@ export const getItemFromBlock = (block: import('prismarine-block').Block) => {
   const item = global.loadedData.itemsByName[blockToItemRemaps[block.name] ?? block.name]
   return item
 }
+
+export function isAllowedChatCharacter (char: string): boolean {
+  // if (char.length !== 1) {
+  //   throw new Error('Input must be a single character')
+  // }
+
+  const charCode = char.codePointAt(0)!
+  return charCode !== 167 && charCode >= 32 && charCode !== 127
+}
+
+export const isStringAllowed = (str: string) => {
+  const invalidChars = new Set<string>()
+  for (const [i, char] of [...str].entries()) {
+    const isSurrogatePair = str.codePointAt(i) !== str['charCodeAt'](i)
+    if (isSurrogatePair) continue
+
+    if (!isAllowedChatCharacter(char)) {
+      invalidChars.add(char)
+    }
+  }
+
+  const valid = invalidChars.size === 0
+  if (valid) {
+    return {
+      valid: true
+    }
+  }
+
+  return {
+    valid,
+    clean: [...str].filter(c => !invalidChars.has(c)).join(''),
+    invalid: [...invalidChars]
+  }
+}

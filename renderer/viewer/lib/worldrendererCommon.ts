@@ -20,6 +20,7 @@ import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateSt
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
 import { MesherLogReader } from './mesherlogReader'
+import { setSkinsConfig } from './utils/skins'
 
 function mod (x, n) {
   return ((x % n) + n) % n
@@ -169,7 +170,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public initOptions: GraphicsInitOptions) {
-    // this.initWorkers(1) // preload script on page load
     this.snapshotInitialValues()
     this.worldRendererConfig = displayOptions.inWorldRenderingConfig
     this.playerState = displayOptions.playerState
@@ -184,7 +184,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
     this.connect(this.displayOptions.worldView)
 
-    setInterval(() => {
+    const interval = setInterval(() => {
       this.geometryReceiveCountPerSec = Object.values(this.geometryReceiveCount).reduce((acc, curr) => acc + curr, 0)
       this.geometryReceiveCount = {}
       updatePanesVisibility(this.displayAdvancedStats)
@@ -193,6 +193,9 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         this.fpsUpdate()
       }
     }, 500)
+    this.abortController.signal.addEventListener('abort', () => {
+      clearInterval(interval)
+    })
   }
 
   fpsUpdate () {
@@ -233,6 +236,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
 
     this.watchReactivePlayerState()
+    this.watchReactiveConfig()
     this.worldReadyResolvers.resolve()
   }
 
@@ -304,9 +308,20 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     subscribeKey(this.displayOptions.playerState.reactive, key, callback)
   }
 
+  onReactiveConfigUpdated<T extends keyof typeof this.worldRendererConfig>(key: T, callback: (value: typeof this.worldRendererConfig[T]) => void) {
+    callback(this.worldRendererConfig[key])
+    subscribeKey(this.worldRendererConfig, key, callback)
+  }
+
   watchReactivePlayerState () {
     this.onReactiveValueUpdated('backgroundColor', (value) => {
       this.changeBackgroundColor(value)
+    })
+  }
+
+  watchReactiveConfig () {
+    this.onReactiveConfigUpdated('fetchPlayerSkins', (value) => {
+      setSkinsConfig({ apiEnabled: value })
     })
   }
 

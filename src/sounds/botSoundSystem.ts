@@ -113,10 +113,12 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   })
 
   bot._client.on('sound_effect', async (packet) => {
+    const hasNamedSoundEffect = versionToNumber(bot.version) < versionToNumber('1.19.3')
+
     const soundResource = packet['soundEvent']?.resource as string | undefined
     const pos = new Vec3(packet.x / 8, packet.y / 8, packet.z / 8)
     if (packet.soundId !== 0 || !soundResource) {
-      const soundKey = soundMap!.soundsIdToName[packet.soundId - 1]
+      const soundKey = soundMap!.soundsIdToName[packet.soundId - (hasNamedSoundEffect ? 0 : 1)]
       if (soundKey === undefined) return
       await playGeneralSound(soundKey, pos, packet.volume, packet.pitch)
       return

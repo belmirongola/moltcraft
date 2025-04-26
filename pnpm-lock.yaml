@@ -346,8 +346,8 @@ importers:
         specifier: github:GenerelSchwerz/mineflayer
         version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)
       mineflayer-mouse:
-        specifier: ^0.1.7
-        version: 0.1.7(@types/debug@4.1.12)(@types/node@22.13.9)(jiti@2.4.2)(terser@5.39.0)(tsx@4.19.3)(yaml@2.7.0)
+        specifier: ^0.1.9
+        version: 0.1.9(@types/debug@4.1.12)(@types/node@22.13.9)(jiti@2.4.2)(terser@5.39.0)(tsx@4.19.3)(yaml@2.7.0)
       mineflayer-pathfinder:
         specifier: ^2.4.4
         version: 2.4.5
@@ -6693,8 +6693,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
 
-  mineflayer-mouse@0.1.7:
-    resolution: {integrity: sha512-sUX77P8Z94N6N/KEvplZdXLwtuCHLx3lmU4Y1FB8189+jFCl3jH/+bdzwtksObmrXWW+evJ5nAPpzmOOxqcfag==}
+  mineflayer-mouse@0.1.9:
+    resolution: {integrity: sha512-Cl+0FDUKFt8f+W6ed3XWfadWqbJkhl999XNPBkiaP0QwxAcJC7f+iAMiH1SLB+e5p50GLxANhAs6Q7t9d37kTg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer-pathfinder@2.4.5:
@@ -17374,7 +17374,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-mouse@0.1.7(@types/debug@4.1.12)(@types/node@22.13.9)(jiti@2.4.2)(terser@5.39.0)(tsx@4.19.3)(yaml@2.7.0):
+  mineflayer-mouse@0.1.9(@types/debug@4.1.12)(@types/node@22.13.9)(jiti@2.4.2)(terser@5.39.0)(tsx@4.19.3)(yaml@2.7.0):
     dependencies:
       change-case: 5.4.4
       debug: 4.4.0(supports-color@8.1.1)

@@ -64,9 +64,14 @@ customEvents.on('gameLoaded', () => {
       const speed = info.avgSpeed
       const WALKING_SPEED = 0.03
       const SPRINTING_SPEED = 0.18
+      const isCrouched = e['crouching']
       const isWalking = Math.abs(speed.x) > WALKING_SPEED || Math.abs(speed.z) > WALKING_SPEED
       const isSprinting = Math.abs(speed.x) > SPRINTING_SPEED || Math.abs(speed.z) > SPRINTING_SPEED
-      const newAnimation = isWalking ? (isSprinting ? 'running' : 'walking') : 'idle'
+
+      const newAnimation =
+        isCrouched ? (isWalking ? 'crouchWalking' : 'crouch')
+          : isWalking ? (isSprinting ? 'running' : 'walking')
+            : 'idle'
       if (newAnimation !== playerPerAnimation[id]) {
         getThreeJsRendererMethods()?.playEntityAnimation(e.id, newAnimation)
         playerPerAnimation[id] = newAnimation
@@ -137,7 +142,7 @@ customEvents.on('gameLoaded', () => {
             }
           }
           // even if not found, still record to cache
-          getThreeJsRendererMethods()?.updatePlayerSkin(entityId, playerEntry.player?.name, playerEntry.uuid, skinUrl, capeUrl)
+          void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, playerEntry.player?.name, playerEntry.uuid, skinUrl, capeUrl)
         } catch (err) {
           console.error('Error decoding player texture:', err)
         }
