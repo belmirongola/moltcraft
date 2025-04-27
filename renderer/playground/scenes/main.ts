@@ -1,10 +1,11 @@
+//@ts-nocheck
 // eslint-disable-next-line import/no-named-as-default
 import GUI, { Controller } from 'lil-gui'
 import * as THREE from 'three'
 import JSZip from 'jszip'
 import { BasePlaygroundScene } from '../baseScene'
-import { TWEEN_DURATION } from '../../viewer/lib/entities'
-import { EntityMesh } from '../../viewer/lib/entity/EntityMesh'
+import { TWEEN_DURATION } from '../../viewer/three/entities'
+import { EntityMesh } from '../../viewer/three/entity/EntityMesh'
 
 class MainScene extends BasePlaygroundScene {
   // eslint-disable-next-line @typescript-eslint/no-useless-constructor
@@ -173,7 +174,6 @@ class MainScene extends BasePlaygroundScene {
     canvas.height = size
     renderer.setSize(size, size)
 
-    //@ts-expect-error
     viewer.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10)
     viewer.scene.background = null
 

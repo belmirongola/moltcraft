@@ -1,9 +1,10 @@
 import { proxy, subscribe } from 'valtio/vanilla'
 import { subscribeKey } from 'valtio/utils'
 import { omitObj } from '@zardoy/utils'
-import { appQueryParamsArray } from './appParams'
+import { appQueryParams, appQueryParamsArray } from './appParams'
 import type { AppConfig } from './appConfig'
 import { appStorage } from './react/appStorageProvider'
+import { miscUiState } from './globalState'
 
 const isDev = process.env.NODE_ENV === 'development'
 const initialAppConfig = process.env?.INLINED_APP_CONFIG as AppConfig ?? {}
@@ -34,6 +35,7 @@ const defaultOptions = {
   touchButtonsOpacity: 80,
   touchButtonsPosition: 12,
   touchControlsPositions: getDefaultTouchControlsPositions(),
+  touchControlsSize: getTouchControlsSize(),
   touchMovementType: 'modern' as 'modern' | 'classic',
   touchInteractionType: 'classic' as 'classic' | 'buttons',
   gpuPreference: 'default' as 'default' | 'high-performance' | 'low-power',
@@ -57,11 +59,20 @@ const defaultOptions = {
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
   serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
   customChannels: false,
-  packetsReplayAutoStart: false,
+  remoteContentNotSameOrigin: false as boolean | string[],
+  packetsRecordingAutoStart: false,
+  language: 'auto',
   preciseMouseInput: false,
   // todo ui setting, maybe enable by default?
-  waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
+  waitForChunksRender: false as 'sp-only' | boolean,
   jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
+  modsSupport: false,
+  modsAutoUpdate: 'check' as 'check' | 'never' | 'always',
+  modsUpdatePeriodCheck: 24, // hours
+  preventBackgroundTimeoutKick: false,
+  preventSleep: false,
+  debugContro: false,
+  chatVanillaRestrictions: true,
 
   // antiAliasing: false,
 
@@ -107,6 +118,11 @@ const defaultOptions = {
   disabledUiParts: [] as string[],
   neighborChunkUpdates: true,
   highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
+  activeRenderer: 'threejs',
+  rendererSharedOptions: {
+    _experimentalSmoothChunkLoading: true,
+    _renderByChunks: false
+  }
 }
 
 function getDefaultTouchControlsPositions () {
@@ -121,13 +137,23 @@ function getDefaultTouchControlsPositions () {
     ],
     break: [
       70,
-      60
+      57
     ],
     jump: [
       84,
-      60
+      57
     ],
   } as Record<string, [number, number]>
+}
+
+function getTouchControlsSize () {
+  return {
+    joystick: 55,
+    action: 36,
+    break: 36,
+    jump: 36,
+    sneak: 36,
+  }
 }
 
 // const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')
@@ -159,6 +185,18 @@ const migrateOptions = (options: Partial<AppOptions & Record<string, any>>) => {
 
   return options
 }
+const migrateOptionsLocalStorage = () => {
+  if (Object.keys(appStorage.options).length) {
+    for (const key of Object.keys(appStorage.options)) {
+      if (!(key in defaultOptions)) continue // drop unknown options
+      const defaultValue = defaultOptions[key]
+      if (JSON.stringify(defaultValue) !== JSON.stringify(appStorage.options[key])) {
+        appStorage.changedSettings[key] = appStorage.options[key]
+      }
+    }
+    appStorage.options = {}
+  }
+}
 
 export type AppOptions = typeof defaultOptions
 
@@ -179,14 +217,15 @@ const isDeepEqual = (a: any, b: any): boolean => {
 
 export const getChangedSettings = () => {
   return Object.fromEntries(
-    Object.entries(options).filter(([key, value]) => !isDeepEqual(defaultOptions[key], value))
+    Object.entries(appStorage.changedSettings).filter(([key, value]) => !isDeepEqual(defaultOptions[key], value))
   )
 }
 
+migrateOptionsLocalStorage()
 export const options: AppOptions = proxy({
   ...defaultOptions,
   ...initialAppConfig.defaultSettings,
-  ...migrateOptions(appStorage.options),
+  ...migrateOptions(appStorage.changedSettings),
   ...qsOptions
 })
 
@@ -202,10 +241,18 @@ Object.defineProperty(window, 'debugChangedOptions', {
   },
 })
 
-subscribe(options, () => {
-  // Don't save disabled settings to localStorage
-  const saveOptions = omitObj(options, [...disabledSettings.value] as any)
-  appStorage.options = saveOptions
+subscribe(options, (ops) => {
+  if (appQueryParams.freezeSettings === 'true') return
+  for (const op of ops) {
+    const [type, path, value] = op
+    // let patch
+    // let accessor = options
+    // for (const part of path) {
+    // }
+    const key = path[0] as string
+    if (disabledSettings.value.has(key)) continue
+    appStorage.changedSettings[key] = options[key]
+  }
 })
 
 type WatchValue = <T extends Record<string, any>>(proxy: T, callback: (p: T, isChanged: boolean) => void) => () => void
@@ -251,4 +298,11 @@ watchValue(options, o => {
 export const useOptionValue = (setting, valueCallback) => {
   valueCallback(setting)
   subscribe(setting, valueCallback)
+}
+
+export const getAppLanguage = () => {
+  if (options.language === 'auto') {
+    return miscUiState.appConfig?.defaultLanguage ?? navigator.language
+  }
+  return options.language
 }

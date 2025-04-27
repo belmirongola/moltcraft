@@ -8,6 +8,7 @@ import { CustomChannelPacketFromClient, CustomChannelPacketFromServer, UIDefinit
 import { activeModalStack } from './globalState'
 import { mineflayerPluginHudState } from './react/MineflayerPluginHud'
 import { mineflayerConsoleState } from './react/MineflayerPluginConsole'
+import { showNotification } from './react/NotificationProvider'
 
 export const viewerVersionState = proxy({
   forwardChat: true,
@@ -43,6 +44,7 @@ export const getViewerVersionData = async (url: string) => {
     requiresPass: boolean,
     forwardChat: boolean,
     clientIgnoredPackets?: string[]
+    takeoverMode?: boolean
   }>((resolve, reject) => {
     ws.addEventListener('message', async (message) => {
       const { data } = message
@@ -67,6 +69,7 @@ export const getViewerVersionData = async (url: string) => {
   })
   mineflayerConsoleState.consoleEnabled = result.consoleEnabled
   mineflayerConsoleState.replEnabled = result.replEnabled
+  mineflayerConsoleState.takeoverMode = result.takeoverMode ?? false
   return result
 }
 
@@ -125,7 +128,7 @@ export const getWsProtocolStream = async (url: string) => {
 
 const CHANNEL_NAME = 'minecraft-web-client:data'
 
-export const handleCustomChannel = async () => {
+const handleCustomChannel = () => {
   bot._client.registerChannel(CHANNEL_NAME, ['string', []])
   const toCleanup = [] as Array<() => void>
   subscribe(activeModalStack, () => {
@@ -288,4 +291,35 @@ export const handleCustomChannel = async () => {
       // No default
     }
   })
+
+  return {
+    send
+  }
+}
+
+export const onBotCreatedViewerHandler = async () => {
+  const { send } = handleCustomChannel()
+  bot.physicsEnabled = false
+
+  await new Promise<void>(resolve => {
+    bot.once('inject_allowed', resolve)
+  })
+
+  const originalSetControlState = bot.setControlState.bind(bot)
+  bot.setControlState = (control, state) => {
+    if (bot.controlState[control] === state) {
+      return
+    }
+    if (!mineflayerConsoleState.takeoverMode) {
+      showNotification('Remote control is not enabled', 'Enable takeoverMode in bot plugin settings first')
+      return
+    }
+    // send command to viewer
+    send({
+      type: 'setControlState',
+      control,
+      value: state
+    })
+    originalSetControlState(control, state)
+  }
 }

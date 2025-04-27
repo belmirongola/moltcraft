@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
-import { IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'renderer/viewer/lib/basePlayerState'
-import { HandItemBlock } from 'renderer/viewer/lib/holdingBlock'
+import { BasePlayerState, IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'renderer/viewer/lib/basePlayerState'
+import { HandItemBlock } from 'renderer/viewer/three/holdingBlock'
 import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
 import { proxy } from 'valtio'
@@ -26,12 +26,10 @@ export class PlayerStateManager implements IPlayerState {
   private ready = false
   onlineMode = false
   get username () {
-    return bot.player?.username ?? ''
+    return bot.username ?? ''
   }
 
-  reactive = proxy({
-    playerSkin: undefined as string | undefined,
-  })
+  reactive: IPlayerState['reactive'] = new BasePlayerState().reactive
 
   static getInstance (): PlayerStateManager {
     if (!this.instance) {
@@ -40,7 +38,7 @@ export class PlayerStateManager implements IPlayerState {
     return this.instance
   }
 
-  private constructor () {
+  constructor () {
     this.updateState = this.updateState.bind(this)
     customEvents.on('mineflayerBotCreated', () => {
       this.ready = false
@@ -70,13 +68,18 @@ export class PlayerStateManager implements IPlayerState {
     // Initial held items setup
     this.updateHeldItem(false)
     this.updateHeldItem(true)
+
+    bot.on('game', () => {
+      this.reactive.gameMode = bot.game.gameMode
+    })
+    this.reactive.gameMode = bot.game?.gameMode
   }
 
   // #region Movement and Physics State
   private updateState () {
-    if (!bot.player?.entity || this.disableStateUpdates) return
+    if (!bot?.entity || this.disableStateUpdates) return
 
-    const { velocity } = bot.player.entity
+    const { velocity } = bot.entity
     const isOnGround = bot.entity.onGround
     const VELOCITY_THRESHOLD = 0.01
     const SPRINTING_VELOCITY = 0.15
@@ -132,6 +135,10 @@ export class PlayerStateManager implements IPlayerState {
 
   isSprinting (): boolean {
     return gameAdditionalState.isSprinting
+  }
+
+  getPosition (): Vec3 {
+    return bot.entity?.position ?? new Vec3(0, 0, 0)
   }
   // #endregion
 

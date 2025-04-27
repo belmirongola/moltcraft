@@ -7,6 +7,7 @@ import type { BaseServerInfo } from './AddServerOrConnect'
 
 // when opening html file locally in browser, localStorage is shared between all ever opened html files, so we try to avoid conflicts
 const localStoragePrefix = process.env?.SINGLE_FILE_BUILD ? 'minecraft-web-client:' : ''
+const { localStorage } = window
 
 export interface SavedProxiesData {
   proxies: string[]
@@ -32,11 +33,15 @@ type StorageData = {
   customCommands: Record<string, CustomCommand> | undefined
   username: string | undefined
   keybindings: UserOverridesConfig | undefined
+  /** @deprecated */
   options: any
+  changedSettings: any
   proxiesData: SavedProxiesData | undefined
   serversHistory: ServerHistoryEntry[]
   authenticatedAccounts: AuthenticatedAccount[]
   serversList: StoreServerItem[] | undefined
+  modsAutoUpdateLastCheck: number | undefined
+  firstModsPageVisit: boolean
 }
 
 const oldKeysAliases: Partial<Record<keyof StorageData, string>> = {
@@ -72,10 +77,13 @@ const defaultStorageData: StorageData = {
   username: undefined,
   keybindings: undefined,
   options: {},
+  changedSettings: {},
   proxiesData: undefined,
   serversHistory: [],
   authenticatedAccounts: [],
   serversList: undefined,
+  modsAutoUpdateLastCheck: undefined,
+  firstModsPageVisit: true,
 }
 
 export const setStorageDataOnAppConfigLoad = () => {
@@ -83,7 +91,6 @@ export const setStorageDataOnAppConfigLoad = () => {
 }
 
 export const appStorage = proxy({ ...defaultStorageData })
-window.appStorage = appStorage
 
 // Restore data from localStorage
 for (const key of Object.keys(defaultStorageData)) {

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
@@ -11,9 +11,10 @@ import Slider from './react/Slider'
 import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorage } from './browserfs'
-import { completeResourcepackPackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
+import { completeResourcepackPackInstall, getResourcePackNames, resourcepackReload, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
+import { ClientMod, getAllMods, modsUpdateStatus } from './clientMods'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
 import { createNotificationProgressReporter } from './core/progressReporter'
@@ -61,14 +62,18 @@ export const guiOptionsScheme: {
       custom () {
         return <Button label='Guide: Disable VSync' onClick={() => openURL('https://gist.github.com/zardoy/6e5ce377d2b4c1e322e660973da069cd')} inScreen />
       },
-    },
-    {
       backgroundRendering: {
         text: 'Background FPS limit',
         values: [
           ['full', 'NO'],
           ['5fps', '5 FPS'],
           ['20fps', '20 FPS'],
+        ],
+      },
+      activeRenderer: {
+        text: 'Renderer',
+        values: [
+          ['threejs', 'Three.js (stable)'],
         ],
       },
     },
@@ -105,6 +110,18 @@ export const guiOptionsScheme: {
           'none'
         ],
       },
+    },
+    {
+      custom () {
+        const { _renderByChunks } = useSnapshot(options).rendererSharedOptions
+        return <Button
+          inScreen
+          label={`Batch Chunks Display ${_renderByChunks ? 'ON' : 'OFF'}`}
+          onClick={() => {
+            options.rendererSharedOptions._renderByChunks = !_renderByChunks
+          }}
+        />
+      }
     },
     {
       custom () {
@@ -181,6 +198,7 @@ export const guiOptionsScheme: {
               if (!choice) return
               if (choice === 'Disable') {
                 options.enabledResourcepack = null
+                await resourcepackReload()
                 return
               }
               if (choice === 'Enable') {
@@ -212,7 +230,33 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        const modsUpdateSnapshot = useSnapshot(modsUpdateStatus)
+        const [clientMods, setClientMods] = useState<ClientMod[]>([])
+        useEffect(() => {
+          void getAllMods().then(setClientMods)
+        }, [])
+
+        if (appConfig?.showModsButton === false) return null
+        const enabledModsCount = Object.keys(clientMods.filter(mod => mod.enabled)).length
+        return <Button label={`Client Mods: ${enabledModsCount} (${Object.keys(modsUpdateSnapshot).length})`} onClick={() => showModal({ reactType: 'mods' })} inScreen />
+      },
+    },
+    {
+      custom () {
         return <Button label='VR...' onClick={() => openOptionsMenu('VR')} inScreen />
+      },
+    },
+    {
+      custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        if (!appConfig?.displayLanguageSelector) return null
+        return <Button
+          label='Language...' onClick={async () => {
+            const newLang = await showOptionsModal('Set Language', (appConfig.supportedLanguages ?? []) as string[])
+            if (!newLang) return
+            options.language = newLang.split(' - ')[0]
+          }} inScreen />
       },
     }
   ],
@@ -470,13 +514,55 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        return <Category>Developer</Category>
+        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
+      }
+    },
+    {
+      custom () {
+        return <Category>Server Connection</Category>
       },
     },
     {
       custom () {
-        return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
-      }
+        const { serversAutoVersionSelect } = useSnapshot(options)
+        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
+        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
+
+        const getDisplayValue = (version: string) => {
+          const versionAutoSelect = getVersionAutoSelect(version)
+          if (version === 'latest') return `latest (${versionAutoSelect})`
+          if (version === 'auto') return `auto (${versionAutoSelect})`
+          return version
+        }
+
+        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Slider
+            style={{ width: 150 }}
+            label='Default Version'
+            title='First version to try to connect with'
+            value={currentIndex}
+            min={0}
+            max={allVersions.length - 1}
+            unit=''
+            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
+            updateValue={(newVal) => {
+              options.serversAutoVersionSelect = allVersions[newVal]
+            }}
+          />
+        </div>
+      },
+    },
+    {
+      preventBackgroundTimeoutKick: {},
+      preventSleep: {
+        disabledReason: navigator.wakeLock ? undefined : 'Your browser does not support wake lock API',
+        enableWarning: 'When connected to a server, prevent PC from sleeping or screen dimming. Useful for purpusely staying AFK for long time. Some events might still prevent this like loosing tab focus or going low power mode.',
+      },
+    },
+    {
+      custom () {
+        return <Category>Developer</Category>
+      },
     },
     {
       custom () {
@@ -511,34 +597,10 @@ export const guiOptionsScheme: {
       },
     },
     {
-      custom () {
-        const { serversAutoVersionSelect } = useSnapshot(options)
-        const allVersions = [...[...supportedVersions].sort((a, b) => versionToNumber(a) - versionToNumber(b)), 'latest', 'auto']
-        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
-
-        const getDisplayValue = (version: string) => {
-          const versionAutoSelect = getVersionAutoSelect(version)
-          if (version === 'latest') return `latest (${versionAutoSelect})`
-          if (version === 'auto') return `auto (${versionAutoSelect})`
-          return version
-        }
-
-        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Slider
-            style={{ width: 150 }}
-            label='Prefer Server Version'
-            value={currentIndex}
-            min={0}
-            max={allVersions.length - 1}
-            unit=''
-            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
-            updateValue={(newVal) => {
-              options.serversAutoVersionSelect = allVersions[newVal]
-            }}
-          />
-        </div>
+      debugContro: {
+        text: 'Debug Controls',
       },
-    },
+    }
   ],
   'export-import': [
     {

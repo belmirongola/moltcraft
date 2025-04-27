@@ -1,6 +1,7 @@
 import { setLoadingScreenStatus } from '../appStatus'
 import { appStatusState } from '../react/AppStatusProvider'
 import { hideNotification, showNotification } from '../react/NotificationProvider'
+import { pixelartIcons } from '../react/PixelartIcon'
 
 export interface ProgressReporter {
   currentMessage: string | undefined
@@ -163,15 +164,16 @@ export const createFullScreenProgressReporter = (): ProgressReporter => {
 }
 
 export const createNotificationProgressReporter = (endMessage?: string): ProgressReporter => {
+  const id = `progress-reporter-${Math.random().toString(36).slice(2)}`
   return createProgressReporter({
     setMessage (message: string) {
-      showNotification(`${message}...`, '', false, '', undefined, true)
+      showNotification(`${message}...`, '', false, '', undefined, true, id)
     },
     end () {
       if (endMessage) {
-        showNotification(endMessage, '', false, '', undefined, true)
+        showNotification(endMessage, '', false, pixelartIcons.check, undefined, true)
       } else {
-        hideNotification()
+        hideNotification(id)
       }
     },
 
@@ -181,13 +183,13 @@ export const createNotificationProgressReporter = (endMessage?: string): Progres
   })
 }
 
-export const createConsoleLogProgressReporter = (): ProgressReporter => {
+export const createConsoleLogProgressReporter = (group?: string): ProgressReporter => {
   return createProgressReporter({
     setMessage (message: string) {
-      console.log(message)
+      console.log(group ? `[${group}] ${message}` : message)
     },
     end () {
-      console.log('done')
+      console.log(group ? `[${group}] done` : 'done')
     },
 
     error (message: string): void {
@@ -214,6 +216,17 @@ export const createWrappedProgressReporter = (reporter: ProgressReporter, messag
 
     error (message: string): void {
       reporter.error(message)
+    }
+  })
+}
+
+export const createNullProgressReporter = (): ProgressReporter => {
+  return createProgressReporter({
+    setMessage (message: string) {
+    },
+    end () {
+    },
+    error (message: string) {
     }
   })
 }

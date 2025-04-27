@@ -1,5 +1,6 @@
 import { BlockType } from '../../../playground/shared'
 
+// only here for easier testing
 export const defaultMesherConfig = {
   version: '',
   enableLighting: true,
@@ -32,12 +33,14 @@ export type MesherGeometryOutput = {
   t_colors?: number[],
   t_uvs?: number[],
 
-  indices: number[],
+  indices: Uint32Array | Uint16Array | number[],
+  indicesCount: number,
+  using32Array: boolean,
   tiles: Record<string, BlockType>,
   heads: Record<string, any>,
   signs: Record<string, any>,
   // isFull: boolean
-  highestBlocks: Map<string, HighestBlockInfo>
+  highestBlocks: Record<string, HighestBlockInfo>
   hadErrors: boolean
   blocksCount: number
   customBlockModels?: CustomBlockModels

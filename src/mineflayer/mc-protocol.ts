@@ -2,6 +2,7 @@ import { Client } from 'minecraft-protocol'
 import { appQueryParams } from '../appParams'
 import { downloadAllMinecraftData, getVersionAutoSelect } from '../connect'
 import { gameAdditionalState } from '../globalState'
+import { ProgressReporter } from '../core/progressReporter'
 import { pingServerVersion, validatePacket } from './minecraft-protocol-extra'
 import { getWebsocketStream } from './websocket-core'
 
@@ -34,16 +35,27 @@ setInterval(() => {
 }, 1000)
 
 
-export const getServerInfo = async (ip: string, port?: number, preferredVersion = getVersionAutoSelect(), ping = false) => {
+export const getServerInfo = async (ip: string, port?: number, preferredVersion = getVersionAutoSelect(), ping = false, progressReporter?: ProgressReporter) => {
   await downloadAllMinecraftData()
   const isWebSocket = ip.startsWith('ws://') || ip.startsWith('wss://')
   let stream
   if (isWebSocket) {
+    progressReporter?.setMessage('Connecting to WebSocket server')
     stream = (await getWebsocketStream(ip)).mineflayerStream
+    progressReporter?.setMessage('WebSocket connected. Ping packet sent, waiting for response')
+  }
+  window.setLoadingMessage = (message?: string) => {
+    if (message === undefined) {
+      progressReporter?.endStage('dns')
+    } else {
+      progressReporter?.beginStage('dns', message)
+    }
   }
   return pingServerVersion(ip, port, {
     ...(stream ? { stream } : {}),
     ...(ping ? { noPongTimeout: 3000 } : {}),
     ...(preferredVersion ? { version: preferredVersion } : {}),
+  }).finally(() => {
+    window.setLoadingMessage = undefined
   })
 }

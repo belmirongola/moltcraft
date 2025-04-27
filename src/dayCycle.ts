@@ -4,7 +4,6 @@ import { updateBackground } from './water'
 
 export default () => {
   const timeUpdated = () => {
-    assertDefined(viewer)
     // 0 morning
     const dayTotal = 24_000
     const evening = 11_500
@@ -37,8 +36,8 @@ export default () => {
     const colorInt = Math.max(int, 0.1)
     updateBackground({ r: dayColor.r * colorInt, g: dayColor.g * colorInt, b: dayColor.b * colorInt })
     if (!options.newVersionsLighting && bot.supportFeature('blockStateId')) {
-      viewer.ambientLight.intensity = Math.max(int, 0.25)
-      viewer.directionalLight.intensity = Math.min(int, 0.5)
+      appViewer.playerState.reactive.ambientLight = Math.max(int, 0.25)
+      appViewer.playerState.reactive.directionalLight = Math.min(int, 0.5)
     }
   }
 

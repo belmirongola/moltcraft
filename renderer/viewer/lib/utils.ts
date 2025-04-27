@@ -22,7 +22,7 @@ export const clearTextureCache = () => {
   imagesPromises = {}
 }
 
-export const loadScript = async function (scriptSrc: string): Promise<HTMLScriptElement> {
+export const loadScript = async function (scriptSrc: string, highPriority = true): Promise<HTMLScriptElement> {
   const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${scriptSrc}"]`)
   if (existingScript) {
     return existingScript
@@ -31,6 +31,10 @@ export const loadScript = async function (scriptSrc: string): Promise<HTMLScript
   return new Promise((resolve, reject) => {
     const scriptElement = document.createElement('script')
     scriptElement.src = scriptSrc
+
+    if (highPriority) {
+      scriptElement.fetchPriority = 'high'
+    }
     scriptElement.async = true
 
     scriptElement.addEventListener('load', () => {

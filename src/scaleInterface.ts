@@ -35,6 +35,7 @@ setScale()
 subscribeKey(options, 'guiScale', setScale)
 watchValue(currentScaling, (c) => {
   document.documentElement.style.setProperty('--guiScale', String(c.scale))
+  document.documentElement.style.setProperty('--scale', String(c.scale))
 })
 window.addEventListener('resize', setScale)
 

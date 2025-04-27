@@ -3,28 +3,24 @@ import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
 import * as THREE from 'three'
 import mcDataRaw from 'minecraft-data/data.js' // note: using alias
-import blocksAtlases from 'mc-assets/dist/blocksAtlases.json'
-import blocksAtlasLatest from 'mc-assets/dist/blocksAtlasLatest.png'
-import blocksAtlasLegacy from 'mc-assets/dist/blocksAtlasLegacy.png'
-import itemsAtlases from 'mc-assets/dist/itemsAtlases.json'
-import itemsAtlasLatest from 'mc-assets/dist/itemsAtlasLatest.png'
-import itemsAtlasLegacy from 'mc-assets/dist/itemsAtlasLegacy.png'
-import { AtlasParser, getLoadedItemDefinitionsStore } from 'mc-assets'
 import TypedEmitter from 'typed-emitter'
-import { LineMaterial } from 'three-stdlib'
-import christmasPack from 'mc-assets/dist/textureReplacements/christmas'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
-import itemDefinitionsJson from 'mc-assets/dist/itemDefinitions.json'
-import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
+import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
+import { generateSpiralMatrix } from 'flying-squid/dist/utils'
+import { subscribeKey } from 'valtio/utils'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
+import { ResourcesManager } from '../../../src/resourcesManager'
+import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
+import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo } from './mesher/shared'
+import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
-import { HandItemBlock } from './holdingBlock'
-import { updateStatText } from './ui/newStats'
-import { WorldRendererThree } from './worldrendererThree'
-import { generateGuiAtlas } from './guiRenderer'
+import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateStatText } from './ui/newStats'
+import { WorldDataEmitter } from './worldDataEmitter'
+import { IPlayerState } from './basePlayerState'
+import { MesherLogReader } from './mesherlogReader'
+import { setSkinsConfig } from './utils/skins'
 
 function mod (x, n) {
   return ((x % n) + n) % n
@@ -34,38 +30,38 @@ export const worldCleanup = buildCleanupDecorator('resetWorld')
 
 export const defaultWorldRendererConfig = {
   showChunkBorders: false,
-  numWorkers: 4,
+  mesherWorkers: 4,
   isPlayground: false,
   renderEars: true,
   // game renderer setting actually
   showHand: false,
-  viewBobbing: false
+  viewBobbing: false,
+  extraBlockRenderers: true,
+  clipWorldBelowY: undefined as number | undefined,
+  smoothLighting: true,
+  enableLighting: true,
+  starfield: true,
+  addChunksBatchWaitTime: 200,
+  vrSupport: true,
+  renderEntities: true,
+  fov: 75,
+  fetchPlayerSkins: true,
+  highlightBlockColor: 'blue',
+  foreground: true,
+  _experimentalSmoothChunkLoading: true,
+  _renderByChunks: false
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
 
-type CustomTexturesData = {
-  tileSize: number | undefined
-  textures: Record<string, HTMLImageElement>
-}
-
 export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any> {
-  // todo
-  @worldCleanup()
-  threejsCursorLineMaterial: LineMaterial
-  @worldCleanup()
-  cursorBlock = null as Vec3 | null
-  displayStats = true
-  @worldCleanup()
-  worldConfig = { minY: 0, worldHeight: 256 }
-  // todo need to cleanup
-  material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
-  cameraRoll = 0
+  worldReadyResolvers = Promise.withResolvers<void>()
+  worldReadyPromise = this.worldReadyResolvers.promise
+  timeOfTheDay = 0
+  worldSizeParams = { minY: 0, worldHeight: 256 }
 
-  @worldCleanup()
   active = false
 
-  version = undefined as string | undefined
   // #region CHUNK & SECTIONS TRACKING
   @worldCleanup()
   loadedChunks = {} as Record<string, boolean> // data is added for these chunks and they might be still processing
@@ -85,61 +81,41 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   queuedFunctions = [] as Array<() => void>
   // #endregion
 
-  @worldCleanup()
   renderUpdateEmitter = new EventEmitter() as unknown as TypedEmitter<{
     dirty (pos: Vec3, value: boolean): void
     update (/* pos: Vec3, value: boolean */): void
-    textureDownloaded (): void
-    itemsTextureDownloaded (): void
     chunkFinished (key: string): void
   }>
   customTexturesDataUrl = undefined as string | undefined
-  @worldCleanup()
-  currentTextureImage = undefined as any
   workers: any[] = []
-  @worldCleanup()
   viewerPosition?: Vec3
   lastCamUpdate = 0
   droppedFpsPercentage = 0
-  @worldCleanup()
   initialChunkLoadWasStartedIn: number | undefined
-  @worldCleanup()
   initialChunksLoad = true
   enableChunksLoadDelay = false
   texturesVersion?: string
   viewDistance = -1
   chunksLength = 0
-  @worldCleanup()
   allChunksFinished = false
+  messageQueue: any[] = []
+  isProcessingQueue = false
+  ONMESSAGE_TIME_LIMIT = 30 // ms
 
   handleResize = () => { }
-  mesherConfig = defaultMesherConfig
-  camera: THREE.PerspectiveCamera
-  highestBlocks = new Map<string, HighestBlockInfo>()
-  blockstatesModels: any
-  customBlockStates: Record<string, any> | undefined
-  customModels: Record<string, any> | undefined
-  itemsAtlasParser: AtlasParser | undefined
-  blocksAtlasParser: AtlasParser | undefined
+  highestBlocksByChunks = {} as Record<string, { [chunkKey: string]: HighestBlockInfo }>
+  highestBlocksBySections = {} as Record<string, { [sectionKey: string]: HighestBlockInfo }>
+  blockEntities = {}
 
-  sourceData = {
-    blocksAtlases,
-    itemsAtlases,
-    itemDefinitionsJson
-  }
-  customTextures: {
-    items?: CustomTexturesData
-    blocks?: CustomTexturesData
-    armor?: CustomTexturesData
-  } = {}
-  itemsDefinitionsStore = getLoadedItemDefinitionsStore(this.sourceData.itemDefinitionsJson)
   workersProcessAverageTime = 0
   workersProcessAverageTimeCount = 0
   maxWorkersProcessTime = 0
-  geometryReceiveCount = {}
+  geometryReceiveCount = {} as Record<number, number>
   allLoadedIn: undefined | number
-  rendererDevice = '...'
-
+  onWorldSwitched = [] as Array<() => void>
+  renderTimeMax = 0
+  renderTimeAvg = 0
+  renderTimeAvgCount = 0
   edgeChunks = {} as Record<string, boolean>
   lastAddChunk = null as null | {
     timeout: any
@@ -150,17 +126,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   lastChunkDistance = 0
   debugStopGeometryUpdate = false
 
-  @worldCleanup()
-  freeFlyMode = false
-  @worldCleanup()
-  freeFlyState = {
-    yaw: 0,
-    pitch: 0,
-    position: new Vec3(0, 0, 0)
-  }
-  @worldCleanup()
-  itemsRenderer: ItemsRenderer | undefined
-
   protocolCustomBlocks = new Map<string, CustomBlockModels>()
 
   @worldCleanup()
@@ -168,22 +133,147 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   abstract outputFormat: 'threeJs' | 'webgpu'
   worldBlockProvider: WorldBlockProvider
+  soundSystem: SoundSystem | undefined
 
   abstract changeBackgroundColor (color: [number, number, number]): void
 
-  constructor (public config: WorldRendererConfig) {
-    // this.initWorkers(1) // preload script on page load
-    this.snapshotInitialValues()
+  worldRendererConfig: WorldRendererConfig
+  playerState: IPlayerState
+  reactiveState: RendererReactiveState
+  mesherLogReader: MesherLogReader | undefined
+  forceCallFromMesherReplayer = false
+  stopMesherMessagesProcessing = false
 
+  abortController = new AbortController()
+  lastRendered = 0
+  renderingActive = true
+  geometryReceiveCountPerSec = 0
+  mesherLogger = {
+    contents: [] as string[],
+    active: new URL(location.href).searchParams.get('mesherlog') === 'true'
+  }
+  currentRenderedFrames = 0
+  fpsAverage = 0
+  fpsWorst = undefined as number | undefined
+  fpsSamples = 0
+  mainThreadRendering = true
+  backendInfoReport = '-'
+  chunksFullInfo = '-'
+  workerCustomHandleTime = 0
+
+  get version () {
+    return this.displayOptions.version
+  }
+
+  get displayAdvancedStats () {
+    return (this.initOptions.config.statsVisible ?? 0) > 1
+  }
+
+  constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public initOptions: GraphicsInitOptions) {
+    this.snapshotInitialValues()
+    this.worldRendererConfig = displayOptions.inWorldRenderingConfig
+    this.playerState = displayOptions.playerState
+    this.reactiveState = displayOptions.rendererState
+    // this.mesherLogReader = new MesherLogReader(this)
     this.renderUpdateEmitter.on('update', () => {
       const loadedChunks = Object.keys(this.finishedChunks).length
       updateStatText('loaded-chunks', `${loadedChunks}/${this.chunksLength} chunks (${this.lastChunkDistance}/${this.viewDistance})`)
     })
+
+    addNewStat('downloaded-chunks', 100, 140, 20)
+
+    this.connect(this.displayOptions.worldView)
+
+    const interval = setInterval(() => {
+      this.geometryReceiveCountPerSec = Object.values(this.geometryReceiveCount).reduce((acc, curr) => acc + curr, 0)
+      this.geometryReceiveCount = {}
+      updatePanesVisibility(this.displayAdvancedStats)
+      this.updateChunksStats()
+      if (this.mainThreadRendering) {
+        this.fpsUpdate()
+      }
+    }, 500)
+    this.abortController.signal.addEventListener('abort', () => {
+      clearInterval(interval)
+    })
+  }
+
+  fpsUpdate () {
+    this.fpsSamples++
+    this.fpsAverage = (this.fpsAverage * (this.fpsSamples - 1) + this.currentRenderedFrames) / this.fpsSamples
+    if (this.fpsWorst === undefined) {
+      this.fpsWorst = this.currentRenderedFrames
+    } else {
+      this.fpsWorst = Math.min(this.fpsWorst, this.currentRenderedFrames)
+    }
+    this.currentRenderedFrames = 0
+  }
+
+  logWorkerWork (message: string | (() => string)) {
+    if (!this.mesherLogger.active) return
+    this.mesherLogger.contents.push(typeof message === 'function' ? message() : message)
+  }
+
+  async init () {
+    if (this.active) throw new Error('WorldRendererCommon is already initialized')
+    await this.resourcesManager.loadMcData(this.version)
+    if (!this.resourcesManager.currentResources) {
+      await this.resourcesManager.updateAssetsData({ })
+    }
+
+    await Promise.all([
+      this.resetWorkers(),
+      (async () => {
+        if (this.resourcesManager.currentResources) {
+          await this.updateAssetsData()
+        }
+      })()
+    ])
+
+    this.resourcesManager.on('assetsTexturesUpdated', async () => {
+      if (!this.active) return
+      await this.updateAssetsData()
+    })
+
+    this.watchReactivePlayerState()
+    this.watchReactiveConfig()
+    this.worldReadyResolvers.resolve()
   }
 
   snapshotInitialValues () { }
 
-  initWorkers (numWorkers = this.config.numWorkers) {
+  wasChunkSentToWorker (chunkKey: string) {
+    return this.loadedChunks[chunkKey]
+  }
+
+  async getHighestBlocks (chunkKey: string) {
+    return this.highestBlocksByChunks[chunkKey]
+  }
+
+  updateCustomBlock (chunkKey: string, blockPos: string, model: string) {
+    this.protocolCustomBlocks.set(chunkKey, {
+      ...this.protocolCustomBlocks.get(chunkKey),
+      [blockPos]: model
+    })
+    this.logWorkerWork(() => `-> updateCustomBlock ${chunkKey} ${blockPos} ${model} ${this.wasChunkSentToWorker(chunkKey)}`)
+    if (this.wasChunkSentToWorker(chunkKey)) {
+      const [x, y, z] = blockPos.split(',').map(Number)
+      this.setBlockStateId(new Vec3(x, y, z), undefined)
+    }
+  }
+
+  async getBlockInfo (blockPos: { x: number, y: number, z: number }, stateId: number) {
+    const chunkKey = `${Math.floor(blockPos.x / 16) * 16},${Math.floor(blockPos.z / 16) * 16}`
+    const customBlockName = this.protocolCustomBlocks.get(chunkKey)?.[`${blockPos.x},${blockPos.y},${blockPos.z}`]
+    const cacheKey = getBlockAssetsCacheKey(stateId, customBlockName)
+    const modelInfo = this.blockStateModelInfo.get(cacheKey)
+    return {
+      customBlockName,
+      modelInfo
+    }
+  }
+
+  initWorkers (numWorkers = this.worldRendererConfig.mesherWorkers) {
     // init workers
     for (let i = 0; i < numWorkers + 1; i++) {
       // Node environment needs an absolute path, but browser needs the url of the file
@@ -199,87 +289,180 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       } else {
         worker = new Worker(src)
       }
-      const handleMessage = (data) => {
-        if (!this.active) return
-        if (data.type !== 'geometry' || !this.debugStopGeometryUpdate) {
-          this.handleWorkerMessage(data)
-        }
-        if (data.type === 'geometry') {
-          this.geometryReceiveCount[data.workerIndex] ??= 0
-          this.geometryReceiveCount[data.workerIndex]++
-          const geometry = data.geometry as MesherGeometryOutput
-          for (const [key, highest] of geometry.highestBlocks.entries()) {
-            const currHighest = this.highestBlocks.get(key)
-            if (!currHighest || currHighest.y < highest.y) {
-              this.highestBlocks.set(key, highest)
-            }
-          }
-          // for (const key in geometry.highestBlocks) {
-          //   const highest = geometry.highestBlocks[key]
-          //   if (!this.highestBlocks[key] || this.highestBlocks[key].y < highest.y) {
-          //     this.highestBlocks[key] = highest
-          //   }
-          // }
-          const chunkCoords = data.key.split(',').map(Number)
-          this.lastChunkDistance = Math.max(...this.getDistance(new Vec3(chunkCoords[0], 0, chunkCoords[2])))
-        }
-        if (data.type === 'sectionFinished') { // on after load & unload section
-          if (!this.sectionsWaiting.get(data.key)) throw new Error(`sectionFinished event for non-outstanding section ${data.key}`)
-          this.sectionsWaiting.set(data.key, this.sectionsWaiting.get(data.key)! - 1)
-          if (this.sectionsWaiting.get(data.key) === 0) {
-            this.sectionsWaiting.delete(data.key)
-            this.finishedSections[data.key] = true
-          }
 
-          const chunkCoords = data.key.split(',').map(Number)
-          if (this.loadedChunks[`${chunkCoords[0]},${chunkCoords[2]}`]) { // ensure chunk data was added, not a neighbor chunk update
-            const loadingKeys = [...this.sectionsWaiting.keys()]
-            if (!loadingKeys.some(key => {
-              const [x, y, z] = key.split(',').map(Number)
-              return x === chunkCoords[0] && z === chunkCoords[2]
-            })) {
-              this.finishedChunks[`${chunkCoords[0]},${chunkCoords[2]}`] = true
-              this.renderUpdateEmitter.emit(`chunkFinished`, `${chunkCoords[0] / 16},${chunkCoords[2] / 16}`)
-            }
-          }
-          this.checkAllFinished()
-
-          this.renderUpdateEmitter.emit('update')
-          if (data.processTime) {
-            this.workersProcessAverageTimeCount++
-            this.workersProcessAverageTime = ((this.workersProcessAverageTime * (this.workersProcessAverageTimeCount - 1)) + data.processTime) / this.workersProcessAverageTimeCount
-            this.maxWorkersProcessTime = Math.max(this.maxWorkersProcessTime, data.processTime)
-          }
-        }
-
-        if (data.type === 'blockStateModelInfo') {
-          for (const [cacheKey, info] of Object.entries(data.info)) {
-            this.blockStateModelInfo.set(cacheKey, info)
-          }
-        }
-      }
       worker.onmessage = ({ data }) => {
         if (Array.isArray(data)) {
-          // eslint-disable-next-line unicorn/no-array-for-each
-          data.forEach(handleMessage)
-          return
+          this.messageQueue.push(...data)
+        } else {
+          this.messageQueue.push(data)
         }
-        handleMessage(data)
+        void this.processMessageQueue('worker')
       }
       if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
       this.workers.push(worker)
     }
   }
 
-  checkAllFinished () {
-    if (this.sectionsWaiting.size === 0) {
-      const allFinished = Object.keys(this.finishedChunks).length === this.chunksLength
-      if (allFinished) {
-        this.allChunksLoaded?.()
-        this.allChunksFinished = true
-        this.allLoadedIn ??= Date.now() - this.initialChunkLoadWasStartedIn!
+  onReactiveValueUpdated<T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) {
+    callback(this.displayOptions.playerState.reactive[key])
+    subscribeKey(this.displayOptions.playerState.reactive, key, callback)
+  }
+
+  onReactiveConfigUpdated<T extends keyof typeof this.worldRendererConfig>(key: T, callback: (value: typeof this.worldRendererConfig[T]) => void) {
+    callback(this.worldRendererConfig[key])
+    subscribeKey(this.worldRendererConfig, key, callback)
+  }
+
+  watchReactivePlayerState () {
+    this.onReactiveValueUpdated('backgroundColor', (value) => {
+      this.changeBackgroundColor(value)
+    })
+  }
+
+  watchReactiveConfig () {
+    this.onReactiveConfigUpdated('fetchPlayerSkins', (value) => {
+      setSkinsConfig({ apiEnabled: value })
+    })
+  }
+
+  async processMessageQueue (source: string) {
+    if (this.isProcessingQueue || this.messageQueue.length === 0) return
+    this.logWorkerWork(`# ${source} processing queue`)
+    if (this.lastRendered && performance.now() - this.lastRendered > this.ONMESSAGE_TIME_LIMIT && this.worldRendererConfig._experimentalSmoothChunkLoading && this.renderingActive) {
+      const start = performance.now()
+      await new Promise(resolve => {
+        requestAnimationFrame(resolve)
+      })
+      this.logWorkerWork(`# processing got delayed by ${performance.now() - start}ms`)
+    }
+    this.isProcessingQueue = true
+
+    const startTime = performance.now()
+    let processedCount = 0
+
+    while (this.messageQueue.length > 0) {
+      const processingStopped = this.stopMesherMessagesProcessing
+      if (!processingStopped) {
+        const data = this.messageQueue.shift()!
+        this.handleMessage(data)
+        processedCount++
+      }
+
+      // Check if we've exceeded the time limit
+      if (processingStopped || (performance.now() - startTime > this.ONMESSAGE_TIME_LIMIT && this.renderingActive && this.worldRendererConfig._experimentalSmoothChunkLoading)) {
+        // If we have more messages and exceeded time limit, schedule next batch
+        if (this.messageQueue.length > 0) {
+          requestAnimationFrame(async () => {
+            this.isProcessingQueue = false
+            void this.processMessageQueue('queue-delay')
+          })
+          return
+        }
+        break
       }
     }
+
+    this.isProcessingQueue = false
+  }
+
+  handleMessage (data) {
+    if (!this.active) return
+    this.mesherLogReader?.workerMessageReceived(data.type, data)
+    if (data.type !== 'geometry' || !this.debugStopGeometryUpdate) {
+      const start = performance.now()
+      this.handleWorkerMessage(data)
+      this.workerCustomHandleTime += performance.now() - start
+    }
+    if (data.type === 'geometry') {
+      this.logWorkerWork(() => `-> ${data.workerIndex} geometry ${data.key} ${JSON.stringify({ dataSize: JSON.stringify(data).length })}`)
+      this.geometryReceiveCount[data.workerIndex] ??= 0
+      this.geometryReceiveCount[data.workerIndex]++
+      const geometry = data.geometry as MesherGeometryOutput
+      this.highestBlocksBySections[data.key] = geometry.highestBlocks
+      const chunkCoords = data.key.split(',').map(Number)
+      this.lastChunkDistance = Math.max(...this.getDistance(new Vec3(chunkCoords[0], 0, chunkCoords[2])))
+    }
+    if (data.type === 'sectionFinished') { // on after load & unload section
+      this.logWorkerWork(`<- ${data.workerIndex} sectionFinished ${data.key} ${JSON.stringify({ processTime: data.processTime })}`)
+      if (!this.sectionsWaiting.has(data.key)) throw new Error(`sectionFinished event for non-outstanding section ${data.key}`)
+      this.sectionsWaiting.set(data.key, this.sectionsWaiting.get(data.key)! - 1)
+      if (this.sectionsWaiting.get(data.key) === 0) {
+        this.sectionsWaiting.delete(data.key)
+        this.finishedSections[data.key] = true
+      }
+
+      const chunkCoords = data.key.split(',').map(Number)
+      const chunkKey = `${chunkCoords[0]},${chunkCoords[2]}`
+      if (this.loadedChunks[chunkKey]) { // ensure chunk data was added, not a neighbor chunk update
+        let loaded = true
+        for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
+          if (!this.finishedSections[`${chunkCoords[0]},${y},${chunkCoords[2]}`]) {
+            loaded = false
+            break
+          }
+        }
+        if (loaded) {
+          // CHUNK FINISHED
+          this.finishedChunks[chunkKey] = true
+          this.renderUpdateEmitter.emit(`chunkFinished`, `${chunkCoords[0]},${chunkCoords[2]}`)
+          this.checkAllFinished()
+          // merge highest blocks by sections into highest blocks by chunks
+          // for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
+          //   const sectionKey = `${chunkCoords[0]},${y},${chunkCoords[2]}`
+          //   for (let x = 0; x < 16; x++) {
+          //     for (let z = 0; z < 16; z++) {
+          //       const posInsideKey = `${chunkCoords[0] + x},${chunkCoords[2] + z}`
+          //       let block = null as HighestBlockInfo | null
+          //       const highestBlock = this.highestBlocksBySections[sectionKey]?.[posInsideKey]
+          //       if (!highestBlock) continue
+          //       if (!block || highestBlock.y > block.y) {
+          //         block = highestBlock
+          //       }
+          //       if (block) {
+          //         this.highestBlocksByChunks[chunkKey] ??= {}
+          //         this.highestBlocksByChunks[chunkKey][posInsideKey] = block
+          //       }
+          //     }
+          //   }
+          //   delete this.highestBlocksBySections[sectionKey]
+          // }
+        }
+      }
+
+      this.renderUpdateEmitter.emit('update')
+      if (data.processTime) {
+        this.workersProcessAverageTimeCount++
+        this.workersProcessAverageTime = ((this.workersProcessAverageTime * (this.workersProcessAverageTimeCount - 1)) + data.processTime) / this.workersProcessAverageTimeCount
+        this.maxWorkersProcessTime = Math.max(this.maxWorkersProcessTime, data.processTime)
+      }
+    }
+
+    if (data.type === 'blockStateModelInfo') {
+      for (const [cacheKey, info] of Object.entries(data.info)) {
+        this.blockStateModelInfo.set(cacheKey, info)
+      }
+    }
+  }
+
+  downloadMesherLog () {
+    const a = document.createElement('a')
+    a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(this.mesherLogger.contents.join('\n'))
+    a.download = 'mesher.log'
+    a.click()
+  }
+
+  checkAllFinished () {
+    if (this.sectionsWaiting.size === 0) {
+      this.reactiveState.world.mesherWork = false
+    }
+    // todo check exact surrounding chunks
+    const allFinished = Object.keys(this.finishedChunks).length >= this.chunksLength
+    if (allFinished) {
+      this.allChunksLoaded?.()
+      this.allChunksFinished = true
+      this.allLoadedIn ??= Date.now() - this.initialChunkLoadWasStartedIn!
+    }
+    this.updateChunksStats()
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeftHand: boolean): void { }
@@ -328,20 +511,13 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       worker.terminate()
     }
     this.workers = []
-    this.currentTextureImage = undefined
-    this.blocksAtlasParser = undefined
-    this.itemsAtlasParser = undefined
   }
 
-  // new game load happens here
-  async setVersion (version, texturesVersion = version) {
-    if (!this.blockstatesModels) throw new Error('Blockstates models is not loaded yet')
-    this.version = version
-    this.texturesVersion = texturesVersion
+  async resetWorkers () {
     this.resetWorld()
 
     // for workers in single file build
-    if (document.readyState === 'loading') {
+    if (document?.readyState === 'loading') {
       await new Promise(resolve => {
         document.addEventListener('DOMContentLoaded', resolve)
       })
@@ -349,11 +525,35 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
     this.initWorkers()
     this.active = true
-    this.mesherConfig.outputFormat = this.outputFormat
-    this.mesherConfig.version = this.version!
 
     this.sendMesherMcData()
-    await this.updateAssetsData()
+  }
+
+  getMesherConfig (): MesherConfig {
+    let skyLight = 15
+    const timeOfDay = this.timeOfTheDay
+    if (timeOfDay < 0 || timeOfDay > 24_000) {
+      //
+    } else if (timeOfDay <= 6000 || timeOfDay >= 18_000) {
+      skyLight = 15
+    } else if (timeOfDay > 6000 && timeOfDay < 12_000) {
+      skyLight = 15 - ((timeOfDay - 6000) / 6000) * 15
+    } else if (timeOfDay >= 12_000 && timeOfDay < 18_000) {
+      skyLight = ((timeOfDay - 12_000) / 6000) * 15
+    }
+
+    skyLight = Math.floor(skyLight)
+    return {
+      version: this.version,
+      enableLighting: this.worldRendererConfig.enableLighting,
+      skyLight,
+      smoothLighting: this.worldRendererConfig.smoothLighting,
+      outputFormat: this.outputFormat,
+      textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
+      debugModelVariant: undefined,
+      clipWorldBelowY: this.worldRendererConfig.clipWorldBelowY,
+      disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers
+    }
   }
 
   sendMesherMcData () {
@@ -366,112 +566,46 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
 
     for (const worker of this.workers) {
-      worker.postMessage({ type: 'mcData', mcData, config: this.mesherConfig })
+      worker.postMessage({ type: 'mcData', mcData, config: this.getMesherConfig() })
     }
+    this.logWorkerWork('# mcData sent')
   }
 
-  async generateGuiTextures () {
-    await generateGuiAtlas()
-  }
+  async updateAssetsData () {
+    const resources = this.resourcesManager.currentResources!
 
-  async updateAssetsData (resourcePackUpdate = false, prioritizeBlockTextures?: string[]) {
-    const blocksAssetsParser = new AtlasParser(this.sourceData.blocksAtlases, blocksAtlasLatest, blocksAtlasLegacy)
-    const itemsAssetsParser = new AtlasParser(this.sourceData.itemsAtlases, itemsAtlasLatest, itemsAtlasLegacy)
-
-    const blockTexturesChanges = {} as Record<string, string>
-    const date = new Date()
-    if ((date.getMonth() === 11 && date.getDate() >= 24) || (date.getMonth() === 0 && date.getDate() <= 6)) {
-      Object.assign(blockTexturesChanges, christmasPack)
-    }
-
-    const customBlockTextures = Object.keys(this.customTextures.blocks?.textures ?? {})
-    const customItemTextures = Object.keys(this.customTextures.items?.textures ?? {})
-    console.time('createBlocksAtlas')
-    const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
-      const texture = this.customTextures?.blocks?.textures[textureName]
-      return blockTexturesChanges[textureName] ?? texture
-    }, /* this.customTextures?.blocks?.tileSize */undefined, prioritizeBlockTextures, customBlockTextures)
-    console.timeEnd('createBlocksAtlas')
-    console.time('createItemsAtlas')
-    const { atlas: itemsAtlas, canvas: itemsCanvas } = await itemsAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
-      const texture = this.customTextures?.items?.textures[textureName]
-      if (!texture) return
-      return texture
-    }, this.customTextures?.items?.tileSize, undefined, customItemTextures)
-    console.timeEnd('createItemsAtlas')
-
-    this.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
-    this.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
-
-    this.itemsRenderer = new ItemsRenderer(this.version!, this.blockstatesModels, this.itemsAtlasParser, this.blocksAtlasParser)
-    this.worldBlockProvider = worldBlockProvider(this.blockstatesModels, this.blocksAtlasParser.atlas, 'latest')
-
-    const texture = await new THREE.TextureLoader().loadAsync(this.blocksAtlasParser.latestImage)
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
-    texture.flipY = false
-    this.material.map = texture
-    this.currentTextureImage = this.material.map.image
-    this.mesherConfig.textureSize = this.material.map.image.width
-
+    if (this.workers.length === 0) throw new Error('workers not initialized yet')
     for (const [i, worker] of this.workers.entries()) {
-      const { blockstatesModels } = this
-      if (this.customBlockStates) {
-        // TODO! remove from other versions as well
-        blockstatesModels.blockstates.latest = {
-          ...blockstatesModels.blockstates.latest,
-          ...this.customBlockStates
-        }
-      }
-      if (this.customModels) {
-        blockstatesModels.models.latest = {
-          ...blockstatesModels.models.latest,
-          ...this.customModels
-        }
-      }
+      const { blockstatesModels } = resources
+
       worker.postMessage({
         type: 'mesherData',
         workerIndex: i,
         blocksAtlas: {
-          latest: blocksAtlas
+          latest: resources.blocksAtlasParser.atlas.latest
         },
         blockstatesModels,
-        config: this.mesherConfig,
+        config: this.getMesherConfig(),
       })
     }
-    if (!this.itemsAtlasParser) return
-    const itemsTexture = await new THREE.TextureLoader().loadAsync(this.itemsAtlasParser.latestImage)
-    itemsTexture.magFilter = THREE.NearestFilter
-    itemsTexture.minFilter = THREE.NearestFilter
-    itemsTexture.flipY = false
-    viewer.entities.itemsTexture = itemsTexture
-    if (!this.itemsAtlasParser) return
 
-    this.renderUpdateEmitter.emit('textureDownloaded')
-
-    console.time('generateGuiTextures')
-    await this.generateGuiTextures()
-    console.timeEnd('generateGuiTextures')
-    if (!this.itemsAtlasParser) return
-    this.renderUpdateEmitter.emit('itemsTextureDownloaded')
+    this.logWorkerWork('# mesherData sent')
     console.log('textures loaded')
   }
 
-  async downloadDebugAtlas (isItems = false) {
-    const atlasParser = (isItems ? this.itemsAtlasParser : this.blocksAtlasParser)!
-    const dataUrl = await atlasParser.createDebugImage(true)
-    const a = document.createElement('a')
-    a.href = dataUrl
-    a.download = `atlas-debug-${isItems ? 'items' : 'blocks'}.png`
-    a.click()
-  }
-
   get worldMinYRender () {
-    return Math.floor(Math.max(this.worldConfig.minY, this.mesherConfig.clipWorldBelowY ?? -Infinity) / 16) * 16
+    return Math.floor(Math.max(this.worldSizeParams.minY, this.worldRendererConfig.clipWorldBelowY ?? -Infinity) / 16) * 16
   }
 
-  updateChunksStatsText () {
-    updateStatText('downloaded-chunks', `${Object.keys(this.loadedChunks).length}/${this.chunksLength} chunks D (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`)
+  updateChunksStats () {
+    const loadedChunks = Object.keys(this.finishedChunks)
+    this.displayOptions.nonReactiveState.world.chunksLoaded = loadedChunks
+    this.displayOptions.nonReactiveState.world.chunksTotalNumber = this.chunksLength
+    this.reactiveState.world.allChunksLoaded = this.allChunksFinished
+
+    const text = `Q: ${this.messageQueue.length} ${Object.keys(this.loadedChunks).length}/${Object.keys(this.finishedChunks).length}/${this.chunksLength} chunks (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.geometryReceiveCountPerSec}ss/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`
+    this.chunksFullInfo = text
+    updateStatText('downloaded-chunks', text)
   }
 
   addColumn (x: number, z: number, chunk: any, isLightUpdate: boolean) {
@@ -480,7 +614,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.initialChunksLoad = false
     this.initialChunkLoadWasStartedIn ??= Date.now()
     this.loadedChunks[`${x},${z}`] = true
-    this.updateChunksStatsText()
+    this.updateChunksStats()
 
     const chunkKey = `${x},${z}`
     const customBlockModels = this.protocolCustomBlocks.get(chunkKey)
@@ -494,10 +628,12 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         customBlockModels: customBlockModels || undefined
       })
     }
-    for (let y = this.worldMinYRender; y < this.worldConfig.worldHeight; y += 16) {
+    this.logWorkerWork(() => `-> chunk ${JSON.stringify({ x, z, chunkLength: chunk.length, customBlockModelsLength: customBlockModels ? Object.keys(customBlockModels).length : 0 })}`)
+    this.mesherLogReader?.chunkReceived(x, z, chunk.length)
+    for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
       const loc = new Vec3(x, y, z)
       this.setSectionDirty(loc)
-      if (this.neighborChunkUpdates && (!isLightUpdate || this.mesherConfig.smoothLighting)) {
+      if (this.neighborChunkUpdates && (!isLightUpdate || this.worldRendererConfig.smoothLighting)) {
         this.setSectionDirty(loc.offset(-16, 0, 0))
         this.setSectionDirty(loc.offset(16, 0, 0))
         this.setSectionDirty(loc.offset(0, 0, -16))
@@ -509,6 +645,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   markAsLoaded (x, z) {
     this.loadedChunks[`${x},${z}`] = true
     this.finishedChunks[`${x},${z}`] = true
+    this.logWorkerWork(`-> markAsLoaded ${JSON.stringify({ x, z })}`)
     this.checkAllFinished()
   }
 
@@ -517,31 +654,154 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     for (const worker of this.workers) {
       worker.postMessage({ type: 'unloadChunk', x, z })
     }
+    this.logWorkerWork(`-> unloadChunk ${JSON.stringify({ x, z })}`)
     delete this.finishedChunks[`${x},${z}`]
     this.allChunksFinished = Object.keys(this.finishedChunks).length === this.chunksLength
-    if (!this.allChunksFinished) {
+    if (Object.keys(this.finishedChunks).length === 0) {
       this.allLoadedIn = undefined
       this.initialChunkLoadWasStartedIn = undefined
     }
-    for (let y = this.worldConfig.minY; y < this.worldConfig.worldHeight; y += 16) {
+    for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(x, y, z), false)
       delete this.finishedSections[`${x},${y},${z}`]
+      delete this.highestBlocksBySections[`${x},${y},${z}`]
     }
+    delete this.highestBlocksByChunks[`${x},${z}`]
 
-    // remove from highestBlocks
-    const startX = Math.floor(x / 16) * 16
-    const startZ = Math.floor(z / 16) * 16
-    const endX = Math.ceil((x + 1) / 16) * 16
-    const endZ = Math.ceil((z + 1) / 16) * 16
-    for (let x = startX; x < endX; x += 16) {
-      for (let z = startZ; z < endZ; z += 16) {
-        delete this.highestBlocks[`${x},${z}`]
-      }
+    this.updateChunksStats()
+
+    if (Object.keys(this.loadedChunks).length === 0) {
+      this.mesherLogger.contents = []
+      this.logWorkerWork('# all chunks unloaded. New log started')
+      void this.mesherLogReader?.maybeStartReplay()
     }
   }
 
-  setBlockStateId (pos: Vec3, stateId: number) {
-    const needAoRecalculation = true
+  setBlockStateId (pos: Vec3, stateId: number | undefined, needAoRecalculation = true) {
+    const set = async () => {
+      const sectionX = Math.floor(pos.x / 16) * 16
+      const sectionZ = Math.floor(pos.z / 16) * 16
+      if (this.queuedChunks.has(`${sectionX},${sectionZ}`)) {
+        await new Promise<void>(resolve => {
+          this.queuedFunctions.push(() => {
+            resolve()
+          })
+        })
+      }
+      if (!this.loadedChunks[`${sectionX},${sectionZ}`]) {
+        // console.debug('[should be unreachable] setBlockStateId called for unloaded chunk', pos)
+      }
+      this.setBlockStateIdInner(pos, stateId, needAoRecalculation)
+    }
+    void set()
+  }
+
+  updateEntity (e: any, isUpdate = false) { }
+
+  lightUpdate (chunkX: number, chunkZ: number) { }
+
+  connect (worldView: WorldDataEmitter) {
+    const worldEmitter = worldView
+
+    worldEmitter.on('entity', (e) => {
+      this.updateEntity(e, false)
+    })
+    worldEmitter.on('entityMoved', (e) => {
+      this.updateEntity(e, true)
+    })
+
+    let currentLoadChunkBatch = null as {
+      timeout
+      data
+    } | null
+    worldEmitter.on('loadChunk', ({ x, z, chunk, worldConfig, isLightUpdate }) => {
+      this.worldSizeParams = worldConfig
+      this.queuedChunks.add(`${x},${z}`)
+      const args = [x, z, chunk, isLightUpdate]
+      if (!currentLoadChunkBatch) {
+        // add a setting to use debounce instead
+        currentLoadChunkBatch = {
+          data: [],
+          timeout: setTimeout(() => {
+            for (const args of currentLoadChunkBatch!.data) {
+              this.queuedChunks.delete(`${args[0]},${args[1]}`)
+              this.addColumn(...args as Parameters<typeof this.addColumn>)
+            }
+            for (const fn of this.queuedFunctions) {
+              fn()
+            }
+            this.queuedFunctions = []
+            currentLoadChunkBatch = null
+          }, this.worldRendererConfig.addChunksBatchWaitTime)
+        }
+      }
+      currentLoadChunkBatch.data.push(args)
+    })
+    // todo remove and use other architecture instead so data flow is clear
+    worldEmitter.on('blockEntities', (blockEntities) => {
+      this.blockEntities = blockEntities
+    })
+
+    worldEmitter.on('unloadChunk', ({ x, z }) => {
+      this.removeColumn(x, z)
+    })
+
+    worldEmitter.on('blockUpdate', ({ pos, stateId }) => {
+      this.setBlockStateId(new Vec3(pos.x, pos.y, pos.z), stateId)
+    })
+
+    worldEmitter.on('chunkPosUpdate', ({ pos }) => {
+      this.updateViewerPosition(pos)
+    })
+
+    worldEmitter.on('end', () => {
+      this.worldStop?.()
+    })
+
+
+    worldEmitter.on('renderDistance', (d) => {
+      this.viewDistance = d
+      this.chunksLength = d === 0 ? 1 : generateSpiralMatrix(d).length
+    })
+
+    worldEmitter.on('renderDistance', (d) => {
+      this.viewDistance = d
+      this.chunksLength = d === 0 ? 1 : generateSpiralMatrix(d).length
+      this.allChunksFinished = Object.keys(this.finishedChunks).length === this.chunksLength
+    })
+
+    worldEmitter.on('markAsLoaded', ({ x, z }) => {
+      this.markAsLoaded(x, z)
+    })
+
+    worldEmitter.on('updateLight', ({ pos }) => {
+      this.lightUpdate(pos.x, pos.z)
+    })
+
+    worldEmitter.on('onWorldSwitch', () => {
+      for (const fn of this.onWorldSwitched) fn()
+    })
+
+    worldEmitter.on('time', (timeOfDay) => {
+      this.timeUpdated?.(timeOfDay)
+
+      if (timeOfDay < 0 || timeOfDay > 24_000) {
+        throw new Error('Invalid time of day. It should be between 0 and 24000.')
+      }
+
+      this.timeOfTheDay = timeOfDay
+
+      // if (this.worldRendererConfig.skyLight === skyLight) return
+      // this.worldRendererConfig.skyLight = skyLight
+      // if (this instanceof WorldRendererThree) {
+      //   (this).rerenderAllChunks?.()
+      // }
+    })
+
+    worldEmitter.emit('listening')
+  }
+
+  setBlockStateIdInner (pos: Vec3, stateId: number | undefined, needAoRecalculation = true) {
     const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     const blockPosKey = `${pos.x},${pos.y},${pos.z}`
     const customBlockModels = this.protocolCustomBlocks.get(chunkKey) || {}
@@ -554,6 +814,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         customBlockModels
       })
     }
+    this.logWorkerWork(`-> blockUpdate ${JSON.stringify({ pos, stateId, customBlockModels })}`)
     this.setSectionDirty(pos, true, true)
     if (this.neighborChunkUpdates) {
       if ((pos.x & 15) === 0) this.setSectionDirty(pos.offset(-16, 0, 0), true, true)
@@ -588,8 +849,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
   }
 
+  abstract worldStop? ()
+
   queueAwaited = false
-  messagesQueue = {} as { [workerIndex: string]: any[] }
+  toWorkerMessagesQueue = {} as { [workerIndex: string]: any[] }
 
   getWorkerNumber (pos: Vec3, updateAction = false) {
     if (updateAction) {
@@ -602,10 +865,31 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return hash + 1
   }
 
+  async debugGetWorkerCustomBlockModel (pos: Vec3) {
+    const data = [] as Array<Promise<string>>
+    for (const worker of this.workers) {
+      data.push(new Promise((resolve) => {
+        worker.addEventListener('message', (e) => {
+          if (e.data.type === 'customBlockModel') {
+            resolve(e.data.customBlockModel)
+          }
+        })
+      }))
+      worker.postMessage({
+        type: 'getCustomBlockModel',
+        pos
+      })
+    }
+    return Promise.all(data)
+  }
+
   setSectionDirty (pos: Vec3, value = true, useChangeWorker = false) { // value false is used for unloading chunks
+    if (!this.forceCallFromMesherReplayer && this.mesherLogReader) return
+
     if (this.viewDistance === -1) throw new Error('viewDistance not set')
-    this.allChunksFinished = false
+    this.reactiveState.world.mesherWork = true
     const distance = this.getDistance(pos)
+    // todo shouldnt we check loadedChunks instead?
     if (!this.workers.length || distance[0] > this.viewDistance || distance[1] > this.viewDistance) return
     const key = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.y / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     // if (this.sectionsOutstanding.has(key)) return
@@ -613,19 +897,30 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     // Dispatch sections to workers based on position
     // This guarantees uniformity accross workers and that a given section
     // is always dispatched to the same worker
-    const hash = this.getWorkerNumber(pos, useChangeWorker)
+    const hash = this.getWorkerNumber(pos, useChangeWorker && this.mesherLogger.active)
     this.sectionsWaiting.set(key, (this.sectionsWaiting.get(key) ?? 0) + 1)
-    this.messagesQueue[hash] ??= []
-    this.messagesQueue[hash].push({
-      // this.workers[hash].postMessage({
-      type: 'dirty',
-      x: pos.x,
-      y: pos.y,
-      z: pos.z,
-      value,
-      config: this.mesherConfig,
-    })
-    this.dispatchMessages()
+    if (this.forceCallFromMesherReplayer) {
+      this.workers[hash].postMessage({
+        type: 'dirty',
+        x: pos.x,
+        y: pos.y,
+        z: pos.z,
+        value,
+        config: this.getMesherConfig(),
+      })
+    } else {
+      this.toWorkerMessagesQueue[hash] ??= []
+      this.toWorkerMessagesQueue[hash].push({
+        // this.workers[hash].postMessage({
+        type: 'dirty',
+        x: pos.x,
+        y: pos.y,
+        z: pos.z,
+        value,
+        config: this.getMesherConfig(),
+      })
+      this.dispatchMessages()
+    }
   }
 
   dispatchMessages () {
@@ -633,11 +928,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.queueAwaited = true
     setTimeout(() => {
       // group messages and send as one
-      for (const workerIndex in this.messagesQueue) {
+      for (const workerIndex in this.toWorkerMessagesQueue) {
         const worker = this.workers[Number(workerIndex)]
-        worker.postMessage(this.messagesQueue[workerIndex])
+        worker.postMessage(this.toWorkerMessagesQueue[workerIndex])
+        for (const message of this.toWorkerMessagesQueue[workerIndex]) {
+          this.logWorkerWork(`-> ${workerIndex} dispatchMessages ${message.type} ${JSON.stringify({ x: message.x, y: message.y, z: message.z, value: message.value })}`)
+        }
       }
-      this.messagesQueue = {}
+      this.toWorkerMessagesQueue = {}
       this.queueAwaited = false
     })
   }
@@ -679,8 +977,23 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   destroy () {
-    console.warn('world destroy is not implemented')
-  }
+    // Stop all workers
+    for (const worker of this.workers) {
+      worker.terminate()
+    }
+    this.workers = []
 
-  abstract setHighlightCursorBlock (block: typeof this.cursorBlock, shapePositions?: Array<{ position; width; height; depth }>): void
+    // Stop and destroy sound system
+    if (this.soundSystem) {
+      this.soundSystem.destroy()
+      this.soundSystem = undefined
+    }
+
+    this.active = false
+
+    this.renderUpdateEmitter.removeAllListeners()
+    this.displayOptions.worldView.removeAllListeners() // todo
+    this.abortController.abort()
+    removeAllStats()
+  }
 }

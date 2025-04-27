@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { simplify } from 'prismarine-nbt'
 import RegionFile from 'prismarine-provider-anvil/src/region'
 import { Vec3 } from 'vec3'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import { TypedEventEmitter } from 'contro-max/build/typedEventEmitter'
 import { PCChunk } from 'prismarine-chunk'
@@ -11,6 +11,8 @@ import { Block } from 'prismarine-block'
 import { INVISIBLE_BLOCKS } from 'renderer/viewer/lib/mesher/worldConstants'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import { useSnapshot } from 'valtio'
+import { subscribeKey } from 'valtio/utils'
+import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import BlockData from '../../renderer/viewer/lib/moreBlockDataGenerated.json'
 import preflatMap from '../preflatMap.json'
 import { contro } from '../controls'
@@ -54,6 +56,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
   loadChunkFullmap: (key: string) => Promise<ChunkInfo | null | undefined>
   _full = false
   isBuiltinHeightmapAvailable = false
+  unsubscribers: Array<() => void> = []
 
   constructor (pos?: Vec3) {
     super()
@@ -77,8 +80,13 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
         const readZ = chunkZ % 32 < 0 ? 32 + chunkZ % 32 : chunkZ % 32
         console.log('heightmap check begun', readX, readZ)
         void this.regions.get(regionKey)?.read(readX, readZ)?.then((rawChunk) => {
-          const chunk = simplify(rawChunk as any)
-          const heightmap = findHeightMap(chunk)
+          let heightmap: number[] | undefined
+          try {
+            const chunk = simplify(rawChunk as any)
+            heightmap = findHeightMap(chunk)
+          } catch (err) {
+            console.warn('error getting heightmap', err)
+          }
           if (heightmap) {
             this.isBuiltinHeightmapAvailable = true
             this.loadChunkFullmap = this.loadChunkFromRegion
@@ -111,11 +119,20 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
       this.blockData.set(renamedKey, BlockData.colors[blockKey])
     }
 
-    viewer.world?.renderUpdateEmitter.on('chunkFinished', (key) => {
-      if (!this.loadingChunksQueue.has(key)) return
-      this.loadingChunksQueue.delete(key)
-      void this.loadChunk(key)
+    subscribeKey(appViewer.rendererState, 'world', () => {
+      for (const key of this.loadingChunksQueue) {
+        if (appViewer.rendererState.world.chunksLoaded.includes(key)) {
+          this.loadingChunksQueue.delete(key)
+          void this.loadChunk(key)
+        }
+      }
     })
+  }
+
+  destroy () {
+    for (const unsubscriber of this.unsubscribers) {
+      unsubscriber()
+    }
   }
 
   get full () {
@@ -152,9 +169,9 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
       // type suppressed until server is updated. It works fine
       void (localServer as any).setWarp(warp, remove)
     } else if (remove) {
-      localStorage.removeItem(`warps: ${bot.player.username} ${lastConnectOptions.value!.server}`)
+      localStorage.removeItem(`warps: ${bot.username} ${lastConnectOptions.value!.server}`)
     } else {
-      localStorage.setItem(`warps: ${bot.player.username} ${lastConnectOptions.value!.server}`, JSON.stringify(this.warps))
+      localStorage.setItem(`warps: ${bot.username} ${lastConnectOptions.value!.server}`, JSON.stringify(this.warps))
     }
     this.emit('updateWarps')
   }
@@ -188,7 +205,9 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
     const [chunkX, chunkZ] = key.split(',').map(Number)
     const chunkWorldX = chunkX * 16
     const chunkWorldZ = chunkZ * 16
-    if (viewer.world.finishedChunks[`${chunkWorldX},${chunkWorldZ}`]) {
+    if (appViewer.rendererState.world.chunksLoaded.includes(`${chunkWorldX},${chunkWorldZ}`)) {
+      const highestBlocks = await getThreeJsRendererMethods()?.getHighestBlocks(`${chunkWorldX},${chunkWorldZ}`)
+      if (!highestBlocks) return undefined
       const heightmap = new Uint8Array(256)
       const colors = Array.from({ length: 256 }).fill('') as string[]
       // avoid creating new object every time
@@ -198,7 +217,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
         for (let x = 0; x < 16; x += 1) {
           const blockX = chunkWorldX + x
           const blockZ = chunkWorldZ + z
-          const hBlock = viewer.world.highestBlocks.get(`${blockX},${blockZ}`)
+          const hBlock = highestBlocks[`${blockX},${blockZ}`]
           blockPos.x = blockX; blockPos.z = blockZ; blockPos.y = hBlock?.y ?? 0
           let block = bot.world.getBlock(blockPos)
           while (block?.name.includes('air')) {
@@ -319,14 +338,16 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
     const [chunkX, chunkZ] = key.split(',').map(Number)
     const chunkWorldX = chunkX * 16
     const chunkWorldZ = chunkZ * 16
-    if (viewer.world.finishedChunks[`${chunkWorldX},${chunkWorldZ}`]) {
+    const highestBlocks = await getThreeJsRendererMethods()?.getHighestBlocks(`${chunkWorldX},${chunkWorldZ}`)
+    if (appViewer.rendererState.world.chunksLoaded.includes(`${chunkWorldX},${chunkWorldZ}`)) {
       const heightmap = new Uint8Array(256)
       const colors = Array.from({ length: 256 }).fill('') as string[]
+      if (!highestBlocks) return null
       for (let z = 0; z < 16; z += 1) {
         for (let x = 0; x < 16; x += 1) {
           const blockX = chunkWorldX + x
           const blockZ = chunkWorldZ + z
-          const hBlock = viewer.world.highestBlocks.get(`${blockX},${blockZ}`)
+          const hBlock = highestBlocks[`${blockX},${blockZ}`]
           const block = bot.world.getBlock(new Vec3(blockX, hBlock?.y ?? 0, blockZ))
           // const block = Block.fromStateId(hBlock?.stateId ?? -1, hBlock?.biomeId ?? -1)
           const index = z * 16 + x
@@ -446,7 +467,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
     let color: string
     if (this.isOldVersion) {
       color = BlockData.colors[preflatMap.blocks[`${block.type}:${block.metadata}`]?.replaceAll(/\[.*?]/g, '')]
-      ?? 'rgb(0, 0, 255)'
+        ?? 'rgb(0, 0, 255)'
     } else {
       color = this.blockData.get(block.name) ?? 'rgb(0, 255, 0)'
     }

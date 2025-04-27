@@ -45,6 +45,7 @@ import SignInMessageProvider from './react/SignInMessageProvider'
 import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
+import ModsPage from './react/ModsPage'
 import DebugEdges from './react/DebugEdges'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
 import MineflayerPluginHud from './react/MineflayerPluginHud'
@@ -53,7 +54,25 @@ import { UIProvider } from './react/UIProvider'
 import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
 import TouchInteractionHint from './react/TouchInteractionHint'
+import { ua } from './react/utils'
+import VoiceMicrophone from './react/VoiceMicrophone'
+import ConnectOnlyServerUi from './react/ConnectOnlyServerUi'
+import ControDebug from './react/ControDebug'
+import ChunksDebug from './react/ChunksDebug'
+import ChunksDebugScreen from './react/ChunksDebugScreen'
 import { ArwesPlayground } from './arwes'
+
+const isFirefox = ua.getBrowser().name === 'Firefox'
+if (isFirefox) {
+  // set custom property
+  document.body.style.setProperty('--thin-if-firefox', 'thin')
+}
+
+const isIphone = ua.getDevice().model === 'iPhone' // todo ipad?
+
+if (isIphone) {
+  document.documentElement.style.setProperty('--hud-bottom-max', '21px') // env-safe-aria-inset-bottom
+}
 
 const RobustPortal = ({ children, to }) => {
   return createPortal(<PerComponentErrorBoundary>{children}</PerComponentErrorBoundary>, to)
@@ -144,6 +163,8 @@ const InGameUi = () => {
           {!disabledUiParts.includes('crosshair') && <Crosshair />}
           {!disabledUiParts.includes('books') && <BookProvider />}
           {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
+          <VoiceMicrophone />
+          <ChunksDebugScreen />
         </PerComponentErrorBoundary>
       </div>
 
@@ -196,6 +217,7 @@ const App = () => {
                 <HeldMapUi />
               </InGameComponent>
             </div>
+            <ControDebug />
             <div />
           </RobustPortal>
           <EnterFullscreenButton />
@@ -206,15 +228,19 @@ const App = () => {
             <CreateWorldProvider />
             <AppStatusProvider />
             <KeybindingsScreenProvider />
-            <SelectOption />
             <ServersListProvider />
             <OptionsRenderApp />
             <MainMenuRenderApp />
+            <ConnectOnlyServerUi />
             <TouchAreasControlsProvider />
             <SignInMessageProvider />
-            <NoModalFoundProvider />
             <PacketsReplayProvider />
             <NotificationProvider />
+            <ModsPage />
+
+            <SelectOption />
+
+            <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>

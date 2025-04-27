@@ -2,7 +2,7 @@ import { Vec3 } from 'vec3'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import legacyJson from '../../../../src/preflatMap.json'
 import { BlockType } from '../../../playground/shared'
-import { World, BlockModelPartsResolved, WorldBlock as Block } from './world'
+import { World, BlockModelPartsResolved, WorldBlock as Block, WorldBlock } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 import { MesherGeometryOutput, HighestBlockInfo } from './shared'
@@ -103,7 +103,8 @@ function tintToGl (tint) {
   return [r / 255, g / 255, b / 255]
 }
 
-function getLiquidRenderHeight (world, block, type, pos) {
+function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isRealWater: boolean) {
+  if (!isRealWater || (block && isBlockWaterlogged(block))) return 8 / 9
   if (!block || block.type !== type) return 1 / 9
   if (block.metadata === 0) { // source block
     const blockAbove = world.getBlock(pos.offset(0, 1, 0))
@@ -124,12 +125,12 @@ const isCube = (block: Block) => {
   }))
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>) {
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>, isRealWater: boolean) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
       const pos = cursor.offset(x, 0, z)
-      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos))
+      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, isRealWater))
     }
   }
   const cornerHeights = [
@@ -147,9 +148,8 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
     const neighborPos = cursor.offset(...dir as [number, number, number])
     const neighbor = world.getBlock(neighborPos)
     if (!neighbor) continue
-    if (neighbor.type === type) continue
-    const isGlass = neighbor.name.includes('glass')
-    if ((isCube(neighbor) && !isUp) || neighbor.material === 'plant' || neighbor.getProperties().waterlogged) continue
+    if (neighbor.type === type || (water && (neighbor.name === 'water' || isBlockWaterlogged(neighbor)))) continue
+    if (isCube(neighbor) && !isUp) continue
 
     let tint = [1, 1, 1]
     if (water) {
@@ -253,7 +253,7 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
         if (!neighbor.transparent && (isCube(neighbor) || identicalCull(element, neighbor, new Vec3(...dir)))) continue
       } else {
         needSectionRecomputeOnChange = true
-        continue
+        // continue
       }
     }
 
@@ -423,13 +423,19 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
 
     if (!needTiles) {
       if (doAO && aos[0] + aos[3] >= aos[1] + aos[2]) {
-        attr.indices.push(
-          ndx, ndx + 3, ndx + 2, ndx, ndx + 1, ndx + 3
-        )
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 3
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 3
       } else {
-        attr.indices.push(
-          ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3
-        )
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 3
       }
     }
   }
@@ -463,12 +469,14 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     t_colors: [],
     t_uvs: [],
     indices: [],
+    indicesCount: 0, // Track current index position
+    using32Array: true,
     tiles: {},
     // todo this can be removed here
     heads: {},
     signs: {},
     // isFull: true,
-    highestBlocks: new Map<string, HighestBlockInfo>([]),
+    highestBlocks: {},
     hadErrors: false,
     blocksCount: 0
   }
@@ -479,9 +487,9 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
       for (cursor.x = sx; cursor.x < sx + 16; cursor.x++) {
         let block = world.getBlock(cursor, blockProvider, attr)!
         if (!INVISIBLE_BLOCKS.has(block.name)) {
-          const highest = attr.highestBlocks.get(`${cursor.x},${cursor.z}`)
+          const highest = attr.highestBlocks[`${cursor.x},${cursor.z}`]
           if (!highest || highest.y < cursor.y) {
-            attr.highestBlocks.set(`${cursor.x},${cursor.z}`, { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id })
+            attr.highestBlocks[`${cursor.x},${cursor.z}`] = { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id }
           }
         }
         if (INVISIBLE_BLOCKS.has(block.name)) continue
@@ -539,11 +547,11 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
           const pos = cursor.clone()
           // eslint-disable-next-line @typescript-eslint/no-loop-func
           delayedRender.push(() => {
-            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr)
+            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr, !isWaterlogged)
           })
           attr.blocksCount++
         } else if (block.name === 'lava') {
-          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr)
+          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr, false)
           attr.blocksCount++
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
@@ -605,12 +613,19 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
 
   let ndx = attr.positions.length / 3
   for (let i = 0; i < attr.t_positions!.length / 12; i++) {
-    attr.indices.push(
-      ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3,
-      // eslint-disable-next-line @stylistic/function-call-argument-newline
-      // back face
-      ndx, ndx + 2, ndx + 1, ndx + 2, ndx + 3, ndx + 1
-    )
+    attr.indices[attr.indicesCount++] = ndx
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 3
+    // back face
+    attr.indices[attr.indicesCount++] = ndx
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 3
+    attr.indices[attr.indicesCount++] = ndx + 1
     ndx += 4
   }
 
@@ -628,6 +643,12 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
   attr.normals = new Float32Array(attr.normals) as any
   attr.colors = new Float32Array(attr.colors) as any
   attr.uvs = new Float32Array(attr.uvs) as any
+  attr.using32Array = arrayNeedsUint32(attr.indices)
+  if (attr.using32Array) {
+    attr.indices = new Uint32Array(attr.indices)
+  } else {
+    attr.indices = new Uint16Array(attr.indices)
+  }
 
   if (needTiles) {
     delete attr.positions
@@ -637,6 +658,21 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
   }
 
   return attr
+}
+
+// copied from three.js
+function arrayNeedsUint32 (array) {
+
+  // assumes larger values usually on last
+
+  for (let i = array.length - 1; i >= 0; -- i) {
+
+    if (array[i] >= 65_535) return true // account for PRIMITIVE_RESTART_FIXED_INDEX, #24565
+
+  }
+
+  return false
+
 }
 
 export const setBlockStatesData = (blockstatesModels, blocksAtlas: any, _needTiles = false, useUnknownBlockModel = true, version = 'latest') => {

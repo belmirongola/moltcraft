@@ -2,11 +2,12 @@ import * as THREE from 'three'
 import { OBJLoader } from 'three-stdlib'
 import huskPng from 'mc-assets/dist/other-textures/latest/entity/zombie/husk.png'
 import { Vec3 } from 'vec3'
+import ocelotPng from '../../../../node_modules/mc-assets/dist/other-textures/latest/entity/cat/ocelot.png'
 import arrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/arrow.png'
 import spectralArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/spectral_arrow.png'
 import tippedArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/tipped_arrow.png'
-import { WorldRendererCommon } from '../worldrendererCommon'
-import { loadTexture } from '../utils'
+import { loadTexture } from '../../lib/utils'
+import { WorldRendererThree } from '../worldrendererThree'
 import entities from './entities.json'
 import { externalModels } from './objModels'
 import externalTexturesJson from './externalTextures.json'
@@ -223,7 +224,7 @@ function addCube (
 }
 
 export function getMesh (
-  worldRenderer: WorldRendererCommon | undefined,
+  worldRenderer: WorldRendererThree | undefined,
   texture: string,
   jsonModel: JsonModel,
   overrides: EntityOverrides = {},
@@ -237,10 +238,10 @@ export function getMesh (
   if (useBlockTexture) {
     if (!worldRenderer) throw new Error('worldRenderer is required for block textures')
     const blockName = texture.slice(6)
-    const textureInfo = worldRenderer.blocksAtlasParser!.getTextureInfo(blockName)
+    const textureInfo = worldRenderer.resourcesManager.currentResources!.blocksAtlasParser.getTextureInfo(blockName)
     if (textureInfo) {
-      textureWidth = blocksTexture!.image.width
-      textureHeight = blocksTexture!.image.height
+      textureWidth = blocksTexture?.image.width ?? textureWidth
+      textureHeight = blocksTexture?.image.height ?? textureHeight
       textureOffset = [textureInfo.u, textureInfo.v]
     } else {
       console.error(`Unknown block ${blockName}`)
@@ -437,7 +438,7 @@ export class EntityMesh {
   constructor (
     version: string,
     type: string,
-    worldRenderer?: WorldRendererCommon,
+    worldRenderer?: WorldRendererThree,
     overrides: EntityOverrides = {},
     debugFlags: EntityDebugFlags = {}
   ) {
@@ -456,7 +457,7 @@ export class EntityMesh {
         'skeleton_horse': `textures/${version}/entity/horse/horse_skeleton.png`,
         'donkey': `textures/${version}/entity/horse/donkey.png`,
         'mule': `textures/${version}/entity/horse/mule.png`,
-        'ocelot': `textures/${version}/entity/cat/ocelot.png`,
+        'ocelot': ocelotPng,
         'arrow': arrowTexture,
         'spectral_arrow': spectralArrowTexture,
         'tipped_arrow': tippedArrowTexture
@@ -527,12 +528,6 @@ export class EntityMesh {
         debugFlags)
       mesh.name = `geometry_${name}`
       this.mesh.add(mesh)
-
-      const skeletonHelper = new THREE.SkeletonHelper(mesh)
-      //@ts-expect-error
-      skeletonHelper.material.linewidth = 2
-      skeletonHelper.visible = false
-      this.mesh.add(skeletonHelper)
     }
     debugFlags.type = 'bedrock'
   }
@@ -551,3 +546,4 @@ export class EntityMesh {
     }
   }
 }
+window.EntityMesh = EntityMesh

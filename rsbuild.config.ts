@@ -69,7 +69,7 @@ const appConfig = defineConfig({
                     tag: 'link',
                     attrs: {
                         rel: 'manifest',
-                        crossorigin: 'use-credentials',
+                        crossorigin: 'anonymous',
                         href: 'manifest.json'
                     },
                 }
@@ -173,6 +173,7 @@ const appConfig = defineConfig({
                     fs.copyFileSync('./assets/favicon.png', './dist/favicon.png')
                     fs.copyFileSync('./assets/playground.html', './dist/playground.html')
                     fs.copyFileSync('./assets/manifest.json', './dist/manifest.json')
+                    fs.copyFileSync('./assets/config.html', './dist/config.html')
                     fs.copyFileSync('./assets/loading-bg.jpg', './dist/loading-bg.jpg')
                     if (fs.existsSync('./assets/release.json')) {
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
@@ -203,6 +204,12 @@ const appConfig = defineConfig({
                     })
                     build.onAfterBuild(async () => {
                         if (SINGLE_FILE_BUILD) {
+                            // check that only index.html is in the dist/single folder
+                            const singleBuildFiles = fs.readdirSync('./dist/single')
+                            if (singleBuildFiles.length !== 1 || singleBuildFiles[0] !== 'index.html') {
+                                throw new Error('Single file build must only have index.html in the dist/single folder. Ensure workers are imported & built correctly.')
+                            }
+
                             // process index.html
                             const singleBuildHtml = './dist/single/index.html'
                             let html = fs.readFileSync(singleBuildHtml, 'utf8')

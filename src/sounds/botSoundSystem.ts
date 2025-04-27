@@ -1,5 +1,5 @@
 import { Vec3 } from 'vec3'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import { loadScript } from 'renderer/viewer/lib/utils'
 import type { Block } from 'prismarine-block'
 import { subscribeKey } from 'valtio/utils'
@@ -8,6 +8,7 @@ import { options } from '../optionsStorage'
 import { loadOrPlaySound } from '../basicSounds'
 import { getActiveResourcepackBasePath, resourcePackState } from '../resourcePack'
 import { showNotification } from '../react/NotificationProvider'
+import { pixelartIcons } from '../react/PixelartIcon'
 import { createSoundMap, SoundMap } from './soundsMap'
 import { musicSystem } from './musicSystem'
 
@@ -33,7 +34,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   globalThis.soundMap = soundMap
   if (!soundMap) return
   if (soundMap.noVersionIdMapping) {
-    showNotification('No sound ID mapping for this version', undefined, true)
+    showNotification('No exact sound ID mappings for this version', undefined, false, pixelartIcons['warning-box'])
   }
   void updateResourcePack()
   startMusicSystem()
@@ -46,7 +47,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
     const isMuted = options.mutedSounds.includes(soundKey) || options.volume === 0
     if (position) {
       if (!isMuted) {
-        viewer.playSound(
+        appViewer.backend?.soundSystem?.playSound(
           position,
           soundData.url,
           soundData.volume * (options.volume / 100),
@@ -112,10 +113,12 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   })
 
   bot._client.on('sound_effect', async (packet) => {
+    const hasNamedSoundEffect = versionToNumber(bot.version) < versionToNumber('1.19.3')
+
     const soundResource = packet['soundEvent']?.resource as string | undefined
     const pos = new Vec3(packet.x / 8, packet.y / 8, packet.z / 8)
     if (packet.soundId !== 0 || !soundResource) {
-      const soundKey = soundMap!.soundsIdToName[packet.soundId]
+      const soundKey = soundMap!.soundsIdToName[packet.soundId - (hasNamedSoundEffect ? 0 : 1)]
       if (soundKey === undefined) return
       await playGeneralSound(soundKey, pos, packet.volume, packet.pitch)
       return
@@ -132,12 +135,14 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
 
   let lastStepSound = 0
   const movementHappening = async () => {
-    if (!bot.player || !soundMap) return // no info yet
+    if (!bot.entity || !soundMap) return // no info yet
     const VELOCITY_THRESHOLD = 0.1
-    const { x, z, y } = bot.player.entity.velocity
-    if (bot.entity.onGround && Math.abs(x) < VELOCITY_THRESHOLD && (Math.abs(z) > VELOCITY_THRESHOLD || Math.abs(y) > VELOCITY_THRESHOLD)) {
+    const RUN_THRESHOLD = 0.15
+    const { x, z, y } = bot.entity.velocity
+    if (bot.entity.onGround && (Math.abs(x) > VELOCITY_THRESHOLD || Math.abs(z) > VELOCITY_THRESHOLD)) {
+      const isRunning = (Math.abs(x) > RUN_THRESHOLD || Math.abs(z) > RUN_THRESHOLD)
       // movement happening
-      if (Date.now() - lastStepSound > 300) {
+      if (Date.now() - lastStepSound > (isRunning ? 100 : 300)) {
         const blockUnder = bot.world.getBlock(bot.entity.position.offset(0, -1, 0))
         if (blockUnder) {
           const stepSound = soundMap.getStepSound(blockUnder.name)
