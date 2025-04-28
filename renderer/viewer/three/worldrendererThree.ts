@@ -157,7 +157,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.onReactiveValueUpdated('directionalLight', (value) => {
       if (!value) return
       // this.directionalLight.intensity = value
-      this.directionalLight.intensity = 1
+      this.directionalLight.intensity = 0.4
     })
     this.onReactiveValueUpdated('lookingAtBlock', (value) => {
       this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)

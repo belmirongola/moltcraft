@@ -80,8 +80,11 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     //   return
     // }
 
-    updateBlockLight(position.x, position.y, position.z, stateId)
+    const updateChunks = updateBlockLight(position.x, position.y, position.z, stateId) ?? []
     this.emit('blockUpdate', { pos: position, stateId })
+    for (const chunk of updateChunks) {
+      void this.loadChunk(new Vec3(chunk[0] * 16, 0, chunk[1] * 16), true, 'setBlockStateId light update')
+    }
   }
 
   updateViewDistance (viewDistance: number) {
@@ -132,9 +135,14 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       chunkColumnUnload: (pos: Vec3) => {
         this.unloadChunk(pos)
       },
-      blockUpdate: (oldBlock: any, newBlock: any) => {
+      blockUpdate: (oldBlock, newBlock) => {
         const stateId = newBlock.stateId ?? ((newBlock.type << 4) | newBlock.metadata)
-        this.emitter.emit('blockUpdate', { pos: oldBlock.position, stateId })
+
+        const updateChunks = updateBlockLight(newBlock.position.x, newBlock.position.y, newBlock.position.z, stateId) ?? []
+        this.emit('blockUpdate', { pos: newBlock.position, stateId })
+        for (const chunk of updateChunks) {
+          void this.loadChunk(new Vec3(chunk[0] * 16, 0, chunk[1] * 16), true, 'setBlockStateId light update')
+        }
       },
       time: () => {
         this.emitter.emit('time', bot.time.timeOfDay)
@@ -261,7 +269,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       // eslint-disable-next-line @typescript-eslint/await-thenable -- todo allow to use async world provider but not sure if needed
       const column = await this.world.getColumnAt(pos['y'] ? pos as Vec3 : new Vec3(pos.x, 0, pos.z))
       if (column) {
-        const result = await processLightChunk(pos.x, pos.z)
+        const result = isLightUpdate ? [] : await processLightChunk(pos.x, pos.z)
         if (!result) return
         for (const affectedChunk of result) {
           if (affectedChunk.x === chunkX && affectedChunk.z === chunkZ) continue

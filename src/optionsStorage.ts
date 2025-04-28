@@ -98,7 +98,7 @@ const defaultOptions = {
   renderEntities: true,
   smoothLighting: true,
   // lightingStrategy: 'prefer-server' as 'only-server' | 'always-client' | 'prefer-server',
-  lightingStrategy: 'prefer-server' as 'always-client' | 'prefer-server',
+  lightingStrategy: 'prefer-server' as 'always-client' | 'prefer-server' | 'always-server',
   chatSelect: true,
   autoJump: 'auto' as 'auto' | 'always' | 'never',
   autoParkour: false,

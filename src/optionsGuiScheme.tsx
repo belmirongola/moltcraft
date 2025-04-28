@@ -81,12 +81,12 @@ export const guiOptionsScheme: {
       custom () {
         return <Category>Experimental</Category>
       },
-      dayCycleAndLighting: {
-        text: 'Day Cycle',
-      },
       smoothLighting: {},
-      newVersionsLighting: {
-        text: 'Lighting in Newer Versions',
+      lightingStrategy: {
+        values: [
+          ['prefer-server', 'Prefer Server'],
+          ['always-client', 'Always Client'],
+        ],
       },
       lowMemoryMode: {
         text: 'Low Memory Mode',
@@ -94,7 +94,6 @@ export const guiOptionsScheme: {
         disabledDuringGame: true
       },
       starfieldRendering: {},
-      renderEntities: {},
       keepChunksDistance: {
         max: 5,
         unit: '',

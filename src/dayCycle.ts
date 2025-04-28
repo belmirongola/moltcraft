@@ -35,10 +35,10 @@ export default () => {
     // todo need to think wisely how to set these values & also move directional light around!
     const colorInt = Math.max(int, 0.1)
     updateBackground({ r: dayColor.r * colorInt, g: dayColor.g * colorInt, b: dayColor.b * colorInt })
-    if (!options.newVersionsLighting && bot.supportFeature('blockStateId')) {
-      appViewer.playerState.reactive.ambientLight = Math.max(int, 0.25)
-      appViewer.playerState.reactive.directionalLight = Math.min(int, 0.5)
-    }
+    // if (!options.newVersionsLighting && bot.supportFeature('blockStateId')) {
+    //   appViewer.playerState.reactive.ambientLight = Math.max(int, 0.25)
+    //   appViewer.playerState.reactive.directionalLight = Math.min(int, 0.45)
+    // }
   }
 
   bot.on('time', timeUpdated)

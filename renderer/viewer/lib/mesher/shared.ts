@@ -3,9 +3,12 @@ import { BlockType } from '../../../playground/shared'
 // only here for easier testing
 export const defaultMesherConfig = {
   version: '',
+
   enableLighting: true,
   skyLight: 15,
   smoothLighting: true,
+  clientSideLighting: false,
+
   outputFormat: 'threeJs' as 'threeJs' | 'webgpu',
   textureSize: 1024, // for testing
   debugModelVariant: undefined as undefined | number[],

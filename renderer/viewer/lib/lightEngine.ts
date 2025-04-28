@@ -17,6 +17,7 @@ export const createLightEngine = (world: WorldRendererCommon) => {
     height: world.worldSizeParams.worldHeight,
     // enableSkyLight: false,
   })
+  lightEngine.externalWorld.setBlock = () => {}
   lightEngine.PARALLEL_CHUNK_PROCESSING = false
   globalThis.lightEngine = lightEngine
 }
@@ -36,7 +37,25 @@ export const dumpLightData = (x: number, z: number) => {
   return engine?.worldLightHolder.dumpChunk(Math.floor(x / 16), Math.floor(z / 16))
 }
 
+export const getDebugLightValues = (x: number, y: number, z: number) => {
+  const engine = getLightEngineSafe()
+  return {
+    blockLight: engine?.worldLightHolder.getBlockLight(x, y, z) ?? -1,
+    skyLight: engine?.worldLightHolder.getSkyLight(x, y, z) ?? -1,
+  }
+}
+
 export const updateBlockLight = (x: number, y: number, z: number, stateId: number) => {
   const engine = getLightEngine()
-  engine.setBlock(x, y, z, convertPrismarineBlockToWorldBlock(mcData.blocks[stateId], loadedData))
+  const affected = engine['affectedChunksTimestamps'] as Map<string, number>
+  const noAffected = affected.size === 0
+  engine.setBlock(x, y, z, convertPrismarineBlockToWorldBlock(stateId, loadedData))
+
+  if (affected.size > 0) {
+    const chunks = [...affected.keys()].map(key => {
+      return key.split(',').map(Number) as [number, number]
+    })
+    affected.clear()
+    return chunks
+  }
 }

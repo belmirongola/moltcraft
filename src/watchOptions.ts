@@ -96,9 +96,14 @@ export const watchOptionsAfterViewerInit = () => {
 
   const updateLightingStrategy = () => {
     if (!bot) return
-    const clientSideLighting = options.lightingStrategy === 'always-client' || (options.lightingStrategy === 'prefer-server' && bot.supportFeature('blockStateId'))
+    const serverAvailable = !bot.supportFeature('blockStateId')
+
+    const serverLightingEnabled = serverAvailable && (options.lightingStrategy === 'prefer-server' || options.lightingStrategy === 'always-server')
+    const clientLightingEnabled = options.lightingStrategy === 'prefer-server' ? !serverAvailable : options.lightingStrategy === 'always-client'
+
+    const clientSideLighting = !serverLightingEnabled
     appViewer.inWorldRenderingConfig.clientSideLighting = clientSideLighting
-    appViewer.inWorldRenderingConfig.enableLighting = options.dayCycleAndLighting && (!bot.supportFeature('blockStateId') || clientSideLighting)
+    appViewer.inWorldRenderingConfig.enableLighting = options.dayCycleAndLighting && (clientLightingEnabled || serverLightingEnabled)
   }
 
   subscribeKey(options, 'lightingStrategy', updateLightingStrategy)

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Block } from 'prismarine-block'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { getDebugLightValues } from 'renderer/viewer/lib/lightEngine'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
 import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
@@ -128,9 +129,11 @@ export default () => {
     })
 
     const freqUpdateInterval = setInterval(() => {
+      const lights = getDebugLightValues(Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z))
+
       setPos({ ...bot.entity.position })
-      setSkyL(bot.world.getSkyLight(bot.entity.position))
-      setBlockL(bot.world.getBlockLight(bot.entity.position))
+      setSkyL(lights.skyLight)
+      setBlockL(lights.blockLight)
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)

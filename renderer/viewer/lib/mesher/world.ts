@@ -53,7 +53,9 @@ export class World {
   }
 
   getLight (pos: Vec3, isNeighbor = false, skipMoreChecks = false, curBlockName = '') {
-    const IS_USING_SERVER_LIGHTING = false
+    const IS_USING_SERVER_LIGHTING = !this.config.clientSideLighting
+    // const IS_USING_SERVER_LIGHTING = false
+
     // for easier testing
     if (!(pos instanceof Vec3)) pos = new Vec3(...pos as [number, number, number])
     const { enableLighting, skyLight } = this.config
@@ -96,13 +98,23 @@ export class World {
   }
 
   getBlockLight (pos: Vec3) {
+    if (!this.config.clientSideLighting) {
+      const column = this.getColumnByPos(pos)
+      if (!column) return 15
+      return column.getBlockLight(posInChunk(pos))
+    }
+
     return this.lightHolder.getBlockLight(pos.x, pos.y, pos.z)
-    // return column.getBlockLight(posInChunk(pos))
   }
 
   getSkyLight (pos: Vec3) {
+    if (!this.config.clientSideLighting) {
+      const column = this.getColumnByPos(pos)
+      if (!column) return 15
+      return column.getSkyLight(posInChunk(pos))
+    }
+
     return this.lightHolder.getSkyLight(pos.x, pos.y, pos.z)
-    // return column.getSkyLight(posInChunk(pos))
   }
 
   addColumn (x, z, json) {
