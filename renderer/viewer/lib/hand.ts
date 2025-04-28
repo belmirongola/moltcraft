@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { loadSkinToCanvas } from 'skinview-utils'
-import { getLookupUrl, loadSkinImage, steveTexture } from './utils/skins'
+import { loadSkinFromUsername, loadSkinImage, steveTexture } from './utils/skins'
 
 export const getMyHand = async (image?: string, userName?: string) => {
   let newMap: THREE.Texture
@@ -8,7 +8,10 @@ export const getMyHand = async (image?: string, userName?: string) => {
     newMap = await steveTexture
   } else {
     if (!image) {
-      image = getLookupUrl(userName!, 'skin')
+      image = await loadSkinFromUsername(userName!, 'skin')
+    }
+    if (!image) {
+      return
     }
     const { canvas } = await loadSkinImage(image)
     newMap = new THREE.CanvasTexture(canvas)

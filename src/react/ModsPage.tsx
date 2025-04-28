@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
-import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors, fetchRepository, getModModifiableFields, saveClientModData, getAllModsModifiableFields } from '../clientMods'
+import { addRepositoryAction, setEnabledModAction, getAllModsDisplayList, installModByName, selectAndRemoveRepository, uninstallModAction, fetchAllRepositories, modsReactiveUpdater, modsErrors, fetchRepository, getModModifiableFields, saveClientModData, getAllModsModifiableFields, callMethodAction } from '../clientMods'
 import { createNotificationProgressReporter, ProgressReporter } from '../core/progressReporter'
 import { hideModal } from '../globalState'
 import { useIsModalActive } from './utilsApp'
@@ -228,6 +228,18 @@ const ModSidebar = ({ mod }: { mod: (ModsData['repos'][0]['packages'][0] & { rep
           />
         )}
       </div>
+
+      {window.loadedMods?.[mod.name] && mod.actionsMain && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          Actions:
+          {Object.entries(mod.actionsMain).map(([key, setting]) => (
+            <div
+              key={key} onClick={() => {
+                void callMethodAction(mod.name, 'main', key)
+              }}>{key}</div>
+          ))}
+        </div>
+      )}
     </>
   )
 }

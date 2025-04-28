@@ -19,8 +19,12 @@ export const getItemUv = (item: Record<string, any>, specificProps: ItemSpecific
   const resources = resourcesManager.currentResources
   if (!resources) throw new Error('Resources not loaded')
   const idOrName = item.itemId ?? item.blockId ?? item.name
+  const { blockState } = item
   try {
-    const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
+    const name =
+      blockState
+        ? loadedData.blocksByStateId[blockState]?.name
+        : typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
     if (!name) throw new Error(`Item not found: ${idOrName}`)
 
     const model = getItemModelName({

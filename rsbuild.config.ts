@@ -69,7 +69,7 @@ const appConfig = defineConfig({
                     tag: 'link',
                     attrs: {
                         rel: 'manifest',
-                        crossorigin: 'use-credentials',
+                        crossorigin: 'anonymous',
                         href: 'manifest.json'
                     },
                 }

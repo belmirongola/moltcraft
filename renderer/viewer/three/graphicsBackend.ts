@@ -3,6 +3,8 @@ import { Vec3 } from 'vec3'
 import { GraphicsBackendLoader, GraphicsBackend, GraphicsInitOptions, DisplayWorldOptions } from '../../../src/appViewer'
 import { ProgressReporter } from '../../../src/core/progressReporter'
 import { showNotification } from '../../../src/react/NotificationProvider'
+import { displayEntitiesDebugList } from '../../playground/allEntitiesDebug'
+import supportedVersions from '../../../src/supportedVersions.mjs'
 import { WorldRendererThree } from './worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
 import { PanoramaRenderer } from './panorama'
@@ -55,6 +57,15 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
 
   const startPanorama = async () => {
     if (worldRenderer) return
+    const qs = new URLSearchParams(window.location.search)
+    if (qs.get('debugEntities')) {
+      initOptions.resourcesManager.currentConfig = { version: qs.get('version') || supportedVersions.at(-1)!, noInventoryGui: true }
+      await initOptions.resourcesManager.updateAssetsData({ })
+
+      displayEntitiesDebugList(initOptions.resourcesManager.currentConfig.version)
+      return
+    }
+
     if (!panoramaRenderer) {
       panoramaRenderer = new PanoramaRenderer(documentRenderer, initOptions, !!process.env.SINGLE_FILE_BUILD_MODE)
       window.panoramaRenderer = panoramaRenderer

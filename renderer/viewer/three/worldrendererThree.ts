@@ -167,6 +167,13 @@ export class WorldRendererThree extends WorldRendererCommon {
     })
   }
 
+  override watchReactiveConfig () {
+    super.watchReactiveConfig()
+    this.onReactiveConfigUpdated('showChunkBorders', (value) => {
+      this.updateShowChunksBorder(value)
+    })
+  }
+
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
     const holdingBlock = isLeft ? this.holdingBlockLeft : this.holdingBlock
     if (isAnimationPlaying) {
@@ -239,7 +246,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     //@ts-expect-error
     const pos = cursorBlockRel(0, 1, 0).position
 
-    const mesh = await getMyHand()
+    const mesh = (await getMyHand())!
     // mesh.rotation.y = THREE.MathUtils.degToRad(90)
     setBlockPosition(mesh, pos)
     const helper = new THREE.BoxHelper(mesh, 0xff_ff_00)
@@ -575,7 +582,6 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateShowChunksBorder (value: boolean) {
-    this.displayOptions.inWorldRenderingConfig.showChunkBorders = value
     for (const object of Object.values(this.sectionObjects)) {
       for (const child of object.children) {
         if (child.name === 'helper') {

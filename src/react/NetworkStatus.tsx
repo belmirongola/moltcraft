@@ -66,7 +66,7 @@ export default () => {
 
   if (!serverIp) return null
 
-  const { username } = bot.player
+  const { username } = bot
   const { proxy: proxyUrl } = lastConnectOptions.value!
   const pingTotal = serverPing
 

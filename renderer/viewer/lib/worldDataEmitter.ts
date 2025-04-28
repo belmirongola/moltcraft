@@ -93,9 +93,17 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   }
 
   listenToBot (bot: typeof __type_bot) {
+    const entitiesObjectData = new Map<string, number>()
+    bot._client.prependListener('spawn_entity', (data) => {
+      if (data.objectData && data.entityId !== undefined) {
+        entitiesObjectData.set(data.entityId, data.objectData)
+      }
+    })
+
     const emitEntity = (e, name = 'entity') => {
       if (!e || e === bot.entity) return
       if (!e.name) return // mineflayer received update for not spawned entity
+      e.objectData = entitiesObjectData.get(e.id)
       this.emitter.emit(name as any, {
         ...e,
         pos: e.position,
@@ -116,6 +124,9 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         emitEntity(e)
       },
       entityUpdate (e: any) {
+        emitEntity(e)
+      },
+      entityEquip (e: any) {
         emitEntity(e)
       },
       entityMoved (e: any) {
@@ -147,11 +158,16 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       time: () => {
         this.emitter.emit('time', bot.time.timeOfDay)
       },
-      respawn: () => {
-        this.emitter.emit('onWorldSwitch')
-      },
       end: () => {
         this.emitter.emit('end')
+      },
+      // when dimension might change
+      login: () => {
+        void this.updatePosition(bot.entity.position, true)
+      },
+      respawn: () => {
+        void this.updatePosition(bot.entity.position, true)
+        this.emitter.emit('onWorldSwitch')
       },
     } satisfies Partial<BotEvents>
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { formatMessage } from '../chatUtils'
+import { formatMessage, isStringAllowed } from '../chatUtils'
 import { getBuiltinCommandsList, tryHandleBuiltinCommand } from '../builtinCommands'
 import { gameAdditionalState, hideCurrentModal, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
@@ -10,14 +10,14 @@ import { useIsModalActive } from './utilsApp'
 import { hideNotification, notificationProxy, showNotification } from './NotificationProvider'
 import { updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
+import { showOptionsModal } from './SelectOption'
 
 export default () => {
   const [messages, setMessages] = useState([] as Message[])
   const isChatActive = useIsModalActive('chat')
-  const { messagesLimit, chatOpacity, chatOpacityOpened } = options
   const lastMessageId = useRef(0)
   const usingTouch = useSnapshot(miscUiState).currentTouch
-  const { chatSelect } = useSnapshot(options)
+  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions } = useSnapshot(options)
   const isUsingMicrosoftAuth = useMemo(() => !!lastConnectOptions.value?.authenticatedAccount, [])
   const { forwardChat } = useSnapshot(viewerVersionState)
   const { viewerConnection } = useSnapshot(gameAdditionalState)
@@ -47,20 +47,21 @@ export default () => {
   }, [])
 
   return <Chat
+    chatVanillaRestrictions={chatVanillaRestrictions}
     allowSelection={chatSelect}
     usingTouch={!!usingTouch}
     opacity={(isChatActive ? chatOpacityOpened : chatOpacity) / 100}
     messages={messages}
     opened={isChatActive}
     placeholder={forwardChat || !viewerConnection ? undefined : 'Chat forwarding is not enabled in the plugin settings'}
-    sendMessage={(message) => {
+    sendMessage={async (message) => {
       const builtinHandled = tryHandleBuiltinCommand(message)
       if (miscUiState.loadedServerIndex && (message.startsWith('/login') || message.startsWith('/register'))) {
         showNotification('Click here to save your password in browser for auto-login', undefined, false, undefined, () => {
           updateLoadedServerData((server) => {
             server.autoLogin ??= {}
             const password = message.split(' ')[1]
-            server.autoLogin[bot.player.username] = password
+            server.autoLogin[bot.username] = password
             return server
           })
           hideNotification()
@@ -75,7 +76,20 @@ export default () => {
         }, 2000)
       }
       if (!builtinHandled) {
-        bot.chat(message)
+        if (chatVanillaRestrictions && !miscUiState.flyingSquid) {
+          const validation = isStringAllowed(message)
+          if (!validation.valid) {
+            const choice = await showOptionsModal(`Can't send invalid characters to vanilla server (${validation.invalid?.join(', ')}). You can use them only in command blocks.`, [
+              'Remove Them & Send'
+            ])
+            if (!choice) return
+            message = validation.clean!
+          }
+        }
+
+        if (message) {
+          bot.chat(message)
+        }
       }
     }}
     onClose={() => {

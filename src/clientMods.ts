@@ -9,6 +9,7 @@ import { options } from './optionsStorage'
 import { appStorage } from './react/appStorageProvider'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
 import { ProgressReporter } from './core/progressReporter'
+import { showNotification } from './react/NotificationProvider'
 
 let sillyProtection = false
 const protectRuntime = () => {
@@ -90,6 +91,29 @@ const dbPromise = openDB('mods-db', 1, {
   },
 })
 
+export interface ModSetting {
+  label?: string
+  type: 'toggle' | 'choice' | 'input' | 'slider'
+  hidden?: boolean
+  values?: string[]
+  inputType?: string
+  hint?: string
+  default?: any
+}
+
+export interface ModSettingsDict {
+  [settingId: string]: ModSetting
+}
+
+export interface ModAction {
+  method?: string
+  label?: string
+  /** @default false */
+  gameGlobal?: boolean
+  /** @default false */
+  onlyForeground?: boolean
+}
+
 // mcraft-repo.json
 export interface McraftRepoFile {
   packages: ClientModDefinition[]
@@ -127,6 +151,9 @@ export interface ClientMod {
   lastUpdated?: number
   wasModifiedLocally?: boolean
   // todo depends, hashsum
+
+  settings?: ModSettingsDict
+  actionsMain?: Record<string, ModAction>
 }
 
 const cleanupFetchedModData = (mod: ClientModDefinition | Record<string, any>) => {
@@ -157,7 +184,7 @@ async function getPlugin (name: string) {
   return db.get('mods', name) as Promise<ClientMod | undefined>
 }
 
-async function getAllMods () {
+export async function getAllMods () {
   const db = await dbPromise
   return db.getAll('mods') as Promise<ClientMod[]>
 }
@@ -235,7 +262,7 @@ const activateMod = async (mod: ClientMod, reason: string) => {
     // eslint-disable-next-line no-useless-catch
     try {
       const module = await import(/* webpackIgnore: true */ url)
-      module.default?.(structuredClone(mod))
+      module.default?.(structuredClone(mod), { settings: getModSettingsProxy(mod) })
       window.loadedMods[mod.name] ??= {}
       window.loadedMods[mod.name].mainUnstableModule = module
     } catch (e) {
@@ -579,4 +606,32 @@ export const getAllModsModifiableFields = () => {
 
 export const getModModifiableFields = (mod: ClientMod): ModifiableField[] => {
   return getAllModsModifiableFields().filter(field => mod[field.field])
+}
+
+export const getModSettingsProxy = (mod: ClientMod) => {
+  if (!mod.settings) return valtio.proxy({})
+
+  const proxy = valtio.proxy({})
+  for (const [key, setting] of Object.entries(mod.settings)) {
+    proxy[key] = options[`mod-${mod.name}-${key}`] ?? setting.default
+  }
+
+  valtio.subscribe(proxy, (ops) => {
+    for (const op of ops) {
+      const [type, path, value] = op
+      const key = path[0] as string
+      options[`mod-${mod.name}-${key}`] = value
+    }
+  })
+
+  return proxy
+}
+
+export const callMethodAction = async (modName: string, type: 'main', method: string) => {
+  try {
+    const mod = window.loadedMods?.[modName]
+    await mod[method]()
+  } catch (err) {
+    showNotification(`Failed to execute ${method}`, `Problem in ${type} js script of ${modName}`, true)
+  }
 }

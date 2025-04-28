@@ -55,6 +55,7 @@ exports.getSwAdditionalEntries = () => {
         'manifest.json',
         'worldSaveWorker.js',
         `textures/entity/squid/squid.png`,
+        'sounds.js',
         // everything but not .map
         'static/**/!(*.map)',
     ]

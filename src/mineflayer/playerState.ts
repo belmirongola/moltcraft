@@ -26,7 +26,7 @@ export class PlayerStateManager implements IPlayerState {
   private ready = false
   onlineMode = false
   get username () {
-    return bot.player?.username ?? ''
+    return bot.username ?? ''
   }
 
   reactive: IPlayerState['reactive'] = new BasePlayerState().reactive

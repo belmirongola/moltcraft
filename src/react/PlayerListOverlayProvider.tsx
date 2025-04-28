@@ -11,7 +11,7 @@ type Players = typeof bot.players
 
 export default () => {
   const serverIp = lastConnectOptions.value?.server
-  const [clientId, setClientId] = useState('')
+  const [clientId, setClientId] = useState(bot._client.uuid)
   const [players, setPlayers] = useState<Players>({})
   const [isOpen, setIsOpen] = useState(false)
 
@@ -51,7 +51,9 @@ export default () => {
       setClientId(bot.player.uuid)
     } else {
       bot._client.on('player_info', () => {
-        setClientId(bot.player?.uuid)
+        if (bot.player?.uuid) {
+          setClientId(bot.player?.uuid)
+        }
       })
     }
 

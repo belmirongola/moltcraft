@@ -302,11 +302,22 @@ export async function connect (connectOptions: ConnectOptions) {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
 
-    await progress.executeWithMessage('Downloading minecraft data', 'download-mcdata', async () => {
+    await progress.executeWithMessage('Downloading Minecraft data', 'download-mcdata', async () => {
       loadingTimerState.networkOnlyStart = Date.now()
+
+      let downloadingAssets = [] as string[]
+      const reportAssetDownload = (asset: string, isDone: boolean) => {
+        if (isDone) {
+          downloadingAssets = downloadingAssets.filter(a => a !== asset)
+        } else {
+          downloadingAssets.push(asset)
+        }
+        progress.setSubStage('download-mcdata', `(${downloadingAssets.join(', ')})`)
+      }
+
       await Promise.all([
-        downloadAllMinecraftData(),
-        downloadOtherGameData()
+        downloadAllMinecraftData(reportAssetDownload),
+        downloadOtherGameData(reportAssetDownload)
       ])
       loadingTimerState.networkOnlyStart = 0
     })
@@ -318,7 +329,7 @@ export async function connect (connectOptions: ConnectOptions) {
       appViewer.resourcesManager.currentConfig = { version, texturesVersion: options.useVersionsTextures || undefined }
 
       await progress.executeWithMessage(
-        'Loading minecraft data',
+        'Processing downloaded Minecraft data',
         async () => {
           await appViewer.resourcesManager.loadSourceData(version)
         }
