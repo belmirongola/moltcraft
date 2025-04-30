@@ -56,9 +56,7 @@ export class PlayerStateManager implements IPlayerState {
       let hasSkyLight = 1
       try {
         hasSkyLight = data.dimension.value.has_skylight.value
-      } catch (err) {
-        hasSkyLight = 0
-      }
+      } catch {}
       this.lightingDisabled = bot.game.dimension === 'the_nether' || bot.game.dimension === 'the_end' || !hasSkyLight
     }
 
