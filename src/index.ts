@@ -439,7 +439,7 @@ export async function connect (connectOptions: ConnectOptions) {
     } else {
       initialLoadingText = 'We have no idea what to do'
     }
-    setLoadingScreenStatus(initialLoadingText)
+    progress.setMessage(initialLoadingText)
 
     if (parsedServer.isWebSocket) {
       loadingTimerState.networkOnlyStart = Date.now()
@@ -452,7 +452,7 @@ export async function connect (connectOptions: ConnectOptions) {
       tokenCaches: cachedTokens,
       proxyBaseUrl: connectOptions.proxy,
       setProgressText (text) {
-        setLoadingScreenStatus(text)
+        progress.setMessage(text)
       },
       setCacheResult (result) {
         newTokensCacheResult = result
