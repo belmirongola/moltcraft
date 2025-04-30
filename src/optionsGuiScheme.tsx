@@ -86,6 +86,7 @@ export const guiOptionsScheme: {
         values: [
           ['prefer-server', 'Prefer Server'],
           ['always-client', 'Always Client'],
+          ['always-server', 'Always Server'],
         ],
       },
       lowMemoryMode: {

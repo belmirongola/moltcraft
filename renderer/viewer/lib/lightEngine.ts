@@ -1,6 +1,7 @@
 import { LightWorld, createLightEngineForSyncWorld, convertPrismarineBlockToWorldBlock } from 'minecraft-lighting'
 import { world } from 'prismarine-world'
 import { WorldRendererCommon } from './worldrendererCommon'
+import { WorldDataEmitter } from './worldDataEmitter'
 
 let lightEngine: LightWorld | null = null
 export const getLightEngine = () => {
@@ -11,10 +12,11 @@ export const getLightEngineSafe = () => {
   return lightEngine
 }
 
-export const createLightEngine = (world: WorldRendererCommon) => {
-  lightEngine = createLightEngineForSyncWorld(world.displayOptions.worldView.world as unknown as world.WorldSync, loadedData, {
-    minY: world.worldSizeParams.minY,
-    height: world.worldSizeParams.worldHeight,
+export const createLightEngineIfNeeded = (worldView: WorldDataEmitter) => {
+  if (lightEngine) return
+  lightEngine = createLightEngineForSyncWorld(worldView.world as unknown as world.WorldSync, loadedData, {
+    minY: worldView.minY,
+    height: worldView.worldHeight,
     // enableSkyLight: false,
   })
   lightEngine.externalWorld.setBlock = () => {}
@@ -23,9 +25,11 @@ export const createLightEngine = (world: WorldRendererCommon) => {
 }
 
 export const processLightChunk = async (x: number, z: number) => {
+  const engine = getLightEngineSafe()
+  if (!engine) return
+
   const chunkX = Math.floor(x / 16)
   const chunkZ = Math.floor(z / 16)
-  const engine = getLightEngine()
   // fillColumnWithZeroLight(engine.externalWorld, chunkX, chunkZ)
 
   const updated = engine.receiveUpdateColumn(chunkX, chunkZ)
@@ -46,7 +50,8 @@ export const getDebugLightValues = (x: number, y: number, z: number) => {
 }
 
 export const updateBlockLight = (x: number, y: number, z: number, stateId: number) => {
-  const engine = getLightEngine()
+  const engine = getLightEngineSafe()
+  if (!engine) return
   const affected = engine['affectedChunksTimestamps'] as Map<string, number>
   const noAffected = affected.size === 0
   engine.setBlock(x, y, z, convertPrismarineBlockToWorldBlock(stateId, loadedData))
@@ -58,4 +63,9 @@ export const updateBlockLight = (x: number, y: number, z: number, stateId: numbe
     affected.clear()
     return chunks
   }
+}
+
+export const destroyLightEngine = () => {
+  lightEngine = null
+  globalThis.lightEngine = null
 }

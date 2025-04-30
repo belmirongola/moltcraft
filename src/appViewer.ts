@@ -171,6 +171,7 @@ export class AppViewer {
     this.currentDisplay = 'world'
     const startPosition = playerStateSend.getPosition()
     this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
+    this.worldView.worldRendererConfig = this.inWorldRenderingConfig
     window.worldView = this.worldView
     watchOptionsAfterWorldViewInit(this.worldView)
 

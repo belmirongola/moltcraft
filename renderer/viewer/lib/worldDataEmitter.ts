@@ -9,7 +9,8 @@ import { proxy } from 'valtio'
 import TypedEmitter from 'typed-emitter'
 import { delayedIterator } from '../../playground/shared'
 import { chunkPos } from './simpleUtils'
-import { processLightChunk, updateBlockLight } from './lightEngine'
+import { createLightEngineIfNeeded, destroyLightEngine, processLightChunk, updateBlockLight } from './lightEngine'
+import { WorldRendererConfig } from './worldrendererCommon'
 
 export type ChunkPosKey = string // like '16,16'
 type ChunkPos = { x: number, z: number } // like { x: 16, z: 16 }
@@ -36,6 +37,11 @@ export type WorldDataEmitterEvents = {
  * It's up to the consumer to serialize the data if needed
  */
 export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
+  minY = -64
+  worldHeight = 384
+  dimensionName = ''
+
+  worldRendererConfig: WorldRendererConfig
   loadedChunks: Record<ChunkPosKey, boolean>
   readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
@@ -70,22 +76,22 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     this.emitter = this
   }
 
-  setBlockStateId (position: Vec3, stateId: number) {
-    const val = this.world.setBlockStateId(position, stateId) as Promise<void> | void
-    if (val) throw new Error('setBlockStateId returned promise (not supported)')
-    // const chunkX = Math.floor(position.x / 16)
-    // const chunkZ = Math.floor(position.z / 16)
-    // if (!this.loadedChunks[`${chunkX},${chunkZ}`] && !this.waitingSpiralChunksLoad[`${chunkX},${chunkZ}`]) {
-    //   void this.loadChunk({ x: chunkX, z: chunkZ })
-    //   return
-    // }
+  // setBlockStateId (position: Vec3, stateId: number) {
+  //   const val = this.world.setBlockStateId(position, stateId) as Promise<void> | void
+  //   if (val) throw new Error('setBlockStateId returned promise (not supported)')
+  //   // const chunkX = Math.floor(position.x / 16)
+  //   // const chunkZ = Math.floor(position.z / 16)
+  //   // if (!this.loadedChunks[`${chunkX},${chunkZ}`] && !this.waitingSpiralChunksLoad[`${chunkX},${chunkZ}`]) {
+  //   //   void this.loadChunk({ x: chunkX, z: chunkZ })
+  //   //   return
+  //   // }
 
-    const updateChunks = updateBlockLight(position.x, position.y, position.z, stateId) ?? []
-    this.emit('blockUpdate', { pos: position, stateId })
-    for (const chunk of updateChunks) {
-      void this.loadChunk(new Vec3(chunk[0] * 16, 0, chunk[1] * 16), true, 'setBlockStateId light update')
-    }
-  }
+  //   const updateChunks = this.worldRendererConfig.clientSideLighting ? updateBlockLight(position.x, position.y, position.z, stateId) ?? [] : []
+  //   this.emit('blockUpdate', { pos: position, stateId })
+  //   for (const chunk of updateChunks) {
+  //     void this.loadChunk(new Vec3(chunk[0] * 16, 0, chunk[1] * 16), true, 'setBlockStateId light update')
+  //   }
+  // }
 
   updateViewDistance (viewDistance: number) {
     this.viewDistance = viewDistance
@@ -149,7 +155,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       blockUpdate: (oldBlock, newBlock) => {
         const stateId = newBlock.stateId ?? ((newBlock.type << 4) | newBlock.metadata)
 
-        const updateChunks = updateBlockLight(newBlock.position.x, newBlock.position.y, newBlock.position.z, stateId) ?? []
+        const updateChunks = this.worldRendererConfig.clientSideLighting ? updateBlockLight(newBlock.position.x, newBlock.position.y, newBlock.position.z, stateId) ?? [] : []
         this.emit('blockUpdate', { pos: newBlock.position, stateId })
         for (const chunk of updateChunks) {
           void this.loadChunk(new Vec3(chunk[0] * 16, 0, chunk[1] * 16), true, 'setBlockStateId light update')
@@ -162,15 +168,21 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         this.emitter.emit('end')
       },
       // when dimension might change
-      login: () => {
-        void this.updatePosition(bot.entity.position, true)
+      login () {
+        possiblyDimensionChange()
       },
       respawn: () => {
-        void this.updatePosition(bot.entity.position, true)
+        possiblyDimensionChange()
         this.emitter.emit('onWorldSwitch')
       },
     } satisfies Partial<BotEvents>
 
+    const possiblyDimensionChange = () => {
+      this.minY = bot.game['minY'] ?? -64
+      this.worldHeight = bot.game['height'] ?? 384
+      this.dimensionName = bot.game['dimension'] ?? ''
+      void this.updatePosition(bot.entity.position, true)
+    }
 
     bot._client.on('update_light', ({ chunkX, chunkZ }) => {
       const chunkPos = new Vec3(chunkX * 16, 0, chunkZ * 16)
@@ -216,6 +228,14 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     for (const [evt, listener] of Object.entries(this.eventListeners)) {
       bot.removeListener(evt as any, listener)
     }
+  }
+
+  destroy () {
+    if (bot) {
+      this.removeListenersFromBot(bot as any)
+    }
+    this.emitter.removeAllListeners()
+    destroyLightEngine()
   }
 
   async init (pos: Vec3) {
@@ -275,6 +295,8 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   // lastTime = 0
 
   async loadChunk (pos: ChunkPos, isLightUpdate = false, reason = 'spiral') {
+    createLightEngineIfNeeded(this)
+
     const [botX, botZ] = chunkPos(this.lastPos)
     const chunkX = Math.floor(pos.x / 16)
     const chunkZ = Math.floor(pos.z / 16)
@@ -285,7 +307,10 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       // eslint-disable-next-line @typescript-eslint/await-thenable -- todo allow to use async world provider but not sure if needed
       const column = await this.world.getColumnAt(pos['y'] ? pos as Vec3 : new Vec3(pos.x, 0, pos.z))
       if (column) {
-        const result = isLightUpdate ? [] : await processLightChunk(pos.x, pos.z)
+        let result = [] as Array<{ x: number, z: number }>
+        if (!isLightUpdate && this.worldRendererConfig.clientSideLighting) {
+          result = await processLightChunk(pos.x, pos.z) ?? []
+        }
         if (!result) return
         for (const affectedChunk of result) {
           if (affectedChunk.x === chunkX && affectedChunk.z === chunkZ) continue

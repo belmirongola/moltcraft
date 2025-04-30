@@ -19,7 +19,7 @@ import { chunkPos } from './simpleUtils'
 import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
-import { createLightEngine, dumpLightData, getLightEngine, getLightEngineSafe } from './lightEngine'
+import { createLightEngineIfNeeded, dumpLightData, getLightEngine, getLightEngineSafe } from './lightEngine'
 import { MesherLogReader } from './mesherlogReader'
 import { setSkinsConfig } from './utils/skins'
 
@@ -173,8 +173,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public initOptions: GraphicsInitOptions) {
-    createLightEngine(this)
-
     this.snapshotInitialValues()
     this.worldRendererConfig = displayOptions.inWorldRenderingConfig
     this.playerState = displayOptions.playerState
@@ -1003,5 +1001,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.displayOptions.worldView.removeAllListeners() // todo
     this.abortController.abort()
     removeAllStats()
+
+    this.displayOptions.worldView.destroy()
   }
 }

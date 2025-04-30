@@ -109,8 +109,6 @@ const handleMessage = data => {
       world.addColumn(data.x, data.z, data.chunk)
       if (data.lightData) {
         world.lightHolder.loadChunk(data.lightData)
-      } else {
-        console.warn('no light data', data.x, data.z)
       }
       if (data.customBlockModels) {
         const chunkKey = `${data.x},${data.z}`
