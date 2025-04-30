@@ -24,6 +24,7 @@ export class PlayerStateManager implements IPlayerState {
   private itemUsageTicks = 0
   private isUsingItem = false
   private ready = false
+  public lightingDisabled = false
   onlineMode = false
   get username () {
     return bot.username ?? ''
@@ -51,6 +52,23 @@ export class PlayerStateManager implements IPlayerState {
   }
 
   private botCreated () {
+    const handleDimensionData = (data) => {
+      let hasSkyLight = 1
+      try {
+        hasSkyLight = data.dimension.value.has_skylight.value
+      } catch (err) {
+        hasSkyLight = 0
+      }
+      this.lightingDisabled = bot.game.dimension === 'the_nether' || bot.game.dimension === 'the_end' || !hasSkyLight
+    }
+
+    bot._client.on('login', (packet) => {
+      handleDimensionData(packet)
+    })
+    bot._client.on('respawn', (packet) => {
+      handleDimensionData(packet)
+    })
+
     // Movement tracking
     bot.on('move', this.updateState)
 

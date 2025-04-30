@@ -53,19 +53,19 @@ export class World {
   }
 
   getLight (pos: Vec3, isNeighbor = false, skipMoreChecks = false, curBlockName = '') {
-    const IS_USING_SERVER_LIGHTING = !this.config.clientSideLighting
-    // const IS_USING_SERVER_LIGHTING = false
-
     // for easier testing
     if (!(pos instanceof Vec3)) pos = new Vec3(...pos as [number, number, number])
-    const { enableLighting, skyLight } = this.config
+
+    const IS_USING_LOCAL_SERVER_LIGHTING = this.config.flyingSquidWorkarounds
+    // const IS_USING_SERVER_LIGHTING = false
+
+    const { enableLighting, skyLight, clientSideLighting } = this.config
     if (!enableLighting) return 15
-    // const key = `${pos.x},${pos.y},${pos.z}`
-    // if (lightsCache.has(key)) return lightsCache.get(key)
     const column = this.getColumnByPos(pos)
-    if (!column || !hasChunkSection(column, pos)) return 15
+    if (!column) return 15
+    if (!clientSideLighting && !hasChunkSection(column, pos)) return 2
     let result = Math.max(
-      3,
+      2,
       Math.min(
         15,
         Math.max(
@@ -74,10 +74,7 @@ export class World {
         )
       )
     )
-    const MIN_LIGHT_LEVEL = 2
-    result = Math.max(result, MIN_LIGHT_LEVEL)
-    // lightsCache.set(key, result)
-    if (result === 2 && IS_USING_SERVER_LIGHTING) {
+    if (result === 2 && IS_USING_LOCAL_SERVER_LIGHTING) {
       if ([this.getBlock(pos)?.name ?? '', curBlockName].some(x => /_stairs|slab|glass_pane/.exec(x)) && !skipMoreChecks) { // todo this is obviously wrong
         const lights = [
           this.getLight(pos.offset(0, 1, 0), undefined, true),

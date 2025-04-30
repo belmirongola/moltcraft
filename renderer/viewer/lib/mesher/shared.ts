@@ -8,6 +8,7 @@ export const defaultMesherConfig = {
   skyLight: 15,
   smoothLighting: true,
   clientSideLighting: false,
+  flyingSquidWorkarounds: false,
 
   outputFormat: 'threeJs' as 'threeJs' | 'webgpu',
   textureSize: 1024, // for testing

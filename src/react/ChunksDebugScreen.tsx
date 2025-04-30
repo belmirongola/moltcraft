@@ -30,7 +30,7 @@ const Inner = () => {
       state,
       lines: [String(chunk?.loads.length ?? 0)],
       sidebarLines: [
-        `loads: ${chunk.loads.map(l => `${l.reason} ${l.dataLength} ${l.time}`).join('\n')}`,
+        `loads: ${chunk.loads?.map(l => `${l.reason} ${l.dataLength} ${l.time}`).join('\n')}`,
         // `blockUpdates: ${chunk.blockUpdates}`,
       ],
     }

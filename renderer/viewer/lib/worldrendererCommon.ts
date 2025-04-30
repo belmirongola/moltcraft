@@ -42,6 +42,7 @@ export const defaultWorldRendererConfig = {
   smoothLighting: true,
   enableLighting: true,
   clientSideLighting: false,
+  flyingSquidWorkarounds: false,
   starfield: true,
   addChunksBatchWaitTime: 200,
   vrSupport: true,
@@ -549,7 +550,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     skyLight = Math.floor(skyLight)
     return {
       version: this.version,
-      enableLighting: this.worldRendererConfig.enableLighting,
+      enableLighting: this.worldRendererConfig.enableLighting && !this.playerState.lightingDisabled,
       skyLight,
       smoothLighting: this.worldRendererConfig.smoothLighting,
       outputFormat: this.outputFormat,
@@ -557,7 +558,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       debugModelVariant: undefined,
       clipWorldBelowY: this.worldRendererConfig.clipWorldBelowY,
       disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers,
-      clientSideLighting: this.worldRendererConfig.clientSideLighting
+      clientSideLighting: this.worldRendererConfig.clientSideLighting,
+      flyingSquidWorkarounds: this.worldRendererConfig.flyingSquidWorkarounds
     }
   }
 

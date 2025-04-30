@@ -31,8 +31,7 @@ export default () => {
   const [packetsString, setPacketsString] = useState('')
   const [showDebug, setShowDebug] = useState(false)
   const [pos, setPos] = useState<{ x: number, y: number, z: number }>({ x: 0, y: 0, z: 0 })
-  const [skyL, setSkyL] = useState(0)
-  const [blockL, setBlockL] = useState(0)
+  const [lightInfo, setLightInfo] = useState<{ sky: number, block: number, info: string }>({ sky: 0, block: 0, info: '-' })
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
   const [timeOfDay, setTimeOfDay] = useState(0)
@@ -129,11 +128,21 @@ export default () => {
     })
 
     const freqUpdateInterval = setInterval(() => {
-      const lights = getDebugLightValues(Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z))
+      const lightingEnabled = appViewer.inWorldRenderingConfig.enableLighting
+      const serverLighting = !appViewer.inWorldRenderingConfig.clientSideLighting
+      if (!lightingEnabled || serverLighting) {
+        setLightInfo({
+          sky: bot.world.getSkyLight(bot.entity.position),
+          block: bot.world.getBlockLight(bot.entity.position),
+          info: lightingEnabled ? 'Server Lighting' : 'Lighting Disabled'
+        })
+      } else {
+        // client engine is used
+        const lights = getDebugLightValues(Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z))
+        setLightInfo({ sky: lights.skyLight, block: lights.blockLight, info: 'Client Light Engine' })
+      }
 
       setPos({ ...bot.entity.position })
-      setSkyL(lights.skyLight)
-      setBlockL(lights.blockLight)
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
@@ -192,7 +201,7 @@ export default () => {
       <p>Client TPS: {clientTps} {serverTps ? `Server TPS: ${serverTps.value} ${serverTps.frozen ? '(frozen)' : ''}` : ''}</p>
       <p>Facing (viewer): {bot.entity.yaw.toFixed(3)} {bot.entity.pitch.toFixed(3)}</p>
       <p>Facing (minecraft): {quadsDescription[minecraftQuad.current]} ({minecraftYaw.current.toFixed(1)} {(bot.entity.pitch * -180 / Math.PI).toFixed(1)})</p>
-      <p>Light: {blockL} ({skyL} sky)</p>
+      <p>Light: {lightInfo.block} ({lightInfo.sky} sky) ({lightInfo.info})</p>
 
       <p>Biome: minecraft:{loadedData.biomesArray[biomeId]?.name ?? 'unknown biome'}</p>
       <p>Day: {day} Time: {timeOfDay}</p>
