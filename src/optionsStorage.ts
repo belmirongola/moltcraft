@@ -103,7 +103,12 @@ const defaultOptions = {
   showCursorBlockInSpectator: false,
   renderEntities: true,
   smoothLighting: true,
-  // lightingStrategy: 'prefer-server' as 'only-server' | 'always-client' | 'prefer-server',
+  /**
+   * Controls how lighting is calculated and rendered:
+   * - 'always-client': Always use client-side lighting engine for all light calculations
+   * - 'prefer-server': Use server lighting data when available, fallback to client-side calculations
+   * - 'always-server': Only use lighting data from the server, disable client-side calculations
+   */
   lightingStrategy: 'prefer-server' as 'always-client' | 'prefer-server' | 'always-server',
   chatSelect: true,
   autoJump: 'auto' as 'auto' | 'always' | 'never',
