@@ -620,24 +620,56 @@ export class Entities {
     let mesh
     if (e === undefined) {
       const group = new THREE.Group()
-      if (entity.name === 'item') {
-        const item = entity.metadata?.find((m: any) => typeof m === 'object' && m?.itemCount)
+      if (entity.name === 'item' || entity.name === 'tnt' || entity.name === 'falling_block') {
+        const item = entity.name === 'tnt'
+          ? { name: 'tnt' }
+          : entity.name === 'falling_block'
+            ? { blockState: entity['objectData'] }
+            : entity.metadata?.find((m: any) => typeof m === 'object' && m?.itemCount)
         if (item) {
           const object = this.getItemMesh(item, {
             'minecraft:display_context': 'ground',
           })
           if (object) {
             mesh = object.mesh
-            mesh.scale.set(0.5, 0.5, 0.5)
-            mesh.position.set(0, 0.2, 0)
+            if (entity.name === 'item') {
+              mesh.scale.set(0.5, 0.5, 0.5)
+              mesh.position.set(0, 0.2, 0)
+            } else {
+              mesh.scale.set(2, 2, 2)
+              mesh.position.set(0, 0.5, 0)
+            }
             // set faces
             // mesh.position.set(targetPos.x + 0.5 + 2, targetPos.y + 0.5, targetPos.z + 0.5)
             // viewer.scene.add(mesh)
             const clock = new THREE.Clock()
-            mesh.onBeforeRender = () => {
-              const delta = clock.getDelta()
-              mesh.rotation.y += delta
+            if (entity.name === 'item') {
+              mesh.onBeforeRender = () => {
+                const delta = clock.getDelta()
+                mesh.rotation.y += delta
+              }
             }
+
+            // TNT blinking
+            // if (entity.name === 'tnt') {
+            //   let lastBlink = 0
+            //   const blinkInterval = 500 // ms between blinks
+            //   mesh.onBeforeRender = () => {
+            //     const now = Date.now()
+            //     if (now - lastBlink > blinkInterval) {
+            //       lastBlink = now
+            //       mesh.traverse((child) => {
+            //         if (child instanceof THREE.Mesh) {
+            //           const material = child.material as THREE.MeshLambertMaterial
+            //           material.color.set(material.color?.equals(new THREE.Color(0xff_ff_ff))
+            //             ? new THREE.Color(0xff_00_00)
+            //             : new THREE.Color(0xff_ff_ff))
+            //         }
+            //       })
+            //     }
+            //   }
+            // }
+
             //@ts-expect-error
             group.additionalCleanup = () => {
               // important: avoid texture memory leak and gpu slowdown
@@ -1076,7 +1108,7 @@ export class Entities {
     const entityMesh = this.entities[entityId]?.children.find(c => c.name === 'mesh')
     if (entityMesh) {
       entityMesh.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
+        if (child instanceof THREE.Mesh && child.material.clone) {
           const clonedMaterial = child.material.clone()
           clonedMaterial.dispose()
           child.material = child.material.clone()
@@ -1088,6 +1120,14 @@ export class Entities {
         }
       })
     }
+  }
+
+  raycastScene () {
+    // return any object from scene. raycast from camera
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), this.worldRenderer.camera)
+    const intersects = raycaster.intersectObjects(this.worldRenderer.scene.children)
+    return intersects[0]?.object
   }
 }
 
@@ -1186,12 +1226,6 @@ function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Obj
   const group = new THREE.Object3D()
   group.name = `armor_${slotType}${overlay ? '_overlay' : ''}`
   group.add(mesh)
-
-  const skeletonHelper = new THREE.SkeletonHelper(mesh)
-  //@ts-expect-error
-  skeletonHelper.material.linewidth = 2
-  skeletonHelper.visible = false
-  group.add(skeletonHelper)
 
   entityMesh.add(mesh)
 }

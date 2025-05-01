@@ -103,8 +103,8 @@ function tintToGl (tint) {
   return [r / 255, g / 255, b / 255]
 }
 
-function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isRealWater: boolean) {
-  if (!isRealWater || (block && isBlockWaterlogged(block))) return 8 / 9
+function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isWater: boolean, isRealWater: boolean) {
+  if ((isWater && !isRealWater) || (block && isBlockWaterlogged(block))) return 8 / 9
   if (!block || block.type !== type) return 1 / 9
   if (block.metadata === 0) { // source block
     const blockAbove = world.getBlock(pos.offset(0, 1, 0))
@@ -130,7 +130,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
       const pos = cursor.offset(x, 0, z)
-      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, isRealWater))
+      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, water, isRealWater))
     }
   }
   const cornerHeights = [

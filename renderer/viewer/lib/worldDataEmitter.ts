@@ -90,9 +90,17 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   }
 
   listenToBot (bot: typeof __type_bot) {
+    const entitiesObjectData = new Map<string, number>()
+    bot._client.prependListener('spawn_entity', (data) => {
+      if (data.objectData && data.entityId !== undefined) {
+        entitiesObjectData.set(data.entityId, data.objectData)
+      }
+    })
+
     const emitEntity = (e, name = 'entity') => {
       if (!e || e === bot.entity) return
       if (!e.name) return // mineflayer received update for not spawned entity
+      e.objectData = entitiesObjectData.get(e.id)
       this.emitter.emit(name as any, {
         ...e,
         pos: e.position,

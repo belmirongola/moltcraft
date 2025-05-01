@@ -1,25 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Transition } from 'react-transition-group'
+import { motion, AnimatePresence } from 'framer-motion'
 import styles from './DiveTransition.module.css'
 
-// dive animation from framework7
+const durationInSeconds = 0.3
+const durationInMs = durationInSeconds * 1000
 
-const startStyle = { opacity: 0, transform: 'translateZ(-150px)' }
-const endExitStyle = { opacity: 0, transform: 'translateZ(150px)' }
-const endStyle = { opacity: 1, transform: 'translateZ(0)' }
-
-const stateStyles = {
-  entering: endStyle,
-  entered: endStyle,
-  exiting: endExitStyle,
-  exited: endExitStyle,
-}
-const duration = 300
-const basicStyle = {
-  transition: `${duration}ms ease-in-out all`,
-}
-
-export default ({ children, open }) => {
+export default ({ children, open, isError = false }) => {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -30,7 +16,7 @@ export default ({ children, open }) => {
     if (mounted && !open) {
       timeout = setTimeout(() => {
         setMounted(false)
-      }, duration)
+      }, durationInMs)
     }
     return () => {
       if (timeout) clearTimeout(timeout)
@@ -39,17 +25,20 @@ export default ({ children, open }) => {
 
   if (!mounted) return null
 
-  return <Transition
-    in={open}
-    timeout={duration}
-    mountOnEnter
-    unmountOnExit
-  >
-    {(state) => {
-      return <div className={styles.container}>
-        {/* todo resolve compl */}
-        <div style={{ ...basicStyle, ...stateStyles[state] }} className={styles.main}>{children}</div>
-      </div>
-    }}
-  </Transition>
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <div className={styles.container}>
+          <motion.div
+            initial={false}
+            exit={isError ? undefined : { opacity: 0 }}
+            transition={{ duration: durationInSeconds }}
+            className={styles.main}
+          >
+            {children}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
 }

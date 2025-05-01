@@ -59,6 +59,7 @@ export const openToWanAndCopyJoinLink = async (writeText: (text) => void, doCopy
   const params = host ? parseUrl(host) : undefined
   const peer = new Peer({
     debug: 3,
+    secure: true,
     ...params
   })
   peerInstance = peer
@@ -119,11 +120,18 @@ export const openToWanAndCopyJoinLink = async (writeText: (text) => void, doCopy
       await copyJoinLink()
       resolve('Copied join link to clipboard')
     })
-    timeout = setTimeout(() => {
+    timeout = setTimeout(async () => {
       if (!hadErrorReported && timeout !== undefined) {
-        writeText('timeout')
+        if (hasFallback && overridePeerJsServer === null) {
+          destroy()
+          overridePeerJsServer = fallbackServer
+          console.log('Trying fallback server due to timeout', fallbackServer)
+          resolve((await openToWanAndCopyJoinLink(writeText, doCopy))!)
+        } else {
+          writeText('timeout')
+          resolve('Failed to open to wan (timeout)')
+        }
       }
-      resolve('Failed to open to wan (timeout)')
     }, 6000)
 
     // fallback
@@ -139,7 +147,7 @@ export const openToWanAndCopyJoinLink = async (writeText: (text) => void, doCopy
       }
     })
   })
-  if (!peerInstance.open) {
+  if (peerInstance && !peerInstance.open) {
     destroy()
   }
   miscUiState.wanOpening = false
@@ -200,7 +208,7 @@ export const connectToPeer = async (peerId: string, options: ConnectPeerOptions 
   const clientDuplex = new CustomDuplex({}, (data) => {
     // todo debug until play state
     // console.debug('sending', data.toString())
-    connection.send(data)
+    void connection.send(data)
   })
   connection.on('data', (data: any) => {
     console.debug('received', Buffer.from(data).toString())
