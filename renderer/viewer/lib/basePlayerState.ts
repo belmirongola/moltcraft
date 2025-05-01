@@ -32,6 +32,7 @@ export interface IPlayerState {
   username?: string
   onlineMode?: boolean
   lightingDisabled?: boolean
+  shouldHideHand?: boolean
 
   events: TypedEmitter<PlayerStateEvents>
 

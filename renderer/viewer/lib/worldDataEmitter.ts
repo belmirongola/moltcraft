@@ -9,7 +9,7 @@ import { proxy } from 'valtio'
 import TypedEmitter from 'typed-emitter'
 import { delayedIterator } from '../../playground/shared'
 import { chunkPos } from './simpleUtils'
-import { createLightEngineIfNeeded, destroyLightEngine, processLightChunk, updateBlockLight } from './lightEngine'
+import { createLightEngineIfNeeded, destroyLightEngine, lightRemoveColumn, processLightChunk, updateBlockLight } from './lightEngine'
 import { WorldRendererConfig } from './worldrendererCommon'
 
 export type ChunkPosKey = string // like '16,16'
@@ -152,13 +152,15 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       chunkColumnUnload: (pos: Vec3) => {
         this.unloadChunk(pos)
       },
-      blockUpdate: (oldBlock, newBlock) => {
+      blockUpdate: async (oldBlock, newBlock) => {
+        if (typeof newBlock.stateId === 'number' && oldBlock?.stateId === newBlock.stateId) return
         const stateId = newBlock.stateId ?? ((newBlock.type << 4) | newBlock.metadata)
+        const distance = newBlock.position.distanceTo(this.lastPos)
 
-        const updateChunks = this.worldRendererConfig.clientSideLighting ? updateBlockLight(newBlock.position.x, newBlock.position.y, newBlock.position.z, stateId) ?? [] : []
         this.emit('blockUpdate', { pos: newBlock.position, stateId })
+        const updateChunks = this.worldRendererConfig.clientSideLighting === 'none' ? [] : await updateBlockLight(newBlock.position.x, newBlock.position.y, newBlock.position.z, stateId, distance) ?? []
         for (const chunk of updateChunks) {
-          void this.loadChunk(new Vec3(chunk[0] * 16, 0, chunk[1] * 16), true, 'setBlockStateId light update')
+          void this.loadChunk(new Vec3(chunk.x * 16, 0, chunk.z * 16), true, 'setBlockStateId light update')
         }
       },
       time: () => {
@@ -308,7 +310,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       const column = await this.world.getColumnAt(pos['y'] ? pos as Vec3 : new Vec3(pos.x, 0, pos.z))
       if (column) {
         let result = [] as Array<{ x: number, z: number }>
-        if (!isLightUpdate && this.worldRendererConfig.clientSideLighting) {
+        if (!isLightUpdate && this.worldRendererConfig.clientSideLighting === 'full') {
           result = await processLightChunk(pos.x, pos.z) ?? []
         }
         if (!result) return
@@ -359,6 +361,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     this.emitter.emit('unloadChunk', { x: pos.x, z: pos.z })
     delete this.loadedChunks[`${pos.x},${pos.z}`]
     delete this.debugChunksInfo[`${pos.x},${pos.z}`]
+    lightRemoveColumn(pos.x, pos.z)
   }
 
   async updatePosition (pos: Vec3, force = false) {

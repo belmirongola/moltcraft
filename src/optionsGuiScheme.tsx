@@ -81,6 +81,10 @@ export const guiOptionsScheme: {
       custom () {
         return <Category>Experimental</Category>
       },
+      experimentalLightingV1: {
+        text: 'Experimental Lighting',
+        tooltip: 'Once stable this setting will be removed and always enabled',
+      },
       smoothLighting: {},
       lightingStrategy: {
         values: [

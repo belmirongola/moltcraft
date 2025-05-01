@@ -31,7 +31,7 @@ type SectionKey = string
 
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
-  sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean }> = {}
+  sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean, hasSkylight?: boolean }> = {}
   chunkTextures = new Map<string, { [pos: string]: THREE.Texture }>()
   signsCache = new Map<string, any>()
   starField: StarField
@@ -151,13 +151,19 @@ export class WorldRendererThree extends WorldRendererCommon {
     })
     this.onReactiveValueUpdated('ambientLight', (value) => {
       if (!value) return
-      // this.ambientLight.intensity = value
-      this.ambientLight.intensity = 1
+      if (this.worldRendererConfig.legacyLighting) {
+        this.ambientLight.intensity = value
+      } else {
+        this.ambientLight.intensity = 1
+      }
     })
     this.onReactiveValueUpdated('directionalLight', (value) => {
       if (!value) return
-      // this.directionalLight.intensity = value
-      this.directionalLight.intensity = 0.4
+      if (this.worldRendererConfig.legacyLighting) {
+        this.directionalLight.intensity = value
+      } else {
+        this.directionalLight.intensity = 0.4
+      }
     })
     this.onReactiveValueUpdated('lookingAtBlock', (value) => {
       this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
@@ -238,8 +244,36 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
+  skylightUpdated (): void {
+    let updated = 0
+    for (const sectionKey of Object.keys(this.sectionObjects)) {
+      if (this.sectionObjects[sectionKey].hasSkylight) {
+        // set section to be updated
+        const [x, y, z] = sectionKey.split(',').map(Number)
+        this.setSectionDirty(new Vec3(x, y, z))
+        updated++
+      }
+    }
+
+    console.log(`Skylight changed to ${this.skyLight}. Updated`, updated, 'sections')
+  }
+
   getItemRenderData (item: Record<string, any>, specificProps: ItemSpecificContextProperties) {
     return getItemUv(item, specificProps, this.resourcesManager)
+  }
+
+  debugOnlySunlightSections (enable: boolean, state = true) {
+    for (const sectionKey of Object.keys(this.sectionObjects)) {
+      if (!enable) {
+        this.sectionObjects[sectionKey].visible = true
+        continue
+      }
+      if (this.sectionObjects[sectionKey].hasSkylight) {
+        this.sectionObjects[sectionKey].visible = state
+      } else {
+        this.sectionObjects[sectionKey].visible = false
+      }
+    }
   }
 
   async demoModel () {
@@ -328,7 +362,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   // debugRecomputedDeletedObjects = 0
   handleWorkerMessage (data: { geometry: MesherGeometryOutput, key, type }): void {
     if (data.type !== 'geometry') return
-    let object: THREE.Object3D = this.sectionObjects[data.key]
+    let object = this.sectionObjects[data.key]
     if (object) {
       this.scene.remove(object)
       disposeObject(object)
@@ -387,7 +421,10 @@ export class WorldRendererThree extends WorldRendererCommon {
         object.add(head)
       }
     }
+
+    object.hasSkylight = data.geometry.hasSkylight
     this.sectionObjects[data.key] = object
+
     if (this.displayOptions.inWorldRenderingConfig._renderByChunks) {
       object.visible = false
       const chunkKey = `${chunkCoords[0]},${chunkCoords[2]}`
@@ -472,7 +509,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
+    if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.shouldHideHand /*  && !this.freeFlyMode */) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
     }

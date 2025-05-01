@@ -96,16 +96,32 @@ export const watchOptionsAfterViewerInit = () => {
 
   const updateLightingStrategy = () => {
     if (!bot) return
+    if (!options.experimentalLightingV1) {
+      appViewer.inWorldRenderingConfig.clientSideLighting = 'none'
+      appViewer.inWorldRenderingConfig.enableLighting = false
+      appViewer.inWorldRenderingConfig.legacyLighting = true
+      return
+    }
+
+    const lightingEnabled = options.dayCycle
+    if (!lightingEnabled) {
+      appViewer.inWorldRenderingConfig.clientSideLighting = 'none'
+      appViewer.inWorldRenderingConfig.enableLighting = false
+      return
+    }
+
+    appViewer.inWorldRenderingConfig.legacyLighting = false
+
     // for now ignore saved lighting to allow proper updates and singleplayer created worlds
     // appViewer.inWorldRenderingConfig.flyingSquidWorkarounds = miscUiState.flyingSquid
     const serverParsingSupported = miscUiState.flyingSquid ? /* !bot.supportFeature('blockStateId') */false : bot.supportFeature('blockStateId')
 
-    const serverLightingEnabled = serverParsingSupported && (options.lightingStrategy === 'prefer-server' || options.lightingStrategy === 'always-server')
-    const clientLightingEnabled = options.lightingStrategy === 'prefer-server' ? !serverParsingSupported : options.lightingStrategy === 'always-client'
+    const serverLightingPossible = serverParsingSupported && (options.lightingStrategy === 'prefer-server' || options.lightingStrategy === 'always-server')
+    const clientLightingPossible = options.lightingStrategy !== 'always-server'
 
-    const clientSideLighting = !serverLightingEnabled
-    appViewer.inWorldRenderingConfig.clientSideLighting = clientSideLighting
-    appViewer.inWorldRenderingConfig.enableLighting = options.dayCycleAndLighting && (clientLightingEnabled || serverLightingEnabled)
+    const clientSideLighting = !serverLightingPossible
+    appViewer.inWorldRenderingConfig.clientSideLighting = serverLightingPossible && clientLightingPossible ? 'partial' : clientSideLighting ? 'full' : 'none'
+    appViewer.inWorldRenderingConfig.enableLighting = serverLightingPossible || clientLightingPossible
   }
 
   subscribeKey(options, 'lightingStrategy', updateLightingStrategy)

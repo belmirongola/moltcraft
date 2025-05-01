@@ -16,7 +16,8 @@ export const createLightEngineIfNeeded = (worldView: WorldDataEmitter) => {
   if (lightEngine) return
   lightEngine = createLightEngineForSyncWorld(worldView.world as unknown as world.WorldSync, loadedData, {
     minY: worldView.minY,
-    height: worldView.worldHeight,
+    height: worldView.minY + worldView.worldHeight,
+    // writeLightToOriginalWorld: true,
     // enableSkyLight: false,
   })
   lightEngine.externalWorld.setBlock = () => {}
@@ -49,20 +50,36 @@ export const getDebugLightValues = (x: number, y: number, z: number) => {
   }
 }
 
-export const updateBlockLight = (x: number, y: number, z: number, stateId: number) => {
+export const updateBlockLight = async (x: number, y: number, z: number, stateId: number, distance: number) => {
+  if (distance > 16) return []
+  const chunkX = Math.floor(x / 16) * 16
+  const chunkZ = Math.floor(z / 16) * 16
   const engine = getLightEngineSafe()
   if (!engine) return
-  const affected = engine['affectedChunksTimestamps'] as Map<string, number>
-  const noAffected = affected.size === 0
-  engine.setBlock(x, y, z, convertPrismarineBlockToWorldBlock(stateId, loadedData))
+  const result = await engine.setBlockUpdateChunkIfNeeded(x, y, z)
+  if (!result) return
+  console.log(`[light engine] updateBlockLight (${x}, ${y}, ${z}) took`, Math.round(result.time), 'ms', result.affectedChunks?.length ?? 0, 'chunks')
+  return result.affectedChunks
 
-  if (affected.size > 0) {
-    const chunks = [...affected.keys()].map(key => {
-      return key.split(',').map(Number) as [number, number]
-    })
-    affected.clear()
-    return chunks
-  }
+  // const engine = getLightEngineSafe()
+  // if (!engine) return
+  // const affected = engine['affectedChunksTimestamps'] as Map<string, number>
+  // const noAffected = affected.size === 0
+  // engine.setBlock(x, y, z, convertPrismarineBlockToWorldBlock(stateId, loadedData))
+
+  // if (affected.size > 0) {
+  //   const chunks = [...affected.keys()].map(key => {
+  //     return key.split(',').map(Number) as [number, number]
+  //   })
+  //   affected.clear()
+  //   return chunks
+  // }
+}
+
+export const lightRemoveColumn = (x: number, z: number) => {
+  const engine = getLightEngineSafe()
+  if (!engine) return
+  engine.columnCleanup(Math.floor(x / 16), Math.floor(z / 16))
 }
 
 export const destroyLightEngine = () => {

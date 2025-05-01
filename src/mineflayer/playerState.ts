@@ -91,6 +91,10 @@ export class PlayerStateManager implements IPlayerState {
     this.reactive.gameMode = bot.game?.gameMode
   }
 
+  get shouldHideHand () {
+    return this.reactive.gameMode === 'spectator'
+  }
+
   // #region Movement and Physics State
   private updateState () {
     if (!bot?.entity || this.disableStateUpdates) return
@@ -134,7 +138,7 @@ export class PlayerStateManager implements IPlayerState {
   }
 
   getEyeHeight (): number {
-    return bot.controlState.sneak ? 1.27 : 1.62
+    return bot.controlState.sneak && !this.isFlying() ? 1.27 : 1.62
   }
 
   isOnGround (): boolean {

@@ -41,7 +41,8 @@ export const defaultWorldRendererConfig = {
   clipWorldBelowY: undefined as number | undefined,
   smoothLighting: true,
   enableLighting: true,
-  clientSideLighting: false,
+  legacyLighting: false,
+  clientSideLighting: 'full' as 'full' | 'partial' | 'none',
   flyingSquidWorkarounds: false,
   starfield: true,
   addChunksBatchWaitTime: 200,
@@ -58,6 +59,7 @@ export const defaultWorldRendererConfig = {
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
 
 export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any> {
+  skyLight = 15
   worldReadyResolvers = Promise.withResolvers<void>()
   worldReadyPromise = this.worldReadyResolvers.promise
   timeOfTheDay = 0
@@ -485,6 +487,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   timeUpdated? (newTime: number): void
 
+  skylightUpdated? (): void
+
   updateViewerPosition (pos: Vec3) {
     this.viewerPosition = pos
     for (const [key, value] of Object.entries(this.loadedChunks)) {
@@ -532,7 +536,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.sendMesherMcData()
   }
 
-  getMesherConfig (): MesherConfig {
+  changeSkyLight () {
     let skyLight = 15
     const timeOfDay = this.timeOfTheDay
     if (timeOfDay < 0 || timeOfDay > 24_000) {
@@ -545,18 +549,21 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       skyLight = ((timeOfDay - 12_000) / 6000) * 15
     }
 
-    skyLight = Math.floor(skyLight)
+    this.skyLight = Math.floor(skyLight)
+  }
+
+  getMesherConfig (): MesherConfig {
     return {
       version: this.version,
       enableLighting: this.worldRendererConfig.enableLighting && !this.playerState.lightingDisabled,
-      skyLight,
+      skyLight: this.skyLight,
       smoothLighting: this.worldRendererConfig.smoothLighting,
       outputFormat: this.outputFormat,
       textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
       debugModelVariant: undefined,
       clipWorldBelowY: this.worldRendererConfig.clipWorldBelowY,
       disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers,
-      clientSideLighting: this.worldRendererConfig.clientSideLighting,
+      usingCustomLightHolder: false,
       flyingSquidWorkarounds: this.worldRendererConfig.flyingSquidWorkarounds
     }
   }
@@ -789,19 +796,17 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
 
     worldEmitter.on('time', (timeOfDay) => {
-      this.timeUpdated?.(timeOfDay)
-
       if (timeOfDay < 0 || timeOfDay > 24_000) {
         throw new Error('Invalid time of day. It should be between 0 and 24000.')
       }
 
+      const oldSkyLight = this.skyLight
       this.timeOfTheDay = timeOfDay
-
-      // if (this.worldRendererConfig.skyLight === skyLight) return
-      // this.worldRendererConfig.skyLight = skyLight
-      // if (this instanceof WorldRendererThree) {
-      //   (this).rerenderAllChunks?.()
-      // }
+      this.changeSkyLight()
+      if (oldSkyLight !== this.skyLight) {
+        this.skylightUpdated?.()
+      }
+      this.timeUpdated?.(timeOfDay)
     })
 
     worldEmitter.emit('listening')
@@ -896,7 +901,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.reactiveState.world.mesherWork = true
     const distance = this.getDistance(pos)
     // todo shouldnt we check loadedChunks instead?
-    if (!this.workers.length || distance[0] > this.viewDistance || distance[1] > this.viewDistance) return
+    // if (!this.workers.length || distance[0] > this.viewDistance || distance[1] > this.viewDistance) return
     const key = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.y / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     // if (this.sectionsOutstanding.has(key)) return
     this.renderUpdateEmitter.emit('dirty', pos, value)

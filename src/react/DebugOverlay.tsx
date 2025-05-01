@@ -129,17 +129,13 @@ export default () => {
 
     const freqUpdateInterval = setInterval(() => {
       const lightingEnabled = appViewer.inWorldRenderingConfig.enableLighting
-      const serverLighting = !appViewer.inWorldRenderingConfig.clientSideLighting
-      if (!lightingEnabled || serverLighting) {
+      const { clientSideLighting } = appViewer.inWorldRenderingConfig
+      if (!lightingEnabled) {
         setLightInfo({
           sky: bot.world.getSkyLight(bot.entity.position),
           block: bot.world.getBlockLight(bot.entity.position),
-          info: lightingEnabled ? 'Server Lighting' : 'Lighting Disabled'
+          info: lightingEnabled ? clientSideLighting === 'none' ? 'Server Lighting' : 'Server + Client Engine' : 'Lighting Disabled'
         })
-      } else {
-        // client engine is used
-        const lights = getDebugLightValues(Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z))
-        setLightInfo({ sky: lights.skyLight, block: lights.blockLight, info: 'Client Light Engine' })
       }
 
       setPos({ ...bot.entity.position })

@@ -7,7 +7,7 @@ export const defaultMesherConfig = {
   enableLighting: true,
   skyLight: 15,
   smoothLighting: true,
-  clientSideLighting: false,
+  usingCustomLightHolder: false,
   flyingSquidWorkarounds: false,
 
   outputFormat: 'threeJs' as 'threeJs' | 'webgpu',
@@ -48,6 +48,7 @@ export type MesherGeometryOutput = {
   hadErrors: boolean
   blocksCount: number
   customBlockModels?: CustomBlockModels
+  hasSkylight?: boolean
 }
 
 export type HighestBlockInfo = { y: number, stateId: number | undefined, biomeId: number | undefined }

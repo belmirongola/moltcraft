@@ -8,6 +8,9 @@ import { miscUiState } from './globalState'
 
 const isDev = process.env.NODE_ENV === 'development'
 const initialAppConfig = process.env?.INLINED_APP_CONFIG as AppConfig ?? {}
+// todo
+const IS_BETA_TESTER = location.hostname.startsWith('s.') || location.hostname.startsWith('beta.')
+
 const defaultOptions = {
   renderDistance: 3,
   keepChunksDistance: 1,
@@ -45,7 +48,9 @@ const defaultOptions = {
   /** @unstable */
   debugLogNotFrequentPackets: false,
   unimplementedContainers: false,
-  dayCycleAndLighting: true,
+  dayCycle: true,
+  // experimentalLighting: IS_BETA_TESTER,
+  experimentalLightingV1: location.hostname.startsWith('lighting.'),
   loadPlayerSkins: true,
   renderEars: true,
   lowMemoryMode: false,
@@ -170,6 +175,11 @@ export const disabledSettings = proxy({
 })
 
 const migrateOptions = (options: Partial<AppOptions & Record<string, any>>) => {
+  if (options.dayCycleAndLighting) {
+    delete options.dayCycleAndLighting
+    options.dayCycle = options.dayCycleAndLighting
+  }
+
   if (options.highPerformanceGpu) {
     options.gpuPreference = 'high-performance'
     delete options.highPerformanceGpu

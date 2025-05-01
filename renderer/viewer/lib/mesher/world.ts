@@ -33,6 +33,7 @@ export type WorldBlock = Omit<Block, 'position'> & {
 }
 
 export class World {
+  hadSkyLight = false
   lightHolder = new WorldLightHolder(0, 0)
   config = defaultMesherConfig
   Chunk: typeof import('prismarine-chunk/types/index').PCChunk
@@ -59,11 +60,11 @@ export class World {
     const IS_USING_LOCAL_SERVER_LIGHTING = this.config.flyingSquidWorkarounds
     // const IS_USING_SERVER_LIGHTING = false
 
-    const { enableLighting, skyLight, clientSideLighting } = this.config
+    const { enableLighting, skyLight, usingCustomLightHolder } = this.config
     if (!enableLighting) return 15
     const column = this.getColumnByPos(pos)
     if (!column) return 15
-    if (!clientSideLighting && !hasChunkSection(column, pos)) return 2
+    if (!usingCustomLightHolder && !hasChunkSection(column, pos)) return 2
     let result = Math.max(
       2,
       Math.min(
@@ -95,23 +96,29 @@ export class World {
   }
 
   getBlockLight (pos: Vec3) {
-    if (!this.config.clientSideLighting) {
-      const column = this.getColumnByPos(pos)
-      if (!column) return 15
-      return column.getBlockLight(posInChunk(pos))
-    }
+    // if (this.config.clientSideLighting) {
+    //   return this.lightHolder.getBlockLight(pos.x, pos.y, pos.z)
+    // }
 
-    return this.lightHolder.getBlockLight(pos.x, pos.y, pos.z)
+    const column = this.getColumnByPos(pos)
+    if (!column) return 15
+    return column.getBlockLight(posInChunk(pos))
   }
 
   getSkyLight (pos: Vec3) {
-    if (!this.config.clientSideLighting) {
-      const column = this.getColumnByPos(pos)
-      if (!column) return 15
-      return column.getSkyLight(posInChunk(pos))
-    }
+    const result = this.getSkyLightInner(pos)
+    if (result > 2) this.hadSkyLight = true
+    return result
+  }
 
-    return this.lightHolder.getSkyLight(pos.x, pos.y, pos.z)
+  getSkyLightInner (pos: Vec3) {
+    // if (this.config.clientSideLighting) {
+    //   return this.lightHolder.getSkyLight(pos.x, pos.y, pos.z)
+    // }
+
+    const column = this.getColumnByPos(pos)
+    if (!column) return 15
+    return column.getSkyLight(posInChunk(pos))
   }
 
   addColumn (x, z, json) {

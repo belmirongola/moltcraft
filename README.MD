@@ -12,9 +12,10 @@ For building the project yourself / contributing, see [Development, Debugging & 
 
 ### Big Features
 
+- Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
+- Combined Lighting System - Server Parsing + Client Side Engine for block updates
 - Official Mineflayer [plugin integration](https://github.com/zardoy/mcraft-fun-mineflayer-plugin)! View / Control your bot remotely.
 - Open any zip world file or even folder in read-write mode!
-- Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
 - Integrated JS server clone capable of opening Java world saves in any way (folders, zip, web chunks streaming, etc)
 - Singleplayer mode with simple world generations!
 - Works offline

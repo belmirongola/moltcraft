@@ -488,6 +488,7 @@ const isBlockWaterlogged = (block: Block) => {
 
 let unknownBlockModel: BlockModelPartsResolved
 export function getSectionGeometry (sx, sy, sz, world: World) {
+  world.hadSkyLight = false
   let delayedRender = [] as Array<() => void>
 
   const attr: MesherGeometryOutput = {
@@ -690,6 +691,8 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     delete attr.colors
     delete attr.uvs
   }
+
+  attr.hasSkylight = world.hadSkyLight
 
   return attr
 }
