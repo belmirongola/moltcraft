@@ -166,10 +166,10 @@ export default () => {
       }
     }
   }
-  return <DiveTransition open={isOpen}>
+  return <DiveTransition open={isOpen} isError={isError}>
     <AppStatus
       status={status}
-      isError={isError || status === ''} // display back button if status is empty as probably our app is errored // display back button if status is empty as probably our app is errored
+      isError={isError || status === ''} // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
       showReconnect={showReconnect}

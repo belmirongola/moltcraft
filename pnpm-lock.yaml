@@ -45,8 +45,8 @@ importers:
         specifier: ^0.7.12
         version: 0.7.12
       '@nxg-org/mineflayer-tracker':
-        specifier: 1.2.1
-        version: 1.2.1(encoding@0.1.13)
+        specifier: 1.2.3
+        version: 1.2.3(encoding@0.1.13)
       '@react-oauth/google':
         specifier: ^0.12.1
         version: 0.12.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -119,6 +119,9 @@ importers:
       flying-squid:
         specifier: npm:@zardoy/flying-squid@^0.0.59
         version: '@zardoy/flying-squid@0.0.59(encoding@0.1.13)'
+      framer-motion:
+        specifier: ^12.9.2
+        version: 12.9.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       fs-extra:
         specifier: ^11.1.1
         version: 11.3.0
@@ -132,8 +135,8 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
       mcraft-fun-mineflayer:
-        specifier: ^0.1.21
-        version: 0.1.21(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13))
+        specifier: ^0.1.23
+        version: 0.1.23(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
@@ -191,9 +194,6 @@ importers:
       react-select:
         specifier: ^5.8.0
         version: 5.10.1(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-transition-group:
-        specifier: ^4.4.5
-        version: 4.4.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-zoom-pan-pinch:
         specifier: 3.4.4
         version: 3.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -276,9 +276,6 @@ importers:
       '@types/lodash-es':
         specifier: ^4.17.9
         version: 4.17.12
-      '@types/react-transition-group':
-        specifier: ^4.4.7
-        version: 4.4.12(@types/react@18.3.18)
       '@types/stats.js':
         specifier: ^0.17.1
         version: 0.17.3
@@ -346,8 +343,8 @@ importers:
         specifier: ^0.0.9
         version: 0.0.9
       mineflayer:
-        specifier: github:GenerelSchwerz/mineflayer
-        version: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)
+        specifier: github:zardoy/mineflayer#gen-the-master
+        version: https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13)
       mineflayer-mouse:
         specifier: ^0.1.9
         version: 0.1.9(@types/debug@4.1.12)(@types/node@22.13.9)(jiti@2.4.2)(terser@5.39.0)(tsx@4.19.3)(yaml@2.7.0)
@@ -2031,8 +2028,8 @@ packages:
   '@nxg-org/mineflayer-physics-util@1.8.7':
     resolution: {integrity: sha512-wtLYvHqoEFr/j0ny2lyogwjbMvwpFuG2aWI8sI14+EAiGFRpL5+cog2ujSDsnRTZruO7tUXMTiPc1kebjXwfJg==}
 
-  '@nxg-org/mineflayer-tracker@1.2.1':
-    resolution: {integrity: sha512-SI1ffF8zvg3/ZNE021Ja2W0FZPN+WbQDZf8yFqOcXtPRXAtM9W6HvoACdzXep8BZid7WYgYLIgjKpB+9RqvCNQ==}
+  '@nxg-org/mineflayer-tracker@1.2.3':
+    resolution: {integrity: sha512-E7Ik/scU117Rr6kQUHHMBk8qOGh63YlTCGN33jMfeP7L8xmLeSHN3JtV/fbog8Y+R+HgO99yfZiRAaV7z1T6gQ==}
 
   '@nxg-org/mineflayer-trajectories@1.2.0':
     resolution: {integrity: sha512-yTDHn96fyWLKwdHdOGIrnt8nss4SJmxXwJn101o7aNI4sgdnUmwaX4FoNbmrEa9eZn6IwxaXIxDf+fJmKj9RIw==}
@@ -5296,6 +5293,20 @@ packages:
     resolution: {integrity: sha512-GMBAbW9antB8iZRHLoGw0b3HANt57diZYFO/HL1JGIC1MjKrdmhxvrJbupnVvpys0zsz7yBApXdQyfepKly2kA==}
     engines: {node: '>=0.10.0'}
 
+  framer-motion@12.9.2:
+    resolution: {integrity: sha512-R0O3Jdqbfwywpm45obP+8sTgafmdEcUoShQTAV+rB5pi+Y1Px/FYL5qLLRe5tPtBdN1J4jos7M+xN2VV2oEAbQ==}
+    peerDependencies:
+      '@emotion/is-prop-valid': '*'
+      react: ^18.2.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@emotion/is-prop-valid':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
@@ -6462,9 +6473,9 @@ packages:
     resolution: {integrity: sha512-Ucsu2pDLr/cs8bxbxU9KTszdf/vPTLphYgEHUEWxuYlMkPQUCpsQwkn3YgyykJ7RXaca7zZGlZXaTPXBAqJT6A==}
     engines: {node: '>=18.0.0'}
 
-  mcraft-fun-mineflayer@0.1.21:
-    resolution: {integrity: sha512-FtzebYMvLvunApQy9ilF1RGqiX01DJn8y7q4xAONiIhBrIT7BrHK3O63IA50YgklldvdgVxn7s3m4QANvsH2JA==}
-    version: 0.1.21
+  mcraft-fun-mineflayer@0.1.23:
+    resolution: {integrity: sha512-qmI1rQQ0Ro5zJdi99rClWLF+mS9JZffgNX2vyWWesS3Hsk3Xblp/8swYTJKHSaFpNgzkVfXV92fEIrBqeH6iKA==}
+    version: 0.1.23
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     peerDependencies:
       '@roamhq/wrtc': '*'
@@ -6711,8 +6722,8 @@ packages:
     resolution: {integrity: sha512-3bxph4jfbkBh5HpeouorxzrfSLNV+i+1gugNJ2jf52HW+rt+tW7eiiFPxrJEsOVkPT/3O/dEIW7j93LRlojMkQ==}
     engines: {node: '>=22'}
 
-  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a:
-    resolution: {tarball: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a}
+  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0:
+    resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0}
     version: 4.27.0
     engines: {node: '>=22'}
 
@@ -6817,6 +6828,12 @@ packages:
   morgan@1.10.0:
     resolution: {integrity: sha512-AbegBVI4sh6El+1gNwvD5YIck7nSA36weD7xvIxG4in80j/UoK8AEGaWnnz8v1GxonMCltmlNs5ZKbGvl9b1XQ==}
     engines: {node: '>= 0.8.0'}
+
+  motion-dom@12.9.1:
+    resolution: {integrity: sha512-xqXEwRLDYDTzOgXobSoWtytRtGlf7zdkRfFbrrdP7eojaGQZ5Go4OOKtgnx7uF8sAkfr1ZjMvbCJSCIT2h6fkQ==}
+
+  motion-utils@12.8.3:
+    resolution: {integrity: sha512-GYVauZEbca8/zOhEiYOY9/uJeedYQld6co/GJFKOy//0c/4lDqk0zB549sBYqqV2iMuX+uHrY1E5zd8A2L+1Lw==}
 
   ms@2.0.0:
     resolution: {integrity: sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==}
@@ -11367,7 +11384,7 @@ snapshots:
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.4
 
-  '@nxg-org/mineflayer-tracker@1.2.1(encoding@0.1.13)':
+  '@nxg-org/mineflayer-tracker@1.2.3(encoding@0.1.13)':
     dependencies:
       '@nxg-org/mineflayer-trajectories': 1.2.0(encoding@0.1.13)
       '@nxg-org/mineflayer-util-plugin': 1.8.4
@@ -15679,6 +15696,15 @@ snapshots:
     dependencies:
       map-cache: 0.2.2
 
+  framer-motion@12.9.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      motion-dom: 12.9.1
+      motion-utils: 12.8.3
+      tslib: 2.8.1
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
   fresh@0.5.2: {}
 
   fresh@2.0.0: {}
@@ -17000,12 +17026,12 @@ snapshots:
       maxrects-packer: '@zardoy/maxrects-packer@2.7.4'
       zod: 3.24.2
 
-  mcraft-fun-mineflayer@0.1.21(encoding@0.1.13)(mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)):
+  mcraft-fun-mineflayer@0.1.23(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13)):
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(patch_hash=3a55a278c417cc34ff3172cd1de8e22852935cba0586875cbd0635f1ffdaa5ab)(encoding@0.1.13)
-      mineflayer: https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13)
+      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13)
       prismarine-item: 1.16.0
       ws: 8.18.1
     transitivePeerDependencies:
@@ -17446,7 +17472,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer@https://codeload.github.com/GenerelSchwerz/mineflayer/tar.gz/d459d2ed76a997af1a7c94718ed7d5dee4478b8a(encoding@0.1.13):
+  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13):
     dependencies:
       '@nxg-org/mineflayer-physics-util': 1.8.7
       minecraft-data: 3.83.1
@@ -17580,6 +17606,12 @@ snapshots:
       on-headers: 1.0.2
     transitivePeerDependencies:
       - supports-color
+
+  motion-dom@12.9.1:
+    dependencies:
+      motion-utils: 12.8.3
+
+  motion-utils@12.8.3: {}
 
   ms@2.0.0: {}
 

@@ -29,9 +29,6 @@ jobs:
         run: pnpx zardoy-release empty --skip-github --output-file assets/release.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get releasing alias
-        run: node scripts/githubActions.mjs getReleasingAlias
-        id: alias
       - name: Download Generated Sounds map
         run: node scripts/downloadSoundsMap.mjs
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
@@ -48,8 +45,10 @@ jobs:
         with:
           run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --prod
         id: deploy
+      - name: Get releasing alias
+        run: node scripts/githubActions.mjs getReleasingAlias
+        id: alias
       - name: Set deployment alias
-        if: ${{ steps.alias.outputs.alias != '' && steps.alias.outputs.alias != 'mcraft.fun' && steps.alias.outputs.alias != 's.mcraft.fun' }}
         run: |
           for alias in $(echo ${{ steps.alias.outputs.alias }} | tr "," "\n"); do
             vercel alias set ${{ steps.deploy.outputs.stdout }} $alias --token=${{ secrets.VERCEL_TOKEN }} --scope=zaro

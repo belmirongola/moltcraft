@@ -22,9 +22,10 @@ const fns = {
     const tag = releaseJson.latestTag
     const [major, minor, patch] = tag.replace('v', '').split('.')
     if (major === '0' && minor === '1') {
-      return final(`v${patch}`)
+      setOutput('alias', final(`v${patch}`))
+    } else {
+      setOutput('alias', final(tag))
     }
-    return final(tag)
   }
 }
 
