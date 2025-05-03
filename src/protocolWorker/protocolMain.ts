@@ -8,9 +8,6 @@ import { ParsedServerAddress } from '../parseServerAddress'
 import { authFlowMainThread, getAuthData } from './microsoftAuthflow'
 import type { PROXY_WORKER_TYPE } from './protocol.worker'
 
-//@ts-expect-error
-import ProtocolWorker from './protocol.worker.ts'
-
 const debug = require('debug')('minecraft-protocol')
 
 let protocolWorkerChannel: typeof PROXY_WORKER_TYPE['__workerProxy'] | undefined
@@ -52,7 +49,7 @@ export const getProtocolClientGetter = async (proxy: { host: string, port?: stri
 
     createClientOptions.sessionServer = authData?.sessionEndpoint.toString()
 
-    const worker = new ProtocolWorker()
+    const worker = new Worker(new URL('./protocol.worker.ts', import.meta.url))
     protocolWorkerChannel = useWorkerProxy<typeof PROXY_WORKER_TYPE>(worker)
     setTimeout(() => {
       if (bot) {
