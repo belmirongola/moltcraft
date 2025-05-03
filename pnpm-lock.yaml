@@ -45,8 +45,8 @@ importers:
         specifier: ^0.7.12
         version: 0.7.12
       '@nxg-org/mineflayer-tracker':
-        specifier: 1.2.3
-        version: 1.2.3(encoding@0.1.13)
+        specifier: 1.2.1
+        version: 1.2.1(encoding@0.1.13)
       '@react-oauth/google':
         specifier: ^0.12.1
         version: 0.12.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -136,7 +136,7 @@ importers:
         version: 4.17.21
       mcraft-fun-mineflayer:
         specifier: ^0.1.23
-        version: 0.1.23(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13))
+        version: 0.1.23(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/5602eca4174c0aff079e60234d7c68327eeb6fe6(encoding@0.1.13))
       minecraft-data:
         specifier: 3.83.1
         version: 3.83.1
@@ -151,7 +151,7 @@ importers:
         version: 2.0.4
       net-browserify:
         specifier: github:zardoy/prismarinejs-net-browserify
-        version: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/356edb3b061be0753f53fc2cf7fa995d40d05469
+        version: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/64e351867c5711de8a183464284a8eb7d77d5f39
       node-gzip:
         specifier: ^1.1.2
         version: 1.1.2
@@ -341,7 +341,7 @@ importers:
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/98bc5bb8ee6da8b4b771c05b404cee796318ccd4(@types/react@18.3.18)(react@18.3.1)
       mineflayer:
         specifier: github:zardoy/mineflayer#gen-the-master
-        version: https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13)
+        version: https://codeload.github.com/zardoy/mineflayer/tar.gz/5602eca4174c0aff079e60234d7c68327eeb6fe6(encoding@0.1.13)
       mineflayer-mouse:
         specifier: ^0.1.9
         version: 0.1.9(@types/debug@4.1.12)(@types/node@22.13.9)(jiti@2.4.2)(terser@5.39.0)(tsx@4.19.3)(yaml@2.7.0)
@@ -2025,8 +2025,8 @@ packages:
   '@nxg-org/mineflayer-physics-util@1.8.7':
     resolution: {integrity: sha512-wtLYvHqoEFr/j0ny2lyogwjbMvwpFuG2aWI8sI14+EAiGFRpL5+cog2ujSDsnRTZruO7tUXMTiPc1kebjXwfJg==}
 
-  '@nxg-org/mineflayer-tracker@1.2.3':
-    resolution: {integrity: sha512-E7Ik/scU117Rr6kQUHHMBk8qOGh63YlTCGN33jMfeP7L8xmLeSHN3JtV/fbog8Y+R+HgO99yfZiRAaV7z1T6gQ==}
+  '@nxg-org/mineflayer-tracker@1.2.1':
+    resolution: {integrity: sha512-SI1ffF8zvg3/ZNE021Ja2W0FZPN+WbQDZf8yFqOcXtPRXAtM9W6HvoACdzXep8BZid7WYgYLIgjKpB+9RqvCNQ==}
 
   '@nxg-org/mineflayer-trajectories@1.2.0':
     resolution: {integrity: sha512-yTDHn96fyWLKwdHdOGIrnt8nss4SJmxXwJn101o7aNI4sgdnUmwaX4FoNbmrEa9eZn6IwxaXIxDf+fJmKj9RIw==}
@@ -6715,8 +6715,8 @@ packages:
     resolution: {integrity: sha512-3bxph4jfbkBh5HpeouorxzrfSLNV+i+1gugNJ2jf52HW+rt+tW7eiiFPxrJEsOVkPT/3O/dEIW7j93LRlojMkQ==}
     engines: {node: '>=22'}
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0:
-    resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0}
+  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/5602eca4174c0aff079e60234d7c68327eeb6fe6:
+    resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/5602eca4174c0aff079e60234d7c68327eeb6fe6}
     version: 4.27.0
     engines: {node: '>=22'}
 
@@ -6879,8 +6879,8 @@ packages:
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
 
-  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/356edb3b061be0753f53fc2cf7fa995d40d05469:
-    resolution: {tarball: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/356edb3b061be0753f53fc2cf7fa995d40d05469}
+  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/64e351867c5711de8a183464284a8eb7d77d5f39:
+    resolution: {tarball: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/64e351867c5711de8a183464284a8eb7d77d5f39}
     version: 0.2.4
 
   nice-try@1.0.5:
@@ -11377,7 +11377,7 @@ snapshots:
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.4
 
-  '@nxg-org/mineflayer-tracker@1.2.3(encoding@0.1.13)':
+  '@nxg-org/mineflayer-tracker@1.2.1(encoding@0.1.13)':
     dependencies:
       '@nxg-org/mineflayer-trajectories': 1.2.0(encoding@0.1.13)
       '@nxg-org/mineflayer-util-plugin': 1.8.4
@@ -17019,12 +17019,12 @@ snapshots:
       maxrects-packer: '@zardoy/maxrects-packer@2.7.4'
       zod: 3.24.2
 
-  mcraft-fun-mineflayer@0.1.23(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13)):
+  mcraft-fun-mineflayer@0.1.23(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/5602eca4174c0aff079e60234d7c68327eeb6fe6(encoding@0.1.13)):
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/9e116c3dd4682b17c4e2c80249a2447a093d9284(patch_hash=3a55a278c417cc34ff3172cd1de8e22852935cba0586875cbd0635f1ffdaa5ab)(encoding@0.1.13)
-      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13)
+      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/5602eca4174c0aff079e60234d7c68327eeb6fe6(encoding@0.1.13)
       prismarine-item: 1.16.0
       ws: 8.18.1
     transitivePeerDependencies:
@@ -17461,7 +17461,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/aadfaaff1f55447a4d20e3ffb34db52791d9b1e0(encoding@0.1.13):
+  mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/5602eca4174c0aff079e60234d7c68327eeb6fe6(encoding@0.1.13):
     dependencies:
       '@nxg-org/mineflayer-physics-util': 1.8.7
       minecraft-data: 3.83.1
@@ -17665,7 +17665,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/356edb3b061be0753f53fc2cf7fa995d40d05469:
+  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/64e351867c5711de8a183464284a8eb7d77d5f39:
     dependencies:
       body-parser: 1.20.3
       express: 4.21.2

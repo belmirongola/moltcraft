@@ -13,7 +13,7 @@ export default ({ title, children, backdrop = true, style, className = '', title
   return (
     <>
       {backdrop === 'dirt' ? <div className='dirt-bg' /> : backdrop ? <div className="backdrop" /> : null}
-      <div className={`fullscreen ${className}`} style={{ overflow: 'auto', ...style }}>
+      <div className={`fullscreen ${className}`} style={{ ...style }}>
         <div className="screen-content" style={{ ...contentStyle, ...(titleMarginTop === undefined ? {} : { marginTop: titleMarginTop }) }}>
           <div className={`screen-title ${titleSelectable ? 'text-select' : ''}`}>{title}</div>
           {children}

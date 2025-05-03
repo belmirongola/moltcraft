@@ -73,7 +73,7 @@ const defaultOptions = {
   preventSleep: false,
   debugContro: false,
   chatVanillaRestrictions: true,
-
+  debugResponseTimeIndicator: false,
   // antiAliasing: false,
 
   clipWorldBelowY: undefined as undefined | number, // will be removed
