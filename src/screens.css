@@ -33,8 +33,7 @@
     flex-direction: column;
     margin-top: 35px;
     /* todo remove it but without it in chrome android the screen is not scrollable */
-    /*! upd: changed from "overflow: auto" to "overflow: hidden" to fix main component scroll - delete this comment after testing */
-    overflow: hidden;
+    overflow: auto;
     /* height: fit-content; */ /*! delete this line after testing previous line */
     /* todo I'm not sure about it */
     /* margin-top: calc(100% / 6 - 16px); */
