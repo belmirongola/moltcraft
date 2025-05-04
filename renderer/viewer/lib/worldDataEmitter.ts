@@ -9,7 +9,7 @@ import { proxy } from 'valtio'
 import TypedEmitter from 'typed-emitter'
 import { delayedIterator } from '../../playground/shared'
 import { chunkPos } from './simpleUtils'
-import { createLightEngineIfNeeded, destroyLightEngine, lightRemoveColumn, processLightChunk, updateBlockLight } from './lightEngine'
+import { createLightEngineIfNeededNew, destroyLightEngine, lightRemoveColumn, processLightChunk, updateBlockLight } from './lightEngine'
 import { WorldRendererConfig } from './worldrendererCommon'
 
 export type ChunkPosKey = string // like '16,16'
@@ -160,7 +160,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         this.emit('blockUpdate', { pos: newBlock.position, stateId })
         const updateChunks = this.worldRendererConfig.clientSideLighting === 'none' ? [] : await updateBlockLight(newBlock.position.x, newBlock.position.y, newBlock.position.z, stateId, distance) ?? []
         for (const chunk of updateChunks) {
-          void this.loadChunk(new Vec3(chunk.x * 16, 0, chunk.z * 16), true, 'setBlockStateId light update')
+          void this.loadChunk(new Vec3(chunk.chunkX * 16, 0, chunk.chunkZ * 16), true, 'setBlockStateId light update')
         }
       },
       time: () => {
@@ -297,7 +297,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   // lastTime = 0
 
   async loadChunk (pos: ChunkPos, isLightUpdate = false, reason = 'spiral') {
-    createLightEngineIfNeeded(this)
+    createLightEngineIfNeededNew(this)
 
     const [botX, botZ] = chunkPos(this.lastPos)
     const chunkX = Math.floor(pos.x / 16)
@@ -309,16 +309,20 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       // eslint-disable-next-line @typescript-eslint/await-thenable -- todo allow to use async world provider but not sure if needed
       const column = await this.world.getColumnAt(pos['y'] ? pos as Vec3 : new Vec3(pos.x, 0, pos.z))
       if (column) {
-        let result = [] as Array<{ x: number, z: number }>
-        if (!isLightUpdate && this.worldRendererConfig.clientSideLighting === 'full') {
-          result = await processLightChunk(pos.x, pos.z) ?? []
+        let result = [] as Array<{ chunkX: number, chunkZ: number }>
+        if (!isLightUpdate) {
+          const computeLighting = this.worldRendererConfig.clientSideLighting === 'full'
+          const promise = processLightChunk(pos.x, pos.z, computeLighting)
+          if (computeLighting) {
+            result = (await promise) ?? []
+          }
         }
         if (!result) return
         for (const affectedChunk of result) {
-          if (affectedChunk.x === chunkX && affectedChunk.z === chunkZ) continue
-          const loadedChunk = this.loadedChunks[`${affectedChunk.x},${affectedChunk.z}`]
+          if (affectedChunk.chunkX === chunkX && affectedChunk.chunkZ === chunkZ) continue
+          const loadedChunk = this.loadedChunks[`${affectedChunk.chunkX * 16},${affectedChunk.chunkZ * 16}`]
           if (!loadedChunk) continue
-          void this.loadChunk(new Vec3(affectedChunk.x * 16, 0, affectedChunk.z * 16), true)
+          void this.loadChunk(new Vec3(affectedChunk.chunkX * 16, 0, affectedChunk.chunkZ * 16), true)
         }
         // const latency = Math.floor(performance.now() - this.lastTime)
         // this.debugGotChunkLatency.push(latency)

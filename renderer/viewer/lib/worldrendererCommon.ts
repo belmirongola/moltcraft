@@ -1,10 +1,8 @@
 /* eslint-disable guard-for-in */
 import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
-import * as THREE from 'three'
 import mcDataRaw from 'minecraft-data/data.js' // note: using alias
 import TypedEmitter from 'typed-emitter'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import { subscribeKey } from 'valtio/utils'
@@ -16,10 +14,10 @@ import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
-import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateStatText } from './ui/newStats'
+import { addNewStat, removeAllStats, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
-import { createLightEngineIfNeeded, dumpLightData, getLightEngine, getLightEngineSafe } from './lightEngine'
+import { dumpLightData } from './lightEngine'
 import { MesherLogReader } from './mesherlogReader'
 import { setSkinsConfig } from './utils/skins'
 

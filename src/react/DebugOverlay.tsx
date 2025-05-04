@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Block } from 'prismarine-block'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
-import { getDebugLightValues } from 'renderer/viewer/lib/lightEngine'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
 import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
@@ -130,13 +129,24 @@ export default () => {
     const freqUpdateInterval = setInterval(() => {
       const lightingEnabled = appViewer.inWorldRenderingConfig.enableLighting
       const { clientSideLighting } = appViewer.inWorldRenderingConfig
-      if (!lightingEnabled) {
-        setLightInfo({
-          sky: bot.world.getSkyLight(bot.entity.position),
-          block: bot.world.getBlockLight(bot.entity.position),
-          info: lightingEnabled ? clientSideLighting === 'none' ? 'Server Lighting' : 'Server + Client Engine' : 'Lighting Disabled'
-        })
+      let info = ''
+      if (lightingEnabled) {
+        if (clientSideLighting === 'none') {
+          info = 'Server Lighting'
+        } else if (clientSideLighting === 'full') {
+          info = 'Client Engine'
+        } else {
+          info = 'Server + Client Engine'
+        }
+      } else {
+        info = 'Lighting Disabled'
       }
+      setLightInfo({
+        sky: bot.world.getSkyLight(bot.entity.position),
+        block: bot.world.getBlockLight(bot.entity.position),
+        info
+      })
+
 
       setPos({ ...bot.entity.position })
       setBiomeId(bot.world.getBiome(bot.entity.position))
