@@ -152,7 +152,7 @@
     "https-browserify": "^1.0.0",
     "mc-assets": "^0.2.53",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
-    "minecraft-lighting": "^0.0.9",
+    "minecraft-lighting": "^0.0.10",
     "mineflayer": "github:zardoy/mineflayer#gen-the-master",
     "mineflayer-mouse": "^0.1.9",
     "mineflayer-pathfinder": "^2.4.4",
