@@ -633,6 +633,12 @@ export const f3Keybinds: Array<{
     mobileTitle: 'Show Chunks Debug',
   },
   {
+    action () {
+      showModal({ reactType: 'renderer-debug' })
+    },
+    mobileTitle: 'Renderer Debug Menu',
+  },
+  {
     key: 'KeyY',
     async action () {
       // waypoints
