@@ -17,6 +17,7 @@ export const mineflayerConsoleState = proxy({
   messages: [] as ConsoleMessage[],
   replEnabled: false,
   consoleEnabled: false,
+  takeoverMode: false
 })
 
 const MessageLine = ({ message }: { message: ConsoleMessage }) => {

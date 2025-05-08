@@ -48,21 +48,33 @@ export const showOptionsModal = async <T extends string> (
   })
 }
 
-type InputOption = {
-  type: 'text' | 'checkbox'
+export type InputOption = {
+  type: 'text' | 'checkbox' | 'button'
   defaultValue?: string | boolean
   label?: string
+  placeholder?: string
+  onButtonClick?: () => void
 }
 export const showInputsModal = async <T extends Record<string, InputOption>>(
   title: string,
   inputs: T,
-  { cancel = true, minecraftJsonMessage }: { cancel?: boolean, minecraftJsonMessage? } = {}
+  {
+    cancel = true,
+    minecraftJsonMessage,
+    showConfirm = true
+  }: {
+    cancel?: boolean,
+    minecraftJsonMessage?
+    showConfirm?: boolean
+  } = {}
 ): Promise<{
   [K in keyof T]: T[K] extends { type: 'text' }
     ? string
     : T[K] extends { type: 'checkbox' }
       ? boolean
-      : never
+      : T[K] extends { type: 'button' }
+        ? string
+        : never
 }> => {
   showModal({ reactType: 'general-select' })
   let minecraftJsonMessageParsed
@@ -81,7 +93,7 @@ export const showInputsModal = async <T extends Record<string, InputOption>>(
       showCancel: cancel,
       minecraftJsonMessage: minecraftJsonMessageParsed,
       options: [],
-      inputsConfirmButton: 'Confirm'
+      inputsConfirmButton: showConfirm ? 'Confirm' : ''
     })
   })
 }
@@ -130,6 +142,7 @@ export default () => {
                 autoFocus
                 type='text'
                 defaultValue={input.defaultValue as string}
+                placeholder={input.placeholder}
                 onChange={(e) => {
                   inputValues.current[key] = e.target.value
                 }}
@@ -147,6 +160,15 @@ export default () => {
                 />
                 {label}
               </label>
+            )}
+            {input.type === 'button' && (
+              <Button
+                onClick={() => {
+                  resolveClose(inputValues.current)
+                  input.onButtonClick?.()
+                }}
+              >{label}
+              </Button>
             )}
           </div>
         })}

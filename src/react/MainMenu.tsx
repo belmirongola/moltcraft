@@ -1,7 +1,9 @@
 import React from 'react'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
+import { useSnapshot } from 'valtio'
 import { haveDirectoryPicker } from '../utils'
 import { ConnectOptions } from '../connect'
+import { miscUiState } from '../globalState'
 import styles from './mainMenu.module.css'
 import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
@@ -44,6 +46,8 @@ export default ({
   bottomRightLinks,
   singleplayerAvailable = true
 }: Props) => {
+  const { appConfig } = useSnapshot(miscUiState)
+
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
   const linksParsed = bottomRightLinks?.split(/;|\n/g).map(l => {
@@ -89,7 +93,7 @@ export default ({
       <div className={styles['game-title']}>
         <div className={styles.minecraft}>
           <div className={styles.edition} />
-          <span className={styles.splash}>Prismarine is a beautiful block</span>
+          <span className={styles.splash}>{appConfig?.splashText}</span>
         </div>
       </div>
 
@@ -177,7 +181,7 @@ export default ({
               </div>
             })}
           </div>
-          <span>A Minecraft client clone in the browser!</span>
+          <span>{appConfig?.rightSideText}</span>
         </span>
       </div>
     </div>

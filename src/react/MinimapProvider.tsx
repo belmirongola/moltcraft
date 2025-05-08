@@ -169,9 +169,9 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
       // type suppressed until server is updated. It works fine
       void (localServer as any).setWarp(warp, remove)
     } else if (remove) {
-      localStorage.removeItem(`warps: ${bot.player.username} ${lastConnectOptions.value!.server}`)
+      localStorage.removeItem(`warps: ${bot.username} ${lastConnectOptions.value!.server}`)
     } else {
-      localStorage.setItem(`warps: ${bot.player.username} ${lastConnectOptions.value!.server}`, JSON.stringify(this.warps))
+      localStorage.setItem(`warps: ${bot.username} ${lastConnectOptions.value!.server}`, JSON.stringify(this.warps))
     }
     this.emit('updateWarps')
   }
@@ -467,7 +467,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
     let color: string
     if (this.isOldVersion) {
       color = BlockData.colors[preflatMap.blocks[`${block.type}:${block.metadata}`]?.replaceAll(/\[.*?]/g, '')]
-      ?? 'rgb(0, 0, 255)'
+        ?? 'rgb(0, 0, 255)'
     } else {
       color = this.blockData.get(block.name) ?? 'rgb(0, 255, 0)'
     }

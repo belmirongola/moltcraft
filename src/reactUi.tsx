@@ -45,6 +45,7 @@ import SignInMessageProvider from './react/SignInMessageProvider'
 import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
+import ModsPage from './react/ModsPage'
 import DebugEdges from './react/DebugEdges'
 import LibraryVersions from './react/components/LibraryVersions'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
@@ -55,6 +56,12 @@ import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
 import TouchInteractionHint from './react/TouchInteractionHint'
 import { ua } from './react/utils'
+import VoiceMicrophone from './react/VoiceMicrophone'
+import ConnectOnlyServerUi from './react/ConnectOnlyServerUi'
+import ControDebug from './react/ControDebug'
+import ChunksDebug from './react/ChunksDebug'
+import ChunksDebugScreen from './react/ChunksDebugScreen'
+import DebugResponseTimeIndicator from './react/debugs/DebugResponseTimeIndicator'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -157,6 +164,8 @@ const InGameUi = () => {
           {!disabledUiParts.includes('crosshair') && <Crosshair />}
           {!disabledUiParts.includes('books') && <BookProvider />}
           {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
+          <VoiceMicrophone />
+          <ChunksDebugScreen />
         </PerComponentErrorBoundary>
       </div>
 
@@ -209,6 +218,7 @@ const App = () => {
                 <HeldMapUi />
               </InGameComponent>
             </div>
+            <ControDebug />
             <div />
           </RobustPortal>
           <EnterFullscreenButton />
@@ -220,14 +230,17 @@ const App = () => {
             <CreateWorldProvider />
             <AppStatusProvider />
             <KeybindingsScreenProvider />
-            <SelectOption />
             <ServersListProvider />
             <OptionsRenderApp />
             <MainMenuRenderApp />
+            <ConnectOnlyServerUi />
             <TouchAreasControlsProvider />
             <SignInMessageProvider />
             <PacketsReplayProvider />
             <NotificationProvider />
+            <ModsPage />
+
+            <SelectOption />
 
             <NoModalFoundProvider />
           </RobustPortal>
@@ -237,6 +250,7 @@ const App = () => {
             </div>
             <div />
             <DebugEdges />
+            <DebugResponseTimeIndicator />
           </RobustPortal>
         </ButtonAppProvider>
       </div>

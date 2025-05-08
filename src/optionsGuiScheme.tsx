@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
@@ -14,6 +14,7 @@ import { openFilePicker, resetLocalStorage } from './browserfs'
 import { completeResourcepackPackInstall, getResourcePackNames, resourcepackReload, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
+import { ClientMod, getAllMods, modsUpdateStatus } from './clientMods'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
 import { createNotificationProgressReporter } from './core/progressReporter'
@@ -229,7 +230,33 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        const modsUpdateSnapshot = useSnapshot(modsUpdateStatus)
+        const [clientMods, setClientMods] = useState<ClientMod[]>([])
+        useEffect(() => {
+          void getAllMods().then(setClientMods)
+        }, [])
+
+        if (appConfig?.showModsButton === false) return null
+        const enabledModsCount = Object.keys(clientMods.filter(mod => mod.enabled)).length
+        return <Button label={`Client Mods: ${enabledModsCount} (${Object.keys(modsUpdateSnapshot).length})`} onClick={() => showModal({ reactType: 'mods' })} inScreen />
+      },
+    },
+    {
+      custom () {
         return <Button label='VR...' onClick={() => openOptionsMenu('VR')} inScreen />
+      },
+    },
+    {
+      custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        if (!appConfig?.displayLanguageSelector) return null
+        return <Button
+          label='Language...' onClick={async () => {
+            const newLang = await showOptionsModal('Set Language', (appConfig.supportedLanguages ?? []) as string[])
+            if (!newLang) return
+            options.language = newLang.split(' - ')[0]
+          }} inScreen />
       },
     }
   ],
@@ -569,6 +596,16 @@ export const guiOptionsScheme: {
         ],
       },
     },
+    {
+      debugContro: {
+        text: 'Debug Controls',
+      },
+    },
+    {
+      debugResponseTimeIndicator: {
+        text: 'Debug Input Lag',
+      },
+    }
   ],
   'export-import': [
     {

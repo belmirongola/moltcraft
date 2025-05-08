@@ -127,7 +127,8 @@ export default () => {
   }, [])
 
   const displayAuthButton = status.includes('This server appears to be an online server and you are providing no authentication.')
-  const displayVpnButton = status.includes('VPN') || status.includes('Proxy')
+  const hasVpnText = (text: string) => text.includes('VPN') || text.includes('Proxy')
+  const displayVpnButton = hasVpnText(status) || (minecraftJsonMessage && hasVpnText(JSON.stringify(minecraftJsonMessage)))
   const authReconnectAction = async () => {
     let accounts = [] as AuthenticatedAccount[]
     updateAuthenticatedAccountData(oldAccounts => {
@@ -165,10 +166,10 @@ export default () => {
       }
     }
   }
-  return <DiveTransition open={isOpen}>
+  return <DiveTransition open={isOpen} isError={isError}>
     <AppStatus
       status={status}
-      isError={isError || status === ''} // display back button if status is empty as probably our app is errored // display back button if status is empty as probably our app is errored
+      isError={isError || status === ''} // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
       showReconnect={showReconnect}

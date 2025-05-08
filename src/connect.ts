@@ -21,7 +21,6 @@ export type ConnectOptions = {
   peerId?: string
   ignoreQs?: boolean
   onSuccessfulPlay?: () => void
-  autoLoginPassword?: string
   serverIndex?: string
   authenticatedAccount?: AuthenticatedAccount | true
   peerOptions?: any
@@ -70,8 +69,12 @@ export const loadMinecraftData = async (version: string) => {
   miscUiState.loadedDataVersion = version
 }
 
-export const downloadAllMinecraftData = async () => {
+export type AssetDownloadReporter = (asset: string, isDone: boolean) => void
+
+export const downloadAllMinecraftData = async (reporter?: AssetDownloadReporter) => {
+  reporter?.('mc-data', false)
   await window._LOAD_MC_DATA()
+  reporter?.('mc-data', true)
 }
 
 const loadFonts = async () => {
@@ -84,6 +87,12 @@ const loadFonts = async () => {
   }
 }
 
-export const downloadOtherGameData = async () => {
-  await Promise.all([loadFonts(), downloadSoundsIfNeeded()])
+export const downloadOtherGameData = async (reporter?: AssetDownloadReporter) => {
+  reporter?.('fonts', false)
+  reporter?.('sounds', false)
+
+  await Promise.all([
+    loadFonts().then(() => reporter?.('fonts', true)),
+    downloadSoundsIfNeeded().then(() => reporter?.('sounds', true))
+  ])
 }

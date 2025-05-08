@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { OBJLoader } from 'three-stdlib'
 import huskPng from 'mc-assets/dist/other-textures/latest/entity/zombie/husk.png'
 import { Vec3 } from 'vec3'
+import ocelotPng from '../../../../node_modules/mc-assets/dist/other-textures/latest/entity/cat/ocelot.png'
 import arrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/arrow.png'
 import spectralArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/spectral_arrow.png'
 import tippedArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/tipped_arrow.png'
@@ -456,7 +457,7 @@ export class EntityMesh {
         'skeleton_horse': `textures/${version}/entity/horse/horse_skeleton.png`,
         'donkey': `textures/${version}/entity/horse/donkey.png`,
         'mule': `textures/${version}/entity/horse/mule.png`,
-        'ocelot': `textures/${version}/entity/cat/ocelot.png`,
+        'ocelot': ocelotPng,
         'arrow': arrowTexture,
         'spectral_arrow': spectralArrowTexture,
         'tipped_arrow': tippedArrowTexture
@@ -527,12 +528,6 @@ export class EntityMesh {
         debugFlags)
       mesh.name = `geometry_${name}`
       this.mesh.add(mesh)
-
-      const skeletonHelper = new THREE.SkeletonHelper(mesh)
-      //@ts-expect-error
-      skeletonHelper.material.linewidth = 2
-      skeletonHelper.visible = false
-      this.mesh.add(skeletonHelper)
     }
     debugFlags.type = 'bedrock'
   }
@@ -551,3 +546,4 @@ export class EntityMesh {
     }
   }
 }
+window.EntityMesh = EntityMesh

@@ -25,12 +25,13 @@ import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
+import { Fountain } from './threeJsParticles'
 
 type SectionKey = string
 
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
-  sectionObjects: Record<string, THREE.Object3D> = {}
+  sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean }> = {}
   chunkTextures = new Map<string, { [pos: string]: THREE.Texture }>()
   signsCache = new Map<string, any>()
   starField: StarField
@@ -68,6 +69,7 @@ export class WorldRendererThree extends WorldRendererCommon {
       limitZ?: number,
     }
   }
+  fountains: Fountain[] = []
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -88,12 +90,15 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.addDebugOverlay()
     this.resetScene()
-    this.init()
+    void this.init()
     void initVR(this)
 
     this.soundSystem = new ThreeJsSound(this)
     this.cameraShake = new CameraShake(this.camera, this.onRender)
     this.media = new ThreeJsMedia(this)
+    // this.fountain = new Fountain(this.scene, this.scene, {
+    //   position: new THREE.Vector3(0, 10, 0),
+    // })
 
     this.renderUpdateEmitter.on('chunkFinished', (chunkKey: string) => {
       this.finishChunk(chunkKey)
@@ -157,6 +162,13 @@ export class WorldRendererThree extends WorldRendererCommon {
     })
     this.onReactiveValueUpdated('diggingBlock', (value) => {
       this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
+    })
+  }
+
+  override watchReactiveConfig () {
+    super.watchReactiveConfig()
+    this.onReactiveConfigUpdated('showChunkBorders', (value) => {
+      this.updateShowChunksBorder(value)
     })
   }
 
@@ -232,7 +244,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     //@ts-expect-error
     const pos = cursorBlockRel(0, 1, 0).position
 
-    const mesh = await getMyHand()
+    const mesh = (await getMyHand())!
     // mesh.rotation.y = THREE.MathUtils.degToRad(90)
     setBlockPosition(mesh, pos)
     const helper = new THREE.BoxHelper(mesh, 0xff_ff_00)
@@ -333,7 +345,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     geometry.setAttribute('normal', new THREE.BufferAttribute(data.geometry.normals, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(data.geometry.colors, 3))
     geometry.setAttribute('uv', new THREE.BufferAttribute(data.geometry.uvs, 2))
-    geometry.setIndex(data.geometry.indices)
+    geometry.index = new THREE.BufferAttribute(data.geometry.indices as Uint32Array | Uint16Array, 1)
 
     const mesh = new THREE.Mesh(geometry, this.material)
     mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
@@ -443,7 +455,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     const start = performance.now()
     this.lastRendered = performance.now()
     this.cursorBlock.render()
-
     this.updateSectionOffsets()
 
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
@@ -462,6 +473,14 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+    }
+
+    for (const fountain of this.fountains) {
+      if (this.sectionObjects[fountain.sectionId] && !this.sectionObjects[fountain.sectionId].foutain) {
+        fountain.createParticles(this.sectionObjects[fountain.sectionId])
+        this.sectionObjects[fountain.sectionId].foutain = true
+      }
+      fountain.render()
     }
 
     for (const onRender of this.onRender) {
@@ -561,7 +580,6 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateShowChunksBorder (value: boolean) {
-    this.displayOptions.inWorldRenderingConfig.showChunkBorders = value
     for (const object of Object.values(this.sectionObjects)) {
       for (const child of object.children) {
         if (child.name === 'helper') {

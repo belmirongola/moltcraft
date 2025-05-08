@@ -11,7 +11,12 @@ import supportedVersions from '../src/supportedVersions.mjs'
 
 const __dirname = path.dirname(fileURLToPath(new URL(import.meta.url)))
 
-const targetedVersions = supportedVersions.reverse()
+export const versionToNumber = (ver) => {
+  const [x, y = '0', z = '0'] = ver.split('.')
+  return +`${x.padStart(2, '0')}${y.padStart(2, '0')}${z.padStart(2, '0')}`
+}
+
+const targetedVersions = [...supportedVersions].sort((a, b) => versionToNumber(b) - versionToNumber(a))
 
 /** @type {{name, size, hash}[]} */
 let prevSounds = null
@@ -173,13 +178,36 @@ const writeSoundsMap = async () => {
 
   // todo REMAP ONLY IDS. Do diffs, as mostly only ids are changed between versions
   // const localTargetedVersions = targetedVersions.slice(0, 2)
+  let lastMappingsJson
   const localTargetedVersions = targetedVersions
-  for (const targetedVersion of localTargetedVersions) {
+  for (const targetedVersion of [...localTargetedVersions].reverse()) {
+    console.log('Processing version', targetedVersion)
+
     const burgerData = await fetch(burgerDataUrl(targetedVersion)).then((r) => r.json()).catch((err) => {
-      console.error('error fetching burger data', targetedVersion, err)
+      // console.error('error fetching burger data', targetedVersion, err)
       return null
     })
-    if (!burgerData) continue
+    /** @type {{sounds: string[]}} */
+    const mappingJson = await fetch(`https://raw.githubusercontent.com/ViaVersion/Mappings/7a45c1f9dbc1f1fdadacfecdb205ba84e55766fc/mappings/mapping-${targetedVersion}.json`).then(async (r) => {
+      return r.json()
+      // lastMappingsJson = r.status === 404 ? lastMappingsJson : (await r.json())
+      // if (r.status === 404) {
+      //   console.warn('using prev mappings json for ' + targetedVersion)
+      // }
+      // return lastMappingsJson
+    }).catch((err) => {
+      // console.error('error fetching mapping json', targetedVersion, err)
+      return null
+    })
+    // if (!mappingJson) throw new Error('no initial mapping json for ' + targetedVersion)
+    if (burgerData && !mappingJson) {
+      console.warn('has burger but no mapping json for ' + targetedVersion)
+      continue
+    }
+    if (!mappingJson || !burgerData) {
+      console.warn('no mapping json or burger data for ' + targetedVersion)
+      continue
+    }
     const allSoundsMap = getSoundsMap(burgerData)
     // console.log(Object.keys(sounds).length, 'ids')
     const outputIdMap = {}
@@ -190,7 +218,7 @@ const writeSoundsMap = async () => {
       new: 0,
       same: 0
     }
-    for (const { id, subtitle, sounds, name } of Object.values(allSoundsMap)) {
+    for (const { _id, subtitle, sounds, name } of Object.values(allSoundsMap)) {
       if (!sounds?.length /* && !subtitle */) continue
       const firstName = sounds[0].name
       // const includeSound = isSoundWhitelisted(firstName)
@@ -209,6 +237,11 @@ const writeSoundsMap = async () => {
       for (const sound of sounds) {
         if (sound.weight && isNaN(sound.weight)) debugger
         outputUseSoundLine.push(`${sound.volume ?? 1};${sound.name};${sound.weight ?? minWeight}`)
+      }
+      const id = mappingJson.sounds.findIndex(x => x === name)
+      if (id === -1) {
+        console.warn('no id for sound', name, targetedVersion)
+        continue
       }
       const key = `${id};${name}`
       outputIdMap[key] = outputUseSoundLine.join(',')
@@ -283,6 +316,6 @@ if (action) {
 } else {
   // downloadAllSoundsAndCreateMap()
   // convertSounds()
-  // writeSoundsMap()
-  makeSoundsBundle()
+  writeSoundsMap()
+  // makeSoundsBundle()
 }

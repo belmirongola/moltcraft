@@ -31,10 +31,12 @@ export class PanoramaRenderer {
   private readonly abortController = new AbortController()
   private worldRenderer: WorldRendererCommon | WorldRendererThree | undefined
   public WorldRendererClass = WorldRendererThree
+  public startTimes = new Map<THREE.MeshBasicMaterial, number>()
 
   constructor (private readonly documentRenderer: DocumentRenderer, private readonly options: GraphicsInitOptions, private readonly doWorldBlocksPanorama = false) {
     this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(this.options.config.sceneBackground)
+    // #324568
+    this.scene.background = new THREE.Color(0x32_45_68)
 
     // Add ambient light
     this.ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
@@ -72,9 +74,16 @@ export class PanoramaRenderer {
     const panorGeo = new THREE.BoxGeometry(1000, 1000, 1000)
     const loader = new THREE.TextureLoader()
     const panorMaterials = [] as THREE.MeshBasicMaterial[]
+    const fadeInDuration = 200
 
     for (const file of panoramaFiles) {
-      const texture = loader.load(join('background', file))
+      // eslint-disable-next-line prefer-const
+      let material: THREE.MeshBasicMaterial
+
+      const texture = loader.load(join('background', file), () => {
+        // Start fade-in when texture is loaded
+        this.startTimes.set(material, Date.now())
+      })
 
       // Instead of using repeat/offset to flip, we'll use the texture matrix
       texture.matrixAutoUpdate = false
@@ -82,17 +91,19 @@ export class PanoramaRenderer {
         -1, 0, 1, 0, 1, 0, 0, 0, 1
       )
 
-      texture.wrapS = THREE.ClampToEdgeWrapping // Changed from RepeatWrapping
-      texture.wrapT = THREE.ClampToEdgeWrapping // Changed from RepeatWrapping
+      texture.wrapS = THREE.ClampToEdgeWrapping
+      texture.wrapT = THREE.ClampToEdgeWrapping
       texture.minFilter = THREE.LinearFilter
       texture.magFilter = THREE.LinearFilter
 
-      panorMaterials.push(new THREE.MeshBasicMaterial({
+      material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: false,
-      }))
+        opacity: 0 // Start with 0 opacity
+      })
+      panorMaterials.push(material)
     }
 
     const panoramaBox = new THREE.Mesh(panorGeo, panorMaterials)
@@ -100,6 +111,16 @@ export class PanoramaRenderer {
       this.time += 0.01
       panoramaBox.rotation.y = Math.PI + this.time * 0.01
       panoramaBox.rotation.z = Math.sin(-this.time * 0.001) * 0.001
+
+      // Time-based fade in animation for each material
+      for (const material of panorMaterials) {
+        const startTime = this.startTimes.get(material)
+        if (startTime) {
+          const elapsed = Date.now() - startTime
+          const progress = Math.min(1, elapsed / fadeInDuration)
+          material.opacity = progress
+        }
+      }
     }
 
     const group = new THREE.Object3D()

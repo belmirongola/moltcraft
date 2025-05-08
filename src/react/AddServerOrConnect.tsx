@@ -46,8 +46,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const parsedInitialIp = parseServerAddress(initialData?.ip)
 
   const [serverName, setServerName] = React.useState(initialData?.name ?? qsParamName ?? '')
-  const [serverIp, setServerIp] = React.useState(parsedQsIp.host || parsedInitialIp.host || '')
-  const [serverPort, setServerPort] = React.useState(parsedQsIp.port || parsedInitialIp.port || '')
+  const [serverIp, setServerIp] = React.useState(parsedQsIp.serverIpFull || parsedInitialIp.serverIpFull || '')
   const [versionOverride, setVersionOverride] = React.useState(initialData?.versionOverride ?? /* legacy */ initialData?.['version'] ?? qsParamVersion ?? '')
   const [proxyOverride, setProxyOverride] = React.useState(initialData?.proxyOverride ?? qsParamProxy ?? '')
   const [usernameOverride, setUsernameOverride] = React.useState(initialData?.usernameOverride ?? qsParamUsername ?? '')
@@ -61,7 +60,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const noAccountSelected = accountIndex === -1
   const authenticatedAccountOverride = noAccountSelected ? undefined : freshAccount ? true : accounts?.[accountIndex]
 
-  let ipFinal = serverIp.includes(':') ? serverIp : `${serverIp}${serverPort ? `:${serverPort}` : ''}`
+  let ipFinal = serverIp
   ipFinal = ipFinal.replace(/:$/, '')
   const commonUseOptions: BaseServerInfo = {
     name: serverName,
@@ -126,6 +125,9 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   }, [])
 
   const displayConnectButton = qsParamIp
+  const serverExamples = ['example.com:25565', 'play.hypixel.net', 'ws://play.pcm.gg']
+  // pick random example
+  const example = serverExamples[Math.floor(Math.random() * serverExamples.length)]
 
   return <Screen title={qsParamIp ? 'Connect to Server' : title} backdrop>
     <form
@@ -149,11 +151,6 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
         })
       }}
       >
-        {!lockConnect && <>
-          <div style={{ gridColumn: smallWidth ? '' : 'span 2', display: 'flex', justifyContent: 'center' }}>
-            <InputWithLabel label="Server Name" value={serverName} onChange={({ target: { value } }) => setServerName(value)} placeholder='Defaults to IP' />
-          </div>
-        </>}
         <InputWithLabel
           required
           label="Server IP"
@@ -165,8 +162,13 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
             setServerOnline(false)
           }}
           validateInput={serverOnline === null || fetchedServerInfoIp !== serverIp ? undefined : validateServerIp}
+          placeholder={example}
         />
-        <InputWithLabel label="Server Port" value={serverPort} disabled={lockConnect && parsedQsIp.port !== null} onChange={({ target: { value } }) => setServerPort(value)} placeholder={serverIp.startsWith('ws://') || serverIp.startsWith('wss://') ? '' : '25565'} />
+        {!lockConnect && <>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <InputWithLabel label="Server Name" value={serverName} onChange={({ target: { value } }) => setServerName(value)} placeholder='Defaults to IP' />
+          </div>
+        </>}
         {isSmallHeight ? <div style={{ gridColumn: 'span 2', marginTop: 10, }} /> : <div style={{ gridColumn: smallWidth ? '' : 'span 2' }}>Overrides:</div>}
         <div style={{
           display: 'flex',

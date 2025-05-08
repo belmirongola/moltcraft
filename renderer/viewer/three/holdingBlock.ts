@@ -130,20 +130,27 @@ export default class HoldingBlock {
     this.offHandDisplay = this.offHand
     // this.offHandDisplay = true
     if (!this.offHand) {
-      // watch over my hand
-      watchProperty(
-        async () => {
-          return getMyHand(this.playerState.reactive.playerSkin, this.playerState.onlineMode ? this.playerState.username : undefined)
-        },
-        this.playerState.reactive,
-        'playerSkin',
-        (newHand) => {
-          this.playerHand = newHand
-        },
-        (oldHand) => {
-          disposeObject(oldHand, true)
-        }
-      )
+      // load default hand
+      void getMyHand().then((hand) => {
+        this.playerHand = hand
+      }).then(() => {
+        // now watch over the player skin
+        watchProperty(
+          async () => {
+            return getMyHand(this.playerState.reactive.playerSkin, this.playerState.onlineMode ? this.playerState.username : undefined)
+          },
+          this.playerState.reactive,
+          'playerSkin',
+          (newHand) => {
+            if (newHand) {
+              this.playerHand = newHand
+            }
+          },
+          (oldHand) => {
+            disposeObject(oldHand!, true)
+          }
+        )
+      })
     }
   }
 

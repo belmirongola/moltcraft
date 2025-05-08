@@ -124,35 +124,35 @@ jobs:
       #       content['${{ github.event.pull_request.base.ref }}'] = stats;
       #       await updateGistContent(content);
 
-      - name: Update PR Description
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
+      # - name: Update PR Description
+      #   uses: actions/github-script@v6
+      #   with:
+      #     script: |
+      #       const { data: pr } = await github.rest.pulls.get({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         pull_number: context.issue.number
+      #       });
 
-            let body = pr.body || '';
-            const statsMarker = '### Bundle Size';
-            const comparison = '${{ steps.compare.outputs.stats }}';
+      #       let body = pr.body || '';
+      #       const statsMarker = '### Bundle Size';
+      #       const comparison = '${{ steps.compare.outputs.stats }}';
 
-            if (body.includes(statsMarker)) {
-              body = body.replace(
-                new RegExp(`${statsMarker}[^\n]*\n[^\n]*`),
-                `${statsMarker}\n${comparison}`
-              );
-            } else {
-              body += `\n\n${statsMarker}\n${comparison}`;
-            }
+      #       if (body.includes(statsMarker)) {
+      #         body = body.replace(
+      #           new RegExp(`${statsMarker}[^\n]*\n[^\n]*`),
+      #           `${statsMarker}\n${comparison}`
+      #         );
+      #       } else {
+      #         body += `\n\n${statsMarker}\n${comparison}`;
+      #       }
 
-            await github.rest.pulls.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              body
-            });
+      #       await github.rest.pulls.update({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         pull_number: context.issue.number,
+      #         body
+      #       });
   # dedupe-check:
   #   runs-on: ubuntu-latest
   #   if: github.event.pull_request.head.ref == 'next'

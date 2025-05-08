@@ -2,7 +2,14 @@
 
 // Custom DNS resolver made by SiebeDW. Powered by google dns.
 // Supported: SRV (not all errors support)
-module.exports.resolveSrv = function (hostname, callback) {
+module.exports.resolveSrv = function (hostname, _callback) {
+  globalThis.setLoadingMessage?.(`Getting SRV using Google DNS`)
+
+  const callback = (err, result) => {
+    globalThis.setLoadingMessage?.(undefined)
+    _callback(err, result)
+  }
+
   const Http = new XMLHttpRequest()
   const url = `https://dns.google.com/resolve?name=${hostname}&type=SRV`
   Http.open('GET', url)
@@ -14,6 +21,7 @@ module.exports.resolveSrv = function (hostname, callback) {
     Http.onerror = async function () {
       try {
         if (!globalThis.resolveDnsFallback) return
+        globalThis.setLoadingMessage?.('Resolving SRV using fallback')
         const result = await globalThis.resolveDnsFallback(minecraftServerHostname)
         callback(null, result ? [{
           priority: 0,

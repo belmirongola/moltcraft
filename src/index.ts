@@ -14,6 +14,7 @@ import './mineflayer/java-tester/index'
 import './external'
 import './appConfig'
 import './mineflayer/timers'
+import './mineflayer/plugins'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad } from './inventoryWindows'
 import initCollisionShapes from './getCollisionInteractionShapes'
@@ -27,8 +28,7 @@ import { options } from './optionsStorage'
 import './reactUi'
 import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
-import { possiblyCleanHandle, resetStateAfterDisconnect } from './browserfs'
-import { watchOptionsAfterViewerInit, watchOptionsAfterWorldViewInit } from './watchOptions'
+import { possiblyCleanHandle } from './browserfs'
 import downloadAndOpenFile from './downloadAndOpenFile'
 
 import fs from 'fs'
@@ -74,29 +74,29 @@ import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
-import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
-import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
-import packetsPatcher from './mineflayer/plugins/packetsPatcher'
+import { findServerPassword, updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
 import { mainMenuState } from './react/MainMenuRenderApp'
 import './mobileShim'
 import { parseFormattedMessagePacket } from './botUtils'
-import { getViewerVersionData, getWsProtocolStream, handleCustomChannel } from './viewerConnector'
+import { appStartup } from './clientMods'
+import { getViewerVersionData, getWsProtocolStream, onBotCreatedViewerHandler } from './viewerConnector'
 import { getWebsocketStream } from './mineflayer/websocket-core'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 import { playerState } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
-import ping from './mineflayer/plugins/ping'
-import mouse from './mineflayer/plugins/mouse'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
-import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
-import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
+import { createFullScreenProgressReporter, createWrappedProgressReporter, ProgressReporter } from './core/progressReporter'
 import { appViewer } from './appViewer'
 import './appViewerLoad'
 import { registerOpenBenchmarkListener } from './benchmark'
+import { tryHandleBuiltinCommand } from './builtinCommands'
+import { loadingTimerState } from './react/LoadingTimer'
+import { loadPluginsIntoWorld } from './react/CreateWorldProvider'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -109,7 +109,6 @@ void registerServiceWorker().then(() => {
 watchFov()
 initCollisionShapes()
 initializePacketsReplay()
-packetsPatcher()
 onAppLoad()
 customChannels()
 
@@ -167,6 +166,8 @@ export async function connect (connectOptions: ConnectOptions) {
     })
   }
 
+  loadingTimerState.loading = true
+  loadingTimerState.start = Date.now()
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
 
@@ -208,8 +209,13 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let ended = false
   let bot!: typeof __type_bot
-  const destroyAll = () => {
+  const destroyAll = (wasKicked = false) => {
     if (ended) return
+    loadingTimerState.loading = false
+    const hadConnected = !!bot
+    if (!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadConnected) {
+      location.reload()
+    }
     errorAbortController.abort()
     ended = true
     progress.end()
@@ -251,6 +257,10 @@ export async function connect (connectOptions: ConnectOptions) {
     if (isCypress()) throw err
     miscUiState.hasErrors = true
     if (miscUiState.gameLoaded) return
+    // close all modals
+    for (const modal of activeModalStack) {
+      hideModal(modal)
+    }
 
     setLoadingScreenStatus(`Error encountered. ${err}`, true)
     appStatusState.showReconnect = true
@@ -280,7 +290,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
   if (connectOptions.server && !connectOptions.viewerWsConnect && !parsedServer.isWebSocket) {
     console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
-    net['setProxy']({ hostname: proxy.host, port: proxy.port })
+    net['setProxy']({ hostname: proxy.host, port: proxy.port, headers: { Authorization: `Bearer ${new URLSearchParams(location.search).get('token') ?? ''}` } })
   }
 
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
@@ -292,11 +302,24 @@ export async function connect (connectOptions: ConnectOptions) {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
 
-    await progress.executeWithMessage('Downloading minecraft data', 'download-mcdata', async () => {
+    await progress.executeWithMessage('Downloading Minecraft data', 'download-mcdata', async () => {
+      loadingTimerState.networkOnlyStart = Date.now()
+
+      let downloadingAssets = [] as string[]
+      const reportAssetDownload = (asset: string, isDone: boolean) => {
+        if (isDone) {
+          downloadingAssets = downloadingAssets.filter(a => a !== asset)
+        } else {
+          downloadingAssets.push(asset)
+        }
+        progress.setSubStage('download-mcdata', `(${downloadingAssets.join(', ')})`)
+      }
+
       await Promise.all([
-        downloadAllMinecraftData(),
-        downloadOtherGameData()
+        downloadAllMinecraftData(reportAssetDownload),
+        downloadOtherGameData(reportAssetDownload)
       ])
+      loadingTimerState.networkOnlyStart = 0
     })
 
     let dataDownloaded = false
@@ -306,7 +329,7 @@ export async function connect (connectOptions: ConnectOptions) {
       appViewer.resourcesManager.currentConfig = { version, texturesVersion: options.useVersionsTextures || undefined }
 
       await progress.executeWithMessage(
-        'Loading minecraft data',
+        'Processing downloaded Minecraft data',
         async () => {
           await appViewer.resourcesManager.loadSourceData(version)
         }
@@ -359,6 +382,16 @@ export async function connect (connectOptions: ConnectOptions) {
       // Client (class) of flying-squid (in server/login.js of mc-protocol): onLogin handler: skip most logic & go to loginClient() which assigns uuid and sends 'success' back to client (onLogin handler) and emits 'login' on the server (login.js in flying-squid handler)
       // flying-squid: 'login' -> player.login -> now sends 'login' event to the client (handled in many plugins in mineflayer) -> then 'update_health' is sent which emits 'spawn' in mineflayer
 
+      const serverPlugins = new URLSearchParams(location.search).getAll('serverPlugin')
+      if (serverPlugins.length > 0 && !serverOptions.worldFolder) {
+        console.log('Placing server plugins', serverPlugins)
+
+        serverOptions.worldFolder ??= '/temp'
+        await loadPluginsIntoWorld('/temp', serverPlugins)
+
+        console.log('Server plugins placed')
+      }
+
       localServer = window.localServer = window.server = startLocalServer(serverOptions)
       connectOptions?.connectEvents?.serverCreated?.()
       // todo need just to call quit if started
@@ -392,8 +425,10 @@ export async function connect (connectOptions: ConnectOptions) {
     } else if (connectOptions.server) {
       if (!finalVersion) {
         const versionAutoSelect = getVersionAutoSelect()
-        setLoadingScreenStatus(`Fetching server version. Preffered: ${versionAutoSelect}`)
+        const wrapped = createWrappedProgressReporter(progress, `Fetching server version. Preffered: ${versionAutoSelect}`)
+        loadingTimerState.networkOnlyStart = Date.now()
         const autoVersionSelect = await getServerInfo(server.host, server.port ? Number(server.port) : undefined, versionAutoSelect)
+        wrapped.end()
         finalVersion = autoVersionSelect.version
       }
       initialLoadingText = `Connecting to server ${server.host}:${server.port ?? 25_565} with version ${finalVersion}`
@@ -404,9 +439,10 @@ export async function connect (connectOptions: ConnectOptions) {
     } else {
       initialLoadingText = 'We have no idea what to do'
     }
-    setLoadingScreenStatus(initialLoadingText)
+    progress.setMessage(initialLoadingText)
 
     if (parsedServer.isWebSocket) {
+      loadingTimerState.networkOnlyStart = Date.now()
       clientDataStream = (await getWebsocketStream(server.host)).mineflayerStream
     }
 
@@ -416,7 +452,7 @@ export async function connect (connectOptions: ConnectOptions) {
       tokenCaches: cachedTokens,
       proxyBaseUrl: connectOptions.proxy,
       setProgressText (text) {
-        setLoadingScreenStatus(text)
+        progress.setMessage(text)
       },
       setCacheResult (result) {
         newTokensCacheResult = result
@@ -450,6 +486,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
     if (finalVersion) {
       // ensure data is downloaded
+      loadingTimerState.networkOnlyStart ??= Date.now()
       await downloadMcData(finalVersion)
     }
 
@@ -533,7 +570,7 @@ export async function connect (connectOptions: ConnectOptions) {
     }) as unknown as typeof __type_bot
     window.bot = bot
     if (connectOptions.viewerWsConnect) {
-      void handleCustomChannel()
+      void onBotCreatedViewerHandler()
     }
     customEvents.emit('mineflayerBotCreated')
     if (singleplayer || p2pMultiplayer || localReplaySession) {
@@ -603,14 +640,6 @@ export async function connect (connectOptions: ConnectOptions) {
   }
   if (!bot) return
 
-  if (connectOptions.server) {
-    bot.loadPlugin(ping)
-  }
-  bot.loadPlugin(mouse)
-  if (!localReplaySession) {
-    bot.loadPlugin(localRelayServerPlugin)
-  }
-
   const p2pConnectTimeout = p2pMultiplayer ? setTimeout(() => { throw new UserError('Spawn timeout. There might be error on the other side, check console.') }, 20_000) : undefined
 
   // bot.on('inject_allowed', () => {
@@ -622,9 +651,13 @@ export async function connect (connectOptions: ConnectOptions) {
   bot.on('kicked', (kickReason) => {
     console.log('You were kicked!', kickReason)
     const { formatted: kickReasonFormatted, plain: kickReasonString } = parseFormattedMessagePacket(kickReason)
+    // close all modals
+    for (const modal of activeModalStack) {
+      hideModal(modal)
+    }
     setLoadingScreenStatus(`The Minecraft server kicked you. Kick reason: ${kickReasonString}`, true, undefined, undefined, kickReasonFormatted)
     appStatusState.showReconnect = true
-    destroyAll()
+    destroyAll(true)
   })
 
   const packetBeforePlay = (_, __, ___, fullBuffer) => {
@@ -644,6 +677,10 @@ export async function connect (connectOptions: ConnectOptions) {
     if (endReason === 'socketClosed') {
       endReason = lastKnownKickReason ?? 'Connection with proxy server lost'
     }
+    // close all modals
+    for (const modal of activeModalStack) {
+      hideModal(modal)
+    }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason:\n${endReason}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
@@ -654,7 +691,8 @@ export async function connect (connectOptions: ConnectOptions) {
   onBotCreate()
 
   bot.once('login', () => {
-    setLoadingScreenStatus('Loading world')
+    loadingTimerState.networkOnlyStart = 0
+    progress.setMessage('Loading world')
   })
 
   let worldWasReady = false
@@ -716,9 +754,10 @@ export async function connect (connectOptions: ConnectOptions) {
       }
       connectOptions.onSuccessfulPlay?.()
       updateDataAfterJoin()
-      if (connectOptions.autoLoginPassword) {
+      const password = findServerPassword()
+      if (password) {
         setTimeout(() => {
-          bot.chat(`/login ${connectOptions.autoLoginPassword}`)
+          bot.chat(`/login ${password}`)
         }, 500)
       }
 
@@ -799,7 +838,10 @@ export async function connect (connectOptions: ConnectOptions) {
       const commands = appQueryParamsArray.command ?? []
       for (let command of commands) {
         if (!command.startsWith('/')) command = `/${command}`
-        bot.chat(command)
+        const builtinHandled = tryHandleBuiltinCommand(command)
+        if (!builtinHandled) {
+          bot.chat(command)
+        }
       }
     })
   }
@@ -888,7 +930,11 @@ if (!reconnectOptions) {
       const waitAppConfigLoad = !appQueryParams.proxy
       const openServerEditor = () => {
         hideModal()
-        showModal({ reactType: 'editServer' })
+        if (appQueryParams.onlyConnect) {
+          showModal({ reactType: 'only-connect-server' })
+        } else {
+          showModal({ reactType: 'editServer' })
+        }
       }
       showModal({ reactType: 'empty' })
       if (waitAppConfigLoad) {
@@ -962,4 +1008,5 @@ if (initialLoader) {
 window.pageLoaded = true
 
 void possiblyHandleStateVariable()
+appViewer.waitBackendLoadPromises.push(appStartup())
 registerOpenBenchmarkListener()
