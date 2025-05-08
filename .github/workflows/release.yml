@@ -78,7 +78,7 @@ jobs:
           zip -r ../self-host.zip .
 
       - run: |
-          pnpx zardoy-release node --footer "This release URL: $(echo ${{ steps.alias.outputs.alias }} | cut -d',' -f1) (Vercel URL: ${{ steps.deploy.outputs.stdout }})"
+          pnpx zardoy-release node --footer "This release URL: https://$(echo ${{ steps.alias.outputs.alias }} | cut -d',' -f1) (Vercel URL: ${{ steps.deploy.outputs.stdout }})"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # has possible output: tag
