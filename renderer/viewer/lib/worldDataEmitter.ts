@@ -40,6 +40,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   minY = -64
   worldHeight = 384
   dimensionName = ''
+  version = ''
 
   worldRendererConfig: WorldRendererConfig
   loadedChunks: Record<ChunkPosKey, boolean>
@@ -99,6 +100,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   }
 
   listenToBot (bot: typeof __type_bot) {
+    this.version = bot.version
     const entitiesObjectData = new Map<string, number>()
     bot._client.prependListener('spawn_entity', (data) => {
       if (data.objectData && data.entityId !== undefined) {
@@ -297,7 +299,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   // lastTime = 0
 
   async loadChunk (pos: ChunkPos, isLightUpdate = false, reason = 'spiral') {
-    createLightEngineIfNeededNew(this)
+    createLightEngineIfNeededNew(this, this.version)
 
     const [botX, botZ] = chunkPos(this.lastPos)
     const chunkX = Math.floor(pos.x / 16)

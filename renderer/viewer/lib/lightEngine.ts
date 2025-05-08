@@ -1,36 +1,23 @@
-import { LightWorld, createLightEngineForSyncWorld, convertPrismarineBlockToWorldBlock, createPrismarineLightEngineWorker } from 'minecraft-lighting'
+import { createPrismarineLightEngineWorker } from 'minecraft-lighting'
 import { world } from 'prismarine-world'
 // import PrismarineWorker from 'minecraft-lighting/dist/prismarineWorker.worker.js'
 import { WorldDataEmitter } from './worldDataEmitter'
+import { initMesherWorker, meshersSendMcData } from './worldrendererCommon'
 
-let lightEngine: LightWorld | null = null
 let lightEngineNew: ReturnType<typeof createPrismarineLightEngineWorker> | null = null
 
-export const getLightEngine = () => {
-  if (!lightEngine) throw new Error('Light engine not initialized')
-  return lightEngine
-}
 export const getLightEngineSafe = () => {
   // return lightEngine
   return lightEngineNew
 }
 
-export const createLightEngineIfNeeded = (worldView: WorldDataEmitter) => {
-  if (lightEngine) return
-  lightEngine = createLightEngineForSyncWorld(worldView.world as unknown as world.WorldSync, loadedData, {
-    minY: worldView.minY,
-    height: worldView.minY + worldView.worldHeight,
-    // writeLightToOriginalWorld: true,
-    // enableSkyLight: false,
-  })
-  lightEngine.externalWorld.setBlock = () => {}
-  lightEngine.PARALLEL_CHUNK_PROCESSING = false
-  globalThis.lightEngine = lightEngine
-}
-
-export const createLightEngineIfNeededNew = (worldView: WorldDataEmitter) => {
+export const createLightEngineIfNeededNew = (worldView: WorldDataEmitter, version: string) => {
   if (lightEngineNew) return
-  const worker = new Worker(new URL('minecraft-lighting/dist/prismarineWorker.worker.js', import.meta.url))
+  const worker = initMesherWorker((data) => {
+    // console.log('light engine worker message', data)
+  })
+  meshersSendMcData([worker], version)
+  worker.postMessage({ type: 'sideControl', value: 'lightEngine' })
   lightEngineNew = createPrismarineLightEngineWorker(worker, worldView.world as unknown as world.WorldSync, loadedData)
   lightEngineNew.initialize({
     minY: worldView.minY,
@@ -101,6 +88,6 @@ export const lightRemoveColumn = (x: number, z: number) => {
 }
 
 export const destroyLightEngine = () => {
-  lightEngine = null
+  lightEngineNew = null
   globalThis.lightEngine = null
 }

@@ -279,29 +279,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   initWorkers (numWorkers = this.worldRendererConfig.mesherWorkers) {
     // init workers
     for (let i = 0; i < numWorkers + 1; i++) {
-      // Node environment needs an absolute path, but browser needs the url of the file
-      const workerName = 'mesher.js'
-      // eslint-disable-next-line node/no-path-concat
-      const src = typeof window === 'undefined' ? `${__dirname}/${workerName}` : workerName
-
-      let worker: any
-      if (process.env.SINGLE_FILE_BUILD) {
-        const workerCode = document.getElementById('mesher-worker-code')!.textContent!
-        const blob = new Blob([workerCode], { type: 'text/javascript' })
-        worker = new Worker(window.URL.createObjectURL(blob))
-      } else {
-        worker = new Worker(src)
-      }
-
-      worker.onmessage = ({ data }) => {
+      const worker = initMesherWorker((data) => {
         if (Array.isArray(data)) {
           this.messageQueue.push(...data)
         } else {
           this.messageQueue.push(data)
         }
         void this.processMessageQueue('worker')
-      }
-      if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
+      })
       this.workers.push(worker)
     }
   }
@@ -567,17 +552,13 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   sendMesherMcData () {
-    const allMcData = mcDataRaw.pc[this.version] ?? mcDataRaw.pc[toMajorVersion(this.version)]
-    const mcData = {
-      version: JSON.parse(JSON.stringify(allMcData.version))
-    }
-    for (const key of dynamicMcDataFiles) {
-      mcData[key] = allMcData[key]
-    }
-
-    for (const worker of this.workers) {
-      worker.postMessage({ type: 'mcData', mcData, config: this.getMesherConfig() })
-    }
+    meshersSendMcData(
+      this.workers,
+      this.version,
+      {
+        config: this.getMesherConfig()
+      }
+    )
     this.logWorkerWork('# mcData sent')
   }
 
@@ -1006,5 +987,41 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     removeAllStats()
 
     this.displayOptions.worldView.destroy()
+  }
+}
+
+export const initMesherWorker = (onGotMessage: (data: any) => void) => {
+  // Node environment needs an absolute path, but browser needs the url of the file
+  const workerName = 'mesher.js'
+  // eslint-disable-next-line node/no-path-concat
+  const src = typeof window === 'undefined' ? `${__dirname}/${workerName}` : workerName
+
+  let worker: any
+  if (process.env.SINGLE_FILE_BUILD) {
+    const workerCode = document.getElementById('mesher-worker-code')!.textContent!
+    const blob = new Blob([workerCode], { type: 'text/javascript' })
+    worker = new Worker(window.URL.createObjectURL(blob))
+  } else {
+    worker = new Worker(src)
+  }
+
+  worker.onmessage = ({ data }) => {
+    onGotMessage(data)
+  }
+  if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
+  return worker
+}
+
+export const meshersSendMcData = (workers: Worker[], version: string, addData = {} as Record<string, any>) => {
+  const allMcData = mcDataRaw.pc[version] ?? mcDataRaw.pc[toMajorVersion(version)]
+  const mcData = {
+    version: JSON.parse(JSON.stringify(allMcData.version))
+  }
+  for (const key of dynamicMcDataFiles) {
+    mcData[key] = allMcData[key]
+  }
+
+  for (const worker of workers) {
+    worker.postMessage({ type: 'mcData', mcData, ...addData })
   }
 }
