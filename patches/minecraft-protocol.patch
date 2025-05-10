@@ -1,3 +1,6 @@
+diff --git a/README.md b/README.md
+deleted file mode 100644
+index fbcaa43667323a58b8110a4495938c2c6d2d6f83..0000000000000000000000000000000000000000
 diff --git a/src/client/chat.js b/src/client/chat.js
 index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aae0d1d337 100644
 --- a/src/client/chat.js
@@ -73,6 +76,19 @@ index b9d21bab9faccd5dbf1975fc423fc55c73e906c5..99ffd76527b410e3a393181beb260108
        }
  
        function onJoinServerResponse (err) {
+diff --git a/src/client/play.js b/src/client/play.js
+index 6e06dc15291b38e1eeeec8d7102187b2a23d70a3..f67454942db9276cbb9eab99c281cfe182cb8a1f 100644
+--- a/src/client/play.js
++++ b/src/client/play.js
+@@ -53,7 +53,7 @@ module.exports = function (client, options) {
+         client.write('configuration_acknowledged', {})
+       }
+       client.state = states.CONFIGURATION
+-      client.on('select_known_packs', () => {
++      client.once('select_known_packs', () => {
+         client.write('select_known_packs', { packs: [] })
+       })
+       // Server should send finish_configuration on its own right after sending the client a dimension codec
 diff --git a/src/client.js b/src/client.js
 index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d248c2a07c 100644
 --- a/src/client.js

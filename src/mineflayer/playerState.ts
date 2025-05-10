@@ -24,6 +24,7 @@ export class PlayerStateManager implements IPlayerState {
   private itemUsageTicks = 0
   private isUsingItem = false
   private ready = false
+  public lightingDisabled = false
   onlineMode = false
   get username () {
     return bot.username ?? ''
@@ -51,6 +52,21 @@ export class PlayerStateManager implements IPlayerState {
   }
 
   private botCreated () {
+    const handleDimensionData = (data) => {
+      let hasSkyLight = 1
+      try {
+        hasSkyLight = data.dimension.value.has_skylight.value
+      } catch {}
+      this.lightingDisabled = bot.game.dimension === 'the_nether' || bot.game.dimension === 'the_end' || !hasSkyLight
+    }
+
+    bot._client.on('login', (packet) => {
+      handleDimensionData(packet)
+    })
+    bot._client.on('respawn', (packet) => {
+      handleDimensionData(packet)
+    })
+
     // Movement tracking
     bot.on('move', this.updateState)
 
@@ -73,6 +89,10 @@ export class PlayerStateManager implements IPlayerState {
       this.reactive.gameMode = bot.game.gameMode
     })
     this.reactive.gameMode = bot.game?.gameMode
+  }
+
+  get shouldHideHand () {
+    return this.reactive.gameMode === 'spectator'
   }
 
   // #region Movement and Physics State
@@ -118,7 +138,7 @@ export class PlayerStateManager implements IPlayerState {
   }
 
   getEyeHeight (): number {
-    return bot.controlState.sneak ? 1.27 : 1.62
+    return bot.controlState.sneak && !this.isFlying() ? 1.27 : 1.62
   }
 
   isOnGround (): boolean {

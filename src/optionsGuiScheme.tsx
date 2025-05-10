@@ -605,6 +605,10 @@ export const guiOptionsScheme: {
       debugResponseTimeIndicator: {
         text: 'Debug Input Lag',
       },
+    },
+    {
+      debugChatScroll: {
+      },
     }
   ],
   'export-import': [

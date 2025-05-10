@@ -31,6 +31,8 @@ export interface IPlayerState {
   getHeldItem?(isLeftHand: boolean): HandItemBlock | undefined
   username?: string
   onlineMode?: boolean
+  lightingDisabled?: boolean
+  shouldHideHand?: boolean
 
   events: TypedEmitter<PlayerStateEvents>
 

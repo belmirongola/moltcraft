@@ -8,7 +8,7 @@ import { viewerVersionState } from '../viewerConnector'
 import Chat, { Message, fadeMessage } from './Chat'
 import { useIsModalActive } from './utilsApp'
 import { hideNotification, notificationProxy, showNotification } from './NotificationProvider'
-import { updateLoadedServerData } from './serversStorage'
+import { getServerIndex, updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
 import { showOptionsModal } from './SelectOption'
 
@@ -17,7 +17,7 @@ export default () => {
   const isChatActive = useIsModalActive('chat')
   const lastMessageId = useRef(0)
   const usingTouch = useSnapshot(miscUiState).currentTouch
-  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions } = useSnapshot(options)
+  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions, debugChatScroll } = useSnapshot(options)
   const isUsingMicrosoftAuth = useMemo(() => !!lastConnectOptions.value?.authenticatedAccount, [])
   const { forwardChat } = useSnapshot(viewerVersionState)
   const { viewerConnection } = useSnapshot(gameAdditionalState)
@@ -48,6 +48,7 @@ export default () => {
 
   return <Chat
     chatVanillaRestrictions={chatVanillaRestrictions}
+    debugChatScroll={debugChatScroll}
     allowSelection={chatSelect}
     usingTouch={!!usingTouch}
     opacity={(isChatActive ? chatOpacityOpened : chatOpacity) / 100}
@@ -56,13 +57,13 @@ export default () => {
     placeholder={forwardChat || !viewerConnection ? undefined : 'Chat forwarding is not enabled in the plugin settings'}
     sendMessage={async (message) => {
       const builtinHandled = tryHandleBuiltinCommand(message)
-      if (miscUiState.loadedServerIndex && (message.startsWith('/login') || message.startsWith('/register'))) {
+      if (getServerIndex() !== undefined && (message.startsWith('/login') || message.startsWith('/register'))) {
         showNotification('Click here to save your password in browser for auto-login', undefined, false, undefined, () => {
           updateLoadedServerData((server) => {
             server.autoLogin ??= {}
             const password = message.split(' ')[1]
             server.autoLogin[bot.username] = password
-            return server
+            return { ...server }
           })
           hideNotification()
         })

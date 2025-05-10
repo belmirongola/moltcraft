@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useLayoutEffect, useRef } from 'react'
+import { RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { pixelartIcons } from '../PixelartIcon'
 
 export const useScrollBehavior = (
@@ -12,6 +12,8 @@ export const useScrollBehavior = (
   }
 ) => {
   const openedWasAtBottom = useRef(true) // before new messages
+  const [currentlyAtBottom, setCurrentlyAtBottom] = useState(true)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const isAtBottom = () => {
     if (!elementRef.current) return true
@@ -20,17 +22,30 @@ export const useScrollBehavior = (
     return distanceFromBottom < 1
   }
 
-  const scrollToBottom = () => {
-    if (elementRef.current) {
-      elementRef.current.scrollTop = elementRef.current.scrollHeight
-      setTimeout(() => {
-        if (!elementRef.current) return
-        elementRef.current.scrollTo({
-          top: elementRef.current.scrollHeight,
-          behavior: 'instant'
-        })
-      }, 0)
+  const scrollToBottom = (behavior: ScrollBehavior = 'instant') => {
+    if (!elementRef.current) return
+
+    // Clear any existing scroll timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
     }
+
+    const el = elementRef.current
+
+    // Immediate scroll
+    el.scrollTop = el.scrollHeight
+
+    // Double-check after a short delay to ensure we're really at the bottom
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!elementRef.current) return
+      const el = elementRef.current
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior
+      })
+      setCurrentlyAtBottom(true)
+      openedWasAtBottom.current = true
+    }, 5)
   }
 
   // Handle scroll position tracking
@@ -39,18 +54,28 @@ export const useScrollBehavior = (
     if (!element) return
 
     const handleScroll = () => {
-      openedWasAtBottom.current = isAtBottom()
+      const atBottom = isAtBottom()
+      openedWasAtBottom.current = atBottom
+      setCurrentlyAtBottom(atBottom)
     }
 
     element.addEventListener('scroll', handleScroll)
-    return () => element.removeEventListener('scroll', handleScroll)
+    return () => {
+      element.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
   }, [])
 
   // Handle opened state changes
   useLayoutEffect(() => {
     if (opened) {
-      openedWasAtBottom.current = true
-    } else {
+      // Wait a frame before scrolling to ensure DOM has updated
+      requestAnimationFrame(() => {
+        scrollToBottom()
+      })
+    } else if (elementRef.current) {
       scrollToBottom()
     }
   }, [opened])
@@ -64,6 +89,8 @@ export const useScrollBehavior = (
 
   return {
     scrollToBottom,
-    isAtBottom
+    isAtBottom,
+    wasAtBottom: () => openedWasAtBottom.current,
+    currentlyAtBottom
   }
 }

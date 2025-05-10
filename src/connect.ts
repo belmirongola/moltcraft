@@ -21,7 +21,6 @@ export type ConnectOptions = {
   peerId?: string
   ignoreQs?: boolean
   onSuccessfulPlay?: () => void
-  autoLoginPassword?: string
   serverIndex?: string
   authenticatedAccount?: AuthenticatedAccount | true
   peerOptions?: any

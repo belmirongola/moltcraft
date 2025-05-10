@@ -77,7 +77,7 @@ import './water'
 import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
-import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
+import { findServerPassword, updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
 import { mainMenuState } from './react/MainMenuRenderApp'
 import './mobileShim'
 import { parseFormattedMessagePacket } from './botUtils'
@@ -754,9 +754,10 @@ export async function connect (connectOptions: ConnectOptions) {
       }
       connectOptions.onSuccessfulPlay?.()
       updateDataAfterJoin()
-      if (connectOptions.autoLoginPassword) {
+      const password = findServerPassword()
+      if (password) {
         setTimeout(() => {
-          bot.chat(`/login ${connectOptions.autoLoginPassword}`)
+          bot.chat(`/login ${password}`)
         }, 500)
       }
 

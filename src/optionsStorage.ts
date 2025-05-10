@@ -72,6 +72,7 @@ const defaultOptions = {
   preventBackgroundTimeoutKick: false,
   preventSleep: false,
   debugContro: false,
+  debugChatScroll: false,
   chatVanillaRestrictions: true,
   debugResponseTimeIndicator: false,
   // antiAliasing: false,
@@ -103,7 +104,7 @@ const defaultOptions = {
   autoJump: 'auto' as 'auto' | 'always' | 'never',
   autoParkour: false,
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
-  renderDebug: (isDev ? 'advanced' : 'basic') as 'none' | 'advanced' | 'basic',
+  renderDebug: 'basic' as 'none' | 'advanced' | 'basic',
 
   // advanced bot options
   autoRespawn: false,
