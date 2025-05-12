@@ -165,7 +165,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
           placeholder={example}
         />
         {!lockConnect && <>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: 'flex' }}>
             <InputWithLabel label="Server Name" value={serverName} onChange={({ target: { value } }) => setServerName(value)} placeholder='Defaults to IP' />
           </div>
         </>}
