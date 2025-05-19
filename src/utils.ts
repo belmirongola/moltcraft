@@ -1,5 +1,6 @@
 import { gameAdditionalState, isGameActive, miscUiState } from './globalState'
 import { options } from './optionsStorage'
+import { displayHintsState } from './react/GlobalOverlayHints'
 import { notificationProxy, showNotification } from './react/NotificationProvider'
 import { packetsReplayState } from './react/state/packetsReplayState'
 
@@ -39,9 +40,10 @@ export const pointerLock = {
       void goFullscreen()
     }
     const displayBrowserProblem = () => {
-      if (notificationProxy.id === 'auto-login') return // prevent notification hide
-      showNotification('Browser Delay Limitation', navigator['keyboard'] ? 'Click on screen, enable Auto Fullscreen or F11' : 'Click on screen or use fullscreen in Chrome')
-      notificationProxy.id = 'pointerlockchange'
+      // if (notificationProxy.id === 'auto-login') return // prevent notification hide
+      // showNotification('Browser Delay Limitation', navigator['keyboard'] ? 'Click on screen, enable Auto Fullscreen or F11' : 'Click on screen or use fullscreen in Chrome')
+      // notificationProxy.id = 'pointerlockchange'
+      displayHintsState.captureMouseHint = true
     }
     if (!(document.fullscreenElement && navigator['keyboard']) && this.justHitEscape) {
       displayBrowserProblem()

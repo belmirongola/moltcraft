@@ -10,6 +10,7 @@ import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
 import useLongPress from './useLongPress'
 import PauseLinkButtons from './PauseLinkButtons'
+import CreditsBookButton from './CreditsBookButton'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -44,7 +45,7 @@ export default ({
   versionTitle,
   onVersionStatusClick,
   bottomRightLinks,
-  singleplayerAvailable = true
+  singleplayerAvailable = true,
 }: Props) => {
   const { appConfig } = useSnapshot(miscUiState)
 
@@ -75,7 +76,7 @@ export default ({
   const connectToServerLongPress = useLongPress(
     () => {
       if (process.env.NODE_ENV === 'development') {
-      // Connect to <origin>:25565
+        // Connect to <origin>:25565
         const origin = window.location.hostname
         const connectOptions: ConnectOptions = {
           server: `${origin}:25565`,
@@ -149,6 +150,7 @@ export default ({
         <div className={styles['menu-row']}>
           <PauseLinkButtons />
         </div>
+        <CreditsBookButton />
       </div>
 
       <div className={styles['bottom-info']}>

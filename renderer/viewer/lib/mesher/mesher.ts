@@ -148,6 +148,29 @@ const handleMessage = data => {
       global.postMessage({ type: 'customBlockModel', chunkKey, customBlockModel })
       break
     }
+    case 'getHeightmap': {
+      const heightmap = new Uint8Array(256)
+
+      const blockPos = new Vec3(0, 0, 0)
+      for (let z = 0; z < 16; z++) {
+        for (let x = 0; x < 16; x++) {
+          const blockX = x + data.x
+          const blockZ = z + data.z
+          blockPos.x = blockX; blockPos.z = blockZ
+          blockPos.y = 256
+          let block = world.getBlock(blockPos)
+          while (block?.name.includes('air')) {
+            blockPos.y -= 1
+            block = world.getBlock(blockPos)
+          }
+          const index = z * 16 + x
+          heightmap[index] = block ? blockPos.y : 0
+        }
+      }
+      postMessage({ type: 'heightmap', key: `${Math.floor(data.x / 16)},${Math.floor(data.z / 16)}`, heightmap })
+
+      break
+    }
   // No default
   }
 }

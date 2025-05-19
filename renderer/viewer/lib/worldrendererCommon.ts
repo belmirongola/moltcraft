@@ -14,7 +14,7 @@ import { ResourcesManager } from '../../../src/resourcesManager'
 import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
 import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
+import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig, MesherMainEvent } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
@@ -85,6 +85,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     dirty (pos: Vec3, value: boolean): void
     update (/* pos: Vec3, value: boolean */): void
     chunkFinished (key: string): void
+    heightmap (key: string, heightmap: Uint8Array): void
   }>
   customTexturesDataUrl = undefined as string | undefined
   workers: any[] = []
@@ -103,8 +104,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   ONMESSAGE_TIME_LIMIT = 30 // ms
 
   handleResize = () => { }
-  highestBlocksByChunks = {} as Record<string, { [chunkKey: string]: HighestBlockInfo }>
-  highestBlocksBySections = {} as Record<string, { [sectionKey: string]: HighestBlockInfo }>
+  highestBlocksByChunks = new Map<string, { [chunkKey: string]: HighestBlockInfo }>()
+  highestBlocksBySections = new Map<string, { [sectionKey: string]: HighestBlockInfo }>()
   blockEntities = {}
 
   workersProcessAverageTime = 0
@@ -247,7 +248,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   async getHighestBlocks (chunkKey: string) {
-    return this.highestBlocksByChunks[chunkKey]
+    return this.highestBlocksByChunks.get(chunkKey)
   }
 
   updateCustomBlock (chunkKey: string, blockPos: string, model: string) {
@@ -365,19 +366,20 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.isProcessingQueue = false
   }
 
-  handleMessage (data) {
+  handleMessage (rawData: any) {
+    const data = rawData as MesherMainEvent
     if (!this.active) return
     this.mesherLogReader?.workerMessageReceived(data.type, data)
     if (data.type !== 'geometry' || !this.debugStopGeometryUpdate) {
       const start = performance.now()
-      this.handleWorkerMessage(data)
+      this.handleWorkerMessage(data as WorkerReceive)
       this.workerCustomHandleTime += performance.now() - start
     }
     if (data.type === 'geometry') {
       this.logWorkerWork(() => `-> ${data.workerIndex} geometry ${data.key} ${JSON.stringify({ dataSize: JSON.stringify(data).length })}`)
       this.geometryReceiveCount[data.workerIndex] ??= 0
       this.geometryReceiveCount[data.workerIndex]++
-      const geometry = data.geometry as MesherGeometryOutput
+      const { geometry } = data
       this.highestBlocksBySections[data.key] = geometry.highestBlocks
       const chunkCoords = data.key.split(',').map(Number)
       this.lastChunkDistance = Math.max(...this.getDistance(new Vec3(chunkCoords[0], 0, chunkCoords[2])))
@@ -404,6 +406,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         if (loaded) {
           // CHUNK FINISHED
           this.finishedChunks[chunkKey] = true
+          this.reactiveState.world.chunksLoaded.add(`${Math.floor(chunkCoords[0] / 16)},${Math.floor(chunkCoords[2] / 16)}`)
           this.renderUpdateEmitter.emit(`chunkFinished`, `${chunkCoords[0]},${chunkCoords[2]}`)
           this.checkAllFinished()
           // merge highest blocks by sections into highest blocks by chunks
@@ -441,6 +444,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       for (const [cacheKey, info] of Object.entries(data.info)) {
         this.blockStateModelInfo.set(cacheKey, info)
       }
+    }
+
+    if (data.type === 'heightmap') {
+      appViewer.rendererState.world.heightmaps.set(data.key, new Uint8Array(data.heightmap))
     }
   }
 
@@ -599,7 +606,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   updateChunksStats () {
     const loadedChunks = Object.keys(this.finishedChunks)
-    this.displayOptions.nonReactiveState.world.chunksLoaded = loadedChunks
+    this.displayOptions.nonReactiveState.world.chunksLoaded = new Set(loadedChunks)
     this.displayOptions.nonReactiveState.world.chunksTotalNumber = this.chunksLength
     this.reactiveState.world.allChunksLoaded = this.allChunksFinished
 
@@ -628,6 +635,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         customBlockModels: customBlockModels || undefined
       })
     }
+    this.workers[0].postMessage({
+      type: 'getHeightmap',
+      x,
+      z,
+    })
     this.logWorkerWork(() => `-> chunk ${JSON.stringify({ x, z, chunkLength: chunk.length, customBlockModelsLength: customBlockModels ? Object.keys(customBlockModels).length : 0 })}`)
     this.mesherLogReader?.chunkReceived(x, z, chunk.length)
     for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
@@ -664,9 +676,9 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(x, y, z), false)
       delete this.finishedSections[`${x},${y},${z}`]
-      delete this.highestBlocksBySections[`${x},${y},${z}`]
+      this.highestBlocksBySections.delete(`${x},${y},${z}`)
     }
-    delete this.highestBlocksByChunks[`${x},${z}`]
+    this.highestBlocksByChunks.delete(`${x},${z}`)
 
     this.updateChunksStats()
 
@@ -992,7 +1004,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.active = false
 
     this.renderUpdateEmitter.removeAllListeners()
-    this.displayOptions.worldView.removeAllListeners() // todo
     this.abortController.abort()
     removeAllStats()
   }

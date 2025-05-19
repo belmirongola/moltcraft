@@ -90,8 +90,7 @@ export const guiOptionsScheme: {
       },
       lowMemoryMode: {
         text: 'Low Memory Mode',
-        enableWarning: 'Enabling it will make chunks load ~4x slower',
-        disabledDuringGame: true
+        enableWarning: 'Enabling it will make chunks load ~4x slower. When in the game, app needs to be reloaded to apply this setting.',
       },
       starfieldRendering: {},
       renderEntities: {},
@@ -288,6 +287,20 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        return <Category>Map</Category>
+      },
+      showMinimap: {
+        text: 'Enable Minimap',
+        enableWarning: 'App reload is required to apply this setting',
+        values: [
+          'always',
+          'singleplayer',
+          'never'
+        ],
+      },
+    },
+    {
+      custom () {
         return <Category>World</Category>
       },
       highlightBlockColor: {
@@ -317,19 +330,6 @@ export const guiOptionsScheme: {
         values: [
           'auto',
           'always',
-          'never'
-        ],
-      },
-    },
-    {
-      custom () {
-        return <Category>Map</Category>
-      },
-      showMinimap: {
-        text: 'Enable Minimap',
-        values: [
-          'always',
-          'singleplayer',
           'never'
         ],
       },
@@ -555,6 +555,7 @@ export const guiOptionsScheme: {
     {
       preventBackgroundTimeoutKick: {},
       preventSleep: {
+        text: 'Prevent Device Sleep',
         disabledReason: navigator.wakeLock ? undefined : 'Your browser does not support wake lock API',
         enableWarning: 'When connected to a server, prevent PC from sleeping or screen dimming. Useful for purpusely staying AFK for long time. Some events might still prevent this like loosing tab focus or going low power mode.',
       },

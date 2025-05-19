@@ -1318,55 +1318,47 @@
         13
     ],
     "lever": {
-        "face=ceiling,facing=east": [
-            4,
-            0,
-            5,
-            12,
-            6,
-            11
-        ],
-        "face=ceiling,facing=north": [
-            5,
-            0,
-            4,
-            11,
-            6,
-            12
-        ],
-        "face=ceiling,facing=south": [
-            5,
-            0,
-            4,
-            11,
-            6,
-            12
-        ],
-        "face=ceiling,facing=west": [
-            4,
-            0,
-            5,
-            12,
-            6,
-            11
-        ],
         "face=floor,facing=east": [
             4,
-            10,
+            0,
             5,
             12,
-            16,
+            6,
             11
         ],
         "face=floor,facing=north": [
             5,
-            10,
+            0,
             4,
             11,
-            16,
+            6,
             12
         ],
         "face=floor,facing=south": [
+            5,
+            0,
+            4,
+            11,
+            6,
+            12
+        ],
+        "face=floor,facing=west": [
+            4,
+            0,
+            5,
+            12,
+            6,
+            11
+        ],
+        "face=ceiling,facing=east": [
+            4,
+            10,
+            5,
+            12,
+            16,
+            11
+        ],
+        "face=ceiling,facing=north": [
             5,
             10,
             4,
@@ -1374,7 +1366,15 @@
             16,
             12
         ],
-        "face=floor,facing=west": [
+        "face=ceiling,facing=south": [
+            5,
+            10,
+            4,
+            11,
+            16,
+            12
+        ],
+        "face=ceiling,facing=west": [
             4,
             10,
             5,
