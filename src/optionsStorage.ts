@@ -77,6 +77,7 @@ const defaultOptions = {
   preventBackgroundTimeoutKick: false,
   preventSleep: false,
   debugContro: false,
+  debugChatScroll: false,
   chatVanillaRestrictions: true,
   debugResponseTimeIndicator: false,
   // antiAliasing: false,

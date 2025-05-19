@@ -150,7 +150,7 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "^0.2.53",
+    "mc-assets": "^0.2.54",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "minecraft-lighting": "^0.0.10",
     "mineflayer": "github:zardoy/mineflayer#gen-the-master",
@@ -195,7 +195,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@nxg-org/mineflayer-physics-util": "1.8.7",
+      "@nxg-org/mineflayer-physics-util": "1.8.8",
       "buffer": "^6.0.3",
       "vec3": "0.1.10",
       "three": "0.154.0",

@@ -17,7 +17,8 @@ import { watchOptionsAfterWorldViewInit } from './watchOptions'
 
 export interface RendererReactiveState {
   world: {
-    chunksLoaded: string[]
+    chunksLoaded: Set<string>
+    heightmaps: Map<string, Uint8Array>
     chunksTotalNumber: number
     allChunksLoaded: boolean
     mesherWork: boolean
@@ -28,7 +29,7 @@ export interface RendererReactiveState {
 }
 export interface NonReactiveState {
   world: {
-    chunksLoaded: string[]
+    chunksLoaded: Set<string>
     chunksTotalNumber: number
     allChunksLoaded: boolean
     mesherWork: boolean

@@ -35,3 +35,12 @@ window.addEventListener('beforeunload', (event) => {
   event.returnValue = '' // Required for some browsers
   return 'The game is running. Are you sure you want to close this page?'
 })
+
+window.addEventListener('contextmenu', (e) => {
+  const ALLOW_TAGS = ['INPUT', 'TEXTAREA', 'A']
+  // allow if target is in ALLOW_TAGS or has selection text
+  if (ALLOW_TAGS.includes((e.target as HTMLElement)?.tagName) || window.getSelection()?.toString()) {
+    return
+  }
+  e.preventDefault()
+})

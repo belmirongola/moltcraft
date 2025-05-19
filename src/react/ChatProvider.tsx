@@ -17,7 +17,7 @@ export default () => {
   const isChatActive = useIsModalActive('chat')
   const lastMessageId = useRef(0)
   const usingTouch = useSnapshot(miscUiState).currentTouch
-  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions } = useSnapshot(options)
+  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions, debugChatScroll } = useSnapshot(options)
   const isUsingMicrosoftAuth = useMemo(() => !!lastConnectOptions.value?.authenticatedAccount, [])
   const { forwardChat } = useSnapshot(viewerVersionState)
   const { viewerConnection } = useSnapshot(gameAdditionalState)
@@ -48,6 +48,7 @@ export default () => {
 
   return <Chat
     chatVanillaRestrictions={chatVanillaRestrictions}
+    debugChatScroll={debugChatScroll}
     allowSelection={chatSelect}
     usingTouch={!!usingTouch}
     opacity={(isChatActive ? chatOpacityOpened : chatOpacity) / 100}

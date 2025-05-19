@@ -57,6 +57,9 @@ export default () => {
   if (!usingTouch || touchInteractionType !== 'classic' || modalStack.length > 0) return null
   if (!hintText && !entityName) return null
 
+  // need to hide "Use" button if there isn't an entity name, but there is a hint text
+  if (!entityName) return null
+
   return (
     <div
       className={`${styles.hint_container} interaction-hint`}
