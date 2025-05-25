@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { WorldRendererThree } from './worldrendererThree'
 
 export class CameraShake {
   private rollAngle = 0
@@ -8,7 +9,7 @@ export class CameraShake {
   private basePitch = 0
   private baseYaw = 0
 
-  constructor (public camera: THREE.Camera, public onRenderCallbacks: Array<() => void>) {
+  constructor (public worldRenderer: WorldRendererThree, public onRenderCallbacks: Array<() => void>) {
     onRenderCallbacks.push(() => {
       this.update()
     })
@@ -62,14 +63,21 @@ export class CameraShake {
       }
     }
 
-    // Create rotation quaternions
-    const pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), this.basePitch)
-    const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.baseYaw)
-    const rollQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(this.rollAngle))
+    const camera = this.worldRenderer.cameraGroupVr || this.worldRenderer.camera
 
-    // Combine rotations in the correct order: pitch -> yaw -> roll
-    const finalQuat = yawQuat.multiply(pitchQuat).multiply(rollQuat)
-    this.camera.setRotationFromQuaternion(finalQuat)
+    if (this.worldRenderer.cameraGroupVr) {
+      // For VR camera, only apply yaw rotation
+      const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.baseYaw)
+      camera.setRotationFromQuaternion(yawQuat)
+    } else {
+      // For regular camera, apply all rotations
+      const pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), this.basePitch)
+      const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.baseYaw)
+      const rollQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(this.rollAngle))
+      // Combine rotations in the correct order: pitch -> yaw -> roll
+      const finalQuat = yawQuat.multiply(pitchQuat).multiply(rollQuat)
+      camera.setRotationFromQuaternion(finalQuat)
+    }
   }
 
   private easeOut (t: number): number {

@@ -26,7 +26,8 @@
     }
   ],
   "rightSideText": "A Minecraft client clone in the browser!",
-  "splashText": "Gen is cooking!",
+  "splashText": "The sunset is coming!",
+  "splashTextFallback": "Welcome!",
   "pauseLinks": [
     [
       {

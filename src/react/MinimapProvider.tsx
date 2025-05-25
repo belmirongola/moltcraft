@@ -45,7 +45,7 @@ export class DrawerAdapterImpl extends TypedEventEmitter<MapUpdates> implements 
   chunksStore = new Map<string, undefined | null | 'requested' | ChunkInfo>()
   loadingChunksQueue = new Set<string>()
   loadChunk: (key: string) => Promise<void> = this.loadChunkMinimap
-  mapDrawer = new MinimapDrawer(this.loadChunk, this.warps, this.loadingChunksQueue, this.chunksStore)
+  mapDrawer = new MinimapDrawer(this.loadChunk.bind(this), this.warps, this.loadingChunksQueue, this.chunksStore)
   currChunk: PCChunk | undefined
   currChunkPos: { x: number, z: number } = { x: 0, z: 0 }
   isOldVersion: boolean

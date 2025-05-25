@@ -24,6 +24,7 @@ export type AppConfig = {
   // hideSettings?: Record<string, boolean>
   allowAutoConnect?: boolean
   splashText?: string
+  splashTextFallback?: string
   pauseLinks?: Array<Array<Record<string, any>>>
   keybindings?: Record<string, any>
   defaultLanguage?: string

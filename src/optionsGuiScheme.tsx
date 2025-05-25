@@ -488,7 +488,11 @@ export const guiOptionsScheme: {
           </>
         )
       },
-      vrSupport: {}
+      vrSupport: {},
+      vrPageGameRendering: {
+        text: 'Page Game Rendering',
+        tooltip: 'Wether to continue rendering page even when vr is active.',
+      }
     },
   ],
   advanced: [

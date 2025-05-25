@@ -3,6 +3,7 @@ import Stats from 'stats.js'
 import StatsGl from 'stats-gl'
 import * as tween from '@tweenjs/tween.js'
 import { GraphicsBackendConfig, GraphicsInitOptions } from '../../../src/appViewer'
+import { WorldRendererConfig } from '../lib/worldrendererCommon'
 
 export class DocumentRenderer {
   readonly canvas = document.createElement('canvas')
@@ -23,6 +24,7 @@ export class DocumentRenderer {
   droppedFpsPercentage: number
   config: GraphicsBackendConfig
   onRender = [] as Array<(sizeChanged: boolean) => void>
+  inWorldRenderingConfig: WorldRendererConfig | undefined
 
   constructor (initOptions: GraphicsInitOptions) {
     this.config = initOptions.config
@@ -94,7 +96,7 @@ export class DocumentRenderer {
       if (this.disconnected) return
       this.animationFrameId = requestAnimationFrame(animate)
 
-      if (this.paused) return
+      if (this.paused || (this.renderer.xr.isPresenting && !this.inWorldRenderingConfig?.vrPageGameRendering)) return
 
       // Handle FPS limiting
       if (this.config.fpsLimit) {
@@ -117,18 +119,7 @@ export class DocumentRenderer {
         sizeChanged = true
       }
 
-      this.preRender()
-      this.stats.markStart()
-      tween.update()
-      if (!window.freezeRender) {
-        this.render(sizeChanged)
-      }
-      for (const fn of this.onRender) {
-        fn(sizeChanged)
-      }
-      this.renderedFps++
-      this.stats.markEnd()
-      this.postRender()
+      this.frameRender(sizeChanged)
 
       // Update stats visibility each frame
       if (this.config.statsVisible !== undefined) {
@@ -137,6 +128,21 @@ export class DocumentRenderer {
     }
 
     animate()
+  }
+
+  frameRender (sizeChanged: boolean) {
+    this.preRender()
+    this.stats.markStart()
+    tween.update()
+    if (!window.freezeRender) {
+      this.render(sizeChanged)
+    }
+    for (const fn of this.onRender) {
+      fn(sizeChanged)
+    }
+    this.renderedFps++
+    this.stats.markEnd()
+    this.postRender()
   }
 
   setPaused (paused: boolean) {

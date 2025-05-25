@@ -199,7 +199,7 @@ export class AppViewer {
   resetBackend (cleanState = false) {
     this.disconnectBackend(cleanState)
     if (this.backendLoader) {
-      this.loadBackend(this.backendLoader)
+      void this.loadBackend(this.backendLoader)
     }
   }
 

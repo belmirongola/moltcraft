@@ -25,6 +25,7 @@ import { GeneralInputItem, getItemMetadata, getItemModelName, getItemNameRaw, Re
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
   loadedImagesCache.delete('blocks')
+  loadedImagesCache.delete('items')
 }
 
 let lastWindow: ReturnType<typeof showInventory>
@@ -120,6 +121,7 @@ export const onGameLoad = () => {
   if (!appViewer.resourcesManager['_inventoryChangeTracked']) {
     appViewer.resourcesManager['_inventoryChangeTracked'] = true
     const texturesChanged = () => {
+      cleanLoadedImagesCache()
       if (!lastWindow) return
       upWindowItemsLocal()
       upJei(lastJeiSearch)

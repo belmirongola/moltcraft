@@ -1,4 +1,4 @@
-import { useSnapshot } from 'valtio'
+import { proxy, useSnapshot } from 'valtio'
 import { useState, useEffect, useMemo } from 'react'
 import { isGameActive } from '../globalState'
 import PlayerListOverlay from './PlayerListOverlay'
@@ -9,26 +9,17 @@ const MAX_ROWS_PER_COL = 10
 
 type Players = typeof bot.players
 
+export const tabListState = proxy({
+  isOpen: false,
+})
+
 export default () => {
+  const { isOpen } = useSnapshot(tabListState)
+
   const serverIp = lastConnectOptions.value?.server
   const [clientId, setClientId] = useState(bot._client.uuid)
   const [players, setPlayers] = useState<Players>({})
-  const [isOpen, setIsOpen] = useState(false)
-
-  const handleKeyDown = (e) => {
-    if (!isGameActive(true)) return
-    if (e.key === 'Tab') {
-      setIsOpen(prev => true)
-      e.preventDefault()
-    }
-  }
-
-  const handleKeyUp = (e) => {
-    if (e.key === 'Tab') {
-      setIsOpen(prev => false)
-      e.preventDefault()
-    }
-  }
+  const [counter, setCounter] = useState(0)
 
   useEffect(() => {
     function requestUpdate () {
@@ -57,12 +48,11 @@ export default () => {
       })
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('keyup', handleKeyUp)
+    const playerlistHeader = () => setCounter(prev => prev + 1)
+    bot._client.on('playerlist_header', playerlistHeader)
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('keyup', handleKeyUp)
+      bot?._client.removeListener('playerlist_header', playerlistHeader)
     }
   }, [serverIp])
 

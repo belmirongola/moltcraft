@@ -3,6 +3,8 @@ import { BlockType } from '../../../playground/shared'
 // only here for easier testing
 export const defaultMesherConfig = {
   version: '',
+  worldMaxY: 256,
+  worldMinY: 0,
   enableLighting: true,
   skyLight: 15,
   smoothLighting: true,

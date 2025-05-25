@@ -20,7 +20,6 @@ import { armorModel } from './entity/armorModels'
 import { disposeObject } from './threeJsUtils'
 import { CursorBlock } from './world/cursorBlock'
 import { getItemUv } from './appShared'
-import { initVR } from './world/vr'
 import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
@@ -42,7 +41,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
   directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
   entities = new Entities(this)
-  cameraObjectOverride?: THREE.Object3D // for xr
+  cameraGroupVr?: THREE.Object3D
   material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
   itemsTexture: THREE.Texture
   cursorBlock = new CursorBlock(this)
@@ -91,10 +90,9 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.addDebugOverlay()
     this.resetScene()
     void this.init()
-    void initVR(this)
 
     this.soundSystem = new ThreeJsSound(this)
-    this.cameraShake = new CameraShake(this.camera, this.onRender)
+    this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
@@ -104,6 +102,10 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.finishChunk(chunkKey)
     })
     this.worldSwitchActions()
+  }
+
+  get cameraObject () {
+    return this.cameraGroupVr || this.camera
   }
 
   worldSwitchActions () {
@@ -301,7 +303,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   updateViewerPosition (pos: Vec3): void {
     this.viewerPosition = pos
-    const cameraPos = this.camera.position.toArray().map(x => Math.floor(x / 16)) as [number, number, number]
+    const cameraPos = this.cameraObject.position.toArray().map(x => Math.floor(x / 16)) as [number, number, number]
     this.cameraSectionPos = new Vec3(...cameraPos)
     // eslint-disable-next-line guard-for-in
     for (const key in this.sectionObjects) {
@@ -429,10 +431,8 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
-    const cam = this.cameraObjectOverride || this.camera
     const yOffset = this.displayOptions.playerState.getEyeHeight()
 
-    this.camera = cam as THREE.PerspectiveCamera
     this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
     this.media.tryIntersectMedia()
   }
@@ -445,7 +445,11 @@ export class WorldRendererThree extends WorldRendererCommon {
     // }
 
     if (pos) {
-      new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
+      if (this.renderer.xr.isPresenting) {
+        pos.y -= this.camera.position.y // Fix Y position of camera in world
+      }
+
+      new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
       // this.freeFlyState.position = pos
     }
     this.cameraShake.setBaseRotation(pitch, yaw)
@@ -467,13 +471,13 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.entities.render()
 
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
-    const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
+    const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.shouldHideHand /*  && !this.freeFlyMode */) {
-      this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
-      this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
-    }
+    // if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.shouldHideHand /*  && !this.freeFlyMode */) {
+    //   this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+    //   this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+    // }
 
     for (const fountain of this.fountains) {
       if (this.sectionObjects[fountain.sectionId] && !this.sectionObjects[fountain.sectionId].foutain) {

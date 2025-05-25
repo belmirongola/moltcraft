@@ -1,9 +1,17 @@
-import React from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { useSnapshot } from 'valtio'
 import { haveDirectoryPicker } from '../utils'
 import { ConnectOptions } from '../connect'
 import { miscUiState } from '../globalState'
+import {
+  isRemoteSplashText,
+  loadRemoteSplashText,
+  getCachedSplashText,
+  cacheSplashText,
+  cacheSourceUrl,
+  clearSplashCache
+} from '../utils/splashText'
 import styles from './mainMenu.module.css'
 import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
@@ -48,6 +56,44 @@ export default ({
   singleplayerAvailable = true,
 }: Props) => {
   const { appConfig } = useSnapshot(miscUiState)
+
+  const splashText = useMemo(() => {
+    const cachedText = getCachedSplashText()
+
+    const configSplashFromApp = appConfig?.splashText
+    const isRemote = configSplashFromApp && isRemoteSplashText(configSplashFromApp)
+    const sourceKey = isRemote ? configSplashFromApp : (configSplashFromApp || '')
+    const storedSourceKey = localStorage.getItem('minecraft_splash_url')
+
+    if (storedSourceKey !== sourceKey) {
+      clearSplashCache()
+      cacheSourceUrl(sourceKey)
+    } else if (cachedText) {
+      return cachedText
+    }
+
+    if (!isRemote && configSplashFromApp && configSplashFromApp.trim() !== '') {
+      cacheSplashText(configSplashFromApp)
+      return configSplashFromApp
+    }
+
+    return appConfig?.splashTextFallback || ''
+  }, [])
+
+  useEffect(() => {
+    const configSplashFromApp = appConfig?.splashText
+    if (configSplashFromApp && isRemoteSplashText(configSplashFromApp)) {
+      loadRemoteSplashText(configSplashFromApp)
+        .then(fetchedText => {
+          if (fetchedText && fetchedText.trim() !== '' && !fetchedText.includes('Failed to load')) {
+            cacheSplashText(fetchedText)
+          }
+        })
+        .catch(error => {
+          console.error('Failed to preload splash text for next session:', error)
+        })
+    }
+  }, [appConfig?.splashText])
 
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -94,7 +140,7 @@ export default ({
       <div className={styles['game-title']}>
         <div className={styles.minecraft}>
           <div className={styles.edition} />
-          <span className={styles.splash}>{appConfig?.splashText}</span>
+          <span className={styles.splash}>{splashText}</span>
         </div>
       </div>
 

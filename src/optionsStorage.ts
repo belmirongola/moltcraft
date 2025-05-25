@@ -104,6 +104,7 @@ const defaultOptions = {
   autoJump: 'auto' as 'auto' | 'always' | 'never',
   autoParkour: false,
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
+  vrPageGameRendering: false,
   renderDebug: 'basic' as 'none' | 'advanced' | 'basic',
 
   // advanced bot options
