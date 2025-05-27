@@ -474,10 +474,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    // if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.shouldHideHand /*  && !this.freeFlyMode */) {
-    //   this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
-    //   this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
-    // }
+    if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.shouldHideHand /*  && !this.freeFlyMode */ && !this.renderer.xr.isPresenting) {
+      this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+      this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+    }
 
     for (const fountain of this.fountains) {
       if (this.sectionObjects[fountain.sectionId] && !this.sectionObjects[fountain.sectionId].foutain) {
