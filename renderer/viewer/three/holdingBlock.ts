@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import * as tweenJs from '@tweenjs/tween.js'
+import PrismarineItem from 'prismarine-item'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { BlockModel } from 'mc-assets'
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from '../lib/mesher/standaloneRenderer'
@@ -293,6 +294,7 @@ export default class HoldingBlock {
   }
 
   isDifferentItem (block: HandItemBlock | undefined) {
+    const Item = PrismarineItem(this.worldRenderer.version)
     if (!this.lastHeldItem) {
       return true
     }
@@ -300,7 +302,7 @@ export default class HoldingBlock {
       return true
     }
     // eslint-disable-next-line sonarjs/prefer-single-boolean-return
-    if (JSON.stringify(this.lastHeldItem.fullItem) !== JSON.stringify(block?.fullItem ?? '{}')) {
+    if (!Item.equal(this.lastHeldItem.fullItem, block?.fullItem ?? {}) || JSON.stringify(this.lastHeldItem.fullItem.components) !== JSON.stringify(block?.fullItem?.components)) {
       return true
     }
 

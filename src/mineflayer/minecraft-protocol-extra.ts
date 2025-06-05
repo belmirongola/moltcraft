@@ -3,13 +3,11 @@ import clientAutoVersion from 'minecraft-protocol/src/client/autoVersion'
 
 export const pingServerVersion = async (ip: string, port?: number, mergeOptions: Record<string, any> = {}) => {
   const fakeClient = new EventEmitter() as any
-  fakeClient.on('error', (err) => {
-    throw new Error(err.message ?? err)
-  })
   const options = {
     host: ip,
     port,
-    noPongTimeout: Infinity, // disable timeout
+    noPongTimeout: 10_000,
+    closeTimeout: 20_000,
     ...mergeOptions,
   }
   let latency = 0
@@ -19,12 +17,26 @@ export const pingServerVersion = async (ip: string, port?: number, mergeOptions:
     fullInfo = res
   }]
 
-  // TODO! use client.socket.destroy() instead of client.end() for faster cleanup
-  await clientAutoVersion(fakeClient, options)
+  // TODO use client.socket.destroy() instead of client.end() for faster cleanup
+  clientAutoVersion(fakeClient, options)
+  await Promise.race([
+    new Promise<void>((resolve, reject) => {
+      fakeClient.once('connect_allowed', () => {
+        resolve()
+      })
+    }),
+    new Promise<void>((resolve, reject) => {
+      fakeClient.on('error', (err) => {
+        reject(new Error(err.message ?? err))
+      })
+      if (mergeOptions.stream) {
+        mergeOptions.stream.on('end', (err) => {
+          reject(new Error('Connection closed'))
+        })
+      }
+    })
+  ])
 
-  await new Promise<void>((resolve, reject) => {
-    fakeClient.once('connect_allowed', resolve)
-  })
   return {
     version: fakeClient.version,
     latency,

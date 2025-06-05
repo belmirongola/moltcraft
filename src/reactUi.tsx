@@ -62,6 +62,8 @@ import ChunksDebug from './react/ChunksDebug'
 import ChunksDebugScreen from './react/ChunksDebugScreen'
 import DebugResponseTimeIndicator from './react/debugs/DebugResponseTimeIndicator'
 import RendererDebugMenu from './react/RendererDebugMenu'
+import CreditsAboutModal from './react/CreditsAboutModal'
+import GlobalOverlayHints from './react/GlobalOverlayHints'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -175,6 +177,7 @@ const InGameUi = () => {
         <MineflayerPluginHud />
         <MineflayerPluginConsole />
         {showUI && <TouchInteractionHint />}
+        <GlobalOverlayHints />
         <div style={{ display: showUI ? 'block' : 'none' }}>
           {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
           {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
@@ -241,7 +244,7 @@ const App = () => {
             <ModsPage />
 
             <SelectOption />
-
+            <CreditsAboutModal />
             <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>

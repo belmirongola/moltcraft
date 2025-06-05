@@ -1,91 +1,162 @@
 import { useEffect, useRef } from 'react'
-import { f3Keybinds } from '../controls'
+import { useSnapshot } from 'valtio'
+import { handleMobileButtonActionCommand, handleMobileButtonLongPress } from '../controls'
 import { watchValue } from '../optionsStorage'
-import { showModal, miscUiState, activeModalStack, hideCurrentModal } from '../globalState'
-import { showOptionsModal } from './SelectOption'
-import useLongPress from './useLongPress'
+import { type MobileButtonConfig, type ActionHoldConfig, type ActionType, type CustomAction } from '../appConfig'
+import { miscUiState } from '../globalState'
+import PixelartIcon from './PixelartIcon'
 import styles from './MobileTopButtons.module.css'
-
 
 export default () => {
   const elRef = useRef<HTMLDivElement | null>(null)
+  const { appConfig } = useSnapshot(miscUiState)
+  const mobileButtonsConfig = appConfig?.mobileButtons
 
-  const showMobileControls = (bl) => {
-    if (elRef.current) elRef.current.style.display = bl ? 'flex' : 'none'
+  const longPressTimerIdRef = useRef<number | null>(null)
+  const actionToShortPressRef = useRef<ActionType | null>(null)
+
+  const showMobileControls = (visible: boolean) => {
+    if (elRef.current) {
+      elRef.current.style.display = visible ? 'flex' : 'none'
+    }
   }
 
   useEffect(() => {
     watchValue(miscUiState, o => {
-      showMobileControls(o.currentTouch)
+      showMobileControls(Boolean(o.currentTouch))
     })
   }, [])
 
-  const onLongPress = async () => {
-    const select = await showOptionsModal('', f3Keybinds.filter(f3Keybind => {
-      return f3Keybind.mobileTitle && (f3Keybind.enabled?.() ?? true)
-    }).map(f3Keybind => {
-      return `${f3Keybind.mobileTitle}${f3Keybind.key ? ` (F3+${f3Keybind.key})` : ''}`
-    }))
-    if (!select) return
-    const f3Keybind = f3Keybinds.find(f3Keybind => f3Keybind.mobileTitle === select)
-    if (f3Keybind) void f3Keybind.action()
-  }
+  const getButtonClassName = (button: MobileButtonConfig): string => {
+    const actionForStyle = button.action || (button.actionHold && typeof button.actionHold === 'object' && 'command' in button.actionHold ? button.actionHold.command : undefined)
 
-  const defaultOptions = {
-    shouldPreventDefault: true,
-    delay: 500,
-  }
-  const longPressEvent = useLongPress(onLongPress, () => {}, defaultOptions)
-
-
-  const onChatLongPress = () => {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
-  }
-
-  const onChatClick = () => {
-    if (activeModalStack.at(-1)?.reactType === 'chat') {
-      hideCurrentModal()
-    } else {
-      showModal({ reactType: 'chat' })
+    if (typeof actionForStyle === 'string') {
+      switch (actionForStyle) {
+        case 'general.chat':
+          return styles['chat-btn']
+        case 'ui.pauseMenu':
+          return styles['pause-btn']
+        case 'general.playersList':
+          return styles['tab-btn']
+        default:
+          return styles['debug-btn']
+      }
     }
+    return styles['debug-btn']
   }
 
-  const chatLongPressEvent = useLongPress(
-    onChatLongPress,
-    onChatClick,
-    {
-      shouldPreventDefault: true,
-      delay: 300,
-    }
-  )
+  const renderConfigButtons = () => {
+    return mobileButtonsConfig?.map((button, index) => {
+      const className = getButtonClassName(button)
+      let label: string | JSX.Element = button.icon || button.label || ''
+
+      if (typeof label === 'string' && label.startsWith('pixelarticons:')) {
+        const iconName = label.replace('pixelarticons:', '')
+        label = <PixelartIcon iconName={iconName} />
+      }
+
+      const onPointerDown = (e: React.PointerEvent) => {
+        const elem = e.currentTarget as HTMLElement
+        elem.setPointerCapture(e.pointerId)
+
+        if (longPressTimerIdRef.current) {
+          clearTimeout(longPressTimerIdRef.current)
+          longPressTimerIdRef.current = null
+        }
+        actionToShortPressRef.current = null
+
+        const { actionHold, action } = button
+
+        if (actionHold) {
+          if (typeof actionHold === 'object' && 'command' in actionHold) {
+            const config = actionHold
+            if (config.longPressAction) {
+              actionToShortPressRef.current = config.command
+              longPressTimerIdRef.current = window.setTimeout(() => {
+                handleMobileButtonLongPress(config)
+                actionToShortPressRef.current = null
+                longPressTimerIdRef.current = null
+              }, config.duration || 500)
+            } else {
+              handleMobileButtonActionCommand(config.command, true)
+            }
+          } else if (action) {
+            actionToShortPressRef.current = action
+            longPressTimerIdRef.current = window.setTimeout(() => {
+              handleMobileButtonActionCommand(actionHold, true)
+              actionToShortPressRef.current = null
+              longPressTimerIdRef.current = null
+            }, 500)
+          } else {
+            handleMobileButtonActionCommand(actionHold, true)
+          }
+        } else if (action) {
+          handleMobileButtonActionCommand(action, true)
+        }
+      }
+
+      const onPointerUp = (e: React.PointerEvent) => {
+        const elem = e.currentTarget as HTMLElement
+        elem.releasePointerCapture(e.pointerId)
+
+        const { actionHold, action } = button
+        let wasShortPressHandled = false
+
+        if (longPressTimerIdRef.current) {
+          clearTimeout(longPressTimerIdRef.current)
+          longPressTimerIdRef.current = null
+          if (actionToShortPressRef.current) {
+            handleMobileButtonActionCommand(actionToShortPressRef.current, true)
+            handleMobileButtonActionCommand(actionToShortPressRef.current, false)
+            wasShortPressHandled = true
+          }
+        }
+
+        if (!wasShortPressHandled) {
+          if (actionHold) {
+            if (typeof actionHold === 'object' && 'command' in actionHold) {
+              const config = actionHold
+              if (config.longPressAction) {
+                if (actionToShortPressRef.current === null) {
+                  if (typeof config.longPressAction === 'string') {
+                    handleMobileButtonActionCommand(config.longPressAction, false)
+                  }
+                }
+              } else {
+                handleMobileButtonActionCommand(config.command, false)
+              }
+            } else if (action) {
+              if (actionToShortPressRef.current === null) {
+                handleMobileButtonActionCommand(actionHold, false)
+              }
+            } else {
+              handleMobileButtonActionCommand(actionHold, false)
+            }
+          } else if (action) {
+            handleMobileButtonActionCommand(action, false)
+          }
+        }
+        actionToShortPressRef.current = null
+      }
+
+      return (
+        <div
+          key={index}
+          className={className}
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          onLostPointerCapture={onPointerUp}
+        >
+          {label}
+        </div>
+      )
+    })
+  }
 
   // ios note: just don't use <button>
-  return <div ref={elRef} className={styles['mobile-top-btns']} id="mobile-top">
-    <div
-      className={styles['debug-btn']} onPointerDown={(e) => {
-        window.dispatchEvent(new MouseEvent('mousedown', { button: 1 }))
-      }}
-    >S
+  return (
+    <div ref={elRef} className={styles['mobile-top-btns']} id="mobile-top">
+      {mobileButtonsConfig && mobileButtonsConfig.length > 0 ? renderConfigButtons() : null}
     </div>
-    <div
-      className={styles['debug-btn']} onPointerDown={(e) => {
-        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'F3' }))
-        document.dispatchEvent(new KeyboardEvent('keyup', { code: 'F3' }))
-      }} {...longPressEvent}
-    >F3
-    </div>
-    <div
-      className={styles['chat-btn']}
-      {...chatLongPressEvent}
-      onPointerUp={(e) => {
-        document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab' }))
-      }}
-    />
-    <div
-      className={styles['pause-btn']} onPointerDown={(e) => {
-        e.stopPropagation()
-        showModal({ reactType: 'pause-screen' })
-      }}
-    />
-  </div>
+  )
 }

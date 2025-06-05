@@ -41,6 +41,7 @@ type Props = {
   inputDisabled?: string
   placeholder?: string
   chatVanillaRestrictions?: boolean
+  debugChatScroll?: boolean
 }
 
 export const chatInputValueGlobal = proxy({
@@ -69,7 +70,8 @@ export default ({
   allowSelection,
   inputDisabled,
   placeholder,
-  chatVanillaRestrictions
+  chatVanillaRestrictions,
+  debugChatScroll
 }: Props) => {
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
   const [isInputFocused, setIsInputFocused] = useState(false)
@@ -86,7 +88,16 @@ export default ({
   const chatHistoryPos = useRef(sendHistoryRef.current.length)
   const inputCurrentlyEnteredValue = useRef('')
 
-  const { scrollToBottom } = useScrollBehavior(chatMessages, { messages, opened })
+  const { scrollToBottom, isAtBottom, wasAtBottom, currentlyAtBottom } = useScrollBehavior(chatMessages, { messages, opened })
+  const [rightNowAtBottom, setRightNowAtBottom] = useState(false)
+
+  useEffect(() => {
+    if (!debugChatScroll) return
+    const interval = setInterval(() => {
+      setRightNowAtBottom(isAtBottom())
+    }, 50)
+    return () => clearInterval(interval)
+  }, [debugChatScroll])
 
   const setSendHistory = (newHistory: string[]) => {
     sendHistoryRef.current = newHistory
@@ -252,6 +263,55 @@ export default ({
         }}
       >
         {opacity && <div ref={chatMessages} className={`chat ${opened ? 'opened' : ''}`} id="chat-messages" style={{ opacity }}>
+          {debugChatScroll && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 5,
+                left: 5,
+                display: 'flex',
+                gap: 4,
+                zIndex: 100,
+              }}
+            >
+              <div
+                title="Right now is at bottom (updated every 50ms)"
+                style={{
+                  width: 12,
+                  height: 12,
+                  backgroundColor: rightNowAtBottom ? '#00ff00' : '#ff0000',
+                  border: '1px solid #fff',
+                }}
+              />
+              <div
+                title="Currently at bottom"
+                style={{
+                  width: 12,
+                  height: 12,
+                  backgroundColor: currentlyAtBottom ? '#00ff00' : '#ff0000',
+                  border: '1px solid #fff',
+                }}
+              />
+              <div
+                title="Was at bottom"
+                style={{
+                  width: 12,
+                  height: 12,
+                  backgroundColor: wasAtBottom() ? '#00ff00' : '#ff0000',
+                  border: '1px solid #fff',
+                }}
+              />
+              <div
+                title="Chat opened"
+                style={{
+                  width: 12,
+                  height: 12,
+                  backgroundColor: opened ? '#00ff00' : '#ff0000',
+                  border: '1px solid #fff',
+                }}
+              />
+            </div>
+          )}
           {messages.map((m) => (
             <MessageLine key={reactKeyForMessage(m)} message={m} />
           ))}

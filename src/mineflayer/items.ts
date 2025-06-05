@@ -92,7 +92,8 @@ export const getItemMetadata = (item: GeneralInputItem, resourcesManager: Resour
 
 
 export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null, resourcesManager: ResourcesManager) => {
-  const { customText } = getItemMetadata(item as any, resourcesManager)
+  if (!item) return ''
+  const { customText } = getItemMetadata(item as GeneralInputItem, resourcesManager)
   if (!customText) return
   try {
     if (typeof customText === 'object') {

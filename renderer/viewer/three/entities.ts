@@ -292,6 +292,9 @@ export class Entities {
         playerObject.animation.update(playerObject, dt)
       }
 
+      // Update armor positions
+      this.syncArmorPositions(entity)
+
       // Update visibility based on distance and chunk load status
       if (botPos && entity.position) {
         const dx = entity.position.x - botPos.x
@@ -310,6 +313,79 @@ export class Entities {
         this.maybeRenderPlayerSkin(entityId)
       }
     }
+  }
+
+  private syncArmorPositions (entity: SceneEntity) {
+    if (!entity.playerObject) return
+
+    // todo-low use property access for less loop iterations (small performance gain)
+    entity.traverse((armor) => {
+      if (!armor.name.startsWith('geometry_armor_')) return
+
+      const { skin } = entity.playerObject!
+
+      switch (armor.name) {
+        case 'geometry_armor_head':
+          // Head armor sync
+          if (armor.children[0]?.children[0]) {
+            armor.children[0].children[0].rotation.set(
+              -skin.head.rotation.x,
+              skin.head.rotation.y,
+              skin.head.rotation.z,
+              skin.head.rotation.order
+            )
+          }
+          break
+
+        case 'geometry_armor_legs':
+          // Legs armor sync
+          if (armor.children[0]) {
+            // Left leg
+            if (armor.children[0].children[2]) {
+              armor.children[0].children[2].rotation.set(
+                -skin.leftLeg.rotation.x,
+                skin.leftLeg.rotation.y,
+                skin.leftLeg.rotation.z,
+                skin.leftLeg.rotation.order
+              )
+            }
+            // Right leg
+            if (armor.children[0].children[1]) {
+              armor.children[0].children[1].rotation.set(
+                -skin.rightLeg.rotation.x,
+                skin.rightLeg.rotation.y,
+                skin.rightLeg.rotation.z,
+                skin.rightLeg.rotation.order
+              )
+            }
+          }
+          break
+
+        case 'geometry_armor_feet':
+          // Boots armor sync
+          if (armor.children[0]) {
+            // Right boot
+            if (armor.children[0].children[0]) {
+              armor.children[0].children[0].rotation.set(
+                -skin.rightLeg.rotation.x,
+                skin.rightLeg.rotation.y,
+                skin.rightLeg.rotation.z,
+                skin.rightLeg.rotation.order
+              )
+            }
+            // Left boot (reversed Z rotation)
+            if (armor.children[0].children[1]) {
+              armor.children[0].children[1].rotation.set(
+                -skin.leftLeg.rotation.x,
+                skin.leftLeg.rotation.y,
+                -skin.leftLeg.rotation.z,
+                skin.leftLeg.rotation.order
+              )
+            }
+          }
+          break
+      }
+    })
   }
 
   getPlayerObject (entityId: string | number) {
@@ -1203,6 +1279,16 @@ function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Obj
     })
   } else {
     mesh = getMesh(worldRenderer, texturePath, armorModel[slotType])
+    // // enable debug mode to see the mesh
+    // mesh.traverse(c => {
+    //   if (c instanceof THREE.Mesh) {
+    //     c.material.wireframe = true
+    //   }
+    // })
+    if (slotType === 'head') {
+      // avoid z-fighting with the head
+      mesh.children[0].position.y += 0.01
+    }
     mesh.name = meshName
     material = mesh.material
     if (!isPlayerHead) {

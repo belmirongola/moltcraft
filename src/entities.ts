@@ -13,7 +13,7 @@ const updateAutoJump = () => {
   if (!bot?.autoJumper) return
   const autoJump = options.autoParkour || (options.autoJump === 'auto' ? miscUiState.currentTouch && !miscUiState.usingGamepadInput : options.autoJump === 'always')
   bot.autoJumper.setOpts({
-    jumpIntoWater: options.autoParkour,
+    // jumpIntoWater: options.autoParkour,
     jumpOnAllEdges: options.autoParkour,
     // strictBlockCollision: true,
   })
@@ -61,7 +61,7 @@ customEvents.on('gameLoaded', () => {
       if (!tracking) continue
       const e = bot.entities[id]
       if (!e) continue
-      const speed = info.avgSpeed
+      const speed = info.avgVel
       const WALKING_SPEED = 0.03
       const SPRINTING_SPEED = 0.18
       const isCrouched = e['crouching']

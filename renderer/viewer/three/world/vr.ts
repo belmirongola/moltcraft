@@ -4,8 +4,9 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
 import { buttonMap as standardButtonsMap } from 'contro-max/build/gamepad'
 import * as THREE from 'three'
 import { WorldRendererThree } from '../worldrendererThree'
+import { DocumentRenderer } from '../documentRenderer'
 
-export async function initVR (worldRenderer: WorldRendererThree) {
+export async function initVR (worldRenderer: WorldRendererThree, documentRenderer: DocumentRenderer) {
   if (!('xr' in navigator) || !worldRenderer.worldRendererConfig.vrSupport) return
   const { renderer } = worldRenderer
 
@@ -26,12 +27,13 @@ export async function initVR (worldRenderer: WorldRendererThree) {
 
   function enableVr () {
     renderer.xr.enabled = true
+    // renderer.xr.setReferenceSpaceType('local-floor')
     worldRenderer.reactiveState.preventEscapeMenu = true
   }
 
   function disableVr () {
     renderer.xr.enabled = false
-    worldRenderer.cameraObjectOverride = undefined
+    worldRenderer.cameraGroupVr = undefined
     worldRenderer.reactiveState.preventEscapeMenu = false
     worldRenderer.scene.remove(user)
     vrButtonContainer.hidden = true
@@ -189,7 +191,7 @@ export async function initVR (worldRenderer: WorldRendererThree) {
     }
 
     // appViewer.backend?.updateCamera(null, yawOffset, 0)
-    worldRenderer.updateCamera(null, bot.entity.yaw, bot.entity.pitch)
+    // worldRenderer.updateCamera(null, bot.entity.yaw, bot.entity.pitch)
 
     // todo restore this logic (need to preserve ability to move camera)
     // const xrCamera = renderer.xr.getCamera()
@@ -197,16 +199,13 @@ export async function initVR (worldRenderer: WorldRendererThree) {
     // bot.entity.yaw = Math.atan2(-d.x, -d.z)
     // bot.entity.pitch = Math.asin(d.y)
 
-    // todo ?
-    // bot.physics.stepHeight = 1
-
-    worldRenderer.render()
+    documentRenderer.frameRender(false)
   })
   renderer.xr.addEventListener('sessionstart', () => {
-    worldRenderer.cameraObjectOverride = user
+    worldRenderer.cameraGroupVr = user
   })
   renderer.xr.addEventListener('sessionend', () => {
-    worldRenderer.cameraObjectOverride = undefined
+    worldRenderer.cameraGroupVr = undefined
   })
 
   worldRenderer.abortController.signal.addEventListener('abort', disableVr)

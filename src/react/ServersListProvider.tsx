@@ -287,7 +287,6 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         proxy: overrides.proxyOverride || getCurrentProxy(),
         botVersion: overrides.versionOverride ?? /* legacy */ overrides['version'],
         ignoreQs: true,
-        autoLoginPassword: server?.autoLogin?.[username],
         authenticatedAccount,
         saveServerToHistory: shouldSave,
         onSuccessfulPlay () {

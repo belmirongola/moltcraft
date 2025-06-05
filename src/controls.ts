@@ -27,7 +27,8 @@ import { onCameraMove, onControInit } from './cameraRotationControls'
 import { createNotificationProgressReporter } from './core/progressReporter'
 import { appStorage } from './react/appStorageProvider'
 import { switchGameMode } from './packetsReplay/replayPackets'
-
+import { tabListState } from './react/PlayerListOverlayProvider'
+import { type ActionType, type ActionHoldConfig, type CustomAction } from './appConfig'
 
 export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
@@ -45,6 +46,7 @@ export const contro = new ControMax({
       jump: ['Space', 'A'],
       inventory: ['KeyE', 'X'],
       drop: ['KeyQ', 'B'],
+      dropStack: [null],
       sneak: ['ShiftLeft'],
       toggleSneakOrDown: [null, 'Right Stick'],
       sprint: ['ControlLeft', 'Left Stick'],
@@ -54,7 +56,7 @@ export const contro = new ControMax({
       attackDestroy: [null, 'Right Trigger'],
       interactPlace: [null, 'Left Trigger'],
       swapHands: ['KeyF'],
-      selectItem: ['KeyH'], // default will be removed
+      selectItem: ['KeyH'],
       rotateCameraLeft: [null],
       rotateCameraRight: [null],
       rotateCameraUp: [null],
@@ -62,6 +64,9 @@ export const contro = new ControMax({
       // ui?
       chat: [['KeyT', 'Enter']],
       command: ['Slash'],
+      playersList: ['Tab'],
+      debugOverlay: ['F3'],
+      debugOverlayHelpMenu: [null],
       // client side
       zoom: ['KeyC'],
       viewerConsole: ['Backquote'],
@@ -76,7 +81,7 @@ export const contro = new ControMax({
       pauseMenu: [null, 'Start']
     },
     communication: {
-      toggleMicrophone: ['KeyK'],
+      toggleMicrophone: ['KeyM'],
     },
     advanced: {
       lockUrl: ['KeyY'],
@@ -234,6 +239,10 @@ const inModalCommand = (command: Command, pressed: boolean) => {
   if (pressed) {
     if (command === 'ui.back') {
       hideCurrentModal()
+    }
+    if (command === 'ui.pauseMenu') {
+      // hide all modals
+      hideAllModals()
     }
     if (command === 'ui.leftClick' || command === 'ui.rightClick') {
       // in percent
@@ -399,11 +408,44 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
       case 'general.zoom':
         gameAdditionalState.isZooming = pressed
         break
+      case 'general.debugOverlay':
+        if (pressed) {
+          miscUiState.showDebugHud = !miscUiState.showDebugHud
+        }
+        break
+      case 'general.debugOverlayHelpMenu':
+        if (pressed) {
+          void onF3LongPress()
+        }
+        break
       case 'general.rotateCameraLeft':
       case 'general.rotateCameraRight':
       case 'general.rotateCameraUp':
       case 'general.rotateCameraDown':
         cameraRotationControls.handleCommand(command, pressed)
+        break
+      case 'general.playersList':
+        tabListState.isOpen = pressed
+        break
+    }
+  } else if (stringStartsWith(command, 'ui')) {
+    switch (command) {
+      case 'ui.pauseMenu':
+        if (pressed) {
+          if (activeModalStack.length) {
+            hideCurrentModal()
+          } else {
+            showModal({ reactType: 'pause-screen' })
+          }
+        }
+        break
+      case 'ui.back':
+      case 'ui.toggleFullscreen':
+      case 'ui.toggleMap':
+      case 'ui.leftClick':
+      case 'ui.rightClick':
+      case 'ui.speedupCursor':
+        // These are handled elsewhere
         break
     }
   }
@@ -420,6 +462,9 @@ const alwaysPressedHandledCommand = (command: Command) => {
   }
   if (command === 'advanced.lockUrl') {
     lockUrl()
+  }
+  if (command === 'communication.toggleMicrophone') {
+    toggleMicrophoneMuted?.()
   }
 }
 
@@ -494,6 +539,9 @@ contro.on('trigger', ({ command }) => {
       case 'general.rotateCameraRight':
       case 'general.rotateCameraUp':
       case 'general.rotateCameraDown':
+      case 'general.debugOverlay':
+      case 'general.debugOverlayHelpMenu':
+      case 'general.playersList':
         // no-op
         break
       case 'general.swapHands': {
@@ -531,6 +579,12 @@ contro.on('trigger', ({ command }) => {
         }
         break
       }
+      case 'general.dropStack': {
+        if (bot.heldItem) {
+          void bot.tossStack(bot.heldItem)
+        }
+        break
+      }
       case 'general.chat':
         showModal({ reactType: 'chat' })
         break
@@ -555,14 +609,6 @@ contro.on('trigger', ({ command }) => {
         }
         break
     }
-  }
-
-  if (command === 'communication.toggleMicrophone') {
-    // toggleMicrophoneMuted()
-  }
-
-  if (command === 'ui.pauseMenu') {
-    showModal({ reactType: 'pause-screen' })
   }
 
   if (command === 'ui.toggleFullscreen') {
@@ -714,29 +760,17 @@ export const f3Keybinds: Array<{
   }
 ]
 
-const hardcodedPressedKeys = new Set<string>()
 document.addEventListener('keydown', (e) => {
   if (!isGameActive(false)) return
-  if (hardcodedPressedKeys.has('F3')) {
+  if (contro.pressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
     if (keybind && (keybind.enabled?.() ?? true)) {
       void keybind.action()
       e.stopPropagation()
     }
-    return
   }
-
-  hardcodedPressedKeys.add(e.code)
 }, {
   capture: true,
-})
-document.addEventListener('keyup', (e) => {
-  hardcodedPressedKeys.delete(e.code)
-})
-document.addEventListener('visibilitychange', (e) => {
-  if (document.visibilityState === 'hidden') {
-    hardcodedPressedKeys.clear()
-  }
 })
 
 const isFlying = () => (bot.entity as any).flying
@@ -891,5 +925,54 @@ export function updateBinds (commands: any) {
 
       return [key, newValue]
     }))
+  }
+}
+
+export const onF3LongPress = async () => {
+  const select = await showOptionsModal('', f3Keybinds.filter(f3Keybind => {
+    return f3Keybind.mobileTitle && (f3Keybind.enabled?.() ?? true)
+  }).map(f3Keybind => {
+    return `${f3Keybind.mobileTitle}${f3Keybind.key ? ` (F3+${f3Keybind.key})` : ''}`
+  }))
+  if (!select) return
+  const f3Keybind = f3Keybinds.find(f3Keybind => f3Keybind.mobileTitle === select)
+  if (f3Keybind) void f3Keybind.action()
+}
+
+export const handleMobileButtonCustomAction = (action: CustomAction) => {
+  const handler = customCommandsConfig[action.type]?.handler
+  if (handler) {
+    handler([...action.input])
+  }
+}
+
+export const handleMobileButtonActionCommand = (command: ActionType | ActionHoldConfig, isDown: boolean) => {
+  const commandValue = typeof command === 'string' ? command : 'command' in command ? command.command : command
+
+  if (typeof commandValue === 'string' && !stringStartsWith(commandValue, 'custom')) {
+    const event: CommandEventArgument<typeof contro['_commandsRaw']> = {
+      command: commandValue as Command,
+      schema: {
+        keys: [],
+        gamepad: []
+      }
+    }
+    if (isDown) {
+      contro.emit('trigger', event)
+    } else {
+      contro.emit('release', event)
+    }
+  } else if (typeof commandValue === 'object') {
+    if (isDown) {
+      handleMobileButtonCustomAction(commandValue)
+    }
+  }
+}
+
+export const handleMobileButtonLongPress = (actionHold: ActionHoldConfig) => {
+  if (typeof actionHold.longPressAction === 'string' && actionHold.longPressAction === 'general.debugOverlayHelpMenu') {
+    void onF3LongPress()
+  } else if (actionHold.longPressAction) {
+    handleMobileButtonActionCommand(actionHold.longPressAction, true)
   }
 }

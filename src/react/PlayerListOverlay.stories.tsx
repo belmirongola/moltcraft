@@ -16,7 +16,7 @@ export const Primary: Story = {
         { username: 'Player 1', ping: 10, uuid: '1' },
         { username: 'Player 2', ping: 20, uuid: '2' },
         { username: 'Player 3', ping: 30, uuid: '3' },
-      ]
+      ] as any
     ],
     clientId: '2',
     tablistHeader: 'Header',

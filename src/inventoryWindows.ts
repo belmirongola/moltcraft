@@ -25,6 +25,7 @@ import { GeneralInputItem, getItemMetadata, getItemModelName, getItemNameRaw, Re
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
   loadedImagesCache.delete('blocks')
+  loadedImagesCache.delete('items')
 }
 
 let lastWindow: ReturnType<typeof showInventory>
@@ -120,6 +121,7 @@ export const onGameLoad = () => {
   if (!appViewer.resourcesManager['_inventoryChangeTracked']) {
     appViewer.resourcesManager['_inventoryChangeTracked'] = true
     const texturesChanged = () => {
+      cleanLoadedImagesCache()
       if (!lastWindow) return
       upWindowItemsLocal()
       upJei(lastJeiSearch)
@@ -189,7 +191,6 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
   image?: HTMLImageElement
 } | undefined => {
   let itemModelName = model.modelName
-  const originalItemName = itemModelName
   const isItem = loadedData.itemsByName[itemModelName]
 
   // #region normalize item name
@@ -225,7 +226,7 @@ export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = fal
       ?? (model.originalItemName ? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(model.originalItemName, {}, false, fullBlockModelSupport) : undefined)
       ?? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
-    inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
+    inGameError(`Failed to render item ${itemModelName} (original: ${model.originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
     itemTexture = blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('errored')!)
   }
 
@@ -339,6 +340,7 @@ const implementedContainersGuiMap = {
   'minecraft:generic_3x3': 'DropDispenseWin',
   'minecraft:furnace': 'FurnaceWin',
   'minecraft:smoker': 'FurnaceWin',
+  'minecraft:blast_furnace': 'FurnaceWin',
   'minecraft:crafting': 'CraftingWin',
   'minecraft:crafting3x3': 'CraftingWin', // todo different result slot
   'minecraft:anvil': 'AnvilWin',

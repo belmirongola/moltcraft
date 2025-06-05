@@ -24,7 +24,7 @@ export default ({ dieReasonMessage, respawnCallback, disconnectCallback }: Props
             }}
           />
           <Button
-            label="Disconnnect" onClick={() => {
+            label="Disconnect" onClick={() => {
               disconnectCallback()
             }}
           />

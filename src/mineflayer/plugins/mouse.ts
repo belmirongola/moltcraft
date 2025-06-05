@@ -10,7 +10,7 @@ import { sendVideoInteraction, videoCursorInteraction } from '../../customChanne
 
 function cursorBlockDisplay (bot: Bot) {
   const updateCursorBlock = (data?: { block: Block }) => {
-    if (!data?.block) {
+    if (!data?.block || bot.game.gameMode === 'spectator') {
       playerState.reactive.lookingAtBlock = undefined
       return
     }
@@ -27,6 +27,10 @@ function cursorBlockDisplay (bot: Bot) {
   }
 
   bot.on('highlightCursorBlock', updateCursorBlock)
+  bot.on('game', () => {
+    const block = bot.mouse.getCursorState().cursorBlock
+    updateCursorBlock(block ? { block } : undefined)
+  })
 
   bot.on('blockBreakProgressStage', (block, stage) => {
     const mergedShape = bot.mouse.getMergedCursorShape(block)

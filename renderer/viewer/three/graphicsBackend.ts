@@ -8,6 +8,7 @@ import supportedVersions from '../../../src/supportedVersions.mjs'
 import { WorldRendererThree } from './worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
 import { PanoramaRenderer } from './panorama'
+import { initVR } from './world/vr'
 
 // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
 THREE.ColorManagement.enabled = false
@@ -87,10 +88,12 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
       panoramaRenderer = null
     }
     worldRenderer = new WorldRendererThree(documentRenderer.renderer, initOptions, displayOptions)
+    void initVR(worldRenderer, documentRenderer)
     await worldRenderer.worldReadyPromise
     documentRenderer.render = (sizeChanged: boolean) => {
       worldRenderer?.render(sizeChanged)
     }
+    documentRenderer.inWorldRenderingConfig = displayOptions.inWorldRenderingConfig
     window.world = worldRenderer
     callModsMethod('worldReady', worldRenderer)
   }

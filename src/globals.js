@@ -9,3 +9,7 @@ window.viewer = undefined
 window.loadedData = undefined
 window.customEvents = new EventEmitter()
 window.customEvents.setMaxListeners(10_000)
+window.translate = (key) => {
+  if (typeof key !== 'string') return key
+  return window.translateText?.(key) ?? key
+}
