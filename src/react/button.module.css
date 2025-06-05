@@ -4,6 +4,7 @@
   position: relative;
   width: 200px;
   min-height: calc(20px * var(--scale));
+  max-height: calc(20px * var(--scale));
   font-family: minecraft, mojangles, monospace;
   font-size: 10px;
   color: white;

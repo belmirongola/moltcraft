@@ -458,7 +458,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   debugChunksVisibilityOverride () {
     const { chunksRenderAboveOverride, chunksRenderBelowOverride, chunksRenderDistanceOverride, chunksRenderAboveEnabled, chunksRenderBelowEnabled, chunksRenderDistanceEnabled } = this.reactiveDebugParams
 
-    const baseY = this.cameraSectionPos.y
+    const baseY = this.cameraSectionPos.y * 16
 
     if (
       chunksRenderAboveOverride !== undefined ||
@@ -469,11 +469,11 @@ export class WorldRendererThree extends WorldRendererCommon {
         const [x, y, z] = key.split(',').map(Number)
         const isVisible =
           // eslint-disable-next-line no-constant-binary-expression, sonarjs/no-redundant-boolean
-          chunksRenderAboveEnabled && chunksRenderAboveOverride !== undefined ? y >= (baseY + chunksRenderAboveOverride) : true &&
+          (chunksRenderAboveEnabled && chunksRenderAboveOverride !== undefined) ? y <= (baseY + chunksRenderAboveOverride) : true &&
           // eslint-disable-next-line @stylistic/indent-binary-ops, no-constant-binary-expression, sonarjs/no-redundant-boolean
-          chunksRenderBelowEnabled && chunksRenderBelowOverride !== undefined ? y <= (baseY + chunksRenderBelowOverride) : true &&
+          (chunksRenderBelowEnabled && chunksRenderBelowOverride !== undefined) ? y >= (baseY - chunksRenderBelowOverride) : true &&
           // eslint-disable-next-line @stylistic/indent-binary-ops
-          chunksRenderDistanceEnabled && chunksRenderDistanceOverride !== undefined ? Math.abs(y - baseY) <= chunksRenderDistanceOverride : true
+          (chunksRenderDistanceEnabled && chunksRenderDistanceOverride !== undefined) ? Math.abs(y - baseY) <= chunksRenderDistanceOverride : true
 
         object.visible = isVisible
       }
@@ -482,6 +482,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   render (sizeChanged = false) {
     if (this.reactiveDebugParams.stopRendering) return
+    this.debugChunksVisibilityOverride()
     const start = performance.now()
     this.lastRendered = performance.now()
     this.cursorBlock.render()

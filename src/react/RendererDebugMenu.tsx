@@ -1,6 +1,7 @@
 import { WorldRendererCommon } from 'renderer/viewer/lib/worldrendererCommon'
 import { useState } from 'react'
 import { useSnapshot } from 'valtio'
+import { options } from '../optionsStorage'
 import Screen from './Screen'
 import Button from './Button'
 import Slider from './Slider'
@@ -11,10 +12,12 @@ export default () => {
   const { reactiveDebugParams } = worldRenderer
   const { chunksRenderAboveEnabled, chunksRenderBelowEnabled, chunksRenderDistanceEnabled, chunksRenderAboveOverride, chunksRenderBelowOverride, chunksRenderDistanceOverride, stopRendering, disableEntities } = useSnapshot(reactiveDebugParams)
 
-
+  const { rendererPerfDebugOverlay } = useSnapshot(options)
 
   // Helper to round values to nearest step
   const roundToStep = (value: number, step: number) => Math.round(value / step) * step
+
+  if (!rendererPerfDebugOverlay) return null
 
   return <div className={styles.container}>
     <div className={styles.column}>
@@ -47,6 +50,7 @@ export default () => {
           min={0}
           max={256}
           value={chunksRenderAboveOverride ?? 0}
+          style={{ width: '100%', }}
           updateValue={(value) => {
             const roundedValue = roundToStep(value, 16)
             reactiveDebugParams.chunksRenderAboveOverride = roundedValue
@@ -70,6 +74,7 @@ export default () => {
           label="Chunks Below"
           min={0}
           max={256}
+          style={{ width: '100%', }}
           value={chunksRenderBelowOverride ?? 0}
           updateValue={(value) => {
             const roundedValue = roundToStep(value, 16)
@@ -81,7 +86,7 @@ export default () => {
         />
       </div>
 
-      <div className={styles.sliderGroup}>
+      {/* <div className={styles.sliderGroup}>
         <Button
           label={chunksRenderDistanceEnabled ? 'Disable Distance Override' : 'Enable Distance Override'}
           onClick={() => {
@@ -94,6 +99,7 @@ export default () => {
           label="Render Distance"
           min={1}
           max={32}
+          style={{ width: '100%', }}
           value={chunksRenderDistanceOverride ?? 8}
           updateValue={(value) => {
             const roundedValue = Math.round(value)
@@ -103,7 +109,7 @@ export default () => {
           unit=""
           valueDisplay={Math.round(reactiveDebugParams.chunksRenderDistanceOverride ?? 8)}
         />
-      </div>
+      </div> */}
     </div>
   </div>
 }

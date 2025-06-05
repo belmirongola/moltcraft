@@ -109,6 +109,9 @@ export const guiOptionsScheme: {
           'none'
         ],
       },
+      rendererPerfDebugOverlay: {
+        text: 'Performance Debug',
+      }
     },
     {
       custom () {
