@@ -5,6 +5,7 @@ import { buttonMap as standardButtonsMap } from 'contro-max/build/gamepad'
 import * as THREE from 'three'
 import { WorldRendererThree } from '../worldrendererThree'
 import { DocumentRenderer } from '../documentRenderer'
+import { VRHud } from './vrHud'
 
 export async function initVR (worldRenderer: WorldRendererThree, documentRenderer: DocumentRenderer) {
   if (!('xr' in navigator) || !worldRenderer.worldRendererConfig.vrSupport) return
@@ -14,6 +15,9 @@ export async function initVR (worldRenderer: WorldRendererThree, documentRendere
   if (!isSupported) return
 
   enableVr()
+
+  // Create VR HUD
+  const vrHud = new VRHud(worldRenderer)
 
   const vrButtonContainer = createVrButtonContainer(renderer)
   const updateVrButtons = () => {
@@ -37,6 +41,9 @@ export async function initVR (worldRenderer: WorldRendererThree, documentRendere
     worldRenderer.reactiveState.preventEscapeMenu = false
     worldRenderer.scene.remove(user)
     vrButtonContainer.hidden = true
+    // Detach HUD when VR is disabled
+    vrHud.detachFromVRCamera(user)
+    vrHud.setVisible(false)
   }
 
   function createVrButtonContainer (renderer) {
@@ -199,16 +206,28 @@ export async function initVR (worldRenderer: WorldRendererThree, documentRendere
     // bot.entity.yaw = Math.atan2(-d.x, -d.z)
     // bot.entity.pitch = Math.asin(d.y)
 
+    // Update VR HUD
+    vrHud.update()
+
     documentRenderer.frameRender(false)
   })
   renderer.xr.addEventListener('sessionstart', () => {
     worldRenderer.cameraGroupVr = user
+    // Attach HUD to VR camera when session starts
+    vrHud.attachToVRCamera(user)
+    vrHud.setVisible(true)
   })
   renderer.xr.addEventListener('sessionend', () => {
     worldRenderer.cameraGroupVr = undefined
+    // Detach HUD when session ends
+    vrHud.detachFromVRCamera(user)
+    vrHud.setVisible(false)
   })
 
-  worldRenderer.abortController.signal.addEventListener('abort', disableVr)
+  worldRenderer.abortController.signal.addEventListener('abort', () => {
+    disableVr()
+    vrHud.dispose()
+  })
 }
 
 const xrStandardRightButtonsMap = [
