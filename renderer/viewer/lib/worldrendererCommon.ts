@@ -50,6 +50,7 @@ export const defaultWorldRendererConfig = {
   fetchPlayerSkins: true,
   highlightBlockColor: 'blue',
   foreground: true,
+  enableDebugOverlay: false,
   _experimentalSmoothChunkLoading: true,
   _renderByChunks: false
 }

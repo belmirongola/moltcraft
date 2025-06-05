@@ -461,6 +461,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     const baseY = this.cameraSectionPos.y * 16
 
     if (
+      this.displayOptions.inWorldRenderingConfig.enableDebugOverlay &&
       chunksRenderAboveOverride !== undefined ||
       chunksRenderBelowOverride !== undefined ||
       chunksRenderDistanceOverride !== undefined
@@ -476,6 +477,10 @@ export class WorldRendererThree extends WorldRendererCommon {
           (chunksRenderDistanceEnabled && chunksRenderDistanceOverride !== undefined) ? Math.abs(y - baseY) <= chunksRenderDistanceOverride : true
 
         object.visible = isVisible
+      }
+    } else {
+      for (const object of Object.values(this.sectionObjects)) {
+        object.visible = true
       }
     }
   }
