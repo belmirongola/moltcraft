@@ -109,6 +109,9 @@ export const guiOptionsScheme: {
           'none'
         ],
       },
+      rendererPerfDebugOverlay: {
+        text: 'Performance Debug',
+      }
     },
     {
       custom () {
@@ -283,7 +286,10 @@ export const guiOptionsScheme: {
       chatOpacityOpened: {
       },
       chatSelect: {
+        text: 'Text Select',
       },
+      chatPingExtension: {
+      }
     },
     {
       custom () {
@@ -359,7 +365,7 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        return <UiToggleButton name='effects-indicators' />
+        return <UiToggleButton name='effects-indicators' label='Effects & Indicators' />
       },
     },
     {

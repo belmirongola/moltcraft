@@ -5,6 +5,27 @@ import { setLoadingScreenStatus } from './appStatus'
 import { setStorageDataOnAppConfigLoad } from './react/appStorageProvider'
 import { customKeymaps, updateBinds } from './controls'
 
+export type CustomAction = {
+  readonly type: string
+  readonly input: readonly any[]
+}
+
+export type ActionType = string | CustomAction
+
+export type ActionHoldConfig = {
+  readonly command: ActionType
+  readonly longPressAction?: ActionType
+  readonly duration?: number
+  readonly threshold?: number
+}
+
+export type MobileButtonConfig = {
+  readonly label?: string
+  readonly icon?: string
+  readonly action?: ActionType
+  readonly actionHold?: ActionType | ActionHoldConfig
+}
+
 export type AppConfig = {
   // defaultHost?: string
   // defaultHostSave?: string
@@ -26,6 +47,7 @@ export type AppConfig = {
   splashText?: string
   splashTextFallback?: string
   pauseLinks?: Array<Array<Record<string, any>>>
+  mobileButtons?: MobileButtonConfig[]
   keybindings?: Record<string, any>
   defaultLanguage?: string
   displayLanguageSelector?: boolean

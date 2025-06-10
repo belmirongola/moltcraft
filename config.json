@@ -10,14 +10,7 @@
       "ip": "wss://play.mcraft.fun"
     },
     {
-      "ip": "wss://ws.fuchsmc.net"
-    },
-    {
       "ip": "wss://play2.mcraft.fun"
-    },
-    {
-      "ip": "wss://mcraft.ryzyn.xyz",
-      "version": "1.19.4"
     },
     {
       "ip": "kaboom.pw",
@@ -37,5 +30,38 @@
         "type": "discord"
       }
     ]
+  ],
+  "mobileButtons": [
+    {
+      "action": "general.drop",
+      "actionHold": "general.dropStack",
+      "label": "Q"
+    },
+    {
+      "action": "general.selectItem",
+      "actionHold": "",
+      "label": "S"
+    },
+    {
+      "action": "general.debugOverlay",
+      "actionHold": "general.debugOverlayHelpMenu",
+      "label": "F3"
+    },
+    {
+      "action": "general.playersList",
+      "actionHold": "",
+      "icon": "pixelarticons:users",
+      "label": "TAB"
+    },
+    {
+      "action": "general.chat",
+      "actionHold": "",
+      "label": ""
+    },
+    {
+      "action": "ui.pauseMenu",
+      "actionHold": "",
+      "label": ""
+    }
   ]
 }

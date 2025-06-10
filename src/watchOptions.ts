@@ -83,6 +83,7 @@ export const watchOptionsAfterViewerInit = () => {
   watchValue(options, o => {
     appViewer.inWorldRenderingConfig.vrSupport = o.vrSupport
     appViewer.inWorldRenderingConfig.vrPageGameRendering = o.vrPageGameRendering
+    appViewer.inWorldRenderingConfig.enableDebugOverlay = o.rendererPerfDebugOverlay
   })
 
   watchValue(options, (o, isChanged) => {

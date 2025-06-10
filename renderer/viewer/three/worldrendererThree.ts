@@ -455,7 +455,39 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.cameraShake.setBaseRotation(pitch, yaw)
   }
 
+  debugChunksVisibilityOverride () {
+    const { chunksRenderAboveOverride, chunksRenderBelowOverride, chunksRenderDistanceOverride, chunksRenderAboveEnabled, chunksRenderBelowEnabled, chunksRenderDistanceEnabled } = this.reactiveDebugParams
+
+    const baseY = this.cameraSectionPos.y * 16
+
+    if (
+      this.displayOptions.inWorldRenderingConfig.enableDebugOverlay &&
+      chunksRenderAboveOverride !== undefined ||
+      chunksRenderBelowOverride !== undefined ||
+      chunksRenderDistanceOverride !== undefined
+    ) {
+      for (const [key, object] of Object.entries(this.sectionObjects)) {
+        const [x, y, z] = key.split(',').map(Number)
+        const isVisible =
+          // eslint-disable-next-line no-constant-binary-expression, sonarjs/no-redundant-boolean
+          (chunksRenderAboveEnabled && chunksRenderAboveOverride !== undefined) ? y <= (baseY + chunksRenderAboveOverride) : true &&
+          // eslint-disable-next-line @stylistic/indent-binary-ops, no-constant-binary-expression, sonarjs/no-redundant-boolean
+          (chunksRenderBelowEnabled && chunksRenderBelowOverride !== undefined) ? y >= (baseY - chunksRenderBelowOverride) : true &&
+          // eslint-disable-next-line @stylistic/indent-binary-ops
+          (chunksRenderDistanceEnabled && chunksRenderDistanceOverride !== undefined) ? Math.abs(y - baseY) <= chunksRenderDistanceOverride : true
+
+        object.visible = isVisible
+      }
+    } else {
+      for (const object of Object.values(this.sectionObjects)) {
+        object.visible = true
+      }
+    }
+  }
+
   render (sizeChanged = false) {
+    if (this.reactiveDebugParams.stopRendering) return
+    this.debugChunksVisibilityOverride()
     const start = performance.now()
     this.lastRendered = performance.now()
     this.cursorBlock.render()
@@ -468,7 +500,9 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.camera.updateProjectionMatrix()
     }
 
-    this.entities.render()
+    if (!this.reactiveDebugParams.disableEntities) {
+      this.entities.render()
+    }
 
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
     const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera

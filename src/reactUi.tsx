@@ -61,6 +61,7 @@ import ControDebug from './react/ControDebug'
 import ChunksDebug from './react/ChunksDebug'
 import ChunksDebugScreen from './react/ChunksDebugScreen'
 import DebugResponseTimeIndicator from './react/debugs/DebugResponseTimeIndicator'
+import RendererDebugMenu from './react/RendererDebugMenu'
 import CreditsAboutModal from './react/CreditsAboutModal'
 import GlobalOverlayHints from './react/GlobalOverlayHints'
 
@@ -167,6 +168,7 @@ const InGameUi = () => {
           {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
           <VoiceMicrophone />
           <ChunksDebugScreen />
+          <RendererDebugMenu />
         </PerComponentErrorBoundary>
       </div>
 

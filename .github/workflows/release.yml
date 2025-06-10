@@ -40,6 +40,20 @@ jobs:
           mkdir -p .vercel/output/static/playground
           pnpm build-playground
           cp -r renderer/dist/* .vercel/output/static/playground/
+
+      # publish to github
+      - run: cp vercel.json .vercel/output/static/vercel.json
+      - uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .vercel/output/static
+          force_orphan: true
+          
+      - name: Change index.html title
+        run: |
+          # change <title>Minecraft Web Client</title> to <title>Minecraft Web Client — Free Online Browser Version</title>
+          sed -i 's/<title>Minecraft Web Client<\/title>/<title>Minecraft Web Client — Free Online Browser Version<\/title>/' .vercel/output/static/index.html
+          
       - name: Deploy Project to Vercel
         uses: mathiasvr/command-output@v2.0.0
         with:
@@ -53,13 +67,6 @@ jobs:
           for alias in $(echo ${{ steps.alias.outputs.alias }} | tr "," "\n"); do
             vercel alias set ${{ steps.deploy.outputs.stdout }} $alias --token=${{ secrets.VERCEL_TOKEN }} --scope=zaro
           done
-      # publish to github
-      - run: cp vercel.json .vercel/output/static/vercel.json
-      - uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .vercel/output/static
-          force_orphan: true
 
       - name: Build single-file version - minecraft.html
         run: pnpm build-single-file && mv dist/single/index.html minecraft.html

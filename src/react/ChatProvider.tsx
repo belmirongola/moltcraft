@@ -17,7 +17,7 @@ export default () => {
   const isChatActive = useIsModalActive('chat')
   const lastMessageId = useRef(0)
   const usingTouch = useSnapshot(miscUiState).currentTouch
-  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions, debugChatScroll } = useSnapshot(options)
+  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions, debugChatScroll, chatPingExtension } = useSnapshot(options)
   const isUsingMicrosoftAuth = useMemo(() => !!lastConnectOptions.value?.authenticatedAccount, [])
   const { forwardChat } = useSnapshot(viewerVersionState)
   const { viewerConnection } = useSnapshot(gameAdditionalState)
@@ -55,6 +55,11 @@ export default () => {
     messages={messages}
     opened={isChatActive}
     placeholder={forwardChat || !viewerConnection ? undefined : 'Chat forwarding is not enabled in the plugin settings'}
+    currentPlayerName={chatPingExtension ? bot.username : undefined}
+    getPingComplete={async (value) => {
+      const players = Object.keys(bot.players)
+      return players.filter(name => (!value || name.toLowerCase().includes(value.toLowerCase())) && name !== bot.username).map(name => `@${name}`)
+    }}
     sendMessage={async (message) => {
       const builtinHandled = tryHandleBuiltinCommand(message)
       if (getServerIndex() !== undefined && (message.startsWith('/login') || message.startsWith('/register'))) {

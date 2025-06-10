@@ -188,7 +188,7 @@ input[type=text],
   padding-left: 4px;
   background-color: rgba(0, 0, 0, 0.5);
   list-style: none;
-  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .chat-message-fadeout {

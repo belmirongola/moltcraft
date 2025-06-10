@@ -75,6 +75,7 @@ const defaultOptions = {
   debugChatScroll: false,
   chatVanillaRestrictions: true,
   debugResponseTimeIndicator: false,
+  chatPingExtension: true,
   // antiAliasing: false,
 
   clipWorldBelowY: undefined as undefined | number, // will be removed
@@ -106,6 +107,7 @@ const defaultOptions = {
   vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
   vrPageGameRendering: false,
   renderDebug: 'basic' as 'none' | 'advanced' | 'basic',
+  rendererPerfDebugOverlay: false,
 
   // advanced bot options
   autoRespawn: false,

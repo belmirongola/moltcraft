@@ -15,7 +15,7 @@ export type Message = {
   faded?: boolean
 }
 
-const MessageLine = ({ message }: { message: Message }) => {
+const MessageLine = ({ message, currentPlayerName }: { message: Message, currentPlayerName?: string }) => {
   const classes = {
     'chat-message-fadeout': message.fading,
     'chat-message-fade': message.fading,
@@ -24,7 +24,27 @@ const MessageLine = ({ message }: { message: Message }) => {
   }
 
   return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')}>
-    {message.parts.map((msg, i) => <MessagePart key={i} part={msg} />)}
+    {message.parts.map((msg, i) => {
+      // Check if this is a text part that might contain a mention
+      if (msg.text && currentPlayerName) {
+        const parts = msg.text.split(new RegExp(`(@${currentPlayerName})`, 'i'))
+        if (parts.length > 1) {
+          return parts.map((txtPart, j) => {
+            const part = {
+              ...msg,
+              text: txtPart
+            }
+            if (txtPart.toLowerCase() === `@${currentPlayerName}`.toLowerCase()) {
+              part.color = '#ffa500'
+              part.bold = true
+              return <MessagePart key={j} part={part} />
+            }
+            return <MessagePart key={j} part={part} />
+          })
+        }
+      }
+      return <MessagePart key={i} part={msg} />
+    })}
   </li>
 }
 
@@ -42,6 +62,8 @@ type Props = {
   placeholder?: string
   chatVanillaRestrictions?: boolean
   debugChatScroll?: boolean
+  getPingComplete?: (value: string) => Promise<string[]>
+  currentPlayerName?: string
 }
 
 export const chatInputValueGlobal = proxy({
@@ -71,12 +93,19 @@ export default ({
   inputDisabled,
   placeholder,
   chatVanillaRestrictions,
-  debugChatScroll
+  debugChatScroll,
+  getPingComplete,
+  currentPlayerName
 }: Props) => {
+  const playerNameValidated = useMemo(() => {
+    if (!/^[\w\d_]+$/i.test(currentPlayerName ?? '')) return ''
+    return currentPlayerName
+  }, [currentPlayerName])
+
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
   const [isInputFocused, setIsInputFocused] = useState(false)
-  // const [spellCheckEnabled, setSpellCheckEnabled] = useState(false)
   const spellCheckEnabled = false
+  const pingHistoryRef = useRef(JSON.parse(window.localStorage.pingHistory || '[]'))
 
   const [completePadText, setCompletePadText] = useState('')
   const completeRequestValue = useRef('')
@@ -108,9 +137,13 @@ export default ({
   const acceptComplete = (item: string) => {
     const base = completeRequestValue.current === '/' ? '' : getCompleteValue()
     updateInputValue(base + item)
-    // todo would be cool but disabled because some comands don't need args (like ping)
-    // // trigger next tab complete
-    // this.chatInput.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
+    // Record ping completion in history
+    if (item.startsWith('@')) {
+      const newHistory = [item, ...pingHistoryRef.current.filter((x: string) => x !== item)].slice(0, 10)
+      pingHistoryRef.current = newHistory
+      // todo use appStorage
+      window.localStorage.pingHistory = JSON.stringify(newHistory)
+    }
     chatInput.current.focus()
   }
 
@@ -200,6 +233,13 @@ export default ({
   }, [opened])
 
   const onMainInputChange = () => {
+    const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
+    if (lastWord.startsWith('@') && getPingComplete) {
+      setCompletePadText(lastWord)
+      void fetchPingCompletions(true, lastWord.slice(1))
+      return
+    }
+
     const completeValue = getCompleteValue()
     setCompletePadText(completeValue === '/' ? '' : completeValue)
     // not sure if enabling would be useful at all (maybe make as a setting in the future?)
@@ -215,9 +255,6 @@ export default ({
       resetCompletionItems()
     }
     completeRequestValue.current = completeValue
-    // if (completeValue === '/') {
-    //   void fetchCompletions(true)
-    // }
   }
 
   const fetchCompletions = async (implicit: boolean, inputValue = chatInput.current.value) => {
@@ -230,6 +267,24 @@ export default ({
     updateFilteredCompleteItems(newItems)
   }
 
+  const fetchPingCompletions = async (implicit: boolean, inputValue: string) => {
+    completeRequestValue.current = inputValue
+    resetCompletionItems()
+    const newItems = await getPingComplete?.(inputValue) ?? []
+    if (inputValue !== completeRequestValue.current) return
+    // Sort items by ping history
+    const sortedItems = [...newItems].sort((a, b) => {
+      const aIndex = pingHistoryRef.current.indexOf(a)
+      const bIndex = pingHistoryRef.current.indexOf(b)
+      if (aIndex === -1 && bIndex === -1) return 0
+      if (aIndex === -1) return 1
+      if (bIndex === -1) return -1
+      return aIndex - bIndex
+    })
+    setCompletionItemsSource(sortedItems)
+    updateFilteredCompleteItems(sortedItems)
+  }
+
   const updateFilteredCompleteItems = (sourceItems: string[] | Array<{ match: string, toolip: string }>) => {
     const newCompleteItems = sourceItems
       .map((item): string => (typeof item === 'string' ? item : item.match))
@@ -237,8 +292,11 @@ export default ({
         // this regex is imporatnt is it controls the word matching
         // const compareableParts = item.split(/[[\]{},_:]/)
         const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
-        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        if (lastWord.startsWith('@')) {
+          return item.toLowerCase().includes(lastWord.slice(1).toLowerCase())
+        }
         return item.includes(lastWord)
+        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
       })
     setCompletionItems(newCompleteItems)
   }
@@ -247,6 +305,7 @@ export default ({
     const raw = chatInput.current.value
     return raw.slice(0, chatInput.current.selectionEnd ?? raw.length)
   }
+
   const getCompleteValue = (value = getDefaultCompleteValue()) => {
     const valueParts = value.split(' ')
     const lastLength = valueParts.at(-1)!.length
@@ -313,7 +372,7 @@ export default ({
             </div>
           )}
           {messages.map((m) => (
-            <MessageLine key={reactKeyForMessage(m)} message={m} />
+            <MessageLine key={reactKeyForMessage(m)} message={m} currentPlayerName={playerNameValidated} />
           ))}
         </div> || undefined}
       </div>

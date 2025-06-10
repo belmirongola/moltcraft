@@ -8,6 +8,7 @@ import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import { subscribeKey } from 'valtio/utils'
+import { proxy } from 'valtio'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
@@ -49,6 +50,7 @@ export const defaultWorldRendererConfig = {
   fetchPlayerSkins: true,
   highlightBlockColor: 'blue',
   foreground: true,
+  enableDebugOverlay: false,
   _experimentalSmoothChunkLoading: true,
   _renderByChunks: false
 }
@@ -60,6 +62,17 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   worldReadyPromise = this.worldReadyResolvers.promise
   timeOfTheDay = 0
   worldSizeParams = { minY: 0, worldHeight: 256 }
+  reactiveDebugParams = proxy({
+    stopRendering: false,
+    chunksRenderAboveOverride: undefined as number | undefined,
+    chunksRenderAboveEnabled: false,
+    chunksRenderBelowOverride: undefined as number | undefined,
+    chunksRenderBelowEnabled: false,
+    chunksRenderDistanceOverride: undefined as number | undefined,
+    chunksRenderDistanceEnabled: false,
+    disableEntities: false,
+    // disableParticles: false
+  })
 
   active = false
 
@@ -313,6 +326,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   onReactiveConfigUpdated<T extends keyof typeof this.worldRendererConfig>(key: T, callback: (value: typeof this.worldRendererConfig[T]) => void) {
     callback(this.worldRendererConfig[key])
     subscribeKey(this.worldRendererConfig, key, callback)
+  }
+
+  onReactiveDebugUpdated<T extends keyof typeof this.reactiveDebugParams>(key: T, callback: (value: typeof this.reactiveDebugParams[T]) => void) {
+    callback(this.reactiveDebugParams[key])
+    subscribeKey(this.reactiveDebugParams, key, callback)
   }
 
   watchReactivePlayerState () {
