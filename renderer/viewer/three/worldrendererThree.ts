@@ -710,6 +710,18 @@ export class WorldRendererThree extends WorldRendererCommon {
     super.destroy()
   }
 
+  shouldObjectVisible (object: THREE.Object3D) {
+    // Get chunk coordinates
+    const chunkX = Math.floor(object.position.x / 16) * 16
+    const chunkZ = Math.floor(object.position.z / 16) * 16
+    const sectionY = Math.floor(object.position.y / 16) * 16
+
+    const chunkKey = `${chunkX},${chunkZ}`
+    const sectionKey = `${chunkX},${sectionY},${chunkZ}`
+
+    return !!this.finishedChunks[chunkKey] || !!this.sectionObjects[sectionKey]
+  }
+
   updateSectionOffsets () {
     const currentTime = performance.now()
     for (const [key, anim] of Object.entries(this.sectionsOffsetsAnimations)) {

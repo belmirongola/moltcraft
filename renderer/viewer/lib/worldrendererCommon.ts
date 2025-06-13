@@ -52,7 +52,8 @@ export const defaultWorldRendererConfig = {
   foreground: true,
   enableDebugOverlay: false,
   _experimentalSmoothChunkLoading: true,
-  _renderByChunks: false
+  _renderByChunks: false,
+  volume: 1
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -239,7 +240,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     await Promise.all([
       this.resetWorkers(),
       (async () => {
-        if (this.resourcesManager.currentResources) {
+        if (this.resourcesManager.currentResources?.itemsRenderer) {
           await this.updateAssetsData()
         }
       })()
@@ -265,15 +266,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return this.highestBlocksByChunks.get(chunkKey)
   }
 
-  updateCustomBlock (chunkKey: string, blockPos: string, model: string) {
+  updateCustomBlock (chunkKey: string, blockKey: number | string, blockPos: { x: number, y: number, z: number }, model: string) {
     this.protocolCustomBlocks.set(chunkKey, {
       ...this.protocolCustomBlocks.get(chunkKey),
-      [blockPos]: model
+      [blockKey]: model
     })
-    this.logWorkerWork(() => `-> updateCustomBlock ${chunkKey} ${blockPos} ${model} ${this.wasChunkSentToWorker(chunkKey)}`)
+    this.logWorkerWork(() => `-> updateCustomBlock ${chunkKey} ${blockKey} ${model} ${this.wasChunkSentToWorker(chunkKey)}`)
     if (this.wasChunkSentToWorker(chunkKey)) {
-      const [x, y, z] = blockPos.split(',').map(Number)
-      this.setBlockStateId(new Vec3(x, y, z), undefined)
+      this.setBlockStateId(new Vec3(blockPos.x, blockPos.y, blockPos.z), undefined)
     }
   }
 
@@ -812,7 +812,16 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
 
     worldEmitter.on('onWorldSwitch', () => {
-      for (const fn of this.onWorldSwitched) fn()
+      for (const fn of this.onWorldSwitched) {
+        try {
+          fn()
+        } catch (e) {
+          setTimeout(() => {
+            console.log('[Renderer Backend] Error in onWorldSwitched:')
+            throw e
+          }, 0)
+        }
+      }
     })
 
     worldEmitter.on('time', (timeOfDay) => {
