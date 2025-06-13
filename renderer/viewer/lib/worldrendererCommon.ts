@@ -266,14 +266,15 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return this.highestBlocksByChunks.get(chunkKey)
   }
 
-  updateCustomBlock (chunkKey: string, blockKey: number | string, blockPos: { x: number, y: number, z: number }, model: string) {
+  updateCustomBlock (chunkKey: string, blockPos: string, model: string) {
     this.protocolCustomBlocks.set(chunkKey, {
       ...this.protocolCustomBlocks.get(chunkKey),
-      [blockKey]: model
+      [blockPos]: model
     })
-    this.logWorkerWork(() => `-> updateCustomBlock ${chunkKey} ${blockKey} ${model} ${this.wasChunkSentToWorker(chunkKey)}`)
+    this.logWorkerWork(() => `-> updateCustomBlock ${chunkKey} ${blockPos} ${model} ${this.wasChunkSentToWorker(chunkKey)}`)
     if (this.wasChunkSentToWorker(chunkKey)) {
-      this.setBlockStateId(new Vec3(blockPos.x, blockPos.y, blockPos.z), undefined)
+      const [x, y, z] = blockPos.split(',').map(Number)
+      this.setBlockStateId(new Vec3(x, y, z), undefined)
     }
   }
 

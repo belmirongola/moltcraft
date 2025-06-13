@@ -69,7 +69,7 @@ const registerBlockModelsChannel = () => {
     const chunkKey = `${chunkX},${chunkZ}`
     const blockPosKey = `${x},${y},${z}`
 
-    getThreeJsRendererMethods()?.updateCustomBlock(chunkKey, blockPosKey, { x: Number(x), y: Number(y), z: Number(z) }, model)
+    getThreeJsRendererMethods()?.updateCustomBlock(chunkKey, blockPosKey, model)
   }, true)
 }
 
