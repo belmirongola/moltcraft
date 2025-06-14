@@ -3,17 +3,15 @@ import { Vec3 } from 'vec3'
 import nbt from 'prismarine-nbt'
 import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
-import { subscribeKey } from 'valtio/utils'
 import { renderSign } from '../sign-renderer'
-import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
+import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from '../lib/simpleUtils'
 import { WorldRendererCommon } from '../lib/worldrendererCommon'
-import { addNewStat, removeAllStats } from '../lib/ui/newStats'
+import { addNewStat } from '../lib/ui/newStats'
 import { MesherGeometryOutput } from '../lib/mesher/shared'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { getMyHand } from '../lib/hand'
 import { setBlockPosition } from '../lib/mesher/standaloneRenderer'
-import { sendVideoPlay, sendVideoStop } from '../../../src/customChannels'
 import HoldingBlock from './holdingBlock'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
@@ -44,7 +42,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraGroupVr?: THREE.Object3D
   material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
   itemsTexture: THREE.Texture
-  cursorBlock = new CursorBlock(this)
+  cursorBlock: CursorBlock
   onRender: Array<() => void> = []
   cameraShake: CameraShake
   media: ThreeJsMedia
@@ -82,8 +80,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
     super(initOptions.resourcesManager, displayOptions, initOptions)
 
+    this.renderer = renderer
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
     this.starField = new StarField(this.scene)
+    this.cursorBlock = new CursorBlock(this)
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)
 
@@ -148,21 +148,21 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   override watchReactivePlayerState () {
     super.watchReactivePlayerState()
-    this.onReactiveValueUpdated('inWater', (value) => {
+    this.onReactivePlayerStateUpdated('inWater', (value) => {
       this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.displayOptions.playerState.reactive.waterBreathing ? 100 : 20) : null
     })
-    this.onReactiveValueUpdated('ambientLight', (value) => {
+    this.onReactivePlayerStateUpdated('ambientLight', (value) => {
       if (!value) return
       this.ambientLight.intensity = value
     })
-    this.onReactiveValueUpdated('directionalLight', (value) => {
+    this.onReactivePlayerStateUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
     })
-    this.onReactiveValueUpdated('lookingAtBlock', (value) => {
+    this.onReactivePlayerStateUpdated('lookingAtBlock', (value) => {
       this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
     })
-    this.onReactiveValueUpdated('diggingBlock', (value) => {
+    this.onReactivePlayerStateUpdated('diggingBlock', (value) => {
       this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
     })
   }
@@ -184,18 +184,20 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   async updateAssetsData (): Promise<void> {
-    const resources = this.resourcesManager.currentResources!
+    const resources = this.resourcesManager.currentResources
 
     const oldTexture = this.material.map
     const oldItemsTexture = this.itemsTexture
 
-    const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
+    const texture = new THREE.Texture(resources.blocksAtlasImage)
+    texture.needsUpdate = true
     texture.magFilter = THREE.NearestFilter
     texture.minFilter = THREE.NearestFilter
     texture.flipY = false
     this.material.map = texture
 
-    const itemsTexture = await new THREE.TextureLoader().loadAsync(resources.itemsAtlasParser.latestImage)
+    const itemsTexture = new THREE.Texture(resources.itemsAtlasImage)
+    itemsTexture.needsUpdate = true
     itemsTexture.magFilter = THREE.NearestFilter
     itemsTexture.minFilter = THREE.NearestFilter
     itemsTexture.flipY = false
@@ -239,7 +241,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   getItemRenderData (item: Record<string, any>, specificProps: ItemSpecificContextProperties) {
-    return getItemUv(item, specificProps, this.resourcesManager)
+    return getItemUv(item, specificProps, this.resourcesManager, this.playerState)
   }
 
   async demoModel () {
@@ -431,7 +433,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
-    const yOffset = this.displayOptions.playerState.getEyeHeight()
+    const yOffset = this.displayOptions.playerState.reactive.eyeHeight
 
     this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
     this.media.tryIntersectMedia()
@@ -495,7 +497,8 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
-      this.camera.aspect = window.innerWidth / window.innerHeight
+      const size = this.renderer.getSize(new THREE.Vector2())
+      this.camera.aspect = size.width / size.height
       this.camera.fov = this.displayOptions.inWorldRenderingConfig.fov
       this.camera.updateProjectionMatrix()
     }
@@ -508,7 +511,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.shouldHideHand /*  && !this.freeFlyMode */ && !this.renderer.xr.isPresenting) {
+    if (this.displayOptions.inWorldRenderingConfig.showHand && this.playerState.reactive.gameMode !== 'spectator' /*  && !this.freeFlyMode */ && !this.renderer.xr.isPresenting) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
     }
@@ -708,6 +711,18 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   destroy (): void {
     super.destroy()
+  }
+
+  shouldObjectVisible (object: THREE.Object3D) {
+    // Get chunk coordinates
+    const chunkX = Math.floor(object.position.x / 16) * 16
+    const chunkZ = Math.floor(object.position.z / 16) * 16
+    const sectionY = Math.floor(object.position.y / 16) * 16
+
+    const chunkKey = `${chunkX},${chunkZ}`
+    const sectionKey = `${chunkX},${sectionY},${chunkZ}`
+
+    return !!this.finishedChunks[chunkKey] || !!this.sectionObjects[sectionKey]
   }
 
   updateSectionOffsets () {

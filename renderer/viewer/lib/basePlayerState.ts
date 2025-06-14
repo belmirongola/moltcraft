@@ -1,125 +1,68 @@
-import { EventEmitter } from 'events'
-import { Vec3 } from 'vec3'
-import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
-import { proxy, ref } from 'valtio'
 import { GameMode } from 'mineflayer'
-import { HandItemBlock } from '../three/holdingBlock'
+import { proxy } from 'valtio'
+import type { HandItemBlock } from '../three/holdingBlock'
 
 export type MovementState = 'NOT_MOVING' | 'WALKING' | 'SPRINTING' | 'SNEAKING'
 export type ItemSpecificContextProperties = Partial<Pick<ItemSelector['properties'], 'minecraft:using_item' | 'minecraft:use_duration' | 'minecraft:use_cycle' | 'minecraft:display_context'>>
 
 
-export type PlayerStateEvents = {
-  heldItemChanged: (item: HandItemBlock | undefined, isLeftHand: boolean) => void
-}
-
 export type BlockShape = { position: any; width: any; height: any; depth: any; }
 export type BlocksShapes = BlockShape[]
 
-export interface IPlayerState {
-  getEyeHeight(): number
-  getMovementState(): MovementState
-  getVelocity(): Vec3
-  isOnGround(): boolean
-  isSneaking(): boolean
-  isFlying(): boolean
-  isSprinting (): boolean
-  getItemUsageTicks?(): number
-  getPosition(): Vec3
-  // isUsingItem?(): boolean
-  getHeldItem?(isLeftHand: boolean): HandItemBlock | undefined
-  username?: string
-  onlineMode?: boolean
-  lightingDisabled?: boolean
-  shouldHideHand?: boolean
+export const getInitialPlayerState = () => proxy({
+  playerSkin: undefined as string | undefined,
+  inWater: false,
+  waterBreathing: false,
+  backgroundColor: [0, 0, 0] as [number, number, number],
+  ambientLight: 0,
+  directionalLight: 0,
+  eyeHeight: 0,
+  gameMode: undefined as GameMode | undefined,
+  lookingAtBlock: undefined as {
+    x: number
+    y: number
+    z: number
+    face?: number
+    shapes: BlocksShapes
+  } | undefined,
+  diggingBlock: undefined as {
+    x: number
+    y: number
+    z: number
+    stage: number
+    face?: number
+    mergedShape: BlockShape | undefined
+  } | undefined,
+  movementState: 'NOT_MOVING' as MovementState,
+  onGround: true,
+  sneaking: false,
+  flying: false,
+  sprinting: false,
+  itemUsageTicks: 0,
+  username: '',
+  onlineMode: false,
+  lightingDisabled: false,
+  shouldHideHand: false,
+  heldItemMain: undefined as HandItemBlock | undefined,
+  heldItemOff: undefined as HandItemBlock | undefined,
+})
 
-  events: TypedEmitter<PlayerStateEvents>
+export const getInitialPlayerStateRenderer = () => ({
+  reactive: getInitialPlayerState()
+})
 
-  reactive: {
-    playerSkin: string | undefined
-    inWater: boolean
-    waterBreathing: boolean
-    backgroundColor: [number, number, number]
-    ambientLight: number
-    directionalLight: number
-    gameMode?: GameMode
-    lookingAtBlock?: {
-      x: number
-      y: number
-      z: number
-      face?: number
-      shapes: BlocksShapes
-    }
-    diggingBlock?: {
-      x: number
-      y: number
-      z: number
-      stage: number
-      face?: number
-      mergedShape?: BlockShape
-    }
-  }
+export type PlayerStateReactive = ReturnType<typeof getInitialPlayerState>
+
+export interface PlayerStateRenderer {
+  reactive: PlayerStateReactive
 }
 
-export class BasePlayerState implements IPlayerState {
-  reactive = proxy({
-    playerSkin: undefined as string | undefined,
-    inWater: false,
-    waterBreathing: false,
-    backgroundColor: ref([0, 0, 0]) as [number, number, number],
-    ambientLight: 0,
-    directionalLight: 0,
-  })
-  protected movementState: MovementState = 'NOT_MOVING'
-  protected velocity = new Vec3(0, 0, 0)
-  protected onGround = true
-  protected sneaking = false
-  protected flying = false
-  protected sprinting = false
-  readonly events = new EventEmitter() as TypedEmitter<PlayerStateEvents>
-
-  getEyeHeight (): number {
-    return 1.62
-  }
-
-  getMovementState (): MovementState {
-    return this.movementState
-  }
-
-  getVelocity (): Vec3 {
-    return this.velocity
-  }
-
-  isOnGround (): boolean {
-    return this.onGround
-  }
-
-  isSneaking (): boolean {
-    return this.sneaking
-  }
-
-  isFlying (): boolean {
-    return this.flying
-  }
-
-  isSprinting (): boolean {
-    return this.sprinting
-  }
-
-  getPosition (): Vec3 {
-    return new Vec3(0, 0, 0)
-  }
-
-  // For testing purposes
-  setState (state: Partial<{
-    movementState: MovementState
-    velocity: Vec3
-    onGround: boolean
-    sneaking: boolean
-    flying: boolean
-    sprinting: boolean
-  }>) {
-    Object.assign(this, state)
+export const getItemSelector = (playerState: PlayerStateRenderer, specificProperties: ItemSpecificContextProperties, item?: import('prismarine-item').Item) => {
+  return {
+    ...specificProperties,
+    'minecraft:date': new Date(),
+    // "minecraft:context_dimension": bot.entityp,
+    // 'minecraft:time': bot.time.timeOfDay / 24_000,
   }
 }

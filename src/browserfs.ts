@@ -263,7 +263,7 @@ export const mountGoogleDriveFolder = async (readonly: boolean, rootId: string) 
   return true
 }
 
-export async function removeFileRecursiveAsync (path) {
+export async function removeFileRecursiveAsync (path, removeDirectoryItself = true) {
   const errors = [] as Array<[string, Error]>
   try {
     const files = await fs.promises.readdir(path)
@@ -282,7 +282,9 @@ export async function removeFileRecursiveAsync (path) {
     }))
 
     // After removing all files/directories, remove the current directory
-    await fs.promises.rmdir(path)
+    if (removeDirectoryItself) {
+      await fs.promises.rmdir(path)
+    }
   } catch (error) {
     errors.push([path, error])
   }

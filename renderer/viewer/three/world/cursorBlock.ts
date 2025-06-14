@@ -15,6 +15,7 @@ import destroyStage6 from '../../../../assets/destroy_stage_6.png'
 import destroyStage7 from '../../../../assets/destroy_stage_7.png'
 import destroyStage8 from '../../../../assets/destroy_stage_8.png'
 import destroyStage9 from '../../../../assets/destroy_stage_9.png'
+import { loadThreeJsTextureFromUrl } from '../../lib/utils/skins'
 
 export class CursorBlock {
   _cursorLinesHidden = false
@@ -36,17 +37,17 @@ export class CursorBlock {
 
   constructor (public readonly worldRenderer: WorldRendererThree) {
     // Initialize break mesh and textures
-    const loader = new THREE.TextureLoader()
     const destroyStagesImages = [
       destroyStage0, destroyStage1, destroyStage2, destroyStage3, destroyStage4,
       destroyStage5, destroyStage6, destroyStage7, destroyStage8, destroyStage9
     ]
 
     for (let i = 0; i < 10; i++) {
-      const texture = loader.load(destroyStagesImages[i])
-      texture.magFilter = THREE.NearestFilter
-      texture.minFilter = THREE.NearestFilter
-      this.breakTextures.push(texture)
+      void loadThreeJsTextureFromUrl(destroyStagesImages[i]).then((texture) => {
+        texture.magFilter = THREE.NearestFilter
+        texture.minFilter = THREE.NearestFilter
+        this.breakTextures.push(texture)
+      })
     }
 
     const breakMaterial = new THREE.MeshBasicMaterial({

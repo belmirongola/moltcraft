@@ -6,15 +6,20 @@ import { GraphicsBackendConfig, GraphicsInitOptions } from '../../../src/appView
 import { WorldRendererConfig } from '../lib/worldrendererCommon'
 
 export class DocumentRenderer {
-  readonly canvas = document.createElement('canvas')
+  canvas: HTMLCanvasElement | OffscreenCanvas
   readonly renderer: THREE.WebGLRenderer
   private animationFrameId?: number
+  private timeoutId?: number
   private lastRenderTime = 0
-  private previousWindowWidth = window.innerWidth
-  private previousWindowHeight = window.innerHeight
+
+  private previousCanvasWidth = 0
+  private previousCanvasHeight = 0
+  private currentWidth = 0
+  private currentHeight = 0
+
   private renderedFps = 0
   private fpsInterval: any
-  private readonly stats: TopRightStats
+  private readonly stats: TopRightStats | undefined
   private paused = false
   disconnected = false
   preRender = () => { }
@@ -26,8 +31,15 @@ export class DocumentRenderer {
   onRender = [] as Array<(sizeChanged: boolean) => void>
   inWorldRenderingConfig: WorldRendererConfig | undefined
 
-  constructor (initOptions: GraphicsInitOptions) {
+  constructor (initOptions: GraphicsInitOptions, public externalCanvas?: OffscreenCanvas) {
     this.config = initOptions.config
+
+    // Handle canvas creation/transfer based on context
+    if (externalCanvas) {
+      this.canvas = externalCanvas
+    } else {
+      this.addToPage()
+    }
 
     try {
       this.renderer = new THREE.WebGLRenderer({
@@ -37,17 +49,24 @@ export class DocumentRenderer {
         powerPreference: this.config.powerPreference
       })
     } catch (err) {
-      initOptions.displayCriticalError(new Error(`Failed to create WebGL context, not possible to render (restart browser): ${err.message}`))
+      initOptions.callbacks.displayCriticalError(new Error(`Failed to create WebGL context, not possible to render (restart browser): ${err.message}`))
       throw err
     }
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace
-    this.updatePixelRatio()
-    this.updateSize()
-    this.addToPage()
+    if (!externalCanvas) {
+      this.updatePixelRatio()
+    }
+    this.sizeUpdated()
+    // Initialize previous dimensions
+    this.previousCanvasWidth = this.canvas.width
+    this.previousCanvasHeight = this.canvas.height
 
-    this.stats = new TopRightStats(this.canvas, this.config.statsVisible)
+    // Only initialize stats and DOM-related features in main thread
+    if (!externalCanvas) {
+      this.stats = new TopRightStats(this.canvas as HTMLCanvasElement, this.config.statsVisible)
+      this.setupFpsTracking()
+    }
 
-    this.setupFpsTracking()
     this.startRenderLoop()
   }
 
@@ -59,15 +78,33 @@ export class DocumentRenderer {
     this.renderer.setPixelRatio(pixelRatio)
   }
 
-  updateSize () {
-    this.renderer.setSize(window.innerWidth, window.innerHeight)
+  sizeUpdated () {
+    this.renderer.setSize(this.currentWidth, this.currentHeight, false)
   }
 
   private addToPage () {
-    this.canvas.id = 'viewer-canvas'
-    this.canvas.style.width = '100%'
-    this.canvas.style.height = '100%'
-    document.body.appendChild(this.canvas)
+    this.canvas = addCanvasToPage()
+    this.updateCanvasSize()
+  }
+
+  updateSizeExternal (newWidth: number, newHeight: number, pixelRatio: number) {
+    this.currentWidth = newWidth
+    this.currentHeight = newHeight
+    this.renderer.setPixelRatio(pixelRatio)
+    this.sizeUpdated()
+  }
+
+  private updateCanvasSize () {
+    if (!this.externalCanvas) {
+      const innnerWidth = window.innerWidth
+      const innnerHeight = window.innerHeight
+      if (this.currentWidth !== innnerWidth) {
+        this.currentWidth = innnerWidth
+      }
+      if (this.currentHeight !== innnerHeight) {
+        this.currentHeight = innnerHeight
+      }
+    }
   }
 
   private setupFpsTracking () {
@@ -81,20 +118,15 @@ export class DocumentRenderer {
     }, 1000)
   }
 
-  // private handleResize () {
-  //   const width = window.innerWidth
-  //   const height = window.innerHeight
-
-  //   viewer.camera.aspect = width / height
-  //   viewer.camera.updateProjectionMatrix()
-  //   this.renderer.setSize(width, height)
-  //   viewer.world.handleResize()
-  // }
-
   private startRenderLoop () {
     const animate = () => {
       if (this.disconnected) return
-      this.animationFrameId = requestAnimationFrame(animate)
+
+      if (this.config.timeoutRendering) {
+        this.timeoutId = setTimeout(animate, this.config.fpsLimit ? 1000 / this.config.fpsLimit : 0) as unknown as number
+      } else {
+        this.animationFrameId = requestAnimationFrame(animate)
+      }
 
       if (this.paused || (this.renderer.xr.isPresenting && !this.inWorldRenderingConfig?.vrPageGameRendering)) return
 
@@ -112,18 +144,19 @@ export class DocumentRenderer {
       }
 
       let sizeChanged = false
-      if (this.previousWindowWidth !== window.innerWidth || this.previousWindowHeight !== window.innerHeight) {
-        this.previousWindowWidth = window.innerWidth
-        this.previousWindowHeight = window.innerHeight
-        this.updateSize()
+      this.updateCanvasSize()
+      if (this.previousCanvasWidth !== this.currentWidth || this.previousCanvasHeight !== this.currentHeight) {
+        this.previousCanvasWidth = this.currentWidth
+        this.previousCanvasHeight = this.currentHeight
+        this.sizeUpdated()
         sizeChanged = true
       }
 
       this.frameRender(sizeChanged)
 
-      // Update stats visibility each frame
+      // Update stats visibility each frame (main thread only)
       if (this.config.statsVisible !== undefined) {
-        this.stats.setVisibility(this.config.statsVisible)
+        this.stats?.setVisibility(this.config.statsVisible)
       }
     }
 
@@ -132,16 +165,16 @@ export class DocumentRenderer {
 
   frameRender (sizeChanged: boolean) {
     this.preRender()
-    this.stats.markStart()
+    this.stats?.markStart()
     tween.update()
-    if (!window.freezeRender) {
+    if (!globalThis.freezeRender) {
       this.render(sizeChanged)
     }
     for (const fn of this.onRender) {
       fn(sizeChanged)
     }
     this.renderedFps++
-    this.stats.markEnd()
+    this.stats?.markEnd()
     this.postRender()
   }
 
@@ -154,10 +187,15 @@ export class DocumentRenderer {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId)
     }
-    this.canvas.remove()
-    this.renderer.dispose()
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId)
+    }
+    if (this.canvas instanceof HTMLCanvasElement) {
+      this.canvas.remove()
+    }
     clearInterval(this.fpsInterval)
-    this.stats.dispose()
+    this.stats?.dispose()
+    this.renderer.dispose()
   }
 }
 
@@ -248,5 +286,42 @@ class TopRightStats {
     this.stats.dom.remove()
     this.stats2.dom.remove()
     this.statsGl.container.remove()
+  }
+}
+
+const addCanvasToPage = () => {
+  const canvas = document.createElement('canvas')
+  canvas.id = 'viewer-canvas'
+  document.body.appendChild(canvas)
+  return canvas
+}
+
+export const addCanvasForWorker = () => {
+  const canvas = addCanvasToPage()
+  const transferred = canvas.transferControlToOffscreen()
+  let removed = false
+  let onSizeChanged = (w, h) => { }
+  let oldSize = { width: 0, height: 0 }
+  const checkSize = () => {
+    if (removed) return
+    if (oldSize.width !== window.innerWidth || oldSize.height !== window.innerHeight) {
+      onSizeChanged(window.innerWidth, window.innerHeight)
+      oldSize = { width: window.innerWidth, height: window.innerHeight }
+    }
+    requestAnimationFrame(checkSize)
+  }
+  requestAnimationFrame(checkSize)
+  return {
+    canvas: transferred,
+    destroy () {
+      removed = true
+      canvas.remove()
+    },
+    onSizeChanged (cb: (width: number, height: number) => void) {
+      onSizeChanged = cb
+    },
+    get size () {
+      return { width: window.innerWidth, height: window.innerHeight }
+    }
   }
 }

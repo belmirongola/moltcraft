@@ -1,30 +1,32 @@
 /* eslint-disable guard-for-in */
 import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
-import * as THREE from 'three'
 import mcDataRaw from 'minecraft-data/data.js' // note: using alias
 import TypedEmitter from 'typed-emitter'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import { subscribeKey } from 'valtio/utils'
 import { proxy } from 'valtio'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
-import { toMajorVersion } from '../../../src/utils'
-import { ResourcesManager } from '../../../src/resourcesManager'
+import type { ResourcesManagerTransferred } from '../../../src/resourcesManager'
 import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
 import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig, MesherMainEvent } from './mesher/shared'
+import { HighestBlockInfo, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig, MesherMainEvent } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
-import { addNewStat, removeAllStats, removeStat, updatePanesVisibility, updateStatText } from './ui/newStats'
-import { WorldDataEmitter } from './worldDataEmitter'
-import { IPlayerState } from './basePlayerState'
+import { addNewStat, removeAllStats, updatePanesVisibility, updateStatText } from './ui/newStats'
+import { WorldDataEmitterWorker } from './worldDataEmitter'
+import { PlayerStateRenderer } from './basePlayerState'
 import { MesherLogReader } from './mesherlogReader'
 import { setSkinsConfig } from './utils/skins'
 
 function mod (x, n) {
   return ((x % n) + n) % n
+}
+
+const toMajorVersion = version => {
+  const [a, b] = (String(version)).split('.')
+  return `${a}.${b}`
 }
 
 export const worldCleanup = buildCleanupDecorator('resetWorld')
@@ -52,7 +54,8 @@ export const defaultWorldRendererConfig = {
   foreground: true,
   enableDebugOverlay: false,
   _experimentalSmoothChunkLoading: true,
-  _renderByChunks: false
+  _renderByChunks: false,
+  volume: 1
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -153,7 +156,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   abstract changeBackgroundColor (color: [number, number, number]): void
 
   worldRendererConfig: WorldRendererConfig
-  playerState: IPlayerState
+  playerState: PlayerStateRenderer
   reactiveState: RendererReactiveState
   mesherLogReader: MesherLogReader | undefined
   forceCallFromMesherReplayer = false
@@ -169,6 +172,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
   currentRenderedFrames = 0
   fpsAverage = 0
+  lastFps = 0
   fpsWorst = undefined as number | undefined
   fpsSamples = 0
   mainThreadRendering = true
@@ -184,7 +188,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return (this.initOptions.config.statsVisible ?? 0) > 1
   }
 
-  constructor (public readonly resourcesManager: ResourcesManager, public displayOptions: DisplayWorldOptions, public initOptions: GraphicsInitOptions) {
+  constructor (public readonly resourcesManager: ResourcesManagerTransferred, public displayOptions: DisplayWorldOptions, public initOptions: GraphicsInitOptions) {
     this.snapshotInitialValues()
     this.worldRendererConfig = displayOptions.inWorldRenderingConfig
     this.playerState = displayOptions.playerState
@@ -221,6 +225,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     } else {
       this.fpsWorst = Math.min(this.fpsWorst, this.currentRenderedFrames)
     }
+    this.lastFps = this.currentRenderedFrames
     this.currentRenderedFrames = 0
   }
 
@@ -231,15 +236,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   async init () {
     if (this.active) throw new Error('WorldRendererCommon is already initialized')
-    await this.resourcesManager.loadMcData(this.version)
-    if (!this.resourcesManager.currentResources) {
-      await this.resourcesManager.updateAssetsData({ })
-    }
 
     await Promise.all([
       this.resetWorkers(),
       (async () => {
-        if (this.resourcesManager.currentResources) {
+        if (this.resourcesManager.currentResources?.allReady) {
           await this.updateAssetsData()
         }
       })()
@@ -291,35 +292,22 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   initWorkers (numWorkers = this.worldRendererConfig.mesherWorkers) {
     // init workers
     for (let i = 0; i < numWorkers + 1; i++) {
-      // Node environment needs an absolute path, but browser needs the url of the file
-      const workerName = 'mesher.js'
-      // eslint-disable-next-line node/no-path-concat
-      const src = typeof window === 'undefined' ? `${__dirname}/${workerName}` : workerName
-
-      let worker: any
-      if (process.env.SINGLE_FILE_BUILD) {
-        const workerCode = document.getElementById('mesher-worker-code')!.textContent!
-        const blob = new Blob([workerCode], { type: 'text/javascript' })
-        worker = new Worker(window.URL.createObjectURL(blob))
-      } else {
-        worker = new Worker(src)
-      }
-
-      worker.onmessage = ({ data }) => {
+      const worker = initMesherWorker((data) => {
         if (Array.isArray(data)) {
           this.messageQueue.push(...data)
         } else {
           this.messageQueue.push(data)
         }
         void this.processMessageQueue('worker')
-      }
-      if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
+      })
       this.workers.push(worker)
     }
   }
 
-  onReactiveValueUpdated<T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) {
-    callback(this.displayOptions.playerState.reactive[key])
+  onReactivePlayerStateUpdated<T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void, initial = true) {
+    if (initial) {
+      callback(this.displayOptions.playerState.reactive[key])
+    }
     subscribeKey(this.displayOptions.playerState.reactive, key, callback)
   }
 
@@ -334,7 +322,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   watchReactivePlayerState () {
-    this.onReactiveValueUpdated('backgroundColor', (value) => {
+    this.onReactivePlayerStateUpdated('backgroundColor', (value) => {
       this.changeBackgroundColor(value)
     })
   }
@@ -466,7 +454,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
 
     if (data.type === 'heightmap') {
-      appViewer.rendererState.world.heightmaps.set(data.key, new Uint8Array(data.heightmap))
+      this.reactiveState.world.heightmaps.set(data.key, new Uint8Array(data.heightmap))
     }
   }
 
@@ -543,7 +531,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.resetWorld()
 
     // for workers in single file build
-    if (document?.readyState === 'loading') {
+    if (typeof document !== 'undefined' && document?.readyState === 'loading') {
       await new Promise(resolve => {
         document.addEventListener('DOMContentLoaded', resolve)
       })
@@ -575,7 +563,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       skyLight,
       smoothLighting: this.worldRendererConfig.smoothLighting,
       outputFormat: this.outputFormat,
-      textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
+      // textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
       debugModelVariant: undefined,
       clipWorldBelowY: this.worldRendererConfig.clipWorldBelowY,
       disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers,
@@ -600,7 +588,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   async updateAssetsData () {
-    const resources = this.resourcesManager.currentResources!
+    const resources = this.resourcesManager.currentResources
 
     if (this.workers.length === 0) throw new Error('workers not initialized yet')
     for (const [i, worker] of this.workers.entries()) {
@@ -610,7 +598,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         type: 'mesherData',
         workerIndex: i,
         blocksAtlas: {
-          latest: resources.blocksAtlasParser.atlas.latest
+          latest: resources.blocksAtlasJson
         },
         blockstatesModels,
         config: this.getMesherConfig(),
@@ -733,7 +721,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   lightUpdate (chunkX: number, chunkZ: number) { }
 
-  connect (worldView: WorldDataEmitter) {
+  connect (worldView: WorldDataEmitterWorker) {
     const worldEmitter = worldView
 
     worldEmitter.on('entity', (e) => {
@@ -812,7 +800,16 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
 
     worldEmitter.on('onWorldSwitch', () => {
-      for (const fn of this.onWorldSwitched) fn()
+      for (const fn of this.onWorldSwitched) {
+        try {
+          fn()
+        } catch (e) {
+          setTimeout(() => {
+            console.log('[Renderer Backend] Error in onWorldSwitched:')
+            throw e
+          }, 0)
+        }
+      }
     })
 
     worldEmitter.on('time', (timeOfDay) => {
@@ -830,8 +827,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       //   (this).rerenderAllChunks?.()
       // }
     })
-
-    worldEmitter.emit('listening')
   }
 
   setBlockStateIdInner (pos: Vec3, stateId: number | undefined, needAoRecalculation = true) {
@@ -1027,5 +1022,39 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.renderUpdateEmitter.removeAllListeners()
     this.abortController.abort()
     removeAllStats()
+  }
+}
+
+export const initMesherWorker = (onGotMessage: (data: any) => void) => {
+  // Node environment needs an absolute path, but browser needs the url of the file
+  const workerName = 'mesher.js'
+
+  let worker: any
+  if (process.env.SINGLE_FILE_BUILD) {
+    const workerCode = document.getElementById('mesher-worker-code')!.textContent!
+    const blob = new Blob([workerCode], { type: 'text/javascript' })
+    worker = new Worker(window.URL.createObjectURL(blob))
+  } else {
+    worker = new Worker(workerName)
+  }
+
+  worker.onmessage = ({ data }) => {
+    onGotMessage(data)
+  }
+  if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
+  return worker
+}
+
+export const meshersSendMcData = (workers: Worker[], version: string, addData = {} as Record<string, any>) => {
+  const allMcData = mcDataRaw.pc[version] ?? mcDataRaw.pc[toMajorVersion(version)]
+  const mcData = {
+    version: JSON.parse(JSON.stringify(allMcData.version))
+  }
+  for (const key of dynamicMcDataFiles) {
+    mcData[key] = allMcData[key]
+  }
+
+  for (const worker of workers) {
+    worker.postMessage({ type: 'mcData', mcData, ...addData })
   }
 }

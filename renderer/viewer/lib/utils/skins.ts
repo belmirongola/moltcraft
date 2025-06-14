@@ -2,17 +2,24 @@ import { loadSkinToCanvas } from 'skinview-utils'
 import * as THREE from 'three'
 import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 
-// eslint-disable-next-line unicorn/prefer-export-from
-export const stevePngUrl = stevePng
-export const steveTexture = new THREE.TextureLoader().loadAsync(stevePng)
+export const loadThreeJsTextureFromUrl = async (imageUrl: string, texture?: THREE.Texture) => {
+  const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
+  if (texture) {
+    texture.image = loaded
+    texture.needsUpdate = true
+    return texture
+  }
+  return loaded
+}
 
-export async function loadImageFromUrl (imageUrl: string): Promise<HTMLImageElement> {
-  const img = new Image()
-  img.src = imageUrl
-  await new Promise<void>(resolve => {
-    img.onload = () => resolve()
-  })
-  return img
+export const stevePngUrl = stevePng
+export const steveTexture = loadThreeJsTextureFromUrl(stevePngUrl)
+
+
+export async function loadImageFromUrl (imageUrl: string): Promise<ImageBitmap> {
+  const response = await fetch(imageUrl)
+  const blob = await response.blob()
+  return createImageBitmap(blob)
 }
 
 const config = {
@@ -52,13 +59,13 @@ export const parseSkinTexturesValue = (value: string) => {
   return decodedData.textures?.SKIN?.url
 }
 
-export async function loadSkinImage (skinUrl: string): Promise<{ canvas: HTMLCanvasElement, image: HTMLImageElement }> {
+export async function loadSkinImage (skinUrl: string): Promise<{ canvas: OffscreenCanvas, image: ImageBitmap }> {
   if (!skinUrl.startsWith('data:')) {
     skinUrl = await fetchAndConvertBase64Skin(skinUrl.replace('http://', 'https://'))
   }
 
   const image = await loadImageFromUrl(skinUrl)
-  const skinCanvas = document.createElement('canvas')
+  const skinCanvas = new OffscreenCanvas(64, 64)
   loadSkinToCanvas(skinCanvas, image)
   return { canvas: skinCanvas, image }
 }

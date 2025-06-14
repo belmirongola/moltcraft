@@ -96,7 +96,7 @@ function getUsernameTexture ({
   nameTagBackgroundColor = 'rgba(0, 0, 0, 0.3)',
   nameTagTextOpacity = 255
 }: any, { fontFamily = 'sans-serif' }: any) {
-  const canvas = document.createElement('canvas')
+  const canvas = new OffscreenCanvas(64, 64)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get 2d context')
 
@@ -312,13 +312,8 @@ export class Entities {
         const dz = entity.position.z - botPos.z
         const distanceSquared = dx * dx + dy * dy + dz * dz
 
-        // Get chunk coordinates
-        const chunkX = Math.floor(entity.position.x / 16) * 16
-        const chunkZ = Math.floor(entity.position.z / 16) * 16
-        const chunkKey = `${chunkX},${chunkZ}`
-
         // Entity is visible if within 16 blocks OR in a finished chunk
-        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.worldRenderer.finishedChunks[chunkKey])
+        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.worldRenderer.shouldObjectVisible(entity))
 
         this.maybeRenderPlayerSkin(entityId)
       }
@@ -467,16 +462,16 @@ export class Entities {
     if (!playerObject) return
 
     try {
-      let playerCustomSkinImage: HTMLImageElement | undefined
+      let playerCustomSkinImage: ImageBitmap | undefined
 
       playerObject = this.getPlayerObject(entityId)
       if (!playerObject) return
 
       let skinTexture: THREE.Texture
-      let skinCanvas: HTMLCanvasElement
+      let skinCanvas: OffscreenCanvas
       if (skinUrl === stevePngUrl) {
         skinTexture = await steveTexture
-        const canvas = document.createElement('canvas')
+        const canvas = new OffscreenCanvas(64, 64)
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('Failed to get context')
         ctx.drawImage(skinTexture.image, 0, 0)
@@ -550,6 +545,12 @@ export class Entities {
     }
   }
 
+  debugSwingArm () {
+    const playerObject = Object.values(this.entities).find(entity => entity.playerObject?.animation instanceof WalkingGeneralSwing)
+    if (!playerObject) return
+    (playerObject.playerObject!.animation as WalkingGeneralSwing).swingArm()
+  }
+
   playAnimation (entityPlayerId, animation: 'walking' | 'running' | 'oneSwing' | 'idle' | 'crouch' | 'crouchWalking') {
     const playerObject = this.getPlayerObject(entityPlayerId)
     if (!playerObject) return
@@ -594,7 +595,7 @@ export class Entities {
     if (previousModel && previousModel === textureUv?.modelName) return undefined
 
     if (textureUv && 'resolvedModel' in textureUv) {
-      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName, this.worldRenderer.resourcesManager.currentResources!.worldBlockProvider)
+      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName, this.worldRenderer.resourcesManager.currentResources.worldBlockProvider!)
       let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
         SCALE = 0.5
@@ -703,7 +704,7 @@ export class Entities {
       return
     }
 
-    let mesh
+    let mesh: THREE.Object3D | undefined
     if (e === undefined) {
       const group = new THREE.Group()
       if (entity.name === 'item' || entity.name === 'tnt' || entity.name === 'falling_block') {
@@ -732,7 +733,7 @@ export class Entities {
             if (entity.name === 'item') {
               mesh.onBeforeRender = () => {
                 const delta = clock.getDelta()
-                mesh.rotation.y += delta
+                mesh!.rotation.y += delta
               }
             }
 
@@ -856,7 +857,7 @@ export class Entities {
     //@ts-expect-error
     // set visibility
     const isInvisible = entity.metadata?.[0] & 0x20
-    for (const child of mesh.children ?? []) {
+    for (const child of mesh!.children ?? []) {
       if (child.name !== 'nametag') {
         child.visible = !isInvisible
       }
@@ -895,8 +896,8 @@ export class Entities {
       const hasArms = (parseInt(armorStandMeta.client_flags, 10) & 0x04) !== 0
       const hasBasePlate = (parseInt(armorStandMeta.client_flags, 10) & 0x08) === 0
       const isMarker = (parseInt(armorStandMeta.client_flags, 10) & 0x10) !== 0
-      mesh.castShadow = !isMarker
-      mesh.receiveShadow = !isMarker
+      mesh!.castShadow = !isMarker
+      mesh!.receiveShadow = !isMarker
       if (isSmall) {
         e.scale.set(0.5, 0.5, 0.5)
       } else {
@@ -965,7 +966,7 @@ export class Entities {
       // TODO: fix type
       // todo! fix errors in mc-data (no entities data prior 1.18.2)
       const item = (itemFrameMeta?.item ?? entity.metadata?.[8]) as any as { itemId, blockId, components, nbtData: { value: { map: { value: number } } } }
-      mesh.scale.set(1, 1, 1)
+      mesh!.scale.set(1, 1, 1)
       e.rotation.x = -entity.pitch
       e.children.find(c => {
         if (c.name.startsWith('map_')) {
@@ -987,7 +988,7 @@ export class Entities {
         const mapNumber = item.nbtData?.value?.map?.value ?? item.components?.find(x => x.type === 'map_id')?.data
         if (mapNumber) {
           // TODO: Use proper larger item frame model when a map exists
-          mesh.scale.set(16 / 12, 16 / 12, 1)
+          mesh!.scale.set(16 / 12, 16 / 12, 1)
           this.addMapModel(e, mapNumber, rotation)
         } else {
           const itemMesh = this.getItemMesh(item, {
@@ -1267,7 +1268,7 @@ function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Obj
   if (!texturePath) {
     // TODO: Support mirroring on certain parts of the model
     const armorTextureName = `${armorMaterial}_layer_${layer}${overlay ? '_overlay' : ''}`
-    texturePath = worldRenderer.resourcesManager.currentResources!.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
+    texturePath = worldRenderer.resourcesManager.currentResources.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
   }
   if (!texturePath || !armorModel[slotType]) {
     removeArmorModel(entityMesh, slotType)

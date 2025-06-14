@@ -9,7 +9,7 @@ export const defaultMesherConfig = {
   skyLight: 15,
   smoothLighting: true,
   outputFormat: 'threeJs' as 'threeJs' | 'webgpu',
-  textureSize: 1024, // for testing
+  // textureSize: 1024, // for testing
   debugModelVariant: undefined as undefined | number[],
   clipWorldBelowY: undefined as undefined | number,
   disableSignsMapsSupport: false

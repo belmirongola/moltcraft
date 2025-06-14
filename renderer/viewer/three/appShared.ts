@@ -1,16 +1,16 @@
 import { BlockModel } from 'mc-assets/dist/types'
-import { ItemSpecificContextProperties } from 'renderer/viewer/lib/basePlayerState'
-import { renderSlot } from '../../../src/inventoryWindows'
+import { ItemSpecificContextProperties, PlayerStateRenderer } from 'renderer/viewer/lib/basePlayerState'
 import { GeneralInputItem, getItemModelName } from '../../../src/mineflayer/items'
-import { ResourcesManager } from '../../../src/resourcesManager'
+import { ResourcesManager, ResourcesManagerTransferred } from '../../../src/resourcesManager'
+import { renderSlot } from './renderSlot'
 
-export const getItemUv = (item: Record<string, any>, specificProps: ItemSpecificContextProperties, resourcesManager: ResourcesManager): {
+export const getItemUv = (item: Record<string, any>, specificProps: ItemSpecificContextProperties, resourcesManager: ResourcesManagerTransferred, playerState: PlayerStateRenderer): {
   u: number
   v: number
   su: number
   sv: number
   renderInfo?: ReturnType<typeof renderSlot>
-  texture: HTMLImageElement
+  // texture: ImageBitmap
   modelName: string
 } | {
   resolvedModel: BlockModel
@@ -30,11 +30,11 @@ export const getItemUv = (item: Record<string, any>, specificProps: ItemSpecific
     const model = getItemModelName({
       ...item,
       name,
-    } as GeneralInputItem, specificProps, resourcesManager)
+    } as GeneralInputItem, specificProps, resourcesManager, playerState)
 
     const renderInfo = renderSlot({
       modelName: model,
-    }, false, true)
+    }, resourcesManager, false, true)
 
     if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
 
@@ -53,7 +53,7 @@ export const getItemUv = (item: Record<string, any>, specificProps: ItemSpecific
       return {
         u, v, su, sv,
         renderInfo,
-        texture: img,
+        // texture: img,
         modelName: renderInfo.modelName!
       }
     }
@@ -67,7 +67,7 @@ export const getItemUv = (item: Record<string, any>, specificProps: ItemSpecific
       v: 0,
       su: 16 / resources.blocksAtlasImage.width,
       sv: 16 / resources.blocksAtlasImage.width,
-      texture: resources.blocksAtlasImage,
+      // texture: resources.blocksAtlasImage,
       modelName: 'missing'
     }
   }

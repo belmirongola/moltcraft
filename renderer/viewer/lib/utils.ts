@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { loadThreeJsTextureFromUrl } from './utils/skins'
 
 let textureCache: Record<string, THREE.Texture> = {}
 let imagesPromises: Record<string, Promise<THREE.Texture>> = {}
@@ -7,7 +8,8 @@ export async function loadTexture (texture: string, cb: (texture: THREE.Texture)
   const cached = textureCache[texture]
   if (!cached) {
     const { promise, resolve } = Promise.withResolvers<THREE.Texture>()
-    textureCache[texture] = new THREE.TextureLoader().load(texture, resolve)
+    textureCache[texture] = new THREE.Texture()
+    void loadThreeJsTextureFromUrl(texture, textureCache[texture]).then(resolve)
     imagesPromises[texture] = promise
   }
 

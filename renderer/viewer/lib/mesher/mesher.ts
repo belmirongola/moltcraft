@@ -77,6 +77,7 @@ const handleMessage = data => {
 
   if (data.type === 'mcData') {
     globalVar.mcData = data.mcData
+    globalVar.loadedData = data.mcData
   }
 
   if (data.config) {
@@ -138,6 +139,7 @@ const handleMessage = data => {
       dirtySections = new Map()
       // todo also remove cached
       globalVar.mcData = null
+      globalVar.loadedData = null
       allDataReady = false
 
       break

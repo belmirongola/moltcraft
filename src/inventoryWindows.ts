@@ -10,7 +10,7 @@ import { versionToNumber } from 'renderer/viewer/common/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
 import { BlockModel } from 'mc-assets'
-import { activeGuiAtlas } from 'renderer/viewer/lib/guiRenderer'
+import { renderSlot } from 'renderer/viewer/three/renderSlot'
 import Generic95 from '../assets/generic_95.png'
 import { appReplacableResources } from './generated/resources'
 import { activeModalStack, hideCurrentModal, hideModal, miscUiState, showModal } from './globalState'
@@ -21,6 +21,7 @@ import { currentScaling } from './scaleInterface'
 import { getItemDescription } from './itemsDescriptions'
 import { MessageFormatPart } from './chatUtils'
 import { GeneralInputItem, getItemMetadata, getItemModelName, getItemNameRaw, RenderItem } from './mineflayer/items'
+import { playerState } from './mineflayer/playerState'
 
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
@@ -134,8 +135,8 @@ export const onGameLoad = () => {
 const getImageSrc = (path): string | HTMLImageElement => {
   switch (path) {
     case 'gui/container/inventory': return appReplacableResources.latest_gui_container_inventory.content
-    case 'blocks': return appViewer.resourcesManager.currentResources!.blocksAtlasParser.latestImage
-    case 'items': return appViewer.resourcesManager.currentResources!.itemsAtlasParser.latestImage
+    case 'blocks': return appViewer.resourcesManager.blocksAtlasParser.latestImage
+    case 'items': return appViewer.resourcesManager.itemsAtlasParser.latestImage
     case 'gui/container/dispenser': return appReplacableResources.latest_gui_container_dispenser.content
     case 'gui/container/furnace': return appReplacableResources.latest_gui_container_furnace.content
     case 'gui/container/crafting_table': return appReplacableResources.latest_gui_container_crafting_table.content
@@ -177,79 +178,6 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-export type ResolvedItemModelRender = {
-  modelName: string,
-  originalItemName?: string
-}
-
-export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = false, fullBlockModelSupport = false): {
-  texture: string,
-  blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
-  scale?: number,
-  slice?: number[],
-  modelName?: string,
-  image?: HTMLImageElement
-} | undefined => {
-  let itemModelName = model.modelName
-  const isItem = loadedData.itemsByName[itemModelName]
-
-  // #region normalize item name
-  if (versionToNumber(bot.version) < versionToNumber('1.13')) itemModelName = getRenamedData(isItem ? 'items' : 'blocks', itemModelName, bot.version, '1.13.1') as string
-  // #endregion
-
-
-  let itemTexture
-
-  if (!fullBlockModelSupport) {
-    const atlas = activeGuiAtlas.atlas?.json
-    // todo atlas holds all rendered blocks, not all possibly rendered item/block models, need to request this on demand instead (this is how vanilla works)
-    const tryGetAtlasTexture = (name?: string) => name && atlas?.textures[name.replace('minecraft:', '').replace('block/', '').replace('blocks/', '').replace('item/', '').replace('items/', '').replace('_inventory', '')]
-    const item = tryGetAtlasTexture(itemModelName) ?? tryGetAtlasTexture(model.originalItemName)
-    if (item) {
-      const x = item.u * atlas.width
-      const y = item.v * atlas.height
-      return {
-        texture: 'gui',
-        image: activeGuiAtlas.atlas!.image,
-        slice: [x, y, atlas.tileSize, atlas.tileSize],
-        scale: 0.25,
-      }
-    }
-  }
-
-  const blockToTopTexture = (r) => r.top ?? r
-
-  try {
-    assertDefined(appViewer.resourcesManager.currentResources?.itemsRenderer)
-    itemTexture =
-      appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
-      ?? (model.originalItemName ? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(model.originalItemName, {}, false, fullBlockModelSupport) : undefined)
-      ?? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture('item/missing_texture')!
-  } catch (err) {
-    inGameError(`Failed to render item ${itemModelName} (original: ${model.originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
-    itemTexture = blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('errored')!)
-  }
-
-  itemTexture ??= blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('unknown')!)
-
-
-  if ('type' in itemTexture) {
-    // is item
-    return {
-      texture: itemTexture.type,
-      slice: itemTexture.slice,
-      modelName: itemModelName
-    }
-  } else {
-    // is block
-    return {
-      texture: 'blocks',
-      blockData: itemTexture,
-      modelName: itemModelName
-    }
-  }
-}
-
 const getItemName = (slot: Item | RenderItem | null) => {
   const parsed = getItemNameRaw(slot, appViewer.resourcesManager)
   if (!parsed) return
@@ -269,7 +197,7 @@ const itemToVisualKey = (slot: RenderItem | Item | null) => {
     slot['metadata'],
     slot.nbt ? JSON.stringify(slot.nbt) : '',
     slot['components'] ? JSON.stringify(slot['components']) : '',
-    activeGuiAtlas.version,
+    appViewer.resourcesManager.currentResources!.guiAtlasVersion,
   ].join('|')
   return keys
 }
@@ -289,8 +217,8 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
     try {
       if (slot.durabilityUsed && slot.maxDurability) slot.durabilityUsed = Math.min(slot.durabilityUsed, slot.maxDurability)
       const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
-      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', }, appViewer.resourcesManager)
-      const slotCustomProps = renderSlot({ modelName, originalItemName: slot.name }, debugIsQuickbar)
+      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', }, appViewer.resourcesManager, playerState)
+      const slotCustomProps = renderSlot({ modelName, originalItemName: slot.name }, appViewer.resourcesManager, debugIsQuickbar)
       const itemCustomName = getItemName(slot)
       Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error

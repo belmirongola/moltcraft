@@ -8,7 +8,11 @@ import Slider from './Slider'
 import styles from './rendererDebugMenu.module.css'
 
 export default () => {
-  const worldRenderer = window.world as WorldRendererCommon
+  const worldRenderer = window.world as WorldRendererCommon | undefined
+  return worldRenderer ? <RendererDebugMenu worldRenderer={worldRenderer} /> : null
+}
+
+const RendererDebugMenu = ({ worldRenderer }: { worldRenderer: WorldRendererCommon }) => {
   const { reactiveDebugParams } = worldRenderer
   const { chunksRenderAboveEnabled, chunksRenderBelowEnabled, chunksRenderDistanceEnabled, chunksRenderAboveOverride, chunksRenderBelowOverride, chunksRenderDistanceOverride, stopRendering, disableEntities } = useSnapshot(reactiveDebugParams)
 
