@@ -967,6 +967,8 @@ export class Entities {
       // todo! fix errors in mc-data (no entities data prior 1.18.2)
       const item = (itemFrameMeta?.item ?? entity.metadata?.[8]) as any as { itemId, blockId, components, nbtData: { value: { map: { value: number } } } }
       mesh!.scale.set(1, 1, 1)
+      mesh!.position.set(0, 0, -0.5)
+
       e.rotation.x = -entity.pitch
       e.children.find(c => {
         if (c.name.startsWith('map_')) {
@@ -983,25 +985,33 @@ export class Entities {
         }
         return false
       })?.removeFromParent()
+
       if (item && (item.itemId ?? item.blockId ?? 0) !== 0) {
+        // Get rotation from metadata, default to 0 if not present
+        // Rotation is stored in 45° increments (0-7) for items, 90° increments (0-3) for maps
         const rotation = (itemFrameMeta.rotation as any as number) ?? 0
         const mapNumber = item.nbtData?.value?.map?.value ?? item.components?.find(x => x.type === 'map_id')?.data
         if (mapNumber) {
           // TODO: Use proper larger item frame model when a map exists
           mesh!.scale.set(16 / 12, 16 / 12, 1)
+          // Handle map rotation (4 possibilities, 90° increments)
           this.addMapModel(e, mapNumber, rotation)
         } else {
+          // Handle regular item rotation (8 possibilities, 45° increments)
           const itemMesh = this.getItemMesh(item, {
             'minecraft:display_context': 'fixed',
           })
           if (itemMesh) {
-            itemMesh.mesh.position.set(0, 0, 0.43)
+            itemMesh.mesh.position.set(0, 0, -0.05)
+            // itemMesh.mesh.position.set(0, 0, 0.43)
             if (itemMesh.isBlock) {
               itemMesh.mesh.scale.set(0.25, 0.25, 0.25)
             } else {
               itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
             }
+            // Rotate 180° around Y axis first
             itemMesh.mesh.rotateY(Math.PI)
+            // Then apply the 45° increment rotation
             itemMesh.mesh.rotateZ(-rotation * Math.PI / 4)
             itemMesh.mesh.name = 'item'
             e.add(itemMesh.mesh)
@@ -1116,6 +1126,7 @@ export class Entities {
     } else {
       mapMesh.position.set(0, 0, 0.437)
     }
+    // Apply 90° increment rotation for maps (0-3)
     mapMesh.rotateZ(Math.PI * 2 - rotation * Math.PI / 2)
     mapMesh.name = `map_${mapNumber}`
 
