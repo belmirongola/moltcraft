@@ -1,14 +1,23 @@
 import { loadSkinToCanvas } from 'skinview-utils'
 import * as THREE from 'three'
 import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
+import { getLoadedImage } from 'mc-assets/dist/utils'
 
-export const loadThreeJsTextureFromUrl = async (imageUrl: string, texture?: THREE.Texture) => {
-  const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
-  if (texture) {
-    texture.image = loaded
+export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
+  const texture = new THREE.Texture()
+  const promise = getLoadedImage(imageUrl).then(image => {
+    texture.image = image
     texture.needsUpdate = true
     return texture
+  })
+  return {
+    texture,
+    promise
   }
+}
+
+export const loadThreeJsTextureFromUrl = async (imageUrl: string) => {
+  const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
   return loaded
 }
 

@@ -7,7 +7,7 @@ import type { GraphicsInitOptions } from '../../../src/appViewer'
 import { WorldDataEmitter } from '../lib/worldDataEmitter'
 import { defaultWorldRendererConfig, WorldRendererCommon } from '../lib/worldrendererCommon'
 import { getDefaultRendererState } from '../baseGraphicsBackend'
-import { loadThreeJsTextureFromUrl } from '../lib/utils/skins'
+import { loadThreeJsTextureFromUrl, loadThreeJsTextureFromUrlSync } from '../lib/utils/skins'
 import { ResourcesManager } from '../../../src/resourcesManager'
 import { getInitialPlayerStateRenderer } from '../lib/basePlayerState'
 import { WorldRendererThree } from './worldrendererThree'
@@ -89,14 +89,13 @@ export class PanoramaRenderer {
 
     for (const file of panoramaFiles) {
       const load = async () => {
-        const texture = await loadThreeJsTextureFromUrl(join('background', file))
+        const { texture } = loadThreeJsTextureFromUrlSync(join('background', file))
 
         // Instead of using repeat/offset to flip, we'll use the texture matrix
         texture.matrixAutoUpdate = false
         texture.matrix.set(
           -1, 0, 1, 0, 1, 0, 0, 0, 1
         )
-        texture.updateMatrix()
 
         texture.wrapS = THREE.ClampToEdgeWrapping
         texture.wrapT = THREE.ClampToEdgeWrapping
