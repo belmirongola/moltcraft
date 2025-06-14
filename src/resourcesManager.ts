@@ -40,20 +40,12 @@ export class LoadedResourcesTransferrable {
   guiAtlas: { json: any, image: ImageBitmap } | null = null
   guiAtlasVersion = 0
 
-  itemsRenderer: ItemsRenderer | undefined
+  itemsRenderer: ItemsRenderer
   worldBlockProvider?: WorldBlockProvider
   blockstatesModels: any = null
 
   version: string
   texturesVersion: string
-
-  prepareForTransfer () {
-    delete this.itemsRenderer
-    delete this.worldBlockProvider
-    this.customTextures = {}
-    return this
-  }
-
 }
 
 export interface ResourcesCurrentConfig {

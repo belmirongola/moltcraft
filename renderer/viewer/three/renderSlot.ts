@@ -54,10 +54,10 @@ export const renderSlot = (model: ResolvedItemModelRender, resourcesManager: Res
   } catch (err) {
     // get resourcepack from resource manager
     reportError?.(`Failed to render item ${itemModelName} (original: ${model.originalItemName}) on ${bot.version} (resourcepack: TODO!): ${err.stack}`)
-    itemTexture = blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer?.getItemTexture('errored')!)
+    itemTexture = blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('errored')!)
   }
 
-  itemTexture ??= blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer?.getItemTexture('unknown')!)
+  itemTexture ??= blockToTopTexture(appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('unknown')!)
 
 
   if ('type' in itemTexture) {
