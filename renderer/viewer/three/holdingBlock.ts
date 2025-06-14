@@ -153,6 +153,8 @@ export default class HoldingBlock {
           (newHand) => {
             if (newHand) {
               this.playerHand = newHand
+              // trigger update
+              this.updateItem()
             }
           },
           (oldHand) => {
