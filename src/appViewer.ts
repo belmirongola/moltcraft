@@ -252,6 +252,7 @@ export class AppViewer {
     this.worldReady = promise
     this.resolveWorldReady = resolve
     this.rendererState = proxy(getDefaultRendererState().reactive)
+    this.nonReactiveState = getDefaultRendererState().nonReactive
     // this.queuedDisplay = undefined
   }
 
