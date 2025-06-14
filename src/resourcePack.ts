@@ -522,8 +522,8 @@ export const onAppLoad = () => {
           setTimeout(resolve, 700)
         }).then(() => {
           if (choice === false || choice === 'Pretend Installed (not recommended)' || choice === 'Download & Install (recommended)' || choice) {
-      console.log('accepting resource pack')
-      bot.acceptResourcePack()
+            console.log('accepting resource pack')
+            bot.acceptResourcePack()
           } else {
             bot.denyResourcePack()
           }

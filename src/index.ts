@@ -74,7 +74,7 @@ import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
-import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData, loadMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { findServerPassword, updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
@@ -331,6 +331,7 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Processing downloaded Minecraft data',
         async () => {
+          await loadMinecraftData(version)
           await appViewer.resourcesManager.loadSourceData(version)
         }
       )

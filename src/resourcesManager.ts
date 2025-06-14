@@ -79,56 +79,6 @@ const STABLE_MODELS_VERSION = '1.21.4'
 export class ResourcesManager extends (EventEmitter as new () => TypedEmitter<ResourceManagerEvents>) {
   static restorerName = 'ResourcesManager'
 
-  static restoreTransferred (data: any, worker?: Worker) {
-    const resourcesManager = new ResourcesManager()
-    const upResources = (data) => {
-      resourcesManager.currentResources = data
-    }
-    upResources(data.currentResources)
-    if (worker) {
-      worker.addEventListener('message', ({ data }) => {
-        if (data.class === ResourcesManager.restorerName) {
-          if (data.type === 'newResources') {
-            console.log('[worker] got new resources')
-            upResources(data.currentResources)
-          }
-          if (data.type === 'event') {
-            resourcesManager.emit(data.eventName, ...data.args)
-          }
-        }
-      })
-    }
-    return resourcesManager
-  }
-
-  prepareForTransfer (worker?: Worker) {
-    if (worker) {
-      // todo do it automatically
-      const oldEmit = this.emit.bind(this) as any
-      this.emit = ((eventName: keyof ResourceManagerEvents, ...args: any[]) => {
-        oldEmit(eventName, ...args)
-        worker.postMessage({
-          class: ResourcesManager.restorerName,
-          type: 'event',
-          eventName,
-          args,
-        })
-        // todo handle assetsInventoryReady
-        if (eventName === 'assetsTexturesUpdated' || eventName === 'assetsInventoryReady') {
-          worker.postMessage({
-            class: ResourcesManager.restorerName,
-            type: 'newResources',
-            currentResources: this.currentResources?.prepareForTransfer(),
-          })
-        }
-      }) as any
-    }
-    return {
-      __restorer: ResourcesManager.restorerName,
-      currentResources: this.currentResources?.prepareForTransfer(),
-    }
-  }
-
   // Source data (imported, not changing)
   sourceBlockStatesModels: any = null
   readonly sourceBlocksAtlases: any = blocksAtlases

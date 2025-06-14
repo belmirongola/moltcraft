@@ -140,6 +140,8 @@ export default class HoldingBlock {
       // load default hand
       void getMyHand().then((hand) => {
         this.playerHand = hand
+        // trigger update
+        this.updateItem()
       }).then(() => {
         // now watch over the player skin
         watchProperty(

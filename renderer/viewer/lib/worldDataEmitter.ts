@@ -31,20 +31,6 @@ export type WorldDataEmitterEvents = {
 
 export class WorldDataEmitterWorker extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
   static readonly restorerName = 'WorldDataEmitterWorker'
-
-  static restoreTransferred (data: any, worker?: Worker) {
-    const worldDataEmitter = new WorldDataEmitterWorker()
-    if (worker) {
-      worker.addEventListener('message', ({ data }) => {
-        if (data.class === WorldDataEmitterWorker.restorerName) {
-          if (data.type === 'event') {
-            worldDataEmitter.emit(data.eventName, ...data.args)
-          }
-        }
-      })
-    }
-    return worldDataEmitter
-  }
 }
 
 export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
