@@ -173,7 +173,7 @@ const nametags = {}
 
 const isFirstUpperCase = (str) => str.charAt(0) === str.charAt(0).toUpperCase()
 
-function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos: any; name: any }, world: WorldRendererThree | undefined, options: { fontFamily: string }, overrides) {
+function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos?: any; name?: any }, world: WorldRendererThree | undefined, options: { fontFamily: string }, overrides) {
   if (entity.name) {
     try {
       // https://github.com/PrismarineJS/prismarine-viewer/pull/410
@@ -209,6 +209,7 @@ export type SceneEntity = THREE.Object3D & {
   username?: string
   uuid?: string
   additionalCleanup?: () => void
+  originalEntity: import('prismarine-entity').Entity & { delete?; pos?, name }
 }
 
 export class Entities {
@@ -250,6 +251,7 @@ export class Entities {
   constructor (public worldRenderer: WorldRendererThree) {
     this.debugMode = 'none'
     this.onSkinUpdate = () => { }
+    this.watchResourcesUpdates()
   }
 
   clear () {
@@ -258,6 +260,20 @@ export class Entities {
       disposeObject(mesh)
     }
     this.entities = {}
+  }
+
+  reloadEntities () {
+    for (const entity of Object.values(this.entities)) {
+      // update all entities textures like held items, armour, etc
+      // todo update entity textures itself
+      this.update({ ...entity.originalEntity, delete: true, } as SceneEntity['originalEntity'], {})
+      this.update(entity.originalEntity, {})
+    }
+  }
+
+  watchResourcesUpdates () {
+    this.worldRenderer.resourcesManager.on('assetsTexturesUpdated', () => this.reloadEntities())
+    this.worldRenderer.resourcesManager.on('assetsInventoryReady', () => this.reloadEntities())
   }
 
   setDebugMode (mode: string, entity: THREE.Object3D | null = null) {
@@ -291,7 +307,7 @@ export class Entities {
 
     const dt = this.clock.getDelta()
     const botPos = this.worldRenderer.viewerPosition
-    const VISIBLE_DISTANCE = 8 * 8
+    const VISIBLE_DISTANCE = 10 * 10
 
     for (const entityId of Object.keys(this.entities)) {
       const entity = this.entities[entityId]
@@ -312,7 +328,7 @@ export class Entities {
         const dz = entity.position.z - botPos.z
         const distanceSquared = dx * dx + dy * dy + dz * dz
 
-        // Entity is visible if within 16 blocks OR in a finished chunk
+        // Entity is visible if within 20 blocks OR in a finished chunk
         entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.worldRenderer.shouldObjectVisible(entity))
 
         this.maybeRenderPlayerSkin(entityId)
@@ -676,7 +692,7 @@ export class Entities {
     }
   }
 
-  update (entity: import('prismarine-entity').Entity & { delete?; pos, name }, overrides) {
+  update (entity: SceneEntity['originalEntity'], overrides) {
     const justAdded = !this.entities[entity.id]
 
     const isPlayerModel = entity.name === 'player'
@@ -706,7 +722,8 @@ export class Entities {
 
     let mesh: THREE.Object3D | undefined
     if (e === undefined) {
-      const group = new THREE.Group()
+      const group = new THREE.Group() as unknown as SceneEntity
+      group.originalEntity = entity
       if (entity.name === 'item' || entity.name === 'tnt' || entity.name === 'falling_block') {
         const item = entity.name === 'tnt'
           ? { name: 'tnt' }
@@ -757,7 +774,6 @@ export class Entities {
             //   }
             // }
 
-            //@ts-expect-error
             group.additionalCleanup = () => {
               // important: avoid texture memory leak and gpu slowdown
               object.itemsTexture?.dispose()
@@ -796,7 +812,6 @@ export class Entities {
           wrapper.add(nameTag)
         }
 
-        //@ts-expect-error
         group.playerObject = playerObject
         wrapper.rotation.set(0, Math.PI, 0)
         mesh = wrapper
@@ -809,7 +824,8 @@ export class Entities {
       if (!mesh) return
       mesh.name = 'mesh'
       // set initial position so there are no weird jumps update after
-      group.position.set(entity.pos.x, entity.pos.y, entity.pos.z)
+      const pos = entity.pos ?? entity.position
+      group.position.set(pos.x, pos.y, pos.z)
 
       // todo use width and height instead
       const boxHelper = new THREE.BoxHelper(

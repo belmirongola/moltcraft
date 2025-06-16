@@ -80,7 +80,7 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
     }}
     onDoubleClick={() => onInteraction?.('enter')}
   >
-    <img className={`${styles.world_image} ${iconSrc ? '' : styles.image_missing}`} src={iconSrc ?? missingWorldPreview} alt='world preview' />
+    <img className={`${styles.world_image} ${iconSrc ? '' : styles.image_missing}`} src={iconSrc ?? missingWorldPreview} alt='' />
     <div className={styles.world_info}>
       <div className={styles.world_title}>
         <div>{title}</div>

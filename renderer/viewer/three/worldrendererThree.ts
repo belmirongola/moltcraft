@@ -771,6 +771,10 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
     }
   }
+
+  reloadWorld () {
+    this.entities.reloadEntities()
+  }
 }
 
 class StarField {

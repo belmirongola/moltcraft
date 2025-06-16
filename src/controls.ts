@@ -661,6 +661,9 @@ export const f3Keybinds: Array<{
         localServer.players[0].world.columns = {}
       }
       void reloadChunks()
+      if (appViewer.backend?.backendMethods && typeof appViewer.backend.backendMethods.reloadWorld === 'function') {
+        appViewer.backend.backendMethods.reloadWorld()
+      }
     },
     mobileTitle: 'Reload chunks',
   },
