@@ -273,6 +273,7 @@ export class AppViewer {
   }
 }
 
+// do not import this. Use global appViewer instead (without window prefix).
 export const appViewer = new AppViewer()
 window.appViewer = appViewer
 

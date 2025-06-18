@@ -10,6 +10,7 @@ export type ItemSpecificContextProperties = Partial<Pick<ItemSelector['propertie
 export type BlockShape = { position: any; width: any; height: any; depth: any; }
 export type BlocksShapes = BlockShape[]
 
+// edit src/mineflayer/playerState.ts for implementation of player state from mineflayer
 export const getInitialPlayerState = () => proxy({
   playerSkin: undefined as string | undefined,
   inWater: false,
