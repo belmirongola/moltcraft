@@ -1,16 +1,9 @@
 ---
-description:
-globs:
+description: Restricts usage of the global Mineflayer `bot` variable to only src/ files; prohibits usage in renderer/. Specifies correct usage of player state and appViewer globals.
+globs: src/**/*.ts,renderer/**/*.ts
 alwaysApply: false
 ---
 Ask AI
----
-description: Restricts usage of the global Mineflayer `bot` variable to only src/ files; prohibits usage in renderer/. Specifies correct usage of player state and appViewer globals.
-globs:
-  - src/**/*.ts
-  - renderer/**/*.ts
-alwaysApply: false
----
 
 - The global variable `bot` refers to the Mineflayer bot instance.
 - You may use `bot` directly in any file under the `src/` directory (e.g., `src/mineflayer/playerState.ts`).
