@@ -20,6 +20,15 @@ export const loadThreeJsTextureFromUrl = async (imageUrl: string) => {
   const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
   return loaded
 }
+export const loadThreeJsTextureFromBitmap = (image: ImageBitmap) => {
+  const canvas = new OffscreenCanvas(image.width, image.height)
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(image, 0, 0)
+  const texture = new THREE.Texture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
 
 export const stevePngUrl = stevePng
 export const steveTexture = loadThreeJsTextureFromUrl(stevePngUrl)

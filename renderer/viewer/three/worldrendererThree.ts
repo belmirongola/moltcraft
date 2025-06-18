@@ -12,6 +12,7 @@ import { MesherGeometryOutput } from '../lib/mesher/shared'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { getMyHand } from '../lib/hand'
 import { setBlockPosition } from '../lib/mesher/standaloneRenderer'
+import { loadThreeJsTextureFromBitmap } from '../lib/utils/skins'
 import HoldingBlock from './holdingBlock'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
@@ -189,17 +190,13 @@ export class WorldRendererThree extends WorldRendererCommon {
     const oldTexture = this.material.map
     const oldItemsTexture = this.itemsTexture
 
-    const texture = new THREE.Texture(resources.blocksAtlasImage)
+    const texture = loadThreeJsTextureFromBitmap(resources.blocksAtlasImage)
     texture.needsUpdate = true
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
     texture.flipY = false
     this.material.map = texture
 
-    const itemsTexture = new THREE.Texture(resources.itemsAtlasImage)
+    const itemsTexture = loadThreeJsTextureFromBitmap(resources.itemsAtlasImage)
     itemsTexture.needsUpdate = true
-    itemsTexture.magFilter = THREE.NearestFilter
-    itemsTexture.minFilter = THREE.NearestFilter
     itemsTexture.flipY = false
     this.itemsTexture = itemsTexture
 

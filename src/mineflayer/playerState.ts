@@ -1,10 +1,12 @@
 import { HandItemBlock } from 'renderer/viewer/three/holdingBlock'
 import { getInitialPlayerState, PlayerStateRenderer } from 'renderer/viewer/lib/basePlayerState'
+import { subscribe } from 'valtio'
+import { subscribeKey } from 'valtio/utils'
 import { gameAdditionalState } from '../globalState'
 
 /**
  * can be used only in main thread. Mainly for more convenient reactive state updates.
- * In renderer/ directory, use PlayerStateControllerRenderer.
+ * In renderer/ directory, use PlayerStateControllerRenderer type or worldRenderer.playerState.
  */
 export class PlayerStateControllerMain implements PlayerStateRenderer {
   disableStateUpdates = false
@@ -19,7 +21,6 @@ export class PlayerStateControllerMain implements PlayerStateRenderer {
   reactive: PlayerStateRenderer['reactive']
 
   constructor () {
-    this.updateState = this.updateState.bind(this)
     customEvents.on('mineflayerBotCreated', () => {
       this.ready = false
       bot.on('inject_allowed', () => {
@@ -38,7 +39,7 @@ export class PlayerStateControllerMain implements PlayerStateRenderer {
   }
 
   private botCreated () {
-    console.log('bot created & injected')
+    console.log('bot created & plugins injected')
     this.reactive = getInitialPlayerState()
     this.onBotCreatedOrGameJoined()
 
@@ -58,7 +59,9 @@ export class PlayerStateControllerMain implements PlayerStateRenderer {
     })
 
     // Movement tracking
-    bot.on('move', this.updateState)
+    bot.on('move', () => {
+      this.updateMovementState()
+    })
 
     // Item tracking
     bot.on('heldItemChanged', () => {
@@ -67,12 +70,22 @@ export class PlayerStateControllerMain implements PlayerStateRenderer {
     bot.inventory.on('updateSlot', (index) => {
       if (index === 45) this.updateHeldItem(true)
     })
-    const updateEyeHeight = () => {
+    const updateSneakingOrFlying = () => {
+      this.updateMovementState()
+      this.reactive.sneaking = bot.controlState.sneak
+      this.reactive.flying = gameAdditionalState.isFlying
       this.reactive.eyeHeight = bot.controlState.sneak && !gameAdditionalState.isFlying ? 1.27 : 1.62
     }
     bot.on('physicsTick', () => {
       if (this.isUsingItem) this.reactive.itemUsageTicks++
-      updateEyeHeight()
+      updateSneakingOrFlying()
+    })
+    // todo move from gameAdditionalState to reactive directly
+    subscribeKey(gameAdditionalState, 'isSneaking', () => {
+      updateSneakingOrFlying()
+    })
+    subscribeKey(gameAdditionalState, 'isFlying', () => {
+      updateSneakingOrFlying()
     })
 
     // Initial held items setup
@@ -83,14 +96,12 @@ export class PlayerStateControllerMain implements PlayerStateRenderer {
       this.reactive.gameMode = bot.game.gameMode
     })
     this.reactive.gameMode = bot.game?.gameMode
-  }
 
-  get shouldHideHand () {
-    return this.reactive.gameMode === 'spectator'
+    this.watchReactive()
   }
 
   // #region Movement and Physics State
-  private updateState () {
+  private updateMovementState () {
     if (!bot?.entity || this.disableStateUpdates) return
 
     const { velocity } = bot.entity
@@ -166,6 +177,12 @@ export class PlayerStateControllerMain implements PlayerStateRenderer {
 
   getItemUsageTicks (): number {
     return this.reactive.itemUsageTicks
+  }
+
+  watchReactive () {
+    subscribeKey(this.reactive, 'eyeHeight', () => {
+      appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
+    })
   }
 
   // #endregion

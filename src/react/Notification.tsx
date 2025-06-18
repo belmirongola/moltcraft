@@ -99,7 +99,7 @@ export default ({
               overflow: 'hidden',
             }}>
               <div style={{
-                width: `${Math.min(100, (currentProgress / totalProgress) * 100)}%`,
+                width: `${Math.min(100, (totalProgress ? currentProgress / totalProgress : 0) * 100)}%`,
                 height: '100%',
                 background: 'white',
                 transition: 'width 0.2s ease-out',

@@ -88,8 +88,4 @@ export const watchFov = () => {
   customEvents.on('gameLoaded', () => {
     updateFovAnimation()
   })
-
-  subscribeKey(gameAdditionalState, 'isSneaking', () => {
-    appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
-  })
 }
