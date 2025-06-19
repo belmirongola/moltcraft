@@ -7,9 +7,7 @@ import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
 import { proxy } from 'valtio'
 import TypedEmitter from 'typed-emitter'
-import { getItemFromBlock } from '../../../src/chatUtils'
 import { delayedIterator } from '../../playground/shared'
-import { playerState } from '../../../src/mineflayer/playerState'
 import { chunkPos } from './simpleUtils'
 
 export type ChunkPosKey = string // like '16,16'
@@ -23,7 +21,6 @@ export type WorldDataEmitterEvents = {
   time: (data: number) => void
   renderDistance: (viewDistance: number) => void
   blockEntities: (data: Record<string, any> | { blockEntities: Record<string, any> }) => void
-  listening: () => void
   markAsLoaded: (data: { x: number, z: number }) => void
   unloadChunk: (data: { x: number, z: number }) => void
   loadChunk: (data: { x: number, z: number, chunk: string, blockEntities: any, worldConfig: any, isLightUpdate: boolean }) => void
@@ -32,10 +29,10 @@ export type WorldDataEmitterEvents = {
   end: () => void
 }
 
-/**
- * Usually connects to mineflayer bot and emits world data (chunks, entities)
- * It's up to the consumer to serialize the data if needed
- */
+export class WorldDataEmitterWorker extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
+  static readonly restorerName = 'WorldDataEmitterWorker'
+}
+
 export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
   loadedChunks: Record<ChunkPosKey, boolean>
   readonly lastPos: Vec3
@@ -56,11 +53,6 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   /* config */ keepChunksDistance = 0
   /* config */ isPlayground = false
   /* config */ allowPositionUpdate = true
-
-  public reactive = proxy({
-    cursorBlock: null as Vec3 | null,
-    cursorBlockBreakingStage: null as number | null,
-  })
 
   constructor (public world: typeof __type_bot['world'], public viewDistance: number, position: Vec3 = new Vec3(0, 0, 0)) {
     // eslint-disable-next-line constructor-super
@@ -171,22 +163,6 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       }
     })
 
-    this.emitter.on('listening', () => {
-      this.emitter.emit('blockEntities', new Proxy({}, {
-        get (_target, posKey, receiver) {
-          if (typeof posKey !== 'string') return
-          const [x, y, z] = posKey.split(',').map(Number)
-          return bot.world.getBlock(new Vec3(x, y, z))?.entity
-        },
-      }))
-      this.emitter.emit('renderDistance', this.viewDistance)
-      this.emitter.emit('time', bot.time.timeOfDay)
-    })
-    // node.js stream data event pattern
-    if (this.emitter.listenerCount('blockEntities')) {
-      this.emitter.emit('listening')
-    }
-
     for (const [evt, listener] of Object.entries(this.eventListeners)) {
       bot.on(evt as any, listener)
     }
@@ -200,8 +176,16 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         console.error('error processing entity', err)
       }
     }
+  }
 
-    void this.init(bot.entity.position)
+  emitterGotConnected () {
+    this.emitter.emit('blockEntities', new Proxy({}, {
+      get (_target, posKey, receiver) {
+        if (typeof posKey !== 'string') return
+        const [x, y, z] = posKey.split(',').map(Number)
+        return bot.world.getBlock(new Vec3(x, y, z))?.entity
+      },
+    }))
   }
 
   removeListenersFromBot (bot: import('mineflayer').Bot) {
@@ -213,6 +197,10 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
   async init (pos: Vec3) {
     this.updateViewDistance(this.viewDistance)
     this.emitter.emit('chunkPosUpdate', { pos })
+    if (bot?.time?.timeOfDay) {
+      this.emitter.emit('time', bot.time.timeOfDay)
+    }
+    this.emitterGotConnected()
     const [botX, botZ] = chunkPos(pos)
 
     const positions = generateSpiralMatrix(this.viewDistance).map(([x, z]) => new Vec3((botX + x) * 16, 0, (botZ + z) * 16))

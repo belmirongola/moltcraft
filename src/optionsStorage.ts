@@ -77,6 +77,7 @@ const defaultOptions = {
   debugResponseTimeIndicator: false,
   chatPingExtension: true,
   // antiAliasing: false,
+  topRightTimeDisplay: 'only-fullscreen' as 'only-fullscreen' | 'always' | 'never',
 
   clipWorldBelowY: undefined as undefined | number, // will be removed
   disableSignsMapsSupport: false,

@@ -131,7 +131,14 @@ const setSprinting = (state: boolean) => {
   gameAdditionalState.isSprinting = state
 }
 
+const isSpectatingEntity = () => {
+  return appViewer.playerState.utils.isSpectatingEntity()
+}
+
 contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
+  // Don't allow movement while spectating an entity
+  if (isSpectatingEntity()) return
+
   if (gamepadIndex !== undefined && gamepadUiCursorState.display) {
     const deadzone = 0.1 // TODO make deadzone configurable
     if (Math.abs(soleVector.x) < deadzone && Math.abs(soleVector.z) < deadzone) {
@@ -340,6 +347,9 @@ const cameraRotationControls = {
     cameraRotationControls.updateMovement()
   },
   handleCommand (command: string, pressed: boolean) {
+    // Don't allow movement while spectating an entity
+    if (isSpectatingEntity()) return
+
     const directionMap = {
       'general.rotateCameraLeft': 'left',
       'general.rotateCameraRight': 'right',
@@ -361,6 +371,7 @@ window.cameraRotationControls = cameraRotationControls
 const setSneaking = (state: boolean) => {
   gameAdditionalState.isSneaking = state
   bot.setControlState('sneak', state)
+
 }
 
 const onTriggerOrReleased = (command: Command, pressed: boolean) => {
@@ -371,6 +382,7 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
+        if (isSpectatingEntity()) break
         // if (viewer.world.freeFlyMode) {
         //   const moveSpeed = 0.5
         //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
@@ -545,10 +557,15 @@ contro.on('trigger', ({ command }) => {
         // no-op
         break
       case 'general.swapHands': {
-        bot._client.write('entity_action', {
-          entityId: bot.entity.id,
-          actionId: 6,
-          jumpBoost: 0
+        if (isSpectatingEntity()) break
+        bot._client.write('block_dig', {
+          'status': 6,
+          'location': {
+            'x': 0,
+            'z': 0,
+            'y': 0
+          },
+          'face': 0,
         })
         break
       }
@@ -556,11 +573,13 @@ contro.on('trigger', ({ command }) => {
         // handled in onTriggerOrReleased
         break
       case 'general.inventory':
+        if (isSpectatingEntity()) break
         document.exitPointerLock?.()
         openPlayerInventory()
         break
       case 'general.drop': {
-        // if (bot.heldItem/* && ctrl */) bot.tossStack(bot.heldItem)
+        if (isSpectatingEntity()) break
+        // protocol 1.9+
         bot._client.write('block_dig', {
           'status': 4,
           'location': {
@@ -593,12 +612,15 @@ contro.on('trigger', ({ command }) => {
         showModal({ reactType: 'chat' })
         break
       case 'general.selectItem':
+        if (isSpectatingEntity()) break
         void selectItem()
         break
       case 'general.nextHotbarSlot':
+        if (isSpectatingEntity()) break
         cycleHotbarSlot(1)
         break
       case 'general.prevHotbarSlot':
+        if (isSpectatingEntity()) break
         cycleHotbarSlot(-1)
         break
       case 'general.zoom':
@@ -661,6 +683,9 @@ export const f3Keybinds: Array<{
         localServer.players[0].world.columns = {}
       }
       void reloadChunks()
+      if (appViewer.backend?.backendMethods && typeof appViewer.backend.backendMethods.reloadWorld === 'function') {
+        appViewer.backend.backendMethods.reloadWorld()
+      }
     },
     mobileTitle: 'Reload chunks',
   },

@@ -74,7 +74,7 @@ import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
-import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData, loadMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { findServerPassword, updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
@@ -331,6 +331,7 @@ export async function connect (connectOptions: ConnectOptions) {
       await progress.executeWithMessage(
         'Processing downloaded Minecraft data',
         async () => {
+          await loadMinecraftData(version)
           await appViewer.resourcesManager.loadSourceData(version)
         }
       )
@@ -448,17 +449,20 @@ export async function connect (connectOptions: ConnectOptions) {
 
     let newTokensCacheResult = null as any
     const cachedTokens = typeof connectOptions.authenticatedAccount === 'object' ? connectOptions.authenticatedAccount.cachedTokens : {}
-    const authData = connectOptions.authenticatedAccount ? await microsoftAuthflow({
-      tokenCaches: cachedTokens,
-      proxyBaseUrl: connectOptions.proxy,
-      setProgressText (text) {
-        progress.setMessage(text)
-      },
-      setCacheResult (result) {
-        newTokensCacheResult = result
-      },
-      connectingServer: server.host
-    }) : undefined
+    let authData: Awaited<ReturnType<typeof microsoftAuthflow>> | undefined
+    if (connectOptions.authenticatedAccount) {
+      authData = await microsoftAuthflow({
+        tokenCaches: cachedTokens,
+        proxyBaseUrl: connectOptions.proxy,
+        setProgressText (text) {
+          progress.setMessage(text)
+        },
+        setCacheResult (result) {
+          newTokensCacheResult = result
+        },
+        connectingServer: server.host
+      })
+    }
 
     if (p2pMultiplayer) {
       clientDataStream = await connectToPeer(connectOptions.peerId!, connectOptions.peerOptions)
@@ -569,6 +573,7 @@ export async function connect (connectOptions: ConnectOptions) {
       // "mapDownloader-saveInternal": false, // do not save into memory, todo must be implemeneted as we do really care of ram
     }) as unknown as typeof __type_bot
     window.bot = bot
+
     if (connectOptions.viewerWsConnect) {
       void onBotCreatedViewerHandler()
     }
@@ -691,6 +696,7 @@ export async function connect (connectOptions: ConnectOptions) {
   onBotCreate()
 
   bot.once('login', () => {
+    errorAbortController.abort()
     loadingTimerState.networkOnlyStart = 0
     progress.setMessage('Loading world')
   })
@@ -708,7 +714,7 @@ export async function connect (connectOptions: ConnectOptions) {
           resolve()
           unsub()
         } else {
-          const perc = Math.round(appViewer.rendererState.world.chunksLoaded.size / appViewer.rendererState.world.chunksTotalNumber * 100)
+          const perc = Math.round(appViewer.rendererState.world.chunksLoaded.size / appViewer.nonReactiveState.world.chunksTotalNumber * 100)
           progress?.reportProgress('chunks', perc / 100)
         }
       })
@@ -727,8 +733,11 @@ export async function connect (connectOptions: ConnectOptions) {
       })
       await appViewer.resourcesManager.promiseAssetsReady
     }
-    errorAbortController.abort()
     if (appStatusState.isError) return
+
+    if (!appViewer.resourcesManager.currentResources?.itemsRenderer) {
+      await appViewer.resourcesManager.updateAssetsData({})
+    }
 
     const loadWorldStart = Date.now()
     console.log('try to focus window')
@@ -741,7 +750,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
     try {
       if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
-      playerState.onlineMode = !!connectOptions.authenticatedAccount
+      playerState.reactive.onlineMode = !!connectOptions.authenticatedAccount
 
       progress.setMessage('Placing blocks (starting viewer)')
       if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
@@ -765,6 +774,9 @@ export async function connect (connectOptions: ConnectOptions) {
       console.log('bot spawned - starting viewer')
       await appViewer.startWorld(bot.world, renderDistance)
       appViewer.worldView!.listenToBot(bot)
+      if (appViewer.backend) {
+        void appViewer.worldView!.init(bot.entity.position)
+      }
 
       initMotionTracking()
       dayCycle()
@@ -975,7 +987,7 @@ if (!reconnectOptions) {
       }
     })
 
-    if (appQueryParams.serversList) {
+    if (appQueryParams.serversList && !appQueryParams.ip) {
       showModal({ reactType: 'serversList' })
     }
 

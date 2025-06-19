@@ -96,7 +96,7 @@ function getUsernameTexture ({
   nameTagBackgroundColor = 'rgba(0, 0, 0, 0.3)',
   nameTagTextOpacity = 255
 }: any, { fontFamily = 'sans-serif' }: any) {
-  const canvas = document.createElement('canvas')
+  const canvas = new OffscreenCanvas(64, 64)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get 2d context')
 
@@ -173,7 +173,7 @@ const nametags = {}
 
 const isFirstUpperCase = (str) => str.charAt(0) === str.charAt(0).toUpperCase()
 
-function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos: any; name: any }, world: WorldRendererThree | undefined, options: { fontFamily: string }, overrides) {
+function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos?: any; name?: any }, world: WorldRendererThree | undefined, options: { fontFamily: string }, overrides) {
   if (entity.name) {
     try {
       // https://github.com/PrismarineJS/prismarine-viewer/pull/410
@@ -209,6 +209,7 @@ export type SceneEntity = THREE.Object3D & {
   username?: string
   uuid?: string
   additionalCleanup?: () => void
+  originalEntity: import('prismarine-entity').Entity & { delete?; pos?, name }
 }
 
 export class Entities {
@@ -237,9 +238,20 @@ export class Entities {
     return Object.values(this.entities).filter(entity => entity.visible).length
   }
 
+  getDebugString (): string {
+    const totalEntities = Object.keys(this.entities).length
+    const visibleEntities = this.entitiesRenderingCount
+
+    const playerEntities = Object.values(this.entities).filter(entity => entity.playerObject)
+    const visiblePlayerEntities = playerEntities.filter(entity => entity.visible)
+
+    return `${visibleEntities}/${totalEntities} ${visiblePlayerEntities.length}/${playerEntities.length}`
+  }
+
   constructor (public worldRenderer: WorldRendererThree) {
     this.debugMode = 'none'
     this.onSkinUpdate = () => { }
+    this.watchResourcesUpdates()
   }
 
   clear () {
@@ -248,6 +260,20 @@ export class Entities {
       disposeObject(mesh)
     }
     this.entities = {}
+  }
+
+  reloadEntities () {
+    for (const entity of Object.values(this.entities)) {
+      // update all entities textures like held items, armour, etc
+      // todo update entity textures itself
+      this.update({ ...entity.originalEntity, delete: true, } as SceneEntity['originalEntity'], {})
+      this.update(entity.originalEntity, {})
+    }
+  }
+
+  watchResourcesUpdates () {
+    this.worldRenderer.resourcesManager.on('assetsTexturesUpdated', () => this.reloadEntities())
+    this.worldRenderer.resourcesManager.on('assetsInventoryReady', () => this.reloadEntities())
   }
 
   setDebugMode (mode: string, entity: THREE.Object3D | null = null) {
@@ -281,7 +307,7 @@ export class Entities {
 
     const dt = this.clock.getDelta()
     const botPos = this.worldRenderer.viewerPosition
-    const VISIBLE_DISTANCE = 8 * 8
+    const VISIBLE_DISTANCE = 10 * 10
 
     for (const entityId of Object.keys(this.entities)) {
       const entity = this.entities[entityId]
@@ -302,13 +328,8 @@ export class Entities {
         const dz = entity.position.z - botPos.z
         const distanceSquared = dx * dx + dy * dy + dz * dz
 
-        // Get chunk coordinates
-        const chunkX = Math.floor(entity.position.x / 16) * 16
-        const chunkZ = Math.floor(entity.position.z / 16) * 16
-        const chunkKey = `${chunkX},${chunkZ}`
-
-        // Entity is visible if within 16 blocks OR in a finished chunk
-        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.worldRenderer.finishedChunks[chunkKey])
+        // Entity is visible if within 20 blocks OR in a finished chunk
+        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.worldRenderer.shouldObjectVisible(entity))
 
         this.maybeRenderPlayerSkin(entityId)
       }
@@ -457,16 +478,16 @@ export class Entities {
     if (!playerObject) return
 
     try {
-      let playerCustomSkinImage: HTMLImageElement | undefined
+      let playerCustomSkinImage: ImageBitmap | undefined
 
       playerObject = this.getPlayerObject(entityId)
       if (!playerObject) return
 
       let skinTexture: THREE.Texture
-      let skinCanvas: HTMLCanvasElement
+      let skinCanvas: OffscreenCanvas
       if (skinUrl === stevePngUrl) {
         skinTexture = await steveTexture
-        const canvas = document.createElement('canvas')
+        const canvas = new OffscreenCanvas(64, 64)
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('Failed to get context')
         ctx.drawImage(skinTexture.image, 0, 0)
@@ -540,6 +561,12 @@ export class Entities {
     }
   }
 
+  debugSwingArm () {
+    const playerObject = Object.values(this.entities).find(entity => entity.playerObject?.animation instanceof WalkingGeneralSwing)
+    if (!playerObject) return
+    (playerObject.playerObject!.animation as WalkingGeneralSwing).swingArm()
+  }
+
   playAnimation (entityPlayerId, animation: 'walking' | 'running' | 'oneSwing' | 'idle' | 'crouch' | 'crouchWalking') {
     const playerObject = this.getPlayerObject(entityPlayerId)
     if (!playerObject) return
@@ -584,7 +611,7 @@ export class Entities {
     if (previousModel && previousModel === textureUv?.modelName) return undefined
 
     if (textureUv && 'resolvedModel' in textureUv) {
-      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName, this.worldRenderer.resourcesManager.currentResources!.worldBlockProvider)
+      const mesh = getBlockMeshFromModel(this.worldRenderer.material, textureUv.resolvedModel, textureUv.modelName, this.worldRenderer.resourcesManager.currentResources.worldBlockProvider!)
       let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
         SCALE = 0.5
@@ -665,7 +692,7 @@ export class Entities {
     }
   }
 
-  update (entity: import('prismarine-entity').Entity & { delete?; pos, name }, overrides) {
+  update (entity: SceneEntity['originalEntity'], overrides) {
     const justAdded = !this.entities[entity.id]
 
     const isPlayerModel = entity.name === 'player'
@@ -693,9 +720,10 @@ export class Entities {
       return
     }
 
-    let mesh
+    let mesh: THREE.Object3D | undefined
     if (e === undefined) {
-      const group = new THREE.Group()
+      const group = new THREE.Group() as unknown as SceneEntity
+      group.originalEntity = entity
       if (entity.name === 'item' || entity.name === 'tnt' || entity.name === 'falling_block') {
         const item = entity.name === 'tnt'
           ? { name: 'tnt' }
@@ -722,7 +750,7 @@ export class Entities {
             if (entity.name === 'item') {
               mesh.onBeforeRender = () => {
                 const delta = clock.getDelta()
-                mesh.rotation.y += delta
+                mesh!.rotation.y += delta
               }
             }
 
@@ -746,7 +774,6 @@ export class Entities {
             //   }
             // }
 
-            //@ts-expect-error
             group.additionalCleanup = () => {
               // important: avoid texture memory leak and gpu slowdown
               object.itemsTexture?.dispose()
@@ -785,7 +812,6 @@ export class Entities {
           wrapper.add(nameTag)
         }
 
-        //@ts-expect-error
         group.playerObject = playerObject
         wrapper.rotation.set(0, Math.PI, 0)
         mesh = wrapper
@@ -798,7 +824,8 @@ export class Entities {
       if (!mesh) return
       mesh.name = 'mesh'
       // set initial position so there are no weird jumps update after
-      group.position.set(entity.pos.x, entity.pos.y, entity.pos.z)
+      const pos = entity.pos ?? entity.position
+      group.position.set(pos.x, pos.y, pos.z)
 
       // todo use width and height instead
       const boxHelper = new THREE.BoxHelper(
@@ -843,10 +870,8 @@ export class Entities {
 
     const meta = getGeneralEntitiesMetadata(entity)
 
-    //@ts-expect-error
-    // set visibility
-    const isInvisible = entity.metadata?.[0] & 0x20
-    for (const child of mesh.children ?? []) {
+    const isInvisible = ((entity.metadata?.[0] ?? 0) as unknown as number) & 0x20 || (this.worldRenderer.playerStateReactive.cameraSpectatingEntity === entity.id && this.worldRenderer.playerStateUtils.isSpectator())
+    for (const child of mesh!.children ?? []) {
       if (child.name !== 'nametag') {
         child.visible = !isInvisible
       }
@@ -885,8 +910,8 @@ export class Entities {
       const hasArms = (parseInt(armorStandMeta.client_flags, 10) & 0x04) !== 0
       const hasBasePlate = (parseInt(armorStandMeta.client_flags, 10) & 0x08) === 0
       const isMarker = (parseInt(armorStandMeta.client_flags, 10) & 0x10) !== 0
-      mesh.castShadow = !isMarker
-      mesh.receiveShadow = !isMarker
+      mesh!.castShadow = !isMarker
+      mesh!.receiveShadow = !isMarker
       if (isSmall) {
         e.scale.set(0.5, 0.5, 0.5)
       } else {
@@ -955,7 +980,9 @@ export class Entities {
       // TODO: fix type
       // todo! fix errors in mc-data (no entities data prior 1.18.2)
       const item = (itemFrameMeta?.item ?? entity.metadata?.[8]) as any as { itemId, blockId, components, nbtData: { value: { map: { value: number } } } }
-      mesh.scale.set(1, 1, 1)
+      mesh!.scale.set(1, 1, 1)
+      mesh!.position.set(0, 0, -0.5)
+
       e.rotation.x = -entity.pitch
       e.children.find(c => {
         if (c.name.startsWith('map_')) {
@@ -972,25 +999,33 @@ export class Entities {
         }
         return false
       })?.removeFromParent()
+
       if (item && (item.itemId ?? item.blockId ?? 0) !== 0) {
+        // Get rotation from metadata, default to 0 if not present
+        // Rotation is stored in 45° increments (0-7) for items, 90° increments (0-3) for maps
         const rotation = (itemFrameMeta.rotation as any as number) ?? 0
         const mapNumber = item.nbtData?.value?.map?.value ?? item.components?.find(x => x.type === 'map_id')?.data
         if (mapNumber) {
           // TODO: Use proper larger item frame model when a map exists
-          mesh.scale.set(16 / 12, 16 / 12, 1)
+          mesh!.scale.set(16 / 12, 16 / 12, 1)
+          // Handle map rotation (4 possibilities, 90° increments)
           this.addMapModel(e, mapNumber, rotation)
         } else {
+          // Handle regular item rotation (8 possibilities, 45° increments)
           const itemMesh = this.getItemMesh(item, {
             'minecraft:display_context': 'fixed',
           })
           if (itemMesh) {
-            itemMesh.mesh.position.set(0, 0, 0.43)
+            itemMesh.mesh.position.set(0, 0, -0.05)
+            // itemMesh.mesh.position.set(0, 0, 0.43)
             if (itemMesh.isBlock) {
               itemMesh.mesh.scale.set(0.25, 0.25, 0.25)
             } else {
               itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
             }
+            // Rotate 180° around Y axis first
             itemMesh.mesh.rotateY(Math.PI)
+            // Then apply the 45° increment rotation
             itemMesh.mesh.rotateZ(-rotation * Math.PI / 4)
             itemMesh.mesh.name = 'item'
             e.add(itemMesh.mesh)
@@ -1105,6 +1140,7 @@ export class Entities {
     } else {
       mapMesh.position.set(0, 0, 0.437)
     }
+    // Apply 90° increment rotation for maps (0-3)
     mapMesh.rotateZ(Math.PI * 2 - rotation * Math.PI / 2)
     mapMesh.name = `map_${mapNumber}`
 
@@ -1257,7 +1293,7 @@ function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Obj
   if (!texturePath) {
     // TODO: Support mirroring on certain parts of the model
     const armorTextureName = `${armorMaterial}_layer_${layer}${overlay ? '_overlay' : ''}`
-    texturePath = worldRenderer.resourcesManager.currentResources!.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
+    texturePath = worldRenderer.resourcesManager.currentResources.customTextures.armor?.textures[armorTextureName]?.src ?? armorTextures[armorTextureName]
   }
   if (!texturePath || !armorModel[slotType]) {
     removeArmorModel(entityMesh, slotType)

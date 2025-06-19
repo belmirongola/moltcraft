@@ -4,6 +4,10 @@ import { fromFormattedString, TextComponent } from '@xmcl/text-component'
 import type { IndexedData } from 'minecraft-data'
 import { versionToNumber } from 'renderer/viewer/common/utils'
 
+export interface MessageFormatOptions {
+  doShadow?: boolean
+}
+
 export type MessageFormatPart = Pick<TextComponent, 'hoverEvent' | 'clickEvent'> & {
   text: string
   color?: string

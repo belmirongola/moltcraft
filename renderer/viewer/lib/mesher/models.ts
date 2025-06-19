@@ -132,7 +132,7 @@ const getVec = (v: Vec3, dir: Vec3) => {
   return v.plus(dir)
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>, isRealWater: boolean) {
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: MesherGeometryOutput, isRealWater: boolean) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
@@ -192,13 +192,14 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
 
     for (const pos of corners) {
       const height = cornerHeights[pos[2] * 2 + pos[0]]
-      attr.t_positions.push(
-        (pos[0] ? 0.999 : 0.001) + (cursor.x & 15) - 8,
-        (pos[1] ? height - 0.001 : 0.001) + (cursor.y & 15) - 8,
-        (pos[2] ? 0.999 : 0.001) + (cursor.z & 15) - 8
+      const OFFSET = 0.0001
+      attr.t_positions!.push(
+        (pos[0] ? 1 - OFFSET : OFFSET) + (cursor.x & 15) - 8,
+        (pos[1] ? height - OFFSET : OFFSET) + (cursor.y & 15) - 8,
+        (pos[2] ? 1 - OFFSET : OFFSET) + (cursor.z & 15) - 8
       )
-      attr.t_normals.push(...dir)
-      attr.t_uvs.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
+      attr.t_normals!.push(...dir)
+      attr.t_uvs!.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
 
       let cornerLightResult = baseLight
       if (world.config.smoothLighting) {
@@ -223,7 +224,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
       }
 
       // Apply light value to tint
-      attr.t_colors.push(tint[0] * cornerLightResult, tint[1] * cornerLightResult, tint[2] * cornerLightResult)
+      attr.t_colors!.push(tint[0] * cornerLightResult, tint[1] * cornerLightResult, tint[2] * cornerLightResult)
     }
   }
 }
@@ -487,7 +488,7 @@ const isBlockWaterlogged = (block: Block) => {
 }
 
 let unknownBlockModel: BlockModelPartsResolved
-export function getSectionGeometry (sx, sy, sz, world: World) {
+export function getSectionGeometry (sx: number, sy: number, sz: number, world: World) {
   let delayedRender = [] as Array<() => void>
 
   const attr: MesherGeometryOutput = {

@@ -365,7 +365,12 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        return <UiToggleButton name='effects-indicators' label='Effects & Indicators' />
+        return <UiToggleButton name='effects' label='Effects' />
+      },
+    },
+    {
+      custom () {
+        return <UiToggleButton name='indicators' label='Game Indicators' />
       },
     },
     {
@@ -717,7 +722,7 @@ const Category = ({ children }) => <div style={{
   gridColumn: 'span 2'
 }}>{children}</div>
 
-const UiToggleButton = ({ name, addUiText = false, label = noCase(name) }) => {
+const UiToggleButton = ({ name, addUiText = false, label = noCase(name) }: { name: string, addUiText?: boolean, label?: string }) => {
   const { disabledUiParts } = useSnapshot(options)
 
   const currentlyDisabled = disabledUiParts.includes(name)

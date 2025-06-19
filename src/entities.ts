@@ -43,7 +43,7 @@ customEvents.on('gameLoaded', () => {
   updateAutoJump()
 
   const playerPerAnimation = {} as Record<string, string>
-  const entityData = (e: Entity) => {
+  const checkEntityData = (e: Entity) => {
     if (!e.username) return
     window.debugEntityMetadata ??= {}
     window.debugEntityMetadata[e.username] = e
@@ -96,28 +96,65 @@ customEvents.on('gameLoaded', () => {
     }
   })
 
+  const updateCamera = (entity: Entity) => {
+    if (bot.game.gameMode !== 'spectator') return
+    bot.entity.position = entity.position.clone()
+    void bot.look(entity.yaw, entity.pitch, true)
+    bot.entity.yaw = entity.yaw
+    bot.entity.pitch = entity.pitch
+  }
+
   bot.on('entityGone', (entity) => {
     bot.tracker.stopTrackingEntity(entity, true)
   })
 
   bot.on('entityMoved', (e) => {
-    entityData(e)
+    checkEntityData(e)
+    if (appViewer.playerState.reactive.cameraSpectatingEntity === e.id) {
+      updateCamera(e)
+    }
   })
   bot._client.on('entity_velocity', (packet) => {
     const e = bot.entities[packet.entityId]
     if (!e) return
-    entityData(e)
+    checkEntityData(e)
   })
 
   for (const entity of Object.values(bot.entities)) {
     if (entity !== bot.entity) {
-      entityData(entity)
+      checkEntityData(entity)
     }
   }
 
-  bot.on('entitySpawn', entityData)
-  bot.on('entityUpdate', entityData)
-  bot.on('entityEquip', entityData)
+  bot.on('entitySpawn', (e) => {
+    checkEntityData(e)
+    if (appViewer.playerState.reactive.cameraSpectatingEntity === e.id) {
+      updateCamera(e)
+    }
+  })
+  bot.on('entityUpdate', checkEntityData)
+  bot.on('entityEquip', checkEntityData)
+
+  bot._client.on('camera', (packet) => {
+    if (bot.player.entity.id === packet.cameraId) {
+      if (appViewer.playerState.utils.isSpectatingEntity() && appViewer.playerState.reactive.cameraSpectatingEntity) {
+        const entity = bot.entities[appViewer.playerState.reactive.cameraSpectatingEntity]
+        appViewer.playerState.reactive.cameraSpectatingEntity = undefined
+        if (entity) {
+          // do a force entity update
+          bot.emit('entityUpdate', entity)
+        }
+      }
+    } else if (appViewer.playerState.reactive.gameMode === 'spectator') {
+      const entity = bot.entities[packet.cameraId]
+      appViewer.playerState.reactive.cameraSpectatingEntity = packet.cameraId
+      if (entity) {
+        updateCamera(entity)
+        // do a force entity update
+        bot.emit('entityUpdate', entity)
+      }
+    }
+  })
 
   // Texture override from packet properties
   bot._client.on('player_info', (packet) => {

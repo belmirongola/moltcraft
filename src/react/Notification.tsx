@@ -1,14 +1,44 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import PixelartIcon from './PixelartIcon'
+import PixelartIcon, { pixelartIcons } from './PixelartIcon'
+import { useUsingTouch } from './utilsApp'
 
 const duration = 0.2
 
 // save pass: login
 
-export default ({ type = 'message', message, subMessage = '', open, icon = '', action = undefined as (() => void) | undefined }) => {
+const toastHeight = 32
+
+interface NotificationProps {
+  open: boolean
+  message: string
+  type?: 'message' | 'error' | 'progress'
+  subMessage?: string
+  icon?: string
+  action?: () => void
+  topPosition?: number
+
+  currentProgress?: number
+  totalProgress?: number
+}
+
+export default ({
+  type = 'message',
+  message,
+  subMessage = '',
+  open,
+  icon = '',
+  action = undefined as (() => void) | undefined,
+  topPosition = 0,
+  currentProgress,
+  totalProgress,
+}: NotificationProps) => {
+  const isUsingTouch = useUsingTouch()
   const isError = type === 'error'
   icon ||= isError ? 'alert' : 'message'
 
+  const isLoader = type === 'progress'
+
+  const top = (topPosition * toastHeight) + (isUsingTouch ? 18 : 0) // add space for mobile top buttons
   return <AnimatePresence>
     {open && (
       <motion.div
@@ -20,7 +50,7 @@ export default ({ type = 'message', message, subMessage = '', open, icon = '', a
         onClick={action}
         style={{
           position: 'fixed',
-          top: 0,
+          top,
           right: 0,
           width: '180px',
           whiteSpace: 'nowrap',
@@ -28,31 +58,54 @@ export default ({ type = 'message', message, subMessage = '', open, icon = '', a
           display: 'flex',
           gap: 4,
           alignItems: 'center',
-          padding: '3px 5px',
+          padding: '4px 5px',
           background: isError ? 'rgba(255, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.7)',
-          borderRadius: '0 0 0 5px',
+          borderRadius: top === 0 ? '0 0 0 5px' : '5px',
           pointerEvents: action ? 'auto' : 'none',
-          zIndex: 1200,
+          zIndex: isLoader ? 10 : 1200,
         }}
       >
-        <PixelartIcon iconName={icon} styles={{ fontSize: 12 }} />
+        <PixelartIcon
+          iconName={icon}
+          styles={{
+            fontSize: isLoader ? 15 : 12,
+            animation: isLoader ? 'rotation 6s linear infinite' : 'none',
+          }}
+        />
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          width: '100%',
         }}>
           <div style={{
             whiteSpace: 'normal',
           }}>
-            {message}
+            {translate(message)}
           </div>
           <div style={{
             fontSize: '7px',
             whiteSpace: 'nowrap',
             color: 'lightgray',
+            marginTop: 3,
           }}>
-            {subMessage}
+            {translate(subMessage)}
           </div>
+          {currentProgress !== undefined && totalProgress !== undefined && (
+            <div style={{
+              width: '100%',
+              height: '2px',
+              background: 'rgba(128, 128, 128, 0.5)',
+              marginTop: '2px',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${Math.min(100, (totalProgress ? currentProgress / totalProgress : 0) * 100)}%`,
+                height: '100%',
+                background: 'white',
+                transition: 'width 0.2s ease-out',
+              }} />
+            </div>
+          )}
         </div>
       </motion.div>
     )}

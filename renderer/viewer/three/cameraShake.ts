@@ -21,6 +21,10 @@ export class CameraShake {
     this.update()
   }
 
+  getBaseRotation () {
+    return { pitch: this.basePitch, yaw: this.baseYaw }
+  }
+
   shakeFromDamage (yaw?: number) {
     // Add roll animation
     const startRoll = this.rollAngle
@@ -35,6 +39,11 @@ export class CameraShake {
   }
 
   update () {
+    if (this.worldRenderer.playerStateUtils.isSpectatingEntity()) {
+      // Remove any shaking when spectating
+      this.rollAngle = 0
+      this.rollAnimation = undefined
+    }
     // Update roll animation
     if (this.rollAnimation) {
       const now = performance.now()

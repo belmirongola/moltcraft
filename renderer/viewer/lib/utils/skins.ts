@@ -1,18 +1,43 @@
 import { loadSkinToCanvas } from 'skinview-utils'
 import * as THREE from 'three'
 import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
+import { getLoadedImage } from 'mc-assets/dist/utils'
 
-// eslint-disable-next-line unicorn/prefer-export-from
-export const stevePngUrl = stevePng
-export const steveTexture = new THREE.TextureLoader().loadAsync(stevePng)
-
-export async function loadImageFromUrl (imageUrl: string): Promise<HTMLImageElement> {
-  const img = new Image()
-  img.src = imageUrl
-  await new Promise<void>(resolve => {
-    img.onload = () => resolve()
+export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
+  const texture = new THREE.Texture()
+  const promise = getLoadedImage(imageUrl).then(image => {
+    texture.image = image
+    texture.needsUpdate = true
+    return texture
   })
-  return img
+  return {
+    texture,
+    promise
+  }
+}
+
+export const loadThreeJsTextureFromUrl = async (imageUrl: string) => {
+  const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
+  return loaded
+}
+export const loadThreeJsTextureFromBitmap = (image: ImageBitmap) => {
+  const canvas = new OffscreenCanvas(image.width, image.height)
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(image, 0, 0)
+  const texture = new THREE.Texture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
+
+export const stevePngUrl = stevePng
+export const steveTexture = loadThreeJsTextureFromUrl(stevePngUrl)
+
+
+export async function loadImageFromUrl (imageUrl: string): Promise<ImageBitmap> {
+  const response = await fetch(imageUrl)
+  const blob = await response.blob()
+  return createImageBitmap(blob)
 }
 
 const config = {
@@ -52,13 +77,13 @@ export const parseSkinTexturesValue = (value: string) => {
   return decodedData.textures?.SKIN?.url
 }
 
-export async function loadSkinImage (skinUrl: string): Promise<{ canvas: HTMLCanvasElement, image: HTMLImageElement }> {
+export async function loadSkinImage (skinUrl: string): Promise<{ canvas: OffscreenCanvas, image: ImageBitmap }> {
   if (!skinUrl.startsWith('data:')) {
     skinUrl = await fetchAndConvertBase64Skin(skinUrl.replace('http://', 'https://'))
   }
 
   const image = await loadImageFromUrl(skinUrl)
-  const skinCanvas = document.createElement('canvas')
+  const skinCanvas = new OffscreenCanvas(64, 64)
   loadSkinToCanvas(skinCanvas, image)
   return { canvas: skinCanvas, image }
 }

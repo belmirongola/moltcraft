@@ -1,6 +1,7 @@
 import { proxy, ref, subscribe } from 'valtio'
 import { UserOverridesConfig } from 'contro-max/build/types/store'
 import { subscribeKey } from 'valtio/utils'
+import { AppConfig } from '../appConfig'
 import { CustomCommand } from './KeybindingsCustom'
 import { AuthenticatedAccount } from './serversStorage'
 import type { BaseServerInfo } from './AddServerOrConnect'
@@ -27,6 +28,7 @@ export interface StoreServerItem extends BaseServerInfo {
   optionsOverride?: Record<string, any>
   autoLogin?: Record<string, string>
   numConnects?: number // Track number of connections
+  isRecommended?: boolean
 }
 
 type StorageData = {
@@ -86,8 +88,22 @@ const defaultStorageData: StorageData = {
   firstModsPageVisit: true,
 }
 
-export const setStorageDataOnAppConfigLoad = () => {
-  appStorage.username ??= `mcrafter${Math.floor(Math.random() * 1000)}`
+export const setStorageDataOnAppConfigLoad = (appConfig: AppConfig) => {
+  appStorage.username ??= getRandomUsername(appConfig)
+}
+
+export const getRandomUsername = (appConfig: AppConfig) => {
+  if (!appConfig.defaultUsername) return ''
+
+  const username = appConfig.defaultUsername
+    .replaceAll(/{(\d+)-(\d+)}/g, (_, start, end) => {
+      const min = Number(start)
+      const max = Number(end)
+      return Math.floor(Math.random() * (max - min + 1) + min).toString()
+    })
+    .replaceAll('{num}', () => Math.floor(Math.random() * 10).toString())
+
+  return username
 }
 
 export const appStorage = proxy({ ...defaultStorageData })

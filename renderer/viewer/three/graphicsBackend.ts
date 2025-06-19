@@ -5,6 +5,7 @@ import { ProgressReporter } from '../../../src/core/progressReporter'
 import { showNotification } from '../../../src/react/NotificationProvider'
 import { displayEntitiesDebugList } from '../../playground/allEntitiesDebug'
 import supportedVersions from '../../../src/supportedVersions.mjs'
+import { ResourcesManager } from '../../../src/resourcesManager'
 import { WorldRendererThree } from './worldrendererThree'
 import { DocumentRenderer } from './documentRenderer'
 import { PanoramaRenderer } from './panorama'
@@ -12,7 +13,7 @@ import { initVR } from './world/vr'
 
 // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
 THREE.ColorManagement.enabled = false
-window.THREE = THREE
+globalThis.THREE = THREE
 
 const getBackendMethods = (worldRenderer: WorldRendererThree) => {
   return {
@@ -24,7 +25,7 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     updatePlayerSkin: worldRenderer.entities.updatePlayerSkin.bind(worldRenderer.entities),
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
     getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer),
-    rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer),
+    reloadWorld: worldRenderer.reloadWorld.bind(worldRenderer),
 
     addMedia: worldRenderer.media.addMedia.bind(worldRenderer.media),
     destroyMedia: worldRenderer.media.destroyMedia.bind(worldRenderer.media),
@@ -57,29 +58,25 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
   let worldRenderer: WorldRendererThree | null = null
 
   const startPanorama = async () => {
+    if (!documentRenderer) throw new Error('Document renderer not initialized')
     if (worldRenderer) return
-    const qs = new URLSearchParams(window.location.search)
+    const qs = new URLSearchParams(location.search)
     if (qs.get('debugEntities')) {
-      initOptions.resourcesManager.currentConfig = { version: qs.get('version') || supportedVersions.at(-1)!, noInventoryGui: true }
-      await initOptions.resourcesManager.updateAssetsData({ })
+      const fullResourceManager = initOptions.resourcesManager as ResourcesManager
+      fullResourceManager.currentConfig = { version: qs.get('version') || supportedVersions.at(-1)!, noInventoryGui: true }
+      await fullResourceManager.updateAssetsData({ })
 
-      displayEntitiesDebugList(initOptions.resourcesManager.currentConfig.version)
+      displayEntitiesDebugList(fullResourceManager.currentConfig.version)
       return
     }
 
     if (!panoramaRenderer) {
       panoramaRenderer = new PanoramaRenderer(documentRenderer, initOptions, !!process.env.SINGLE_FILE_BUILD_MODE)
-      window.panoramaRenderer = panoramaRenderer
+      globalThis.panoramaRenderer = panoramaRenderer
       callModsMethod('panoramaCreated', panoramaRenderer)
       await panoramaRenderer.start()
       callModsMethod('panoramaReady', panoramaRenderer)
     }
-  }
-
-  let version = ''
-  const prepareResources = async (ver: string, progressReporter: ProgressReporter): Promise<void> => {
-    version = ver
-    await initOptions.resourcesManager.updateAssetsData({ })
   }
 
   const startWorld = async (displayOptions: DisplayWorldOptions) => {
@@ -124,6 +121,9 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
       if (worldRenderer) worldRenderer.renderingActive = rendering
     },
     getDebugOverlay: () => ({
+      get entitiesString () {
+        return worldRenderer?.entities.getDebugString()
+      },
     }),
     updateCamera (pos: Vec3 | null, yaw: number, pitch: number) {
       worldRenderer?.setFirstPersonCamera(pos, yaw, pitch)

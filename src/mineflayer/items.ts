@@ -1,11 +1,10 @@
 import mojangson from 'mojangson'
 import nbt from 'prismarine-nbt'
 import { fromFormattedString } from '@xmcl/text-component'
-import { ItemSpecificContextProperties } from 'renderer/viewer/lib/basePlayerState'
+import { getItemSelector, ItemSpecificContextProperties, PlayerStateRenderer } from 'renderer/viewer/lib/basePlayerState'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 import { MessageFormatPart } from '../chatUtils'
-import { ResourcesManager } from '../resourcesManager'
-import { playerState } from './playerState'
+import { ResourcesManager, ResourcesManagerCommon, ResourcesManagerTransferred } from '../resourcesManager'
 
 type RenderSlotComponent = {
   type: string,
@@ -33,7 +32,7 @@ type PossibleItemProps = {
   display?: { Name?: JsonString } // {"text":"Knife","color":"white","italic":"true"}
 }
 
-export const getItemMetadata = (item: GeneralInputItem, resourcesManager: ResourcesManager) => {
+export const getItemMetadata = (item: GeneralInputItem, resourcesManager: ResourcesManagerCommon) => {
   let customText = undefined as string | any | undefined
   let customModel = undefined as string | undefined
 
@@ -91,7 +90,7 @@ export const getItemMetadata = (item: GeneralInputItem, resourcesManager: Resour
 }
 
 
-export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null, resourcesManager: ResourcesManager) => {
+export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null, resourcesManager: ResourcesManagerCommon) => {
   if (!item) return ''
   const { customText } = getItemMetadata(item as GeneralInputItem, resourcesManager)
   if (!customText) return
@@ -112,14 +111,14 @@ export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'>
   }
 }
 
-export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpecificContextProperties, resourcesManager: ResourcesManager) => {
+export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpecificContextProperties, resourcesManager: ResourcesManagerCommon, playerState: PlayerStateRenderer) => {
   let itemModelName = item.name
   const { customModel } = getItemMetadata(item, resourcesManager)
   if (customModel) {
     itemModelName = customModel
   }
 
-  const itemSelector = playerState.getItemSelector({
+  const itemSelector = getItemSelector(playerState, {
     ...specificProps
   })
   const modelFromDef = getItemDefinition(appViewer.resourcesManager.itemsDefinitionsStore, {

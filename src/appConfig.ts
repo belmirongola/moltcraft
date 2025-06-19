@@ -53,6 +53,7 @@ export type AppConfig = {
   displayLanguageSelector?: boolean
   supportedLanguages?: string[]
   showModsButton?: boolean
+  defaultUsername?: string
 }
 
 export const loadAppConfig = (appConfig: AppConfig) => {
@@ -81,7 +82,7 @@ export const loadAppConfig = (appConfig: AppConfig) => {
     updateBinds(customKeymaps)
   }
 
-  setStorageDataOnAppConfigLoad()
+  setStorageDataOnAppConfigLoad(appConfig)
 }
 
 export const isBundledConfigUsed = !!process.env.INLINED_APP_CONFIG
