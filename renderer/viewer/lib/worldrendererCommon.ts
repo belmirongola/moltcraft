@@ -55,7 +55,12 @@ export const defaultWorldRendererConfig = {
   enableDebugOverlay: false,
   _experimentalSmoothChunkLoading: true,
   _renderByChunks: false,
-  volume: 1
+  volume: 1,
+  // New instancing options
+  useInstancedRendering: false,
+  forceInstancedOnly: false,
+  instancedOnlyDistance: 6, // chunks beyond this distance use instancing only
+  enableSingleColorMode: false, // ultra-performance mode with solid colors
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -571,6 +576,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers,
       worldMinY: this.worldMinYRender,
       worldMaxY: this.worldMinYRender + this.worldSizeParams.worldHeight,
+      // Instanced rendering options
+      useInstancedRendering: this.worldRendererConfig.useInstancedRendering,
+      forceInstancedOnly: this.worldRendererConfig.forceInstancedOnly,
+      enableSingleColorMode: this.worldRendererConfig.enableSingleColorMode,
     }
   }
 

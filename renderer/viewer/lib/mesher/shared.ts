@@ -12,7 +12,11 @@ export const defaultMesherConfig = {
   // textureSize: 1024, // for testing
   debugModelVariant: undefined as undefined | number[],
   clipWorldBelowY: undefined as undefined | number,
-  disableSignsMapsSupport: false
+  disableSignsMapsSupport: false,
+  // Instanced rendering options
+  useInstancedRendering: false,
+  forceInstancedOnly: false,
+  enableSingleColorMode: false,
 }
 
 export type CustomBlockModels = {
@@ -20,6 +24,18 @@ export type CustomBlockModels = {
 }
 
 export type MesherConfig = typeof defaultMesherConfig
+
+export type InstancedBlockEntry = {
+  blockName: string
+  stateId: number
+  textureInfo?: {
+    u: number
+    v: number
+    su: number
+    sv: number
+  }
+  positions: Array<{ x: number, y: number, z: number }>
+}
 
 export type MesherGeometryOutput = {
   sx: number,
@@ -46,6 +62,8 @@ export type MesherGeometryOutput = {
   hadErrors: boolean
   blocksCount: number
   customBlockModels?: CustomBlockModels
+  // New instanced blocks data
+  instancedBlocks: Record<string, InstancedBlockEntry>
 }
 
 export interface MesherMainEvents {

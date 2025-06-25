@@ -16,7 +16,7 @@ const RendererDebugMenu = ({ worldRenderer }: { worldRenderer: WorldRendererComm
   const { reactiveDebugParams } = worldRenderer
   const { chunksRenderAboveEnabled, chunksRenderBelowEnabled, chunksRenderDistanceEnabled, chunksRenderAboveOverride, chunksRenderBelowOverride, chunksRenderDistanceOverride, stopRendering, disableEntities } = useSnapshot(reactiveDebugParams)
 
-  const { rendererPerfDebugOverlay } = useSnapshot(options)
+  const { rendererPerfDebugOverlay, useInstancedRendering, forceInstancedOnly, instancedOnlyDistance, enableSingleColorMode } = useSnapshot(options)
 
   // Helper to round values to nearest step
   const roundToStep = (value: number, step: number) => Math.round(value / step) * step
@@ -114,6 +114,37 @@ const RendererDebugMenu = ({ worldRenderer }: { worldRenderer: WorldRendererComm
           valueDisplay={Math.round(reactiveDebugParams.chunksRenderDistanceOverride ?? 8)}
         />
       </div> */}
+    </div>
+
+    <div className={styles.column}>
+      <h3>Instanced Rendering</h3>
+      <Button
+        label={useInstancedRendering ? 'Disable Instanced Rendering' : 'Enable Instanced Rendering'}
+        onClick={() => { options.useInstancedRendering = !options.useInstancedRendering }}
+        overlayColor={useInstancedRendering ? 'green' : undefined}
+      />
+      <Button
+        label={forceInstancedOnly ? 'Disable Force Instanced Only' : 'Enable Force Instanced Only'}
+        onClick={() => { options.forceInstancedOnly = !options.forceInstancedOnly }}
+        overlayColor={forceInstancedOnly ? 'orange' : undefined}
+      />
+      <Button
+        label={enableSingleColorMode ? 'Disable Single Color Mode' : 'Enable Single Color Mode'}
+        onClick={() => { options.enableSingleColorMode = !options.enableSingleColorMode }}
+        overlayColor={enableSingleColorMode ? 'yellow' : undefined}
+      />
+      <Slider
+        label="Instanced Distance"
+        min={1}
+        max={16}
+        style={{ width: '100%', }}
+        value={instancedOnlyDistance}
+        updateValue={(value) => {
+          options.instancedOnlyDistance = Math.round(value)
+        }}
+        unit=""
+        valueDisplay={instancedOnlyDistance}
+      />
     </div>
   </div>
 }

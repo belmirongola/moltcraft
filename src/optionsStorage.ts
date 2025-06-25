@@ -52,6 +52,11 @@ const defaultOptions = {
   starfieldRendering: true,
   enabledResourcepack: null as string | null,
   useVersionsTextures: 'latest',
+  // Instanced rendering options
+  useInstancedRendering: false,
+  forceInstancedOnly: false,
+  instancedOnlyDistance: 6,
+  enableSingleColorMode: false,
   serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
   showHand: true,
   viewBobbing: true,

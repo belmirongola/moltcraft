@@ -24,6 +24,7 @@ import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
+import { InstancedRenderer, INSTANCEABLE_BLOCKS } from './instancedRenderer'
 
 type SectionKey = string
 
@@ -48,6 +49,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraShake: CameraShake
   cameraContainer: THREE.Object3D
   media: ThreeJsMedia
+  instancedRenderer: InstancedRenderer
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
   camera: THREE.PerspectiveCamera
   renderTimeAvg = 0
@@ -100,6 +102,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.soundSystem = new ThreeJsSound(this)
     this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
+    this.instancedRenderer = new InstancedRenderer(this)
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
     // })
@@ -227,6 +230,8 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     await super.updateAssetsData()
     this.onAllTexturesLoaded()
+    // Update instanced renderer materials when textures change
+    this.instancedRenderer.updateMaterials()
     if (Object.keys(this.loadedChunks).length > 0) {
       console.log('rerendering chunks because of texture update')
       this.rerenderAllChunks()
@@ -295,12 +300,15 @@ export class WorldRendererThree extends WorldRendererCommon {
         const formatBigNumber = (num: number) => {
           return new Intl.NumberFormat('en-US', {}).format(num)
         }
+        const instancedStats = this.instancedRenderer.getStats()
         let text = ''
         text += `C: ${formatBigNumber(this.renderer.info.render.calls)} `
         text += `TR: ${formatBigNumber(this.renderer.info.render.triangles)} `
         text += `TE: ${formatBigNumber(this.renderer.info.memory.textures)} `
         text += `F: ${formatBigNumber(this.tilesRendered)} `
-        text += `B: ${formatBigNumber(this.blocksRendered)}`
+        text += `B: ${formatBigNumber(this.blocksRendered)} `
+        text += `I: ${formatBigNumber(instancedStats.totalInstances)}/${instancedStats.activeBlockTypes}t `
+        text += `DC: ${formatBigNumber(instancedStats.drawCalls)}`
         pane.updateText(text)
         this.backendInfoReport = text
       }
@@ -343,8 +351,21 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   // debugRecomputedDeletedObjects = 0
+  handleInstancedBlocks (instancedBlocks: Record<string, any>, sectionKey: string): void {
+    this.instancedRenderer.handleInstancedBlocksFromWorker(instancedBlocks, sectionKey)
+  }
+
   handleWorkerMessage (data: { geometry: MesherGeometryOutput, key, type }): void {
     if (data.type !== 'geometry') return
+
+    const chunkCoords = data.key.split(',')
+    const chunkKey = chunkCoords[0] + ',' + chunkCoords[2]
+
+    // Handle instanced blocks data from worker
+    if (data.geometry.instancedBlocks && Object.keys(data.geometry.instancedBlocks).length > 0) {
+      this.handleInstancedBlocks(data.geometry.instancedBlocks, data.key)
+    }
+
     let object: THREE.Object3D = this.sectionObjects[data.key]
     if (object) {
       this.scene.remove(object)
@@ -352,8 +373,7 @@ export class WorldRendererThree extends WorldRendererCommon {
       delete this.sectionObjects[data.key]
     }
 
-    const chunkCoords = data.key.split(',')
-    if (!this.loadedChunks[chunkCoords[0] + ',' + chunkCoords[2]] || !data.geometry.positions.length || !this.active) return
+    if (!this.loadedChunks[chunkKey] || !data.geometry.positions.length || !this.active) return
 
     // if (object) {
     //   this.debugRecomputedDeletedObjects++
@@ -878,6 +898,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(x, y, z), false)
       const key = `${x},${y},${z}`
+
+      // Remove instanced blocks for this section
+      this.instancedRenderer.removeSectionInstances(key)
+
       const mesh = this.sectionObjects[key]
       if (mesh) {
         this.scene.remove(mesh)
@@ -907,6 +931,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   destroy (): void {
+    this.instancedRenderer.destroy()
     super.destroy()
   }
 

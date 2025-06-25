@@ -5,8 +5,141 @@ import { BlockType } from '../../../playground/shared'
 import { World, BlockModelPartsResolved, WorldBlock as Block, WorldBlock } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
-import { MesherGeometryOutput, HighestBlockInfo } from './shared'
+import { MesherGeometryOutput, HighestBlockInfo, InstancedBlockEntry } from './shared'
 
+// Hardcoded list of full blocks that can use instancing
+export const INSTANCEABLE_BLOCKS = new Set([
+  'grass_block',
+  'dirt',
+  'stone',
+  'cobblestone',
+  'mossy_cobblestone',
+  'clay',
+  'moss_block',
+  'spawner',
+  'sand',
+  'gravel',
+  'oak_planks',
+  'birch_planks',
+  'spruce_planks',
+  'jungle_planks',
+  'acacia_planks',
+  'dark_oak_planks',
+  'mangrove_planks',
+  'cherry_planks',
+  'bamboo_planks',
+  'crimson_planks',
+  'warped_planks',
+  'iron_block',
+  'gold_block',
+  'diamond_block',
+  'emerald_block',
+  'netherite_block',
+  'coal_block',
+  'redstone_block',
+  'lapis_block',
+  'copper_block',
+  'exposed_copper',
+  'weathered_copper',
+  'oxidized_copper',
+  'cut_copper',
+  'exposed_cut_copper',
+  'weathered_cut_copper',
+  'oxidized_cut_copper',
+  'waxed_copper_block',
+  'waxed_exposed_copper',
+  'waxed_weathered_copper',
+  'waxed_oxidized_copper',
+  'raw_iron_block',
+  'raw_copper_block',
+  'raw_gold_block',
+  'smooth_stone',
+  'cobbled_deepslate',
+  'deepslate',
+  'calcite',
+  'tuff',
+  'dripstone_block',
+  'amethyst_block',
+  'budding_amethyst',
+  'obsidian',
+  'crying_obsidian',
+  'bedrock',
+  'end_stone',
+  'purpur_block',
+  'quartz_block',
+  'smooth_quartz',
+  'nether_bricks',
+  'red_nether_bricks',
+  'blackstone',
+  'gilded_blackstone',
+  'polished_blackstone',
+  'chiseled_nether_bricks',
+  'cracked_nether_bricks',
+  'basalt',
+  'smooth_basalt',
+  'polished_basalt',
+  'netherrack',
+  'magma_block',
+  'soul_sand',
+  'soul_soil',
+  'ancient_debris',
+  'bone_block',
+  'packed_ice',
+  'blue_ice',
+  'ice',
+  'snow_block',
+  'powder_snow',
+  'white_wool',
+  'orange_wool',
+  'magenta_wool',
+  'light_blue_wool',
+  'yellow_wool',
+  'lime_wool',
+  'pink_wool',
+  'gray_wool',
+  'light_gray_wool',
+  'cyan_wool',
+  'purple_wool',
+  'blue_wool',
+  'brown_wool',
+  'green_wool',
+  'red_wool',
+  'black_wool',
+  'white_concrete',
+  'orange_concrete',
+  'magenta_concrete',
+  'light_blue_concrete',
+  'yellow_concrete',
+  'lime_concrete',
+  'pink_concrete',
+  'gray_concrete',
+  'light_gray_concrete',
+  'cyan_concrete',
+  'purple_concrete',
+  'blue_concrete',
+  'brown_concrete',
+  'green_concrete',
+  'red_concrete',
+  'black_concrete',
+  'white_terracotta',
+  'orange_terracotta',
+  'magenta_terracotta',
+  'light_blue_terracotta',
+  'yellow_terracotta',
+  'lime_terracotta',
+  'pink_terracotta',
+  'gray_terracotta',
+  'light_gray_terracotta',
+  'cyan_terracotta',
+  'purple_terracotta',
+  'blue_terracotta',
+  'brown_terracotta',
+  'green_terracotta',
+  'red_terracotta',
+  'black_terracotta',
+  'terracotta',
+  'glazed_terracotta',
+])
 
 let blockProvider: WorldBlockProvider
 
@@ -518,9 +651,86 @@ const isBlockWaterlogged = (block: Block) => {
   return block.getProperties().waterlogged === true || block.getProperties().waterlogged === 'true' || ALWAYS_WATERLOGGED.has(block.name)
 }
 
+const shouldCullInstancedBlock = (world: World, cursor: Vec3, block: Block): boolean => {
+  // Check if all 6 faces would be culled (hidden by neighbors)
+  const cullIfIdentical = block.name.includes('glass') || block.name.includes('ice')
+
+  // eslint-disable-next-line guard-for-in
+  for (const face in elemFaces) {
+    const { dir } = elemFaces[face]
+    const neighbor = world.getBlock(cursor.plus(new Vec3(dir[0], dir[1], dir[2])), blockProvider, {})
+
+    if (!neighbor) {
+      // Face is exposed to air/void
+      return false
+    }
+
+    if (cullIfIdentical && neighbor.stateId === block.stateId) {
+      // Same block type, face should be culled
+      continue
+    }
+
+    if (!neighbor.transparent && isCube(neighbor)) {
+      // Neighbor is opaque and full cube, face should be culled
+      continue
+    }
+
+    // Face is not culled, block should be rendered
+    return false
+  }
+
+  // All faces are culled, block should not be rendered
+  return true
+}
+
+const getInstancedBlockTextureInfo = (block: Block) => {
+  // Get texture info from the first available face
+  const model = block.models?.[0]?.[0]
+  if (!model?.elements?.[0]) return undefined
+
+  const element = model.elements[0]
+
+  // Try to find a face with texture - prefer visible faces
+  const faceOrder = ['up', 'north', 'east', 'south', 'west', 'down']
+  for (const faceName of faceOrder) {
+    const face = element.faces[faceName]
+    if (face?.texture) {
+      const texture = face.texture as any
+      return {
+        u: texture.u || 0,
+        v: texture.v || 0,
+        su: texture.su || 1,
+        sv: texture.sv || 1
+      }
+    }
+  }
+
+  return undefined
+}
+
+const isBlockInstanceable = (block: Block): boolean => {
+  // Only instanceable if it's a full cube block without complex geometry
+  if (!INSTANCEABLE_BLOCKS.has(block.name)) return false
+
+  // Check if it's actually a full cube (no rotations, no complex models)
+  if (!block.models || block.models.length !== 1) return false
+
+  const model = block.models[0][0] // First variant of first model
+  if (!model || model.x || model.y || model.z) return false // No rotations
+
+  // Check if all elements are full cubes
+  return (model.elements ?? []).every(element => {
+    return element.from[0] === 0 && element.from[1] === 0 && element.from[2] === 0 &&
+      element.to[0] === 16 && element.to[1] === 16 && element.to[2] === 16
+  })
+}
+
 let unknownBlockModel: BlockModelPartsResolved
 export function getSectionGeometry (sx: number, sy: number, sz: number, world: World) {
   let delayedRender = [] as Array<() => void>
+
+  // Check if instanced rendering is enabled
+  const enableInstancedRendering = world.config.useInstancedRendering
 
   const attr: MesherGeometryOutput = {
     sx: sx + 8,
@@ -544,7 +754,8 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
     // isFull: true,
     highestBlocks: new Map(),
     hadErrors: false,
-    blocksCount: 0
+    blocksCount: 0,
+    instancedBlocks: {}
   }
 
   const cursor = new Vec3(0, 0, 0)
@@ -621,6 +832,39 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
           attr.blocksCount++
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
+          // Check if this block can use instanced rendering
+          if (enableInstancedRendering && isBlockInstanceable(block)) {
+            // Check if block should be culled (all faces hidden by neighbors)
+            if (shouldCullInstancedBlock(world, cursor, block)) {
+              // Block is completely surrounded, skip rendering
+              continue
+            }
+
+            const blockKey = block.name
+            if (!attr.instancedBlocks[blockKey]) {
+              const textureInfo = getInstancedBlockTextureInfo(block)
+              attr.instancedBlocks[blockKey] = {
+                blockName: block.name,
+                stateId: block.stateId,
+                textureInfo,
+                positions: []
+              }
+            }
+            attr.instancedBlocks[blockKey].positions.push({
+              x: cursor.x,
+              y: cursor.y,
+              z: cursor.z
+            })
+            attr.blocksCount++
+            continue // Skip regular geometry generation for instanceable blocks
+          }
+
+          // Skip buffer geometry generation if force instanced only mode is enabled
+          if (world.config.forceInstancedOnly) {
+            // In force instanced only mode, skip all non-instanceable blocks
+            continue
+          }
+
           // cache
           let { models } = block
 

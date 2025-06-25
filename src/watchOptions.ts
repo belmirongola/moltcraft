@@ -115,6 +115,14 @@ export const watchOptionsAfterViewerInit = () => {
   watchValue(options, o => {
     // appViewer.inWorldRenderingConfig.neighborChunkUpdates = o.neighborChunkUpdates
   })
+
+  // Instanced rendering options
+  watchValue(options, o => {
+    appViewer.inWorldRenderingConfig.useInstancedRendering = o.useInstancedRendering
+    appViewer.inWorldRenderingConfig.forceInstancedOnly = o.forceInstancedOnly
+    appViewer.inWorldRenderingConfig.instancedOnlyDistance = o.instancedOnlyDistance
+    appViewer.inWorldRenderingConfig.enableSingleColorMode = o.enableSingleColorMode
+  })
 }
 
 export const watchOptionsAfterWorldViewInit = (worldView: WorldDataEmitter) => {
