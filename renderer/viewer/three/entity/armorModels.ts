@@ -14,6 +14,7 @@ import { default as netheriteLayer1 } from 'mc-assets/dist/other-textures/latest
 import { default as netheriteLayer2 } from 'mc-assets/dist/other-textures/latest/models/armor/netherite_layer_2.png'
 import { default as turtleLayer1 } from 'mc-assets/dist/other-textures/latest/models/armor/turtle_layer_1.png'
 
+export { default as elytraTexture } from 'mc-assets/dist/other-textures/latest/entity/elytra.png'
 export { default as armorModel } from './armorModels.json'
 
 export const armorTextures = {

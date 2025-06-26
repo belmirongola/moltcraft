@@ -102,7 +102,7 @@ export async function initVR (worldRenderer: WorldRendererThree, documentRendere
 
   // hack for vr camera
   const user = new THREE.Group()
-  user.add(worldRenderer.camera)
+  user.name = 'vr-camera-container'
   worldRenderer.scene.add(user)
   const controllerModelFactory = new XRControllerModelFactory(new GLTFLoader())
   const controller1 = renderer.xr.getControllerGrip(0)
@@ -202,10 +202,12 @@ export async function initVR (worldRenderer: WorldRendererThree, documentRendere
     documentRenderer.frameRender(false)
   })
   renderer.xr.addEventListener('sessionstart', () => {
+    user.add(worldRenderer.camera)
     worldRenderer.cameraGroupVr = user
   })
   renderer.xr.addEventListener('sessionend', () => {
     worldRenderer.cameraGroupVr = undefined
+    user.remove(worldRenderer.camera)
   })
 
   worldRenderer.abortController.signal.addEventListener('abort', disableVr)

@@ -72,7 +72,7 @@ export class CameraShake {
       }
     }
 
-    const camera = this.worldRenderer.cameraGroupVr || this.worldRenderer.camera
+    const camera = this.worldRenderer.cameraObject
 
     if (this.worldRenderer.cameraGroupVr) {
       // For VR camera, only apply yaw rotation

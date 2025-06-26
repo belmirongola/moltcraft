@@ -5,7 +5,7 @@ import type { HandItemBlock } from '../three/holdingBlock'
 
 export type MovementState = 'NOT_MOVING' | 'WALKING' | 'SPRINTING' | 'SNEAKING'
 export type ItemSpecificContextProperties = Partial<Pick<ItemSelector['properties'], 'minecraft:using_item' | 'minecraft:use_duration' | 'minecraft:use_cycle' | 'minecraft:display_context'>>
-
+export type CameraPerspective = 'first_person' | 'third_person_back' | 'third_person_front'
 
 export type BlockShape = { position: any; width: any; height: any; depth: any; }
 export type BlocksShapes = BlockShape[]
@@ -47,6 +47,7 @@ export const getInitialPlayerState = () => proxy({
   shouldHideHand: false,
   heldItemMain: undefined as HandItemBlock | undefined,
   heldItemOff: undefined as HandItemBlock | undefined,
+  perspective: 'first_person' as CameraPerspective,
 
   cameraSpectatingEntity: undefined as number | undefined,
 })
@@ -57,6 +58,10 @@ export const getPlayerStateUtils = (reactive: PlayerStateReactive) => ({
   },
   isSpectatingEntity () {
     return reactive.cameraSpectatingEntity !== undefined && reactive.gameMode === 'spectator'
+  },
+  isThirdPerson () {
+    if ((this as PlayerStateUtils).isSpectatingEntity()) return false
+    return reactive.perspective === 'third_person_back' || reactive.perspective === 'third_person_front'
   }
 })
 

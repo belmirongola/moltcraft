@@ -46,6 +46,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   cursorBlock: CursorBlock
   onRender: Array<() => void> = []
   cameraShake: CameraShake
+  cameraContainer: THREE.Object3D
   media: ThreeJsMedia
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
   camera: THREE.PerspectiveCamera
@@ -68,6 +69,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
   fountains: Fountain[] = []
+  DEBUG_RAYCAST = false
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
@@ -109,7 +111,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   get cameraObject () {
-    return this.cameraGroupVr || this.camera
+    return this.cameraGroupVr ?? this.cameraContainer
   }
 
   worldSwitchActions () {
@@ -138,6 +140,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
+  updatePlayerEntity (e: any) {
+    this.entities.handlePlayerEntity(e)
+  }
+
   resetScene () {
     this.scene.matrixAutoUpdate = false // for perf
     this.scene.background = new THREE.Color(this.initOptions.config.sceneBackground)
@@ -148,6 +154,9 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     const size = this.renderer.getSize(new THREE.Vector2())
     this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
+    this.cameraContainer = new THREE.Object3D()
+    this.cameraContainer.add(this.camera)
+    this.scene.add(this.cameraContainer)
   }
 
   override watchReactivePlayerState () {
@@ -168,6 +177,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     })
     this.onReactivePlayerStateUpdated('diggingBlock', (value) => {
       this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
+    })
+    this.onReactivePlayerStateUpdated('perspective', (value) => {
+      // Update camera perspective when it changes
+      const vecPos = new Vec3(this.cameraObject.position.x, this.cameraObject.position.y, this.cameraObject.position.z)
+      this.updateCamera(vecPos, this.cameraShake.getBaseRotation().yaw, this.cameraShake.getBaseRotation().pitch)
+      // todo also update camera when block within camera was changed
     })
   }
 
@@ -439,6 +454,118 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.media.tryIntersectMedia()
   }
 
+  getThirdPersonCamera (pos: THREE.Vector3 | null, yaw: number, pitch: number) {
+    pos ??= this.cameraObject.position
+
+    // Calculate camera offset based on perspective
+    const isBack = this.playerStateReactive.perspective === 'third_person_back'
+    const distance = 4 // Default third person distance
+
+    // Calculate direction vector using proper world orientation
+    // We need to get the camera's current look direction and use that for positioning
+
+    // Create a direction vector that represents where the camera is looking
+    // This matches the Three.js camera coordinate system
+    const direction = new THREE.Vector3(0, 0, -1) // Forward direction in camera space
+
+    // Apply the same rotation that's applied to the camera container
+    const pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch)
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+    const finalQuat = new THREE.Quaternion().multiplyQuaternions(yawQuat, pitchQuat)
+
+    // Transform the direction vector by the camera's rotation
+    direction.applyQuaternion(finalQuat)
+
+    // For back view, we want the camera behind the player (opposite to view direction)
+    // For front view, we want the camera in front of the player (same as view direction)
+    if (isBack) {
+      direction.multiplyScalar(-1)
+    }
+
+    // Create debug visualization if advanced stats are enabled
+    if (this.DEBUG_RAYCAST) {
+      this.debugRaycast(pos, direction, distance)
+    }
+
+    // Perform raycast to avoid camera going through blocks
+    const raycaster = new THREE.Raycaster()
+    raycaster.set(pos, direction)
+    raycaster.far = distance // Limit raycast distance
+
+    // Filter to only nearby chunks for performance
+    const nearbyChunks = Object.values(this.sectionObjects)
+      .filter(obj => obj.name === 'chunk' && obj.visible)
+      .filter(obj => {
+        // Get the mesh child which has the actual geometry
+        const mesh = obj.children.find(child => child.name === 'mesh')
+        if (!mesh) return false
+
+        // Check distance from player position to chunk
+        const chunkWorldPos = new THREE.Vector3()
+        mesh.getWorldPosition(chunkWorldPos)
+        const distance = pos.distanceTo(chunkWorldPos)
+        return distance < 80 // Only check chunks within 80 blocks
+      })
+
+    // Get all mesh children for raycasting
+    const meshes: THREE.Object3D[] = []
+    for (const chunk of nearbyChunks) {
+      const mesh = chunk.children.find(child => child.name === 'mesh')
+      if (mesh) meshes.push(mesh)
+    }
+
+    const intersects = raycaster.intersectObjects(meshes, false)
+
+    let finalDistance = distance
+    if (intersects.length > 0) {
+      // Use intersection distance minus a small offset to prevent clipping
+      finalDistance = Math.max(0.5, intersects[0].distance - 0.2)
+    }
+
+    const finalPos = new Vec3(
+      pos.x + direction.x * finalDistance,
+      pos.y + direction.y * finalDistance,
+      pos.z + direction.z * finalDistance
+    )
+
+    return finalPos
+  }
+
+  private debugRaycastHelper?: THREE.ArrowHelper
+  private debugHitPoint?: THREE.Mesh
+
+  private debugRaycast (pos: THREE.Vector3, direction: THREE.Vector3, distance: number) {
+    // Remove existing debug objects
+    if (this.debugRaycastHelper) {
+      this.scene.remove(this.debugRaycastHelper)
+      this.debugRaycastHelper = undefined
+    }
+    if (this.debugHitPoint) {
+      this.scene.remove(this.debugHitPoint)
+      this.debugHitPoint = undefined
+    }
+
+    // Create raycast arrow
+    this.debugRaycastHelper = new THREE.ArrowHelper(
+      direction.clone().normalize(),
+      pos,
+      distance,
+      0xff_00_00, // Red color
+      distance * 0.1,
+      distance * 0.05
+    )
+    this.scene.add(this.debugRaycastHelper)
+
+    // Create hit point indicator
+    const hitGeometry = new THREE.SphereGeometry(0.2, 8, 8)
+    const hitMaterial = new THREE.MeshBasicMaterial({ color: 0x00_ff_00 })
+    this.debugHitPoint = new THREE.Mesh(hitGeometry, hitMaterial)
+    this.debugHitPoint.position.copy(pos).add(direction.clone().multiplyScalar(distance))
+    this.scene.add(this.debugHitPoint)
+  }
+
+  prevFramePerspective = null as string | null
+
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
     // if (this.freeFlyMode) {
     //   pos = this.freeFlyState.position
@@ -472,6 +599,42 @@ export class WorldRendererThree extends WorldRendererCommon {
     } else {
       this.currentRotTween?.stop()
       this.cameraShake.setBaseRotation(pitch, yaw)
+
+      const { perspective } = this.playerStateReactive
+      if (perspective === 'third_person_back' || perspective === 'third_person_front') {
+        // Use getThirdPersonCamera for proper raycasting with max distance of 4
+        const currentCameraPos = this.cameraObject.position
+        const thirdPersonPos = this.getThirdPersonCamera(
+          new THREE.Vector3(currentCameraPos.x, currentCameraPos.y, currentCameraPos.z),
+          yaw,
+          pitch
+        )
+
+        const distance = currentCameraPos.distanceTo(new THREE.Vector3(thirdPersonPos.x, thirdPersonPos.y, thirdPersonPos.z))
+        // Apply Z offset based on perspective and calculated distance
+        const zOffset = perspective === 'third_person_back' ? distance : -distance
+        this.camera.position.set(0, 0, zOffset)
+
+        if (perspective === 'third_person_front') {
+          // Flip camera view 180 degrees around Y axis for front view
+          this.camera.rotation.set(0, Math.PI, 0)
+        } else {
+          this.camera.rotation.set(0, 0, 0)
+        }
+      } else {
+        this.camera.position.set(0, 0, 0)
+        this.camera.rotation.set(0, 0, 0)
+
+        // remove any debug raycasting
+        if (this.debugRaycastHelper) {
+          this.scene.remove(this.debugRaycastHelper)
+          this.debugRaycastHelper = undefined
+        }
+        if (this.debugHitPoint) {
+          this.scene.remove(this.debugHitPoint)
+          this.debugHitPoint = undefined
+        }
+      }
     }
   }
 
@@ -529,7 +692,13 @@ export class WorldRendererThree extends WorldRendererCommon {
     const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    if (this.displayOptions.inWorldRenderingConfig.showHand && this.playerStateReactive.gameMode !== 'spectator' /*  && !this.freeFlyMode */ && !this.renderer.xr.isPresenting) {
+    if (
+      this.displayOptions.inWorldRenderingConfig.showHand &&
+      this.playerStateReactive.gameMode !== 'spectator' &&
+      this.playerStateReactive.perspective === 'first_person' &&
+      // !this.freeFlyMode &&
+      !this.renderer.xr.isPresenting
+    ) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
     }
@@ -653,6 +822,16 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     for (const mesh of Object.values(this.sectionObjects)) {
       this.scene.remove(mesh)
+    }
+
+    // Clean up debug objects
+    if (this.debugRaycastHelper) {
+      this.scene.remove(this.debugRaycastHelper)
+      this.debugRaycastHelper = undefined
+    }
+    if (this.debugHitPoint) {
+      this.scene.remove(this.debugHitPoint)
+      this.debugHitPoint = undefined
     }
   }
 

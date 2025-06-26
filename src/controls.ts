@@ -29,6 +29,7 @@ import { appStorage } from './react/appStorageProvider'
 import { switchGameMode } from './packetsReplay/replayPackets'
 import { tabListState } from './react/PlayerListOverlayProvider'
 import { type ActionType, type ActionHoldConfig, type CustomAction } from './appConfig'
+import { playerState } from './mineflayer/playerState'
 
 export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
@@ -70,6 +71,7 @@ export const contro = new ControMax({
       // client side
       zoom: ['KeyC'],
       viewerConsole: ['Backquote'],
+      togglePerspective: ['F5'],
     },
     ui: {
       toggleFullscreen: ['F11'],
@@ -439,6 +441,28 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
       case 'general.playersList':
         tabListState.isOpen = pressed
         break
+      case 'general.viewerConsole':
+        if (lastConnectOptions.value?.viewerWsConnect) {
+          showModal({ reactType: 'console' })
+        }
+        break
+      case 'general.togglePerspective':
+        if (pressed) {
+          const currentPerspective = playerState.reactive.perspective
+          // eslint-disable-next-line sonarjs/no-nested-switch
+          switch (currentPerspective) {
+            case 'first_person':
+              playerState.reactive.perspective = 'third_person_back'
+              break
+            case 'third_person_back':
+              playerState.reactive.perspective = 'third_person_front'
+              break
+            case 'third_person_front':
+              playerState.reactive.perspective = 'first_person'
+              break
+          }
+        }
+        break
     }
   } else if (stringStartsWith(command, 'ui')) {
     switch (command) {
@@ -554,6 +578,7 @@ contro.on('trigger', ({ command }) => {
       case 'general.debugOverlay':
       case 'general.debugOverlayHelpMenu':
       case 'general.playersList':
+      case 'general.togglePerspective':
         // no-op
         break
       case 'general.swapHands': {

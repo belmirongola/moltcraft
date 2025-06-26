@@ -18,6 +18,7 @@ export type WorldDataEmitterEvents = {
   blockUpdate: (data: { pos: Vec3, stateId: number }) => void
   entity: (data: any) => void
   entityMoved: (data: any) => void
+  playerEntity: (data: any) => void
   time: (data: number) => void
   renderDistance: (viewDistance: number) => void
   blockEntities: (data: Record<string, any> | { blockEntities: Record<string, any> }) => void
@@ -90,7 +91,13 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     })
 
     const emitEntity = (e, name = 'entity') => {
-      if (!e || e === bot.entity) return
+      if (!e) return
+      if (e === bot.entity) {
+        if (name === 'entity') {
+          this.emitter.emit('playerEntity', e)
+        }
+        return
+      }
       if (!e.name) return // mineflayer received update for not spawned entity
       e.objectData = entitiesObjectData.get(e.id)
       this.emitter.emit(name as any, {
@@ -148,9 +155,11 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
       // when dimension might change
       login: () => {
         void this.updatePosition(bot.entity.position, true)
+        this.emitter.emit('playerEntity', bot.entity)
       },
       respawn: () => {
         void this.updatePosition(bot.entity.position, true)
+        this.emitter.emit('playerEntity', bot.entity)
         this.emitter.emit('onWorldSwitch')
       },
     } satisfies Partial<BotEvents>
@@ -199,6 +208,9 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     this.emitter.emit('chunkPosUpdate', { pos })
     if (bot?.time?.timeOfDay) {
       this.emitter.emit('time', bot.time.timeOfDay)
+    }
+    if (bot.entity) {
+      this.emitter.emit('playerEntity', bot.entity)
     }
     this.emitterGotConnected()
     const [botX, botZ] = chunkPos(pos)

@@ -127,6 +127,7 @@ export default () => {
   }, [])
 
   const displayAuthButton = status.includes('This server appears to be an online server and you are providing no authentication.')
+    || JSON.stringify(minecraftJsonMessage ?? {}).toLowerCase().includes('authenticate')
   const hasVpnText = (text: string) => text.includes('VPN') || text.includes('Proxy')
   const displayVpnButton = hasVpnText(status) || (minecraftJsonMessage && hasVpnText(JSON.stringify(minecraftJsonMessage)))
   const authReconnectAction = async () => {

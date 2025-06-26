@@ -721,6 +721,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   updateEntity (e: any, isUpdate = false) { }
 
+  abstract updatePlayerEntity? (e: any): void
+
   lightUpdate (chunkX: number, chunkZ: number) { }
 
   connect (worldView: WorldDataEmitterWorker) {
@@ -731,6 +733,9 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
     worldEmitter.on('entityMoved', (e) => {
       this.updateEntity(e, true)
+    })
+    worldEmitter.on('playerEntity', (e) => {
+      this.updatePlayerEntity?.(e)
     })
 
     let currentLoadChunkBatch = null as {

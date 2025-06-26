@@ -5,7 +5,7 @@ import { loader as autoJumpPlugin } from '@nxg-org/mineflayer-auto-jump'
 import { subscribeKey } from 'valtio/utils'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options, watchValue } from './optionsStorage'
-import { miscUiState } from './globalState'
+import { gameAdditionalState, miscUiState } from './globalState'
 import { EntityStatus } from './mineflayer/entityStatus'
 
 
@@ -52,6 +52,13 @@ customEvents.on('gameLoaded', () => {
     }
   }
 
+  const trackBotEntity = () => {
+    // Always track the bot entity for animations
+    if (bot.entity) {
+      bot.tracker.trackEntity(bot.entity)
+    }
+  }
+
   let lastCall = 0
   bot.on('physicsTick', () => {
     // throttle, tps: 6
@@ -64,7 +71,7 @@ customEvents.on('gameLoaded', () => {
       const speed = info.avgVel
       const WALKING_SPEED = 0.03
       const SPRINTING_SPEED = 0.18
-      const isCrouched = e['crouching']
+      const isCrouched = e === bot.entity ? gameAdditionalState.isSneaking : e['crouching']
       const isWalking = Math.abs(speed.x) > WALKING_SPEED || Math.abs(speed.z) > WALKING_SPEED
       const isSprinting = Math.abs(speed.x) > SPRINTING_SPEED || Math.abs(speed.z) > SPRINTING_SPEED
 
@@ -73,7 +80,12 @@ customEvents.on('gameLoaded', () => {
           : isWalking ? (isSprinting ? 'running' : 'walking')
             : 'idle'
       if (newAnimation !== playerPerAnimation[id]) {
-        getThreeJsRendererMethods()?.playEntityAnimation(e.id, newAnimation)
+        // Handle bot entity animation specially (for player entity in third person)
+        if (e === bot.entity) {
+          getThreeJsRendererMethods()?.playEntityAnimation('player_entity', newAnimation)
+        } else {
+          getThreeJsRendererMethods()?.playEntityAnimation(e.id, newAnimation)
+        }
         playerPerAnimation[id] = newAnimation
       }
     }
@@ -81,6 +93,25 @@ customEvents.on('gameLoaded', () => {
 
   bot.on('entitySwingArm', (e) => {
     getThreeJsRendererMethods()?.playEntityAnimation(e.id, 'oneSwing')
+  })
+
+  bot.on('botArmSwingStart', (hand) => {
+    if (hand === 'right') {
+      getThreeJsRendererMethods()?.playEntityAnimation('player_entity', 'oneSwing')
+    }
+  })
+
+  bot.inventory.on('updateSlot', (slot) => {
+    if (slot === 5 || slot === 6 || slot === 7 || slot === 8) {
+      const item = bot.inventory.slots[slot]!
+      bot.entity.equipment[slot - 3] = item
+      appViewer.worldView?.emit('playerEntity', bot.entity)
+    }
+  })
+  bot.on('heldItemChanged', () => {
+    const item = bot.inventory.slots[bot.quickBarSlot + 36]!
+    bot.entity.equipment[0] = item
+    appViewer.worldView?.emit('playerEntity', bot.entity)
   })
 
   bot._client.on('damage_event', (data) => {
@@ -126,6 +157,9 @@ customEvents.on('gameLoaded', () => {
     }
   }
 
+  // Track bot entity initially
+  trackBotEntity()
+
   bot.on('entitySpawn', (e) => {
     checkEntityData(e)
     if (appViewer.playerState.reactive.cameraSpectatingEntity === e.id) {
@@ -134,6 +168,13 @@ customEvents.on('gameLoaded', () => {
   })
   bot.on('entityUpdate', checkEntityData)
   bot.on('entityEquip', checkEntityData)
+
+  // Re-track bot entity after login
+  bot.on('login', () => {
+    setTimeout(() => {
+      trackBotEntity()
+    }) // Small delay to ensure bot.entity is properly set
+  })
 
   bot._client.on('camera', (packet) => {
     if (bot.player.entity.id === packet.cameraId) {
