@@ -1,6 +1,3 @@
-diff --git a/README.md b/README.md
-deleted file mode 100644
-index fbcaa43667323a58b8110a4495938c2c6d2d6f83..0000000000000000000000000000000000000000
 diff --git a/src/client/chat.js b/src/client/chat.js
 index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aae0d1d337 100644
 --- a/src/client/chat.js

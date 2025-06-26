@@ -31,7 +31,9 @@ export const pingServerVersion = async (ip: string, port?: number, mergeOptions:
       })
       if (mergeOptions.stream) {
         mergeOptions.stream.on('end', (err) => {
-          reject(new Error('Connection closed'))
+          setTimeout(() => {
+            reject(new Error('Connection closed. Please report if you see this but the server is actually fine.'))
+          })
         })
       }
     })
