@@ -14,7 +14,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import GUI from 'lil-gui'
 import _ from 'lodash'
 import { toMajorVersion } from '../../src/utils'
-import { WorldDataEmitter } from '../viewer'
+import { WorldView } from '../viewer/lib/WorldView'
 import { Viewer } from '../viewer/lib/viewer'
 import { BlockNames } from '../../src/mcDataTypes'
 import { initWithRenderer, statsEnd, statsStart } from '../../src/topRightStats'
@@ -178,7 +178,7 @@ export class BasePlaygroundScene {
 
     this.initGui()
 
-    const worldView = new WorldDataEmitter(world, this.viewDistance, this.targetPos)
+    const worldView = new WorldView(world, this.viewDistance, this.targetPos)
     worldView.addWaitTime = 0
     window.worldView = worldView
 

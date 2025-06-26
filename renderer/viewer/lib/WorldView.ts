@@ -34,11 +34,11 @@ export class WorldDataEmitterWorker extends (EventEmitter as new () => TypedEmit
   static readonly restorerName = 'WorldDataEmitterWorker'
 }
 
-export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
+export class WorldView extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
   loadedChunks: Record<ChunkPosKey, boolean>
   readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
-  private readonly emitter: WorldDataEmitter
+  private readonly emitter: WorldView
   debugChunksInfo: Record<ChunkPosKey, {
     loads: Array<{
       dataLength: number

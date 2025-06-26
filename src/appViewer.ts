@@ -1,4 +1,4 @@
-import { WorldDataEmitter, WorldDataEmitterWorker } from 'renderer/viewer/lib/worldDataEmitter'
+import { WorldView, WorldDataEmitterWorker } from 'renderer/viewer/lib/WorldView'
 import { getInitialPlayerState, PlayerStateRenderer, PlayerStateReactive } from 'renderer/viewer/lib/basePlayerState'
 import { subscribeKey } from 'valtio/utils'
 import { defaultWorldRendererConfig, WorldRendererConfig } from 'renderer/viewer/lib/worldrendererCommon'
@@ -97,7 +97,7 @@ export class AppViewer {
   waitBackendLoadPromises = [] as Array<Promise<void>>
 
   resourcesManager = new ResourcesManager()
-  worldView: WorldDataEmitter | undefined
+      worldView: WorldView | undefined
   readonly config: GraphicsBackendConfig = {
     ...defaultGraphicsBackendConfig,
     powerPreference: options.gpuPreference === 'default' ? undefined : options.gpuPreference
@@ -184,7 +184,7 @@ export class AppViewer {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
     const startPosition = bot.entity?.position ?? new Vec3(0, 64, 0)
-    this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
+          this.worldView = new WorldView(world, renderDistance, startPosition)
     window.worldView = this.worldView
     watchOptionsAfterWorldViewInit(this.worldView)
 

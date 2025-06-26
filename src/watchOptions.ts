@@ -2,7 +2,7 @@
 
 import { subscribeKey } from 'valtio/utils'
 import { isMobile } from 'renderer/viewer/lib/simpleUtils'
-import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
+import { WorldView } from 'renderer/viewer/lib/WorldView'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
@@ -117,7 +117,7 @@ export const watchOptionsAfterViewerInit = () => {
   })
 }
 
-export const watchOptionsAfterWorldViewInit = (worldView: WorldDataEmitter) => {
+export const watchOptionsAfterWorldViewInit = (worldView: WorldView) => {
   watchValue(options, o => {
     if (!worldView) return
     worldView.keepChunksDistance = o.keepChunksDistance

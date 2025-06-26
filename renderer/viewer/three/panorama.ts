@@ -4,7 +4,7 @@ import { getSyncWorld } from 'renderer/playground/shared'
 import { Vec3 } from 'vec3'
 import * as tweenJs from '@tweenjs/tween.js'
 import type { GraphicsInitOptions } from '../../../src/appViewer'
-import { WorldDataEmitter } from '../lib/worldDataEmitter'
+import { WorldView } from '../lib/WorldView'
 import { defaultWorldRendererConfig, WorldRendererCommon } from '../lib/worldrendererCommon'
 import { getDefaultRendererState } from '../baseGraphicsBackend'
 import { loadThreeJsTextureFromUrl, loadThreeJsTextureFromUrlSync } from '../lib/utils/skins'
@@ -186,7 +186,7 @@ export class PanoramaRenderer {
     this.camera.position.set(0.5, sizeY / 2 + 0.5, 0.5)
     this.camera.rotation.set(0, 0, 0)
     const initPos = new Vec3(...this.camera.position.toArray())
-    const worldView = new WorldDataEmitter(world, 2, initPos)
+    const worldView = new WorldView(world, 2, initPos)
     // worldView.addWaitTime = 0
     if (this.abortController.signal.aborted) return
 
