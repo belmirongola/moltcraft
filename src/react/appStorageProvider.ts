@@ -134,7 +134,14 @@ const detectStorageConflicts = (): StorageConflict[] => {
         delete localData.timestamp
         delete cookieData.timestamp
 
-        if (JSON.stringify(localData) !== JSON.stringify(cookieData)) {
+        const isDataEmpty = (data: any) => {
+          if (typeof data === 'object' && data !== null) {
+            return Object.keys(data).length === 0
+          }
+          return !data && data !== 0 && data !== false
+        }
+
+        if (JSON.stringify(localData) !== JSON.stringify(cookieData) && !isDataEmpty(localData) && !isDataEmpty(cookieData)) {
           conflicts.push({
             key,
             localStorageValue: localData,
