@@ -8,7 +8,7 @@ import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer
 import { chunkPos, sectionPos } from '../lib/simpleUtils'
 import { WorldRendererCommon } from '../lib/worldrendererCommon'
 import { addNewStat } from '../lib/ui/newStats'
-import { MesherGeometryOutput } from '../lib/mesher/shared'
+import { MesherGeometryOutput, InstancingMode } from '../lib/mesher/shared'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { getMyHand } from '../lib/hand'
 import { setBlockPosition } from '../lib/mesher/standaloneRenderer'
@@ -911,10 +911,16 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
-  setSectionDirty (...args: Parameters<WorldRendererCommon['setSectionDirty']>) {
-    const [pos] = args
+  setSectionDirty (pos: Vec3, value = true) {
+    const { useInstancedRendering, enableSingleColorMode } = this.worldRendererConfig
+    let instancingMode = InstancingMode.None
+
+    if (useInstancedRendering) {
+      instancingMode = enableSingleColorMode ? InstancingMode.ColorOnly : InstancingMode.TexturedInstancing
+    }
+
     this.cleanChunkTextures(pos.x, pos.z) // todo don't do this!
-    super.setSectionDirty(...args)
+    super.setSectionDirty(pos, value, undefined, instancingMode)
   }
 
   static getRendererInfo (renderer: THREE.WebGLRenderer) {

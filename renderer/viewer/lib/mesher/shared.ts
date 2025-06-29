@@ -1,5 +1,11 @@
 import { BlockType } from '../../../playground/shared'
 
+export enum InstancingMode {
+  None = 'none',
+  ColorOnly = 'color_only',
+  TexturedInstancing = 'textured_instancing'
+}
+
 // only here for easier testing
 export const defaultMesherConfig = {
   version: '',
@@ -13,10 +19,6 @@ export const defaultMesherConfig = {
   debugModelVariant: undefined as undefined | number[],
   clipWorldBelowY: undefined as undefined | number,
   disableSignsMapsSupport: false,
-  // Instanced rendering options
-  useInstancedRendering: false,
-  forceInstancedOnly: false,
-  enableSingleColorMode: false,
 }
 
 export type CustomBlockModels = {
@@ -26,6 +28,7 @@ export type CustomBlockModels = {
 export type MesherConfig = typeof defaultMesherConfig
 
 export type InstancedBlockEntry = {
+  blockId: number // Unique ID for this block type
   blockName: string
   stateId: number
   textureInfo?: {
@@ -35,6 +38,12 @@ export type InstancedBlockEntry = {
     sv: number
   }
   positions: Array<{ x: number, y: number, z: number }>
+}
+
+export type InstancingMesherData = {
+  blocks: {
+    [stateId: number]: number // instance id
+  }
 }
 
 export type MesherGeometryOutput = {

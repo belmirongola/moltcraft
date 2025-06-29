@@ -12,7 +12,7 @@ import type { ResourcesManagerTransferred } from '../../../src/resourcesManager'
 import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
 import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { HighestBlockInfo, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig, MesherMainEvent } from './mesher/shared'
+import { HighestBlockInfo, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig, MesherMainEvent, InstancingMode } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { addNewStat, removeAllStats, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitterWorker } from './worldDataEmitter'
@@ -576,10 +576,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers,
       worldMinY: this.worldMinYRender,
       worldMaxY: this.worldMinYRender + this.worldSizeParams.worldHeight,
-      // Instanced rendering options
-      useInstancedRendering: this.worldRendererConfig.useInstancedRendering,
-      forceInstancedOnly: this.worldRendererConfig.forceInstancedOnly,
-      enableSingleColorMode: this.worldRendererConfig.enableSingleColorMode,
     }
   }
 
@@ -927,7 +923,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return Promise.all(data)
   }
 
-  setSectionDirty (pos: Vec3, value = true, useChangeWorker = false) { // value false is used for unloading chunks
+  setSectionDirty (pos: Vec3, value = true, useChangeWorker = false, instancingMode = InstancingMode.None) { // value false is used for unloading chunks
     if (!this.forceCallFromMesherReplayer && this.mesherLogReader) return
 
     if (this.viewDistance === -1) throw new Error('viewDistance not set')
@@ -941,7 +937,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     // Dispatch sections to workers based on position
     // This guarantees uniformity accross workers and that a given section
     // is always dispatched to the same worker
-    const hash = this.getWorkerNumber(pos, useChangeWorker && this.mesherLogger.active)
+    const hash = this.getWorkerNumber(pos, this.mesherLogger.active)
     this.sectionsWaiting.set(key, (this.sectionsWaiting.get(key) ?? 0) + 1)
     if (this.forceCallFromMesherReplayer) {
       this.workers[hash].postMessage({
@@ -950,17 +946,18 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         y: pos.y,
         z: pos.z,
         value,
+        instancingMode,
         config: this.getMesherConfig(),
       })
     } else {
       this.toWorkerMessagesQueue[hash] ??= []
       this.toWorkerMessagesQueue[hash].push({
-        // this.workers[hash].postMessage({
         type: 'dirty',
         x: pos.x,
         y: pos.y,
         z: pos.z,
         value,
+        instancingMode,
         config: this.getMesherConfig(),
       })
       this.dispatchMessages()

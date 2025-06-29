@@ -5,7 +5,7 @@ import { Vec3 } from 'vec3'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import moreBlockDataGeneratedJson from '../moreBlockDataGenerated.json'
 import legacyJson from '../../../../src/preflatMap.json'
-import { defaultMesherConfig, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey } from './shared'
+import { defaultMesherConfig, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './shared'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 
 const ignoreAoBlocks = Object.keys(moreBlockDataGeneratedJson.noOcclusions)
@@ -42,12 +42,14 @@ export class World {
   customBlockModels = new Map<string, CustomBlockModels>() // chunkKey -> blockModels
   sentBlockStateModels = new Set<string>()
   blockStateModelInfo = new Map<string, BlockStateModelInfo>()
+  instancedBlocks: Record<string, any> = {}
+  instancedBlockIds = new Map<string, number>()
 
-  constructor (version) {
+  constructor (version: string) {
     this.Chunk = Chunks(version) as any
     this.biomeCache = mcData(version).biomes
     this.preflat = !mcData(version).supportFeature('blockStateId')
-    this.config.version = version
+    this.config = { ...defaultMesherConfig, version }
   }
 
   getLight (pos: Vec3, isNeighbor = false, skipMoreChecks = false, curBlockName = '') {

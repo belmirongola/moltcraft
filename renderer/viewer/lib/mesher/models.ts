@@ -5,7 +5,7 @@ import { BlockType } from '../../../playground/shared'
 import { World, BlockModelPartsResolved, WorldBlock as Block, WorldBlock } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
-import { MesherGeometryOutput, HighestBlockInfo, InstancedBlockEntry } from './shared'
+import { MesherGeometryOutput, HighestBlockInfo, InstancedBlockEntry, InstancingMode } from './shared'
 
 // Hardcoded list of full blocks that can use instancing
 export const INSTANCEABLE_BLOCKS = new Set([
@@ -145,6 +145,9 @@ let blockProvider: WorldBlockProvider
 
 const tints: any = {}
 let needTiles = false
+
+// Cache for texture info to avoid repeated calculations
+const textureInfoCache = new Map<number, any>()
 
 let tintsData
 try {
@@ -652,31 +655,29 @@ const isBlockWaterlogged = (block: Block) => {
 }
 
 const shouldCullInstancedBlock = (world: World, cursor: Vec3, block: Block): boolean => {
+  // Early return for blocks that should never be culled
+  if (block.transparent) return false
+
   // Check if all 6 faces would be culled (hidden by neighbors)
   const cullIfIdentical = block.name.includes('glass') || block.name.includes('ice')
+
+  // Cache cursor offset to avoid creating new Vec3 instances
+  const offsetCursor = new Vec3(0, 0, 0)
 
   // eslint-disable-next-line guard-for-in
   for (const face in elemFaces) {
     const { dir } = elemFaces[face]
-    const neighbor = world.getBlock(cursor.plus(new Vec3(dir[0], dir[1], dir[2])), blockProvider, {})
+    offsetCursor.set(cursor.x + dir[0], cursor.y + dir[1], cursor.z + dir[2])
+    const neighbor = world.getBlock(offsetCursor, blockProvider, {})
 
-    if (!neighbor) {
-      // Face is exposed to air/void
-      return false
-    }
+    // Face is exposed to air/void - block must be rendered
+    if (!neighbor) return false
 
-    if (cullIfIdentical && neighbor.stateId === block.stateId) {
-      // Same block type, face should be culled
-      continue
-    }
+    // Handle special case for identical blocks (glass/ice)
+    if (cullIfIdentical && neighbor.stateId === block.stateId) continue
 
-    if (!neighbor.transparent && isCube(neighbor)) {
-      // Neighbor is opaque and full cube, face should be culled
-      continue
-    }
-
-    // Face is not culled, block should be rendered
-    return false
+    // If neighbor is not a full opaque cube, face is visible
+    if (neighbor.transparent || !isCube(neighbor)) return false
   }
 
   // All faces are culled, block should not be rendered
@@ -684,6 +685,12 @@ const shouldCullInstancedBlock = (world: World, cursor: Vec3, block: Block): boo
 }
 
 const getInstancedBlockTextureInfo = (block: Block) => {
+  // Cache texture info by block state ID
+  const cacheKey = block.stateId
+  if (textureInfoCache.has(cacheKey)) {
+    return textureInfoCache.get(cacheKey)
+  }
+
   // Get texture info from the first available face
   const model = block.models?.[0]?.[0]
   if (!model?.elements?.[0]) return undefined
@@ -692,20 +699,25 @@ const getInstancedBlockTextureInfo = (block: Block) => {
 
   // Try to find a face with texture - prefer visible faces
   const faceOrder = ['up', 'north', 'east', 'south', 'west', 'down']
+  let textureInfo: any
+
   for (const faceName of faceOrder) {
     const face = element.faces[faceName]
     if (face?.texture) {
       const texture = face.texture as any
-      return {
+      textureInfo = {
         u: texture.u || 0,
         v: texture.v || 0,
         su: texture.su || 1,
         sv: texture.sv || 1
       }
+      break
     }
   }
 
-  return undefined
+  // Cache the result
+  textureInfoCache.set(cacheKey, textureInfo)
+  return textureInfo
 }
 
 const isBlockInstanceable = (block: Block): boolean => {
@@ -726,11 +738,12 @@ const isBlockInstanceable = (block: Block): boolean => {
 }
 
 let unknownBlockModel: BlockModelPartsResolved
-export function getSectionGeometry (sx: number, sy: number, sz: number, world: World) {
+export function getSectionGeometry (sx: number, sy: number, sz: number, world: World, instancingMode = InstancingMode.None): MesherGeometryOutput {
   let delayedRender = [] as Array<() => void>
 
-  // Check if instanced rendering is enabled
-  const enableInstancedRendering = world.config.useInstancedRendering
+  // Check if instanced rendering is enabled for this section
+  const enableInstancedRendering = instancingMode !== InstancingMode.None
+  const forceInstancedOnly = instancingMode === InstancingMode.TexturedInstancing // Only force when using full instancing
 
   const attr: MesherGeometryOutput = {
     sx: sx + 8,
@@ -843,7 +856,15 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
             const blockKey = block.name
             if (!attr.instancedBlocks[blockKey]) {
               const textureInfo = getInstancedBlockTextureInfo(block)
+              // Get or create block ID
+              let blockId = world.instancedBlockIds.get(block.name)
+              if (blockId === undefined) {
+                blockId = world.instancedBlockIds.size
+                world.instancedBlockIds.set(block.name, blockId)
+              }
+
               attr.instancedBlocks[blockKey] = {
+                blockId,
                 blockName: block.name,
                 stateId: block.stateId,
                 textureInfo,
@@ -860,7 +881,7 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
           }
 
           // Skip buffer geometry generation if force instanced only mode is enabled
-          if (world.config.forceInstancedOnly) {
+          if (forceInstancedOnly) {
             // In force instanced only mode, skip all non-instanceable blocks
             continue
           }

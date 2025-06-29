@@ -1,7 +1,7 @@
 import { Vec3 } from 'vec3'
 import { World } from './world'
 import { getSectionGeometry, setBlockStatesData as setMesherData } from './models'
-import { BlockStateModelInfo } from './shared'
+import { BlockStateModelInfo, InstancingMode } from './shared'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 
 globalThis.structuredClone ??= (value) => JSON.parse(JSON.stringify(value))
@@ -17,7 +17,7 @@ if (module.require) {
 
 let workerIndex = 0
 let world: World
-let dirtySections = new Map<string, number>()
+let dirtySections = new Map<string, { key: string, instancingMode: InstancingMode, times: number }>()
 let allDataReady = false
 
 function sectionKey (x, y, z) {
@@ -47,7 +47,7 @@ function drainQueue (from, to) {
   queuedMessages = queuedMessages.slice(to)
 }
 
-function setSectionDirty (pos, value = true) {
+function setSectionDirty (pos, value = true, instancingMode = InstancingMode.None) {
   const x = Math.floor(pos.x / 16) * 16
   const y = Math.floor(pos.y / 16) * 16
   const z = Math.floor(pos.z / 16) * 16
@@ -60,7 +60,7 @@ function setSectionDirty (pos, value = true) {
 
   const chunk = world.getColumn(x, z)
   if (chunk?.getSection(pos)) {
-    dirtySections.set(key, (dirtySections.get(key) || 0) + 1)
+    dirtySections.set(key, { key, instancingMode, times: (dirtySections.get(key)?.times || 0) + 1 })
   } else {
     postMessage({ type: 'sectionFinished', key, workerIndex })
   }
@@ -98,12 +98,14 @@ const handleMessage = data => {
       setMesherData(data.blockstatesModels, data.blocksAtlas, data.config.outputFormat === 'webgpu')
       allDataReady = true
       workerIndex = data.workerIndex
+      world.instancedBlocks = data.instancedBlocks
+      world.instancedBlockIds = data.instancedBlockIds || new Map()
 
       break
     }
     case 'dirty': {
       const loc = new Vec3(data.x, data.y, data.z)
-      setSectionDirty(loc, data.value)
+      setSectionDirty(loc, data.value, data.instancingMode || InstancingMode.None)
 
       break
     }
@@ -197,13 +199,13 @@ setInterval(() => {
   // console.log(sections.length + ' dirty sections')
 
   // const start = performance.now()
-  for (const key of dirtySections.keys()) {
+  for (const [key, { instancingMode }] of dirtySections.entries()) {
     const [x, y, z] = key.split(',').map(v => parseInt(v, 10))
     const chunk = world.getColumn(x, z)
     let processTime = 0
     if (chunk?.getSection(new Vec3(x, y, z))) {
       const start = performance.now()
-      const geometry = getSectionGeometry(x, y, z, world)
+      const geometry = getSectionGeometry(x, y, z, world, instancingMode)
       const transferable = [geometry.positions?.buffer, geometry.normals?.buffer, geometry.colors?.buffer, geometry.uvs?.buffer].filter(Boolean)
       //@ts-expect-error
       postMessage({ type: 'geometry', key, geometry, workerIndex }, transferable)
@@ -213,7 +215,7 @@ setInterval(() => {
     }
     const dirtyTimes = dirtySections.get(key)
     if (!dirtyTimes) throw new Error('dirtySections.get(key) is falsy')
-    for (let i = 0; i < dirtyTimes; i++) {
+    for (let i = 0; i < dirtyTimes.times; i++) {
       postMessage({ type: 'sectionFinished', key, workerIndex, processTime })
       processTime = 0
     }

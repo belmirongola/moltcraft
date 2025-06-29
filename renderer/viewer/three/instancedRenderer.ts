@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
+import moreBlockData from '../lib/moreBlockDataGenerated.json'
 import { WorldRendererThree } from './worldrendererThree'
 
 // Hardcoded list of full blocks that can use instancing
@@ -136,7 +137,20 @@ export const INSTANCEABLE_BLOCKS = new Set([
   'glazed_terracotta',
 ])
 
+// Helper function to parse RGB color strings from moreBlockDataGenerated.json
+function parseRgbColor (rgbString: string): number {
+  const match = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(rgbString)
+  if (!match) return 0x99_99_99 // Default gray
+
+  const r = parseInt(match[1], 10)
+  const g = parseInt(match[2], 10)
+  const b = parseInt(match[3], 10)
+
+  return (r << 16) | (g << 8) | b
+}
+
 export interface InstancedBlockData {
+  blockId: number
   positions: Vec3[]
   blockName: string
   stateId: number
@@ -149,12 +163,15 @@ export interface InstancedSectionData {
 }
 
 export class InstancedRenderer {
-  private readonly instancedMeshes = new Map<string, THREE.InstancedMesh>()
-  private readonly blockCounts = new Map<string, number>()
-  private readonly sectionInstances = new Map<string, Map<string, number[]>>() // sectionKey -> blockName -> instanceIndices
-  private readonly maxInstancesPerBlock = 100_000 // Reasonable limit
+  private readonly instancedMeshes = new Map<number, THREE.InstancedMesh>()
+  private readonly blockCounts = new Map<number, number>()
+  private readonly sectionInstances = new Map<string, Map<number, number[]>>()
+  private readonly maxInstancesPerBlock = 100_000
   private readonly cubeGeometry: THREE.BoxGeometry
   private readonly tempMatrix = new THREE.Matrix4()
+  private readonly blockIdToName = new Map<number, string>()
+  private readonly blockNameToId = new Map<string, number>()
+  private nextBlockId = 0
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
     this.cubeGeometry = this.createCubeGeometry()
@@ -206,7 +223,7 @@ export class InstancedRenderer {
       mesh.frustumCulled = false // Important for performance
       mesh.count = 0 // Start with 0 instances
 
-      this.instancedMeshes.set(blockName, mesh)
+      this.instancedMeshes.set(this.getBlockId(blockName), mesh)
       this.worldRenderer.scene.add(mesh)
     }
   }
@@ -220,6 +237,7 @@ export class InstancedRenderer {
       return new THREE.MeshBasicMaterial({ color })
     } else {
       // Use texture from the blocks atlas
+      // eslint-disable-next-line no-lonely-if
       if (this.worldRenderer.material.map) {
         const material = this.worldRenderer.material.clone()
         // The texture is already the correct blocks atlas texture
@@ -234,36 +252,14 @@ export class InstancedRenderer {
   }
 
   private getBlockColor (blockName: string): number {
-    // Simple color mapping for blocks
-    const colorMap: Record<string, number> = {
-      'grass_block': 0x7c_bd_3b,
-      'dirt': 0x8b_45_13,
-      'stone': 0x7d_7d_7d,
-      'cobblestone': 0x7a_7a_7a,
-      'mossy_cobblestone': 0x65_97_65,
-      'clay': 0xa0_a5_a6,
-      'moss_block': 0x58_7d_3c,
-      'spawner': 0x1a_1a_1a,
-      'sand': 0xf7_e9_a3,
-      'gravel': 0x8a_8a_8a,
-      'iron_block': 0xd8_d8_d8,
-      'gold_block': 0xfa_ee_4d,
-      'diamond_block': 0x5c_db_d5,
-      'emerald_block': 0x17_dd_62,
-      'coal_block': 0x34_34_34,
-      'redstone_block': 0xa1_27_22,
-      'lapis_block': 0x22_4d_bb,
-      'netherrack': 0x72_3a_32,
-      'obsidian': 0x0f_0f_23,
-      'bedrock': 0x56_56_56,
-      'end_stone': 0xda_dc_a6,
-      'quartz_block': 0xec_e4_d6,
-      'snow_block': 0xff_ff_ff,
-      'ice': 0x9c_f4_ff,
-      'packed_ice': 0x74_c7_ec,
-      'blue_ice': 0x3e_5f_bc,
+    // Get color from moreBlockDataGenerated.json
+    const rgbString = moreBlockData.colors[blockName]
+    if (rgbString) {
+      return parseRgbColor(rgbString)
     }
-    return colorMap[blockName] || 0x99_99_99 // Default gray
+
+    // Fallback to default gray if color not found
+    return 0x99_99_99
   }
 
   handleInstancedGeometry (data: InstancedSectionData) {
@@ -276,10 +272,10 @@ export class InstancedRenderer {
     for (const [blockName, blockData] of instancedBlocks) {
       if (!INSTANCEABLE_BLOCKS.has(blockName)) continue
 
-      const mesh = this.instancedMeshes.get(blockName)
+      const mesh = this.instancedMeshes.get(this.getBlockId(blockName))
       if (!mesh) continue
 
-      const currentCount = this.blockCounts.get(blockName) || 0
+      const currentCount = this.blockCounts.get(this.getBlockId(blockName)) || 0
       let instanceIndex = currentCount
 
       for (const pos of blockData.positions) {
@@ -295,7 +291,7 @@ export class InstancedRenderer {
 
       mesh.count = instanceIndex
       mesh.instanceMatrix.needsUpdate = true
-      this.blockCounts.set(blockName, instanceIndex)
+      this.blockCounts.set(this.getBlockId(blockName), instanceIndex)
     }
   }
 
@@ -312,7 +308,10 @@ export class InstancedRenderer {
     for (const [blockName, blockData] of Object.entries(instancedBlocks)) {
       if (!this.isBlockInstanceable(blockName)) continue
 
-      let mesh = this.instancedMeshes.get(blockName)
+      const { blockId } = blockData
+      this.blockIdToName.set(blockId, blockName)
+
+      let mesh = this.instancedMeshes.get(blockId)
       if (!mesh) {
         // Create new mesh if it doesn't exist
         const material = this.createBlockMaterial(blockName, blockData.textureInfo)
@@ -324,12 +323,12 @@ export class InstancedRenderer {
         mesh.name = `instanced_${blockName}`
         mesh.frustumCulled = false
         mesh.count = 0
-        this.instancedMeshes.set(blockName, mesh)
+        this.instancedMeshes.set(blockId, mesh)
         this.worldRenderer.scene.add(mesh)
       }
 
       const instanceIndices: number[] = []
-      const currentCount = this.blockCounts.get(blockName) || 0
+      const currentCount = this.blockCounts.get(blockId) || 0
 
       // Add new instances for this section
       for (const pos of blockData.positions) {
@@ -346,9 +345,9 @@ export class InstancedRenderer {
 
       // Update tracking
       if (instanceIndices.length > 0) {
-        sectionMap.set(blockName, instanceIndices)
-        this.blockCounts.set(blockName, currentCount + instanceIndices.length)
-        mesh.count = this.blockCounts.get(blockName) || 0
+        sectionMap.set(blockId, instanceIndices)
+        this.blockCounts.set(blockId, currentCount + instanceIndices.length)
+        mesh.count = this.blockCounts.get(blockId) || 0
         mesh.instanceMatrix.needsUpdate = true
       }
     }
@@ -357,10 +356,10 @@ export class InstancedRenderer {
   private clearSectionInstances (sectionKey: string) {
     // For now, we'll rebuild all instances each time
     // This could be optimized to track instances per section
-    for (const [blockName, mesh] of this.instancedMeshes) {
+    for (const [blockId, mesh] of this.instancedMeshes) {
       mesh.count = 0
       mesh.instanceMatrix.needsUpdate = true
-      this.blockCounts.set(blockName, 0)
+      this.blockCounts.set(blockId, 0)
     }
   }
 
@@ -369,24 +368,24 @@ export class InstancedRenderer {
     if (!sectionMap) return // Section not tracked
 
     // Remove instances for each block type in this section
-    for (const [blockName, instanceIndices] of sectionMap) {
-      const mesh = this.instancedMeshes.get(blockName)
+    for (const [blockId, instanceIndices] of sectionMap) {
+      const mesh = this.instancedMeshes.get(blockId)
       if (!mesh) continue
 
       // For efficiency, we'll rebuild the entire instance array by compacting it
       // This removes gaps left by deleted instances
-      this.compactInstancesForBlock(blockName, instanceIndices)
+      this.compactInstancesForBlock(blockId, instanceIndices)
     }
 
     // Remove section from tracking
     this.sectionInstances.delete(sectionKey)
   }
 
-  private compactInstancesForBlock (blockName: string, indicesToRemove: number[]) {
-    const mesh = this.instancedMeshes.get(blockName)
+  private compactInstancesForBlock (blockId: number, indicesToRemove: number[]) {
+    const mesh = this.instancedMeshes.get(blockId)
     if (!mesh) return
 
-    const currentCount = this.blockCounts.get(blockName) || 0
+    const currentCount = this.blockCounts.get(blockId) || 0
     const removeSet = new Set(indicesToRemove)
 
     let writeIndex = 0
@@ -405,23 +404,23 @@ export class InstancedRenderer {
 
     // Update count and indices in section tracking
     const newCount = writeIndex
-    this.blockCounts.set(blockName, newCount)
+    this.blockCounts.set(blockId, newCount)
     mesh.count = newCount
     mesh.instanceMatrix.needsUpdate = true
 
     // Update all section tracking to reflect compacted indices
     const offset = 0
     for (const [sectionKey, sectionMap] of this.sectionInstances) {
-      const sectionIndices = sectionMap.get(blockName)
+      const sectionIndices = sectionMap.get(blockId)
       if (sectionIndices) {
         const compactedIndices = sectionIndices
           .filter(index => !removeSet.has(index))
           .map(index => index - removeSet.size + offset)
 
         if (compactedIndices.length > 0) {
-          sectionMap.set(blockName, compactedIndices)
+          sectionMap.set(blockId, compactedIndices)
         } else {
-          sectionMap.delete(blockName)
+          sectionMap.delete(blockId)
         }
       }
     }
@@ -448,19 +447,22 @@ export class InstancedRenderer {
 
   updateMaterials () {
     // Update materials when texture atlas changes
-    for (const [blockName, mesh] of this.instancedMeshes) {
-      const newMaterial = this.createBlockMaterial(blockName)
-      const oldMaterial = mesh.material
-      mesh.material = newMaterial
-      if (oldMaterial instanceof THREE.Material) {
-        oldMaterial.dispose()
+    for (const [blockId, mesh] of this.instancedMeshes) {
+      const blockName = this.blockIdToName.get(blockId)
+      if (blockName) {
+        const newMaterial = this.createBlockMaterial(blockName)
+        const oldMaterial = mesh.material
+        mesh.material = newMaterial
+        if (oldMaterial instanceof THREE.Material) {
+          oldMaterial.dispose()
+        }
       }
     }
   }
 
   destroy () {
     // Clean up resources
-    for (const [blockName, mesh] of this.instancedMeshes) {
+    for (const [blockId, mesh] of this.instancedMeshes) {
       this.worldRenderer.scene.remove(mesh)
       mesh.geometry.dispose()
       if (mesh.material instanceof THREE.Material) {
@@ -470,6 +472,9 @@ export class InstancedRenderer {
     this.instancedMeshes.clear()
     this.blockCounts.clear()
     this.sectionInstances.clear()
+    this.blockIdToName.clear()
+    this.blockNameToId.clear()
+    this.nextBlockId = 0
     this.cubeGeometry.dispose()
   }
 
@@ -477,7 +482,7 @@ export class InstancedRenderer {
     let totalInstances = 0
     let activeBlockTypes = 0
 
-    for (const [blockName, mesh] of this.instancedMeshes) {
+    for (const [blockId, mesh] of this.instancedMeshes) {
       if (mesh.count > 0) {
         totalInstances += mesh.count
         activeBlockTypes++
@@ -490,5 +495,17 @@ export class InstancedRenderer {
       drawCalls: activeBlockTypes, // One draw call per active block type
       memoryEstimate: totalInstances * 64 // Rough estimate in bytes
     }
+  }
+
+  private getBlockId (blockName: string): number {
+    // Get the block ID from our local map
+    let blockId = this.blockNameToId.get(blockName)
+    if (blockId === undefined) {
+      // If the block ID doesn't exist, create a new one
+      blockId = this.nextBlockId++
+      this.blockNameToId.set(blockName, blockId)
+      this.blockIdToName.set(blockId, blockName)
+    }
+    return blockId
   }
 }
