@@ -11,6 +11,7 @@ import { isMajorVersionGreater } from './utils'
 
 import { activeModalStacks, insertActiveModalStack, miscUiState } from './globalState'
 import supportedVersions from './supportedVersions.mjs'
+import { ConnectOptions } from './connect'
 import { appQueryParams } from './appParams'
 
 // todo include name of opened handle (zip)!
@@ -22,7 +23,8 @@ export const fsState = proxy({
   saveLoaded: false,
   openReadOperations: 0,
   openWriteOperations: 0,
-  remoteBackend: false
+  remoteBackend: false,
+  inMemorySavePath: ''
 })
 
 const PROPOSE_BACKUP = true
@@ -48,7 +50,7 @@ export const readLevelDat = async (path) => {
   return { levelDat, dataRaw: parsed.value.Data!.value as Record<string, any> }
 }
 
-export const loadSave = async (root = '/world') => {
+export const loadSave = async (root = '/world', connectOptions?: Partial<ConnectOptions>) => {
   // todo test
   if (miscUiState.gameLoaded) {
     await disconnect()
@@ -83,7 +85,6 @@ export const loadSave = async (root = '/world') => {
   }
 
   let version: string | undefined | null
-  let isFlat = false
   if (levelDat) {
     version = appQueryParams.mapVersion ?? levelDat.Version?.Name
     if (!version) {
@@ -100,21 +101,6 @@ export const loadSave = async (root = '/world') => {
     if (lowerBound || upperBound) {
       version = prompt(`Version ${version} is not supported, supported versions are ${supportedVersions.join(', ')}, what try to use instead?`, lowerBound ? firstSupportedVersion : lastSupportedVersion)
       if (!version) return
-    }
-    if (levelDat.WorldGenSettings) {
-      for (const [key, value] of Object.entries(levelDat.WorldGenSettings.dimensions)) {
-        if (key.slice(10) === 'overworld') {
-          if (value.generator.type === 'flat') isFlat = true
-          break
-        }
-      }
-    }
-
-    if (levelDat.generatorName) {
-      isFlat = levelDat.generatorName === 'flat'
-    }
-    if (!isFlat && levelDat.generatorName !== 'default' && levelDat.generatorName !== 'customized') {
-      // warnings.push(`Generator ${levelDat.generatorName} may not be supported yet, be careful of new chunks writes`)
     }
 
     const playerUuid = nameToMcOfflineUUID(options.localUsername)
@@ -181,18 +167,15 @@ export const loadSave = async (root = '/world') => {
 
   // todo should not be set here
   fsState.saveLoaded = true
+  fsState.inMemorySavePath = root
   window.dispatchEvent(new CustomEvent('singleplayer', {
     // todo check gamemode level.dat data etc
     detail: {
       version,
-      ...isFlat ? {
-        generation: {
-          name: 'superflat'
-        }
-      } : {},
       ...root === '/world' ? {} : {
         'worldFolder': root
-      }
+      },
+      connectOptions
     },
   }))
 }

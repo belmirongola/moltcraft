@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { formatMessage } from '../chatUtils'
+import { formatMessage, isStringAllowed } from '../chatUtils'
 import { getBuiltinCommandsList, tryHandleBuiltinCommand } from '../builtinCommands'
 import { gameAdditionalState, hideCurrentModal, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import { viewerVersionState } from '../viewerConnector'
-import Chat, { Message, fadeMessage } from './Chat'
+import Chat, { Message } from './Chat'
 import { useIsModalActive } from './utilsApp'
-import { hideNotification, showNotification } from './NotificationProvider'
-import { updateLoadedServerData } from './serversStorage'
+import { hideNotification, notificationProxy, showNotification } from './NotificationProvider'
+import { getServerIndex, updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
+import { showOptionsModal } from './SelectOption'
 
 export default () => {
   const [messages, setMessages] = useState([] as Message[])
   const isChatActive = useIsModalActive('chat')
-  const { messagesLimit, chatOpacity, chatOpacityOpened } = options
   const lastMessageId = useRef(0)
+  const lastPingTime = useRef(0)
   const usingTouch = useSnapshot(miscUiState).currentTouch
-  const { chatSelect } = useSnapshot(options)
+  const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions, debugChatScroll, chatPingExtension } = useSnapshot(options)
   const isUsingMicrosoftAuth = useMemo(() => !!lastConnectOptions.value?.authenticatedAccount, [])
   const { forwardChat } = useSnapshot(viewerVersionState)
   const { viewerConnection } = useSnapshot(gameAdditionalState)
@@ -29,45 +30,83 @@ export default () => {
         jsonMsg = jsonMsg['unsigned']
       }
       const parts = formatMessage(jsonMsg)
+      const messageText = parts.map(part => part.text).join('')
+
+      // Handle ping response
+      if (messageText === 'Pong!' && lastPingTime.current > 0) {
+        const latency = Date.now() - lastPingTime.current
+        parts.push({ text: ` Latency: ${latency}ms`, color: '#00ff00' })
+        lastPingTime.current = 0
+      }
 
       setMessages(m => {
         lastMessageId.current++
         const newMessage: Message = {
           parts,
           id: lastMessageId.current,
-          faded: false,
+          timestamp: Date.now()
         }
-        fadeMessage(newMessage, true, () => {
-          // eslint-disable-next-line max-nested-callbacks
-          setMessages(m => [...m])
-        })
+
         return [...m, newMessage].slice(-messagesLimit)
       })
     })
   }, [])
 
   return <Chat
+    chatVanillaRestrictions={chatVanillaRestrictions}
+    debugChatScroll={debugChatScroll}
     allowSelection={chatSelect}
     usingTouch={!!usingTouch}
     opacity={(isChatActive ? chatOpacityOpened : chatOpacity) / 100}
     messages={messages}
     opened={isChatActive}
     placeholder={forwardChat || !viewerConnection ? undefined : 'Chat forwarding is not enabled in the plugin settings'}
-    sendMessage={(message) => {
+    currentPlayerName={chatPingExtension ? bot.username : undefined}
+    getPingComplete={async (value) => {
+      const players = Object.keys(bot.players)
+      return players.filter(name => (!value || name.toLowerCase().includes(value.toLowerCase())) && name !== bot.username).map(name => `@${name}`)
+    }}
+    sendMessage={async (message) => {
+      // Record ping command time
+      if (message === '/ping') {
+        lastPingTime.current = Date.now()
+      }
+
       const builtinHandled = tryHandleBuiltinCommand(message)
-      if (miscUiState.loadedServerIndex && (message.startsWith('/login') || message.startsWith('/register'))) {
+      if (getServerIndex() !== undefined && (message.startsWith('/login') || message.startsWith('/register'))) {
         showNotification('Click here to save your password in browser for auto-login', undefined, false, undefined, () => {
           updateLoadedServerData((server) => {
             server.autoLogin ??= {}
             const password = message.split(' ')[1]
-            server.autoLogin[bot.player.username] = password
-            return server
+            server.autoLogin[bot.username] = password
+            return { ...server }
           })
           hideNotification()
         })
+        notificationProxy.id = 'auto-login'
+        const listener = () => {
+          hideNotification()
+        }
+        bot.on('kicked', listener)
+        setTimeout(() => {
+          bot.removeListener('kicked', listener)
+        }, 2000)
       }
       if (!builtinHandled) {
-        bot.chat(message)
+        if (chatVanillaRestrictions && !miscUiState.flyingSquid) {
+          const validation = isStringAllowed(message)
+          if (!validation.valid) {
+            const choice = await showOptionsModal(`Can't send invalid characters to vanilla server (${validation.invalid?.join(', ')}). You can use them only in command blocks.`, [
+              'Remove Them & Send'
+            ])
+            if (!choice) return
+            message = validation.clean!
+          }
+        }
+
+        if (message) {
+          bot.chat(message)
+        }
       }
     }}
     onClose={() => {

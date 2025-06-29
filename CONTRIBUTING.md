@@ -9,8 +9,10 @@ After forking the repository, run the following commands to get started:
 4. Let us know if you are working on something and be sure to open a PR if you got any changes. Happy coding!
 
 *(1): If you are getting `Cannot find matching keyid` update corepack to the latest version with `npm i -g corepack`.
+
 *(2): If still something doesn't work ensure you have the right nodejs version with `node -v` (tested on 22.x)
-*(3): For GitHub codespaces (cloud ide): Run `pnpm i @rsbuild/core@1.2.4 @rsbuild/plugin-node-polyfill@1.3.0 @rsbuild/plugin-react@1.1.0 @rsbuild/plugin-typed-css-modules@1.0.2` command to avoid crashes because of limited ram
+
+<!-- *(3): For GitHub codespaces (cloud ide): Run `pnpm i @rsbuild/core@1.2.4 @rsbuild/plugin-node-polyfill@1.3.0 @rsbuild/plugin-react@1.1.0 @rsbuild/plugin-typed-css-modules@1.0.2` command to avoid crashes because of limited ram -->
 
 ## Project Structure
 

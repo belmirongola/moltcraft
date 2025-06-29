@@ -32,7 +32,7 @@
     padding: 0px;
 }
 
-.action-bar {
+.message-action-bar {
     position: fixed;
     bottom: calc(var(--safe-area-inset-bottom)  + 60px);
     left: 0;

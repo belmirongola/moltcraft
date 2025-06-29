@@ -36,6 +36,7 @@ import { appStatusState, reconnectReload } from './AppStatusProvider'
 import NetworkStatus from './NetworkStatus'
 import PauseLinkButtons from './PauseLinkButtons'
 import { pixelartIcons } from './PixelartIcon'
+import LoadingTimer from './LoadingTimer'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -53,9 +54,8 @@ export const saveToBrowserMemory = async () => {
         }
       })
     })
-    //@ts-expect-error
-    const { worldFolder } = localServer.options
-    const saveRootPath = await uniqueFileNameFromWorldName(worldFolder.split('/').pop(), `/data/worlds`)
+    const worldFolder = fsState.inMemorySavePath
+    const saveRootPath = await uniqueFileNameFromWorldName(worldFolder.split('/').pop()!, `/data/worlds`)
     await mkdirRecursive(saveRootPath)
     console.log('made world folder', saveRootPath)
     const allRootPaths = [...usedServerPathsV1]
@@ -290,7 +290,7 @@ export default () => {
       ) : null}
       {!lockConnect && <>
         <Button className="button" style={{ width: '204px' }} onClick={disconnect}>
-          {localServer && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
+          {fsState.inMemorySave && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
         </Button>
       </>}
       {noConnection && (
@@ -299,5 +299,6 @@ export default () => {
         </Button>
       )}
     </div>
+    <LoadingTimer />
   </Screen>
 }

@@ -22,6 +22,8 @@ export const getWebsocketStream = async (host: string) => {
     ws.send(data)
   })
 
+  clientDuplex.on('error', () => {})
+
   ws.addEventListener('message', async message => {
     let { data } = message
     if (data instanceof Blob) {
@@ -33,10 +35,14 @@ export const getWebsocketStream = async (host: string) => {
   ws.addEventListener('close', () => {
     console.log('ws closed')
     clientDuplex.end()
+    setTimeout(() => {
+      clientDuplex.emit('end', 'Connection lost')
+    }, 500)
   })
 
   ws.addEventListener('error', err => {
     console.log('ws error', err)
+    clientDuplex.emit('error', err)
   })
 
   await new Promise((resolve, reject) => {

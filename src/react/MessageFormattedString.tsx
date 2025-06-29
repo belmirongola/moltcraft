@@ -1,14 +1,15 @@
 import { useMemo } from 'react'
 import { fromFormattedString } from '@xmcl/text-component'
 import { ErrorBoundary } from '@zardoy/react-util'
-import { formatMessage } from '../chatUtils'
+import { formatMessage, MessageFormatOptions } from '../chatUtils'
 import MessageFormatted from './MessageFormatted'
 
 /** like MessageFormatted, but receives raw string or json instead, uses window.loadedData */
-export default ({ message, fallbackColor, className }: {
+export default ({ message, fallbackColor, className, formatOptions }: {
   message: string | Record<string, any> | null,
   fallbackColor?: string,
   className?: string
+  formatOptions?: MessageFormatOptions
 }) => {
   const messageJson = useMemo(() => {
     if (!message) return null
@@ -30,6 +31,6 @@ export default ({ message, fallbackColor, className }: {
     console.error(error)
     return <div>[text component crashed]</div>
   }}>
-    <MessageFormatted parts={messageJson} className={className} />
+    <MessageFormatted parts={messageJson} className={className} formatOptions={formatOptions} />
   </ErrorBoundary> : null
 }

@@ -18,9 +18,10 @@ export function nameToMcOfflineUUID (name) {
 }
 
 export async function savePlayers (autoSave: boolean) {
+  if (!localServer?.players[0]) return
   if (autoSave && new URL(location.href).searchParams.get('noSave') === 'true') return
   //@ts-expect-error TODO
-  await localServer!.savePlayersSingleplayer()
+  await localServer.savePlayersSingleplayer()
 }
 
 // todo flying squid should expose save function instead

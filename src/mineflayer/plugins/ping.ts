@@ -19,7 +19,7 @@ export default () => {
 
   let pingId = 0
   bot.pingServer = async () => {
-    if (versionToNumber(bot.version) < versionToNumber('1.20.2')) return bot.player.ping
+    if (versionToNumber(bot.version) < versionToNumber('1.20.2')) return bot.player?.ping ?? -1
     return new Promise<number>((resolve) => {
       const curId = pingId++
       bot._client.write('ping_request', { id: BigInt(curId) })

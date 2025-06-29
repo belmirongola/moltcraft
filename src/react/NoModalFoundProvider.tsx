@@ -18,7 +18,7 @@ const checkModalAvailability = () => {
     }
   }
 
-  componentActive.enabled = !!last && !hardcodedKnownModals.some(x => last.reactType.startsWith(x)) && !watchedModalsFromHooks.value.has(last.reactType) && !withWildCardModal
+  componentActive.enabled = !!last && !hardcodedKnownModals.some(x => last.reactType.startsWith(x)) && !watchedModalsFromHooks.value.includes(last.reactType) && !withWildCardModal
 }
 
 subscribe(activeModalStack, () => {
@@ -32,7 +32,7 @@ export default () => {
   const { enabled } = useSnapshot(componentActive)
   const lastModal = useSnapshot(activeModalStack).at(-1)?.reactType
 
-  if (!enabled) return null
+  if (!enabled || watchedModalsFromHooks.value.includes(lastModal!)) return null
   return <Screen
     title={`Error: Modal (route) ${lastModal} is is unavailable or doesn't exist`}
     style={{

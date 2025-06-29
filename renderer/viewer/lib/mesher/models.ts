@@ -2,7 +2,7 @@ import { Vec3 } from 'vec3'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import legacyJson from '../../../../src/preflatMap.json'
 import { BlockType } from '../../../playground/shared'
-import { World, BlockModelPartsResolved, WorldBlock as Block } from './world'
+import { World, BlockModelPartsResolved, WorldBlock as Block, WorldBlock } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 import { MesherGeometryOutput, HighestBlockInfo } from './shared'
@@ -103,7 +103,8 @@ function tintToGl (tint) {
   return [r / 255, g / 255, b / 255]
 }
 
-function getLiquidRenderHeight (world, block, type, pos) {
+function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isWater: boolean, isRealWater: boolean) {
+  if ((isWater && !isRealWater) || (block && isBlockWaterlogged(block))) return 8 / 9
   if (!block || block.type !== type) return 1 / 9
   if (block.metadata === 0) { // source block
     const blockAbove = world.getBlock(pos.offset(0, 1, 0))
@@ -124,12 +125,19 @@ const isCube = (block: Block) => {
   }))
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>) {
+const getVec = (v: Vec3, dir: Vec3) => {
+  for (const coord of ['x', 'y', 'z']) {
+    if (Math.abs(dir[coord]) > 0) v[coord] = 0
+  }
+  return v.plus(dir)
+}
+
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: MesherGeometryOutput, isRealWater: boolean) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
       const pos = cursor.offset(x, 0, z)
-      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos))
+      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, water, isRealWater))
     }
   }
   const cornerHeights = [
@@ -141,15 +149,14 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
 
   // eslint-disable-next-line guard-for-in
   for (const face in elemFaces) {
-    const { dir, corners } = elemFaces[face]
+    const { dir, corners, mask1, mask2 } = elemFaces[face]
     const isUp = dir[1] === 1
 
     const neighborPos = cursor.offset(...dir as [number, number, number])
     const neighbor = world.getBlock(neighborPos)
     if (!neighbor) continue
-    if (neighbor.type === type) continue
-    const isGlass = neighbor.name.includes('glass')
-    if ((isCube(neighbor) && !isUp) || neighbor.material === 'plant' || neighbor.getProperties().waterlogged) continue
+    if (neighbor.type === type || (water && (neighbor.name === 'water' || isBlockWaterlogged(neighbor)))) continue
+    if (isCube(neighbor) && !isUp) continue
 
     let tint = [1, 1, 1]
     if (water) {
@@ -180,16 +187,44 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
     const { su } = texture
     const { sv } = texture
 
+    // Get base light value for the face
+    const baseLight = world.getLight(neighborPos, undefined, undefined, water ? 'water' : 'lava') / 15
+
     for (const pos of corners) {
       const height = cornerHeights[pos[2] * 2 + pos[0]]
-      attr.t_positions.push(
-        (pos[0] ? 0.999 : 0.001) + (cursor.x & 15) - 8,
-        (pos[1] ? height - 0.001 : 0.001) + (cursor.y & 15) - 8,
-        (pos[2] ? 0.999 : 0.001) + (cursor.z & 15) - 8
+      const OFFSET = 0.0001
+      attr.t_positions!.push(
+        (pos[0] ? 1 - OFFSET : OFFSET) + (cursor.x & 15) - 8,
+        (pos[1] ? height - OFFSET : OFFSET) + (cursor.y & 15) - 8,
+        (pos[2] ? 1 - OFFSET : OFFSET) + (cursor.z & 15) - 8
       )
-      attr.t_normals.push(...dir)
-      attr.t_uvs.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
-      attr.t_colors.push(tint[0], tint[1], tint[2])
+      attr.t_normals!.push(...dir)
+      attr.t_uvs!.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
+
+      let cornerLightResult = baseLight
+      if (world.config.smoothLighting) {
+        const dx = pos[0] * 2 - 1
+        const dy = pos[1] * 2 - 1
+        const dz = pos[2] * 2 - 1
+        const cornerDir: [number, number, number] = [dx, dy, dz]
+        const side1Dir: [number, number, number] = [dx * mask1[0], dy * mask1[1], dz * mask1[2]]
+        const side2Dir: [number, number, number] = [dx * mask2[0], dy * mask2[1], dz * mask2[2]]
+
+        const dirVec = new Vec3(...dir as [number, number, number])
+
+        const side1LightDir = getVec(new Vec3(...side1Dir), dirVec)
+        const side1Light = world.getLight(cursor.plus(side1LightDir)) / 15
+        const side2DirLight = getVec(new Vec3(...side2Dir), dirVec)
+        const side2Light = world.getLight(cursor.plus(side2DirLight)) / 15
+        const cornerLightDir = getVec(new Vec3(...cornerDir), dirVec)
+        const cornerLight = world.getLight(cursor.plus(cornerLightDir)) / 15
+        // interpolate
+        const lights = [side1Light, side2Light, cornerLight, baseLight]
+        cornerLightResult = lights.reduce((acc, cur) => acc + cur, 0) / lights.length
+      }
+
+      // Apply light value to tint
+      attr.t_colors!.push(tint[0] * cornerLightResult, tint[1] * cornerLightResult, tint[2] * cornerLightResult)
     }
   }
 }
@@ -253,7 +288,7 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
         if (!neighbor.transparent && (isCube(neighbor) || identicalCull(element, neighbor, new Vec3(...dir)))) continue
       } else {
         needSectionRecomputeOnChange = true
-        continue
+        // continue
       }
     }
 
@@ -301,7 +336,7 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
     let localShift = null as any
 
     if (element.rotation && !needTiles) {
-      // todo do we support rescale?
+      // Rescale support for block model rotations
       localMatrix = buildRotationMatrix(
         element.rotation.axis,
         element.rotation.angle
@@ -314,6 +349,37 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
           element.rotation.origin
         )
       )
+
+      // Apply rescale if specified
+      if (element.rotation.rescale) {
+        const FIT_TO_BLOCK_SCALE_MULTIPLIER = 2 - Math.sqrt(2)
+        const angleRad = element.rotation.angle * Math.PI / 180
+        const scale = Math.abs(Math.sin(angleRad)) * FIT_TO_BLOCK_SCALE_MULTIPLIER
+
+        // Get axis vector components (1 for the rotation axis, 0 for others)
+        const axisX = element.rotation.axis === 'x' ? 1 : 0
+        const axisY = element.rotation.axis === 'y' ? 1 : 0
+        const axisZ = element.rotation.axis === 'z' ? 1 : 0
+
+        // Create scale matrix: scale = (1 - axisComponent) * scaleFactor + 1
+        const scaleMatrix = [
+          [(1 - axisX) * scale + 1, 0, 0],
+          [0, (1 - axisY) * scale + 1, 0],
+          [0, 0, (1 - axisZ) * scale + 1]
+        ]
+
+        // Apply scaling to the transformation matrix
+        localMatrix = matmulmat3(localMatrix, scaleMatrix)
+
+        // Recalculate shift with the new matrix
+        localShift = vecsub3(
+          element.rotation.origin,
+          matmul3(
+            localMatrix,
+            element.rotation.origin
+          )
+        )
+      }
     }
 
     const aos: number[] = []
@@ -423,13 +489,19 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
 
     if (!needTiles) {
       if (doAO && aos[0] + aos[3] >= aos[1] + aos[2]) {
-        attr.indices.push(
-          ndx, ndx + 3, ndx + 2, ndx, ndx + 1, ndx + 3
-        )
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 3
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 3
       } else {
-        attr.indices.push(
-          ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3
-        )
+        attr.indices[attr.indicesCount++] = ndx
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx + 2
+        attr.indices[attr.indicesCount++] = ndx + 1
+        attr.indices[attr.indicesCount++] = ndx + 3
       }
     }
   }
@@ -447,7 +519,7 @@ const isBlockWaterlogged = (block: Block) => {
 }
 
 let unknownBlockModel: BlockModelPartsResolved
-export function getSectionGeometry (sx, sy, sz, world: World) {
+export function getSectionGeometry (sx: number, sy: number, sz: number, world: World) {
   let delayedRender = [] as Array<() => void>
 
   const attr: MesherGeometryOutput = {
@@ -463,12 +535,14 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     t_colors: [],
     t_uvs: [],
     indices: [],
+    indicesCount: 0, // Track current index position
+    using32Array: true,
     tiles: {},
     // todo this can be removed here
     heads: {},
     signs: {},
     // isFull: true,
-    highestBlocks: {},
+    highestBlocks: new Map(),
     hadErrors: false,
     blocksCount: 0
   }
@@ -479,9 +553,9 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
       for (cursor.x = sx; cursor.x < sx + 16; cursor.x++) {
         let block = world.getBlock(cursor, blockProvider, attr)!
         if (!INVISIBLE_BLOCKS.has(block.name)) {
-          const highest = attr.highestBlocks[`${cursor.x},${cursor.z}`]
+          const highest = attr.highestBlocks.get(`${cursor.x},${cursor.z}`)
           if (!highest || highest.y < cursor.y) {
-            attr.highestBlocks[`${cursor.x},${cursor.z}`] = { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id }
+            attr.highestBlocks.set(`${cursor.x},${cursor.z}`, { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id })
           }
         }
         if (INVISIBLE_BLOCKS.has(block.name)) continue
@@ -539,11 +613,11 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
           const pos = cursor.clone()
           // eslint-disable-next-line @typescript-eslint/no-loop-func
           delayedRender.push(() => {
-            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr)
+            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr, !isWaterlogged)
           })
           attr.blocksCount++
         } else if (block.name === 'lava') {
-          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr)
+          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr, false)
           attr.blocksCount++
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
@@ -605,12 +679,19 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
 
   let ndx = attr.positions.length / 3
   for (let i = 0; i < attr.t_positions!.length / 12; i++) {
-    attr.indices.push(
-      ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3,
-      // eslint-disable-next-line @stylistic/function-call-argument-newline
-      // back face
-      ndx, ndx + 2, ndx + 1, ndx + 2, ndx + 3, ndx + 1
-    )
+    attr.indices[attr.indicesCount++] = ndx
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 3
+    // back face
+    attr.indices[attr.indicesCount++] = ndx
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 1
+    attr.indices[attr.indicesCount++] = ndx + 2
+    attr.indices[attr.indicesCount++] = ndx + 3
+    attr.indices[attr.indicesCount++] = ndx + 1
     ndx += 4
   }
 
@@ -628,6 +709,12 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
   attr.normals = new Float32Array(attr.normals) as any
   attr.colors = new Float32Array(attr.colors) as any
   attr.uvs = new Float32Array(attr.uvs) as any
+  attr.using32Array = arrayNeedsUint32(attr.indices)
+  if (attr.using32Array) {
+    attr.indices = new Uint32Array(attr.indices)
+  } else {
+    attr.indices = new Uint16Array(attr.indices)
+  }
 
   if (needTiles) {
     delete attr.positions
@@ -637,6 +724,21 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
   }
 
   return attr
+}
+
+// copied from three.js
+function arrayNeedsUint32 (array) {
+
+  // assumes larger values usually on last
+
+  for (let i = array.length - 1; i >= 0; -- i) {
+
+    if (array[i] >= 65_535) return true // account for PRIMITIVE_RESTART_FIXED_INDEX, #24565
+
+  }
+
+  return false
+
 }
 
 export const setBlockStatesData = (blockstatesModels, blocksAtlas: any, _needTiles = false, useUnknownBlockModel = true, version = 'latest') => {

@@ -1,6 +1,7 @@
 import { setLoadingScreenStatus } from '../appStatus'
 import { appStatusState } from '../react/AppStatusProvider'
 import { hideNotification, showNotification } from '../react/NotificationProvider'
+import { pixelartIcons } from '../react/PixelartIcon'
 
 export interface ProgressReporter {
   currentMessage: string | undefined
@@ -121,6 +122,7 @@ const createProgressReporter = (implementation: ReporterDisplayImplementation): 
     },
 
     setMessage (message: string): void {
+      if (ended) return
       implementation.setMessage(message)
     },
 
@@ -129,6 +131,7 @@ const createProgressReporter = (implementation: ReporterDisplayImplementation): 
     },
 
     error (message: string): void {
+      if (ended) return
       implementation.error(message)
     }
   }
@@ -163,15 +166,16 @@ export const createFullScreenProgressReporter = (): ProgressReporter => {
 }
 
 export const createNotificationProgressReporter = (endMessage?: string): ProgressReporter => {
+  const id = `progress-reporter-${Math.random().toString(36).slice(2)}`
   return createProgressReporter({
     setMessage (message: string) {
-      showNotification(`${message}...`, '', false, '', undefined, true)
+      showNotification(`${message}...`, '', false, '', undefined, true, id)
     },
     end () {
       if (endMessage) {
-        showNotification(endMessage, '', false, '', undefined, true)
+        showNotification(endMessage, '', false, pixelartIcons.check, undefined, true)
       } else {
-        hideNotification()
+        hideNotification(id)
       }
     },
 

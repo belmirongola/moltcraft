@@ -1,142 +1,14 @@
 import { proxy, subscribe } from 'valtio/vanilla'
 import { subscribeKey } from 'valtio/utils'
 import { omitObj } from '@zardoy/utils'
-import { appQueryParamsArray } from './appParams'
+import { appQueryParams, appQueryParamsArray } from './appParams'
 import type { AppConfig } from './appConfig'
 import { appStorage } from './react/appStorageProvider'
+import { miscUiState } from './globalState'
+import { defaultOptions } from './defaultOptions'
 
 const isDev = process.env.NODE_ENV === 'development'
 const initialAppConfig = process.env?.INLINED_APP_CONFIG as AppConfig ?? {}
-const defaultOptions = {
-  renderDistance: 3,
-  keepChunksDistance: 1,
-  multiplayerRenderDistance: 3,
-  closeConfirmation: true,
-  autoFullScreen: false,
-  mouseRawInput: true,
-  autoExitFullscreen: false,
-  localUsername: 'wanderer',
-  mouseSensX: 50,
-  mouseSensY: -1,
-  chatWidth: 320,
-  chatHeight: 180,
-  chatScale: 100,
-  chatOpacity: 100,
-  chatOpacityOpened: 100,
-  messagesLimit: 200,
-  volume: 50,
-  enableMusic: false,
-  // fov: 70,
-  fov: 75,
-  guiScale: 3,
-  autoRequestCompletions: true,
-  touchButtonsSize: 40,
-  touchButtonsOpacity: 80,
-  touchButtonsPosition: 12,
-  touchControlsPositions: getDefaultTouchControlsPositions(),
-  touchMovementType: 'modern' as 'modern' | 'classic',
-  touchInteractionType: 'classic' as 'classic' | 'buttons',
-  gpuPreference: 'default' as 'default' | 'high-performance' | 'low-power',
-  backgroundRendering: '20fps' as 'full' | '20fps' | '5fps',
-  /** @unstable */
-  disableAssets: false,
-  /** @unstable */
-  debugLogNotFrequentPackets: false,
-  unimplementedContainers: false,
-  dayCycleAndLighting: true,
-  loadPlayerSkins: true,
-  renderEars: true,
-  lowMemoryMode: false,
-  starfieldRendering: true,
-  enabledResourcepack: null as string | null,
-  useVersionsTextures: 'latest',
-  serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
-  showHand: true,
-  viewBobbing: true,
-  displayRecordButton: true,
-  packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
-  serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
-  customChannels: false,
-  remoteContentNotSameOrigin: false as boolean | string[],
-  packetsReplayAutoStart: false,
-  preciseMouseInput: false,
-  // todo ui setting, maybe enable by default?
-  waitForChunksRender: 'sp-only' as 'sp-only' | boolean,
-  jeiEnabled: true as boolean | Array<'creative' | 'survival' | 'adventure' | 'spectator'>,
-  preventBackgroundTimeoutKick: false,
-
-  // antiAliasing: false,
-
-  clipWorldBelowY: undefined as undefined | number, // will be removed
-  disableSignsMapsSupport: false,
-  singleplayerAutoSave: false,
-  showChunkBorders: false, // todo rename option
-  frameLimit: false as number | false,
-  alwaysBackupWorldBeforeLoading: undefined as boolean | undefined | null,
-  alwaysShowMobileControls: false,
-  excludeCommunicationDebugEvents: [],
-  preventDevReloadWhilePlaying: false,
-  numWorkers: 4,
-  localServerOptions: {
-    gameMode: 1
-  } as any,
-  preferLoadReadonly: false,
-  disableLoadPrompts: false,
-  guestUsername: 'guest',
-  askGuestName: true,
-  errorReporting: true,
-  /** Actually might be useful */
-  showCursorBlockInSpectator: false,
-  renderEntities: true,
-  smoothLighting: true,
-  newVersionsLighting: false,
-  chatSelect: true,
-  autoJump: 'auto' as 'auto' | 'always' | 'never',
-  autoParkour: false,
-  vrSupport: true, // doesn't directly affect the VR mode, should only disable the button which is annoying to android users
-  renderDebug: (isDev ? 'advanced' : 'basic') as 'none' | 'advanced' | 'basic',
-
-  // advanced bot options
-  autoRespawn: false,
-  mutedSounds: [] as string[],
-  plugins: [] as Array<{ enabled: boolean, name: string, description: string, script: string }>,
-  /** Wether to popup sign editor on server action */
-  autoSignEditor: true,
-  wysiwygSignEditor: 'auto' as 'auto' | 'always' | 'never',
-  showMinimap: 'never' as 'always' | 'singleplayer' | 'never',
-  minimapOptimizations: true,
-  displayBossBars: true,
-  disabledUiParts: [] as string[],
-  neighborChunkUpdates: true,
-  highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
-  rendererOptions: {
-    three: {
-      _experimentalSmoothChunkLoading: true,
-      _renderByChunks: false
-    }
-  }
-}
-
-function getDefaultTouchControlsPositions () {
-  return {
-    action: [
-      70,
-      76
-    ],
-    sneak: [
-      84,
-      76
-    ],
-    break: [
-      70,
-      60
-    ],
-    jump: [
-      84,
-      60
-    ],
-  } as Record<string, [number, number]>
-}
 
 // const qsOptionsRaw = new URLSearchParams(location.search).getAll('setting')
 const qsOptionsRaw = appQueryParamsArray.setting ?? []
@@ -168,15 +40,15 @@ const migrateOptions = (options: Partial<AppOptions & Record<string, any>>) => {
   return options
 }
 const migrateOptionsLocalStorage = () => {
-  if (Object.keys(appStorage.options).length) {
-    for (const key of Object.keys(appStorage.options)) {
+  if (Object.keys(appStorage['options'] ?? {}).length) {
+    for (const key of Object.keys(appStorage['options'])) {
       if (!(key in defaultOptions)) continue // drop unknown options
       const defaultValue = defaultOptions[key]
-      if (JSON.stringify(defaultValue) !== JSON.stringify(appStorage.options[key])) {
-        appStorage.changedSettings[key] = appStorage.options[key]
+      if (JSON.stringify(defaultValue) !== JSON.stringify(appStorage['options'][key])) {
+        appStorage.changedSettings[key] = appStorage['options'][key]
       }
     }
-    appStorage.options = {}
+    delete appStorage['options']
   }
 }
 
@@ -224,6 +96,7 @@ Object.defineProperty(window, 'debugChangedOptions', {
 })
 
 subscribe(options, (ops) => {
+  if (appQueryParams.freezeSettings === 'true') return
   for (const op of ops) {
     const [type, path, value] = op
     // let patch
@@ -280,3 +153,12 @@ export const useOptionValue = (setting, valueCallback) => {
   valueCallback(setting)
   subscribe(setting, valueCallback)
 }
+
+export const getAppLanguage = () => {
+  if (options.language === 'auto') {
+    return miscUiState.appConfig?.defaultLanguage ?? navigator.language
+  }
+  return options.language
+}
+
+export { defaultOptions } from './defaultOptions'

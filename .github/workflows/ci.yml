@@ -20,11 +20,56 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
       - run: pnpm install
+      - run: pnpm build-single-file
+      - name: Store minecraft.html size
+        run: |
+          SIZE_BYTES=$(du -s dist/single/minecraft.html 2>/dev/null | cut -f1)
+          echo "SIZE_BYTES=$SIZE_BYTES" >> $GITHUB_ENV
       - run: pnpm check-build
+      - name: Create zip package for size comparison
+        run: |
+          mkdir -p package
+          cp -r dist package/
+          cd package
+          zip -r ../self-host.zip .
       - run: pnpm build-playground
       - run: pnpm build-storybook
       - run: pnpm test-unit
       - run: pnpm lint
+
+      - name: Parse Bundle Stats
+        run: |
+          GZIP_BYTES=$(du -s self-host.zip 2>/dev/null | cut -f1)
+          SIZE=$(echo "scale=2; $SIZE_BYTES/1024/1024" | bc)
+          GZIP_SIZE=$(echo "scale=2; $GZIP_BYTES/1024/1024" | bc)
+          echo "{\"total\": ${SIZE}, \"gzipped\": ${GZIP_SIZE}}" > /tmp/bundle-stats.json
+
+      # - name: Compare Bundle Stats
+      #   id: compare
+      #   uses: actions/github-script@v6
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GIST_TOKEN }}
+      #   with:
+      #     script: |
+      #       const gistId = '${{ secrets.BUNDLE_STATS_GIST_ID }}';
+
+      #       async function getGistContent() {
+      #         const { data } = await github.rest.gists.get({
+      #           gist_id: gistId,
+      #           headers: {
+      #             authorization: `token ${process.env.GITHUB_TOKEN}`
+      #           }
+      #         });
+      #         return JSON.parse(data.files['bundle-stats.json'].content || '{}');
+      #       }
+
+      #       const content = await getGistContent();
+      #       const baseStats = content['${{ github.event.pull_request.base.ref }}'];
+      #       const newStats = require('/tmp/bundle-stats.json');
+
+      #       const comparison = `minecraft.html (normal build gzip)\n${baseStats.total}MB (${baseStats.gzipped}MB compressed) -> ${newStats.total}MB (${newStats.gzipped}MB compressed)`;
+      #       core.setOutput('stats', comparison);
+
       # - run: pnpm tsx scripts/buildNpmReact.ts
       - run: nohup pnpm prod-start &
       - run: nohup pnpm test-mc-server &
@@ -40,6 +85,74 @@ jobs:
       #   if: ${{ github.event.pull_request.base.ref == 'release' }}
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Store Bundle Stats
+      #   if: github.event.pull_request.base.ref == 'next'
+      #   uses: actions/github-script@v6
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GIST_TOKEN }}
+      #   with:
+      #     script: |
+      #       const gistId = '${{ secrets.BUNDLE_STATS_GIST_ID }}';
+
+      #       async function getGistContent() {
+      #         const { data } = await github.rest.gists.get({
+      #           gist_id: gistId,
+      #           headers: {
+      #             authorization: `token ${process.env.GITHUB_TOKEN}`
+      #           }
+      #         });
+      #         return JSON.parse(data.files['bundle-stats.json'].content || '{}');
+      #       }
+
+      #       async function updateGistContent(content) {
+      #         await github.rest.gists.update({
+      #           gist_id: gistId,
+      #           headers: {
+      #             authorization: `token ${process.env.GITHUB_TOKEN}`
+      #           },
+      #           files: {
+      #             'bundle-stats.json': {
+      #               content: JSON.stringify(content, null, 2)
+      #             }
+      #           }
+      #         });
+      #       }
+
+      #       const stats = require('/tmp/bundle-stats.json');
+      #       const content = await getGistContent();
+      #       content['${{ github.event.pull_request.base.ref }}'] = stats;
+      #       await updateGistContent(content);
+
+      # - name: Update PR Description
+      #   uses: actions/github-script@v6
+      #   with:
+      #     script: |
+      #       const { data: pr } = await github.rest.pulls.get({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         pull_number: context.issue.number
+      #       });
+
+      #       let body = pr.body || '';
+      #       const statsMarker = '### Bundle Size';
+      #       const comparison = '${{ steps.compare.outputs.stats }}';
+
+      #       if (body.includes(statsMarker)) {
+      #         body = body.replace(
+      #           new RegExp(`${statsMarker}[^\n]*\n[^\n]*`),
+      #           `${statsMarker}\n${comparison}`
+      #         );
+      #       } else {
+      #         body += `\n\n${statsMarker}\n${comparison}`;
+      #       }
+
+      #       await github.rest.pulls.update({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         pull_number: context.issue.number,
+      #         body
+      #       });
   # dedupe-check:
   #   runs-on: ubuntu-latest
   #   if: github.event.pull_request.head.ref == 'next'

@@ -29,6 +29,8 @@ jobs:
         run: pnpx zardoy-release empty --skip-github --output-file assets/release.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download Generated Sounds map
+        run: node scripts/downloadSoundsMap.mjs
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
         env:
           CONFIG_JSON_SOURCE: BUNDLED
@@ -38,13 +40,7 @@ jobs:
           mkdir -p .vercel/output/static/playground
           pnpm build-playground
           cp -r renderer/dist/* .vercel/output/static/playground/
-      - name: Download Generated Sounds map
-        run: node scripts/downloadSoundsMap.mjs
-      - name: Deploy Project to Vercel
-        uses: mathiasvr/command-output@v2.0.0
-        with:
-          run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --prod
-        id: deploy
+
       # publish to github
       - run: cp vercel.json .vercel/output/static/vercel.json
       - uses: peaceiris/actions-gh-pages@v3
@@ -52,6 +48,25 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .vercel/output/static
           force_orphan: true
+          
+      - name: Change index.html title
+        run: |
+          # change <title>Minecraft Web Client</title> to <title>Minecraft Web Client — Free Online Browser Version</title>
+          sed -i 's/<title>Minecraft Web Client<\/title>/<title>Minecraft Web Client — Free Online Browser Version<\/title>/' .vercel/output/static/index.html
+          
+      - name: Deploy Project to Vercel
+        uses: mathiasvr/command-output@v2.0.0
+        with:
+          run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --prod
+        id: deploy
+      - name: Get releasing alias
+        run: node scripts/githubActions.mjs getReleasingAlias
+        id: alias
+      - name: Set deployment alias
+        run: |
+          for alias in $(echo ${{ steps.alias.outputs.alias }} | tr "," "\n"); do
+            vercel alias set ${{ steps.deploy.outputs.stdout }} $alias --token=${{ secrets.VERCEL_TOKEN }} --scope=zaro
+          done
 
       - name: Build single-file version - minecraft.html
         run: pnpm build-single-file && mv dist/single/index.html minecraft.html
@@ -70,7 +85,7 @@ jobs:
           zip -r ../self-host.zip .
 
       - run: |
-          pnpx zardoy-release node --footer "This release URL: ${{ steps.deploy.outputs.stdout }}"
+          pnpx zardoy-release node --footer "This release URL: https://$(echo ${{ steps.alias.outputs.alias }} | cut -d',' -f1) (Vercel URL: ${{ steps.deploy.outputs.stdout }})"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # has possible output: tag

@@ -45,6 +45,7 @@ import SignInMessageProvider from './react/SignInMessageProvider'
 import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
+import ModsPage from './react/ModsPage'
 import DebugEdges from './react/DebugEdges'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
 import MineflayerPluginHud from './react/MineflayerPluginHud'
@@ -54,6 +55,17 @@ import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
 import TouchInteractionHint from './react/TouchInteractionHint'
 import { ua } from './react/utils'
+import VoiceMicrophone from './react/VoiceMicrophone'
+import ConnectOnlyServerUi from './react/ConnectOnlyServerUi'
+import ControDebug from './react/ControDebug'
+import ChunksDebug from './react/ChunksDebug'
+import ChunksDebugScreen from './react/ChunksDebugScreen'
+import DebugResponseTimeIndicator from './react/debugs/DebugResponseTimeIndicator'
+import RendererDebugMenu from './react/RendererDebugMenu'
+import CreditsAboutModal from './react/CreditsAboutModal'
+import GlobalOverlayHints from './react/GlobalOverlayHints'
+import FullscreenTime from './react/FullscreenTime'
+import StorageConflictModal from './react/StorageConflictModal'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -152,18 +164,23 @@ const InGameUi = () => {
           {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
           {!disabledUiParts.includes('title') && <TitleProvider />}
           {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
-          {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
+          <IndicatorEffectsProvider displayEffects={!disabledUiParts.includes('effects')} displayIndicators={!disabledUiParts.includes('indicators')} />
           {!disabledUiParts.includes('crosshair') && <Crosshair />}
           {!disabledUiParts.includes('books') && <BookProvider />}
           {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
+          <VoiceMicrophone />
+          <ChunksDebugScreen />
+          <RendererDebugMenu />
         </PerComponentErrorBoundary>
       </div>
 
       <PerComponentErrorBoundary>
         <PauseScreen />
+        <FullscreenTime />
         <MineflayerPluginHud />
         <MineflayerPluginConsole />
         {showUI && <TouchInteractionHint />}
+        <GlobalOverlayHints />
         <div style={{ display: showUI ? 'block' : 'none' }}>
           {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
           {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
@@ -208,9 +225,11 @@ const App = () => {
                 <HeldMapUi />
               </InGameComponent>
             </div>
+            <ControDebug />
             <div />
           </RobustPortal>
           <EnterFullscreenButton />
+          <StorageConflictModal />
           <InGameUi />
           <RobustPortal to={document.querySelector('#ui-root')}>
             <AllWidgets />
@@ -218,15 +237,19 @@ const App = () => {
             <CreateWorldProvider />
             <AppStatusProvider />
             <KeybindingsScreenProvider />
-            <SelectOption />
             <ServersListProvider />
             <OptionsRenderApp />
             <MainMenuRenderApp />
+            <ConnectOnlyServerUi />
             <TouchAreasControlsProvider />
             <SignInMessageProvider />
-            <NoModalFoundProvider />
             <PacketsReplayProvider />
             <NotificationProvider />
+            <ModsPage />
+
+            <SelectOption />
+            <CreditsAboutModal />
+            <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>
@@ -234,6 +257,7 @@ const App = () => {
             </div>
             <div />
             <DebugEdges />
+            <DebugResponseTimeIndicator />
           </RobustPortal>
         </ButtonAppProvider>
       </div>
@@ -254,13 +278,17 @@ const PerComponentErrorBoundary = ({ children }) => {
   </ErrorBoundary>)
 }
 
-renderToDom(<App />, {
-  strictMode: false,
-  selector: '#react-root',
-})
+if (!new URLSearchParams(window.location.search).get('no-ui')) {
+  renderToDom(<App />, {
+    strictMode: false,
+    selector: '#react-root',
+  })
+}
 
 disableReactProfiling()
 function disableReactProfiling () {
+  if (window.reactPerfPatchApplied) return
+  window.reactPerfPatchApplied = true
   //@ts-expect-error
   window.performance.markOrig = window.performance.mark
   //@ts-expect-error

@@ -80,13 +80,19 @@ export const watchOptionsAfterViewerInit = () => {
     updateFpsLimit(o)
   })
 
+  watchValue(options, o => {
+    appViewer.inWorldRenderingConfig.vrSupport = o.vrSupport
+    appViewer.inWorldRenderingConfig.vrPageGameRendering = o.vrPageGameRendering
+    appViewer.inWorldRenderingConfig.enableDebugOverlay = o.rendererPerfDebugOverlay
+  })
+
   watchValue(options, (o, isChanged) => {
     appViewer.inWorldRenderingConfig.clipWorldBelowY = o.clipWorldBelowY
     appViewer.inWorldRenderingConfig.extraBlockRenderers = !o.disableSignsMapsSupport
     appViewer.inWorldRenderingConfig.fetchPlayerSkins = o.loadPlayerSkins
     appViewer.inWorldRenderingConfig.highlightBlockColor = o.highlightBlockColor
-    appViewer.inWorldRenderingConfig._experimentalSmoothChunkLoading = o.rendererOptions.three._experimentalSmoothChunkLoading
-    appViewer.inWorldRenderingConfig._renderByChunks = o.rendererOptions.three._renderByChunks
+    appViewer.inWorldRenderingConfig._experimentalSmoothChunkLoading = o.rendererSharedOptions._experimentalSmoothChunkLoading
+    appViewer.inWorldRenderingConfig._renderByChunks = o.rendererSharedOptions._renderByChunks
   })
 
   appViewer.inWorldRenderingConfig.smoothLighting = options.smoothLighting

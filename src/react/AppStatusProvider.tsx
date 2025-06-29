@@ -71,12 +71,36 @@ export default () => {
   useDidUpdateEffect(() => {
     // todo play effect only when world successfully loaded
     if (!isOpen) {
-      const divingElem: HTMLElement = document.querySelector('#viewer-canvas')!
-      divingElem.style.animationName = 'dive-animation'
-      divingElem.parentElement!.style.perspective = '1200px'
-      divingElem.onanimationend = () => {
-        divingElem.parentElement!.style.perspective = ''
-        divingElem.onanimationend = null
+      const startDiveAnimation = (divingElem: HTMLElement) => {
+        divingElem.style.animationName = 'dive-animation'
+        divingElem.parentElement!.style.perspective = '1200px'
+        divingElem.onanimationend = () => {
+          divingElem.parentElement!.style.perspective = ''
+          divingElem.onanimationend = null
+        }
+      }
+
+      const divingElem = document.querySelector('#viewer-canvas')
+      let observer: MutationObserver | null = null
+      if (divingElem) {
+        startDiveAnimation(divingElem as HTMLElement)
+      } else {
+        observer = new MutationObserver((mutations) => {
+          const divingElem = document.querySelector('#viewer-canvas')
+          if (divingElem) {
+            startDiveAnimation(divingElem as HTMLElement)
+            observer!.disconnect()
+          }
+        })
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
+        })
+      }
+      return () => {
+        if (observer) {
+          observer.disconnect()
+        }
       }
     }
   }, [isOpen])
@@ -103,7 +127,9 @@ export default () => {
   }, [])
 
   const displayAuthButton = status.includes('This server appears to be an online server and you are providing no authentication.')
-  const displayVpnButton = status.includes('VPN') || status.includes('Proxy')
+    || JSON.stringify(minecraftJsonMessage ?? {}).toLowerCase().includes('authenticate')
+  const hasVpnText = (text: string) => text.includes('VPN') || text.includes('Proxy')
+  const displayVpnButton = hasVpnText(status) || (minecraftJsonMessage && hasVpnText(JSON.stringify(minecraftJsonMessage)))
   const authReconnectAction = async () => {
     let accounts = [] as AuthenticatedAccount[]
     updateAuthenticatedAccountData(oldAccounts => {
@@ -141,10 +167,10 @@ export default () => {
       }
     }
   }
-  return <DiveTransition open={isOpen}>
+  return <DiveTransition open={isOpen} isError={isError}>
     <AppStatus
       status={status}
-      isError={isError || status === ''} // display back button if status is empty as probably our app is errored // display back button if status is empty as probably our app is errored
+      isError={isError || status === ''} // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
       showReconnect={showReconnect}

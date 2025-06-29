@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Transition } from 'react-transition-group'
+import { motion, AnimatePresence } from 'framer-motion'
 import MessageFormattedString from './MessageFormattedString'
 import './Title.css'
 
@@ -27,23 +27,9 @@ const Title = ({
   openActionBar = false
 }: TitleProps) => {
   const [mounted, setMounted] = useState(false)
-  const [useEnterTransition, setUseEnterTransition] = useState(true)
 
-  const defaultFadeIn = 500
-  const defaultFadeOut = 1000
-  const startStyle = {
-    opacity: 1,
-    transition: `${transitionTimes.fadeIn}ms ease-in-out all` }
-  const endExitStyle = {
-    opacity: 0,
-    transition: `${transitionTimes.fadeOut}ms ease-in-out all` }
-
-  const stateStyles = {
-    entering: startStyle,
-    entered: { opacity: 1 },
-    exiting: endExitStyle,
-    exited: { opacity: 0 },
-  }
+  const defaultFadeIn = 0.5
+  const defaultFadeOut = 1
 
   useEffect(() => {
     if (!mounted && (openTitle || openActionBar)) {
@@ -53,61 +39,43 @@ const Title = ({
 
   return (
     <div className='title-container'>
-      <Transition
-        in={openTitle}
-        timeout={{
-          enter: transitionTimes?.fadeIn ?? defaultFadeIn,
-          exit: transitionTimes?.fadeOut ?? defaultFadeOut,
-        }}
-        mountOnEnter
-        unmountOnExit
-        enter={useEnterTransition}
-        onExiting={() => {
-          setUseEnterTransition(prev => false)
-        }}
-        onExited={() => {
-          setUseEnterTransition(prev => true)
-        }}
-      >
-        {(state) => {
-          return (
-            <div style={{ ...stateStyles[state] }}>
-              <h1 className='message-title'>
-                <MessageFormattedString message={title} />
-              </h1>
-              <h4 className='message-subtitle'>
-                <MessageFormattedString message={subtitle} />
-              </h4>
+      <AnimatePresence>
+        {openTitle && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: transitionTimes?.fadeIn ? transitionTimes.fadeIn / 1000 : defaultFadeIn,
+              exit: { duration: transitionTimes?.fadeOut ? transitionTimes.fadeOut / 1000 : defaultFadeOut }
+            }}
+          >
+            <h1 className='message-title'>
+              <MessageFormattedString message={title} />
+            </h1>
+            <h4 className='message-subtitle'>
+              <MessageFormattedString message={subtitle} />
+            </h4>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {openActionBar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: transitionTimes?.fadeIn ? transitionTimes.fadeIn / 1000 : defaultFadeIn,
+              exit: { duration: transitionTimes?.fadeOut ? transitionTimes.fadeOut / 1000 : defaultFadeOut }
+            }}
+          >
+            <div className='message-action-bar'>
+              <MessageFormattedString message={actionBar} />
             </div>
-          )
-        }}
-      </Transition>
-      <Transition
-        in={openActionBar}
-        timeout={{
-          enter: transitionTimes?.fadeIn ?? defaultFadeIn,
-          exit: transitionTimes?.fadeOut ?? defaultFadeOut,
-        }}
-        mountOnEnter
-        unmountOnExit
-        // enter={useEnterTransition}
-        // onExiting={() => {
-        //   setUseEnterTransition(prev => false)
-        // }}
-        // onExited={() => {
-        //   setUseEnterTransition(prev => true)
-        // }}
-      >
-        {(state) => {
-          return (
-            <div style={{ ...stateStyles[state] }}>
-              <div className='action-bar'>
-                <MessageFormattedString message={actionBar} />
-              </div>
-            </div>
-          )
-        }}
-      </Transition>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

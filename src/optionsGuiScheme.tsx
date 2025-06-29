@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
@@ -14,11 +14,13 @@ import { openFilePicker, resetLocalStorage } from './browserfs'
 import { completeResourcepackPackInstall, getResourcePackNames, resourcepackReload, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsRecordingState } from './packetsReplay/packetsReplayLegacy'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
+import { ClientMod, getAllMods, modsUpdateStatus } from './clientMods'
 import supportedVersions from './supportedVersions.mjs'
 import { getVersionAutoSelect } from './connect'
 import { createNotificationProgressReporter } from './core/progressReporter'
 import { customKeymaps } from './controls'
 import { appStorage } from './react/appStorageProvider'
+import { exportData, importData } from './core/importExport'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -61,14 +63,18 @@ export const guiOptionsScheme: {
       custom () {
         return <Button label='Guide: Disable VSync' onClick={() => openURL('https://gist.github.com/zardoy/6e5ce377d2b4c1e322e660973da069cd')} inScreen />
       },
-    },
-    {
       backgroundRendering: {
         text: 'Background FPS limit',
         values: [
           ['full', 'NO'],
           ['5fps', '5 FPS'],
           ['20fps', '20 FPS'],
+        ],
+      },
+      activeRenderer: {
+        text: 'Renderer',
+        values: [
+          ['threejs', 'Three.js (stable)'],
         ],
       },
     },
@@ -85,8 +91,7 @@ export const guiOptionsScheme: {
       },
       lowMemoryMode: {
         text: 'Low Memory Mode',
-        enableWarning: 'Enabling it will make chunks load ~4x slower',
-        disabledDuringGame: true
+        enableWarning: 'Enabling it will make chunks load ~4x slower. When in the game, app needs to be reloaded to apply this setting.',
       },
       starfieldRendering: {},
       renderEntities: {},
@@ -105,15 +110,18 @@ export const guiOptionsScheme: {
           'none'
         ],
       },
+      rendererPerfDebugOverlay: {
+        text: 'Performance Debug',
+      }
     },
     {
       custom () {
-        const { _renderByChunks } = useSnapshot(options).rendererOptions.three
+        const { _renderByChunks } = useSnapshot(options).rendererSharedOptions
         return <Button
           inScreen
           label={`Batch Chunks Display ${_renderByChunks ? 'ON' : 'OFF'}`}
           onClick={() => {
-            options.rendererOptions.three._renderByChunks = !_renderByChunks
+            options.rendererSharedOptions._renderByChunks = !_renderByChunks
           }}
         />
       }
@@ -225,7 +233,33 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        const modsUpdateSnapshot = useSnapshot(modsUpdateStatus)
+        const [clientMods, setClientMods] = useState<ClientMod[]>([])
+        useEffect(() => {
+          void getAllMods().then(setClientMods)
+        }, [])
+
+        if (appConfig?.showModsButton === false) return null
+        const enabledModsCount = Object.keys(clientMods.filter(mod => mod.enabled)).length
+        return <Button label={`Client Mods: ${enabledModsCount} (${Object.keys(modsUpdateSnapshot).length})`} onClick={() => showModal({ reactType: 'mods' })} inScreen />
+      },
+    },
+    {
+      custom () {
         return <Button label='VR...' onClick={() => openOptionsMenu('VR')} inScreen />
+      },
+    },
+    {
+      custom () {
+        const { appConfig } = useSnapshot(miscUiState)
+        if (!appConfig?.displayLanguageSelector) return null
+        return <Button
+          label='Language...' onClick={async () => {
+            const newLang = await showOptionsModal('Set Language', (appConfig.supportedLanguages ?? []) as string[])
+            if (!newLang) return
+            options.language = newLang.split(' - ')[0]
+          }} inScreen />
       },
     }
   ],
@@ -253,6 +287,23 @@ export const guiOptionsScheme: {
       chatOpacityOpened: {
       },
       chatSelect: {
+        text: 'Text Select',
+      },
+      chatPingExtension: {
+      }
+    },
+    {
+      custom () {
+        return <Category>Map</Category>
+      },
+      showMinimap: {
+        text: 'Enable Minimap',
+        enableWarning: 'App reload is required to apply this setting',
+        values: [
+          'always',
+          'singleplayer',
+          'never'
+        ],
       },
     },
     {
@@ -292,19 +343,6 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        return <Category>Map</Category>
-      },
-      showMinimap: {
-        text: 'Enable Minimap',
-        values: [
-          'always',
-          'singleplayer',
-          'never'
-        ],
-      },
-    },
-    {
-      custom () {
         return <Category>Experimental</Category>
       },
       displayBossBars: {
@@ -328,7 +366,12 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        return <UiToggleButton name='effects-indicators' />
+        return <UiToggleButton name='effects' label='Effects' />
+      },
+    },
+    {
+      custom () {
+        return <UiToggleButton name='indicators' label='Game Indicators' />
       },
     },
     {
@@ -457,7 +500,11 @@ export const guiOptionsScheme: {
           </>
         )
       },
-      vrSupport: {}
+      vrSupport: {},
+      vrPageGameRendering: {
+        text: 'Page Game Rendering',
+        tooltip: 'Wether to continue rendering page even when vr is active.',
+      }
     },
   ],
   advanced: [
@@ -484,6 +531,30 @@ export const guiOptionsScheme: {
     {
       custom () {
         return <Button label='Export/Import...' onClick={() => openOptionsMenu('export-import')} inScreen />
+      }
+    },
+    {
+      custom () {
+        const { cookieStorage } = useSnapshot(appStorage)
+        return <Button
+          label={`Storage: ${cookieStorage ? 'Synced Cookies' : 'Local Storage'}`} onClick={() => {
+            appStorage.cookieStorage = !cookieStorage
+            alert('Reload the page to apply this change')
+          }}
+          inScreen
+        />
+      }
+    },
+    {
+      custom () {
+        const { cookieStorage } = useSnapshot(appStorage)
+        return <Button
+          label={`Storage: ${cookieStorage ? 'Synced Cookies' : 'Local Storage'}`} onClick={() => {
+            appStorage.cookieStorage = !cookieStorage
+            alert('Reload the page to apply this change')
+          }}
+          inScreen
+        />
       }
     },
     {
@@ -522,7 +593,12 @@ export const guiOptionsScheme: {
       },
     },
     {
-      preventBackgroundTimeoutKick: {}
+      preventBackgroundTimeoutKick: {},
+      preventSleep: {
+        text: 'Prevent Device Sleep',
+        disabledReason: navigator.wakeLock ? undefined : 'Your browser does not support wake lock API',
+        enableWarning: 'When connected to a server, prevent PC from sleeping or screen dimming. Useful for purpusely staying AFK for long time. Some events might still prevent this like loosing tab focus or going low power mode.',
+      },
     },
     {
       custom () {
@@ -561,6 +637,20 @@ export const guiOptionsScheme: {
         ],
       },
     },
+    {
+      debugContro: {
+        text: 'Debug Controls',
+      },
+    },
+    {
+      debugResponseTimeIndicator: {
+        text: 'Debug Input Lag',
+      },
+    },
+    {
+      debugChatScroll: {
+      },
+    }
   ],
   'export-import': [
     {
@@ -572,8 +662,7 @@ export const guiOptionsScheme: {
       custom () {
         return <Button
           inScreen
-          disabled={true}
-          onClick={() => {}}
+          onClick={importData}
         >Import Data</Button>
       }
     },
@@ -581,53 +670,7 @@ export const guiOptionsScheme: {
       custom () {
         return <Button
           inScreen
-          onClick={async () => {
-            const data = await showInputsModal('Export Profile', {
-              profileName: {
-                type: 'text',
-              },
-              exportSettings: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-              exportKeybindings: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-              exportServers: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-              saveUsernameAndProxy: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-            })
-            const fileName = `${data.profileName ? `${data.profileName}-` : ''}web-client-profile.json`
-            const json = {
-              _about: 'Minecraft Web Client (mcraft.fun) Profile',
-              ...data.exportSettings ? {
-                options: getChangedSettings(),
-              } : {},
-              ...data.exportKeybindings ? {
-                keybindings: customKeymaps,
-              } : {},
-              ...data.exportServers ? {
-                servers: appStorage.serversList,
-              } : {},
-              ...data.saveUsernameAndProxy ? {
-                username: appStorage.username,
-                proxy: appStorage.proxiesData?.selected,
-              } : {},
-            }
-            const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = fileName
-            a.click()
-            URL.revokeObjectURL(url)
-          }}
+          onClick={exportData}
         >Export Data</Button>
       }
     },
@@ -657,7 +700,7 @@ const Category = ({ children }) => <div style={{
   gridColumn: 'span 2'
 }}>{children}</div>
 
-const UiToggleButton = ({ name, addUiText = false, label = noCase(name) }) => {
+const UiToggleButton = ({ name, addUiText = false, label = noCase(name) }: { name: string, addUiText?: boolean, label?: string }) => {
   const { disabledUiParts } = useSnapshot(options)
 
   const currentlyDisabled = disabledUiParts.includes(name)

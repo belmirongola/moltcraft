@@ -6,12 +6,15 @@ Minecraft **clone** rewritten in TypeScript using the best modern web technologi
 
 You can try this out at [mcraft.fun](https://mcraft.fun/), [pcm.gg](https://pcm.gg) (short link), [mcon.vercel.app](https://mcon.vercel.app/) or the GitHub pages deploy. Every commit from the default (`develop`) branch is deployed to [s.mcraft.fun](https://s.mcraft.fun/) and [s.pcm.gg](https://s.pcm.gg/) - so it's usually newer, but might be less stable.
 
-Don't confuse with [Eaglercraft](https://git.eaglercraft.rip/eaglercraft/eaglercraft-1.8) which is a REAL vanilla Minecraft Java edition port to the web (but with its own limitations). Eaglercraft is a fully playable solution, but this project is more in position of a "technical demo" to show how it's possible to build games for web at scale entirely with the JS ecosystem. Have fun!
+> For Turkey/Russia use [ru.mcraft.fun](https://ru.mcraft.fun/) (since Cloudflare is blocked)
 
-For building the project yourself / contributing, see [Development, Debugging & Contributing](#development-debugging--contributing). For reference at what and how web technologies / frameworks are used, see [TECH.md](./TECH.md).
+Don't confuse with [Eaglercraft](https://git.eaglercraft.rip/eaglercraft/eaglercraft-1.8) which is a REAL vanilla Minecraft Java edition port to the web (but with its own limitations). Eaglercraft is a fully playable solution, meanwhile this project is aimed for *device-compatiiblity* and better performance so it feels portable, flexible and lightweight. It's also a very strong example on how to build true HTML games for the web at scale entirely with the JS ecosystem. Have fun!
+
+For building the project yourself / contributing, see [Development, Debugging & Contributing](#development-debugging--contributing). For reference at what and how web technologies / frameworks are used, see [TECH.md](./TECH.md) (also for comparison with Eaglercraft).
 
 ### Big Features
 
+- Official Mineflayer [plugin integration](https://github.com/zardoy/mcraft-fun-mineflayer-plugin)! View / Control your bot remotely.
 - Open any zip world file or even folder in read-write mode!
 - Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
 - Integrated JS server clone capable of opening Java world saves in any way (folders, zip, web chunks streaming, etc)
@@ -33,6 +36,7 @@ All components that are in [Storybook](https://mcraft.fun/storybook) are publish
 
 - Controls -> **Touch Controls Type** -> **Joystick**
 - Controls -> **Auto Full Screen** -> **On** - To avoid ctrl+w issue
+- Interface -> **Enable Minimap** -> **Always** - To enable useful minimap (why not?)
 - Controls -> **Raw Input** -> **On** - This will make the controls more precise (UPD: already enabled by default)
 - Interface -> **Chat Select** -> **On** - To select chat messages (UPD: already enabled by default)
 
@@ -42,6 +46,15 @@ These browsers have issues with capturing pointer:
 
 **Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
 **Vivaldi**: Disable Controls -> *Raw Input* in game settings if experiencing issues
+
+### Versions Support
+
+Server versions 1.8 - 1.21.4 are supported.
+First class versions (most of the features are tested on these versions):
+- 1.19.4
+- 1.21.4
+
+Versions below 1.13 are not tested currently and may not work correctly.
 
 ### World Loading
 

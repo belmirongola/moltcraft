@@ -1,45 +1,27 @@
-import { EventEmitter } from 'events'
-import { Vec3 } from 'vec3'
-import { BasePlayerState, IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'renderer/viewer/lib/basePlayerState'
 import { HandItemBlock } from 'renderer/viewer/three/holdingBlock'
-import TypedEmitter from 'typed-emitter'
-import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
-import { proxy } from 'valtio'
+import { getInitialPlayerState, getPlayerStateUtils, PlayerStateReactive, PlayerStateRenderer, PlayerStateUtils } from 'renderer/viewer/lib/basePlayerState'
+import { subscribe } from 'valtio'
+import { subscribeKey } from 'valtio/utils'
 import { gameAdditionalState } from '../globalState'
 
-export class PlayerStateManager implements IPlayerState {
+/**
+ * can be used only in main thread. Mainly for more convenient reactive state updates.
+ * In renderer/ directory, use PlayerStateControllerRenderer type or worldRenderer.playerState.
+ */
+export class PlayerStateControllerMain {
   disableStateUpdates = false
-  private static instance: PlayerStateManager
-  readonly events = new EventEmitter() as TypedEmitter<PlayerStateEvents>
 
-  // Movement and physics state
-  private lastVelocity = new Vec3(0, 0, 0)
-  private movementState: MovementState = 'NOT_MOVING'
   private timeOffGround = 0
   private lastUpdateTime = performance.now()
 
   // Held item state
-  private heldItem?: HandItemBlock
-  private offHandItem?: HandItemBlock
-  private itemUsageTicks = 0
   private isUsingItem = false
-  private ready = false
-  onlineMode = false
-  get username () {
-    return bot.player?.username ?? ''
-  }
+  ready = false
 
-  reactive: IPlayerState['reactive'] = new BasePlayerState().reactive
-
-  static getInstance (): PlayerStateManager {
-    if (!this.instance) {
-      this.instance = new PlayerStateManager()
-    }
-    return this.instance
-  }
+  reactive: PlayerStateReactive
+  utils: PlayerStateUtils
 
   constructor () {
-    this.updateState = this.updateState.bind(this)
     customEvents.on('mineflayerBotCreated', () => {
       this.ready = false
       bot.on('inject_allowed', () => {
@@ -47,12 +29,41 @@ export class PlayerStateManager implements IPlayerState {
         this.ready = true
         this.botCreated()
       })
+      bot.on('end', () => {
+        this.ready = false
+      })
     })
   }
 
+  private onBotCreatedOrGameJoined () {
+    this.reactive.username = bot.username ?? ''
+  }
+
   private botCreated () {
+    console.log('bot created & plugins injected')
+    this.reactive = getInitialPlayerState()
+    this.utils = getPlayerStateUtils(this.reactive)
+    this.onBotCreatedOrGameJoined()
+
+    const handleDimensionData = (data) => {
+      let hasSkyLight = 1
+      try {
+        hasSkyLight = data.dimension.value.has_skylight.value
+      } catch {}
+      this.reactive.lightingDisabled = bot.game.dimension === 'the_nether' || bot.game.dimension === 'the_end' || !hasSkyLight
+    }
+
+    bot._client.on('login', (packet) => {
+      handleDimensionData(packet)
+    })
+    bot._client.on('respawn', (packet) => {
+      handleDimensionData(packet)
+    })
+
     // Movement tracking
-    bot.on('move', this.updateState)
+    bot.on('move', () => {
+      this.updateMovementState()
+    })
 
     // Item tracking
     bot.on('heldItemChanged', () => {
@@ -61,8 +72,24 @@ export class PlayerStateManager implements IPlayerState {
     bot.inventory.on('updateSlot', (index) => {
       if (index === 45) this.updateHeldItem(true)
     })
+    const updateSneakingOrFlying = () => {
+      this.updateMovementState()
+      this.reactive.sneaking = bot.controlState.sneak
+      this.reactive.flying = gameAdditionalState.isFlying
+      this.reactive.eyeHeight = bot.controlState.sneak && !gameAdditionalState.isFlying ? 1.27 : 1.62
+    }
     bot.on('physicsTick', () => {
-      if (this.isUsingItem) this.itemUsageTicks++
+      if (this.isUsingItem) this.reactive.itemUsageTicks++
+      updateSneakingOrFlying()
+      // Update fire status
+      this.updateFireStatus()
+    })
+    // todo move from gameAdditionalState to reactive directly
+    subscribeKey(gameAdditionalState, 'isSneaking', () => {
+      updateSneakingOrFlying()
+    })
+    subscribeKey(gameAdditionalState, 'isFlying', () => {
+      updateSneakingOrFlying()
     })
 
     // Initial held items setup
@@ -73,13 +100,15 @@ export class PlayerStateManager implements IPlayerState {
       this.reactive.gameMode = bot.game.gameMode
     })
     this.reactive.gameMode = bot.game?.gameMode
+
+    this.watchReactive()
   }
 
   // #region Movement and Physics State
-  private updateState () {
-    if (!bot.player?.entity || this.disableStateUpdates) return
+  private updateMovementState () {
+    if (!bot?.entity || this.disableStateUpdates) return
 
-    const { velocity } = bot.player.entity
+    const { velocity } = bot.entity
     const isOnGround = bot.entity.onGround
     const VELOCITY_THRESHOLD = 0.01
     const SPRINTING_VELOCITY = 0.15
@@ -89,7 +118,7 @@ export class PlayerStateManager implements IPlayerState {
     const deltaTime = now - this.lastUpdateTime
     this.lastUpdateTime = now
 
-    this.lastVelocity = velocity
+    // this.lastVelocity = velocity
 
     // Update time off ground
     if (isOnGround) {
@@ -98,60 +127,26 @@ export class PlayerStateManager implements IPlayerState {
       this.timeOffGround += deltaTime
     }
 
-    if (this.isSneaking() || this.isFlying() || (this.timeOffGround > OFF_GROUND_THRESHOLD)) {
-      this.movementState = 'SNEAKING'
+    if (gameAdditionalState.isSneaking || gameAdditionalState.isFlying || (this.timeOffGround > OFF_GROUND_THRESHOLD)) {
+      this.reactive.movementState = 'SNEAKING'
     } else if (Math.abs(velocity.x) > VELOCITY_THRESHOLD || Math.abs(velocity.z) > VELOCITY_THRESHOLD) {
-      this.movementState = Math.abs(velocity.x) > SPRINTING_VELOCITY || Math.abs(velocity.z) > SPRINTING_VELOCITY
+      this.reactive.movementState = Math.abs(velocity.x) > SPRINTING_VELOCITY || Math.abs(velocity.z) > SPRINTING_VELOCITY
         ? 'SPRINTING'
         : 'WALKING'
     } else {
-      this.movementState = 'NOT_MOVING'
+      this.reactive.movementState = 'NOT_MOVING'
     }
   }
-
-  getMovementState (): MovementState {
-    return this.movementState
-  }
-
-  getVelocity (): Vec3 {
-    return this.lastVelocity
-  }
-
-  getEyeHeight (): number {
-    return bot.controlState.sneak ? 1.27 : 1.62
-  }
-
-  isOnGround (): boolean {
-    return bot?.entity?.onGround ?? true
-  }
-
-  isSneaking (): boolean {
-    return gameAdditionalState.isSneaking
-  }
-
-  isFlying (): boolean {
-    return gameAdditionalState.isFlying
-  }
-
-  isSprinting (): boolean {
-    return gameAdditionalState.isSprinting
-  }
-
-  getPosition (): Vec3 {
-    return bot.player?.entity.position ?? new Vec3(0, 0, 0)
-  }
-  // #endregion
 
   // #region Held Item State
   private updateHeldItem (isLeftHand: boolean) {
     const newItem = isLeftHand ? bot.inventory.slots[45] : bot.heldItem
     if (!newItem) {
       if (isLeftHand) {
-        this.offHandItem = undefined
+        this.reactive.heldItemOff = undefined
       } else {
-        this.heldItem = undefined
+        this.reactive.heldItemMain = undefined
       }
-      this.events.emit('heldItemChanged', undefined, isLeftHand)
       return
     }
 
@@ -166,42 +161,50 @@ export class PlayerStateManager implements IPlayerState {
     }
 
     if (isLeftHand) {
-      this.offHandItem = item
+      this.reactive.heldItemOff = item
     } else {
-      this.heldItem = item
+      this.reactive.heldItemMain = item
     }
-    this.events.emit('heldItemChanged', item, isLeftHand)
+    // this.events.emit('heldItemChanged', item, isLeftHand)
   }
 
   startUsingItem () {
     if (this.isUsingItem) return
     this.isUsingItem = true
-    this.itemUsageTicks = 0
+    this.reactive.itemUsageTicks = 0
   }
 
   stopUsingItem () {
     this.isUsingItem = false
-    this.itemUsageTicks = 0
+    this.reactive.itemUsageTicks = 0
   }
 
   getItemUsageTicks (): number {
-    return this.itemUsageTicks
+    return this.reactive.itemUsageTicks
   }
 
-  getHeldItem (isLeftHand = false): HandItemBlock | undefined {
-    return isLeftHand ? this.offHandItem : this.heldItem
+  watchReactive () {
+    subscribeKey(this.reactive, 'eyeHeight', () => {
+      appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
+    })
   }
 
-  getItemSelector (specificProperties: ItemSpecificContextProperties, item?: import('prismarine-item').Item): ItemSelector['properties'] {
-    return {
-      ...specificProperties,
-      'minecraft:date': new Date(),
-      // "minecraft:context_dimension": bot.entityp,
-      'minecraft:time': bot.time.timeOfDay / 24_000,
+  // #endregion
+
+  // #region Fire Status
+  private updateFireStatus () {
+    if (!bot?.entity || this.disableStateUpdates) return
+    
+    // Check if player is on fire by looking at the Fire entity property
+    // Fire time is measured in ticks, player is on fire if it's > 0
+    const isOnFire = bot.entity.fireTicks && bot.entity.fireTicks > 0
+    if (this.reactive.onFire !== isOnFire) {
+      this.reactive.onFire = isOnFire
     }
   }
+
   // #endregion
 }
 
-export const playerState = PlayerStateManager.getInstance()
+export const playerState = new PlayerStateControllerMain()
 window.playerState = playerState

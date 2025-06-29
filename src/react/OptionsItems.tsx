@@ -189,18 +189,16 @@ interface Props {
 }
 
 export default ({ items, title, backButtonAction }: Props) => {
-  const { currentTouch } = useSnapshot(miscUiState)
 
   return <Screen
     title={title}
   >
     <div className='screen-items'>
-      {currentTouch && (
-        <div style={{ position: 'fixed', marginLeft: '-30px', display: 'flex', flexDirection: 'column', gap: 1, }}>
-          <Button icon={pixelartIcons['close']} onClick={hideAllModals} style={{ color: '#ff5d5d', }} />
-          <Button icon={pixelartIcons['chevron-left']} onClick={backButtonAction} style={{ color: 'yellow', }} />
-        </div>
-      )}
+      <div style={{ position: 'fixed', marginLeft: '-30px', display: 'flex', flexDirection: 'column', gap: 1, }}>
+        <Button icon={pixelartIcons['close']} onClick={hideAllModals} style={{ color: '#ff5d5d', }} />
+        <Button icon={pixelartIcons['chevron-left']} onClick={backButtonAction} style={{ color: 'yellow', }} />
+      </div>
+
       {items.map((element, i) => {
         // make sure its unique!
         return <RenderOption key={element.id ?? `${title}-${i}`} item={element} />

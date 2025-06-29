@@ -1,13 +1,24 @@
-import React from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
+import { useSnapshot } from 'valtio'
 import { haveDirectoryPicker } from '../utils'
 import { ConnectOptions } from '../connect'
+import { miscUiState } from '../globalState'
+import {
+  isRemoteSplashText,
+  loadRemoteSplashText,
+  getCachedSplashText,
+  cacheSplashText,
+  cacheSourceUrl,
+  clearSplashCache
+} from '../utils/splashText'
 import styles from './mainMenu.module.css'
 import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
 import useLongPress from './useLongPress'
 import PauseLinkButtons from './PauseLinkButtons'
+import CreditsBookButton from './CreditsBookButton'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -42,8 +53,48 @@ export default ({
   versionTitle,
   onVersionStatusClick,
   bottomRightLinks,
-  singleplayerAvailable = true
+  singleplayerAvailable = true,
 }: Props) => {
+  const { appConfig } = useSnapshot(miscUiState)
+
+  const splashText = useMemo(() => {
+    const cachedText = getCachedSplashText()
+
+    const configSplashFromApp = appConfig?.splashText
+    const isRemote = configSplashFromApp && isRemoteSplashText(configSplashFromApp)
+    const sourceKey = isRemote ? configSplashFromApp : (configSplashFromApp || '')
+    const storedSourceKey = localStorage.getItem('minecraft_splash_url')
+
+    if (storedSourceKey !== sourceKey) {
+      clearSplashCache()
+      cacheSourceUrl(sourceKey)
+    } else if (cachedText) {
+      return cachedText
+    }
+
+    if (!isRemote && configSplashFromApp && configSplashFromApp.trim() !== '') {
+      cacheSplashText(configSplashFromApp)
+      return configSplashFromApp
+    }
+
+    return appConfig?.splashTextFallback || ''
+  }, [])
+
+  useEffect(() => {
+    const configSplashFromApp = appConfig?.splashText
+    if (configSplashFromApp && isRemoteSplashText(configSplashFromApp)) {
+      loadRemoteSplashText(configSplashFromApp)
+        .then(fetchedText => {
+          if (fetchedText && fetchedText.trim() !== '' && !fetchedText.includes('Failed to load')) {
+            cacheSplashText(fetchedText)
+          }
+        })
+        .catch(error => {
+          console.error('Failed to preload splash text for next session:', error)
+        })
+    }
+  }, [appConfig?.splashText])
+
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
   const linksParsed = bottomRightLinks?.split(/;|\n/g).map(l => {
@@ -71,7 +122,7 @@ export default ({
   const connectToServerLongPress = useLongPress(
     () => {
       if (process.env.NODE_ENV === 'development') {
-      // Connect to <origin>:25565
+        // Connect to <origin>:25565
         const origin = window.location.hostname
         const connectOptions: ConnectOptions = {
           server: `${origin}:25565`,
@@ -89,7 +140,7 @@ export default ({
       <div className={styles['game-title']}>
         <div className={styles.minecraft}>
           <div className={styles.edition} />
-          <span className={styles.splash}>Prismarine is a beautiful block</span>
+          <span className={styles.splash}>{splashText}</span>
         </div>
       </div>
 
@@ -145,6 +196,7 @@ export default ({
         <div className={styles['menu-row']}>
           <PauseLinkButtons />
         </div>
+        <CreditsBookButton />
       </div>
 
       <div className={styles['bottom-info']}>
@@ -177,7 +229,7 @@ export default ({
               </div>
             })}
           </div>
-          <span>A Minecraft client clone in the browser!</span>
+          <span>{appConfig?.rightSideText}</span>
         </span>
       </div>
     </div>

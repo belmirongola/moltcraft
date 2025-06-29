@@ -27,11 +27,30 @@ declare const customEvents: import('typed-emitter').default<{
   search (q: string): void
   activateItem (item: Item, slot: number, offhand: boolean): void
   hurtAnimation (yaw?: number): void
+  customChannelRegister (channel: string, parser: any): void
 }>
 declare const beforeRenderFrame: Array<() => void>
+declare const translate: <T extends string | undefined>(key: T) => T
+
+// API LAYER
+declare const toggleMicrophoneMuted: undefined | (() => void)
+declare const translateText: undefined | ((text: string) => string)
 
 declare interface Document {
   exitPointerLock?(): void
+}
+
+declare module '*.frag' {
+  const png: string
+  export default png
+}
+declare module '*.vert' {
+  const png: string
+  export default png
+}
+declare module '*.wgsl' {
+  const png: string
+  export default png
 }
 
 declare interface Window extends Record<string, any> { }

@@ -22,8 +22,14 @@ export default (
   const canvasTick = useRef(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [position, setPosition] = useState({ x: 0, y: 0, z: 0 })
+  const lastUpdate = useRef(0)
+  const THROTTLE_MS = 50 // 20fps
 
   const updateMap = () => {
+    const now = Date.now()
+    if (now - lastUpdate.current < THROTTLE_MS) return
+    lastUpdate.current = now
+
     setPosition({ x: adapter.playerPosition.x, y: adapter.playerPosition.y, z: adapter.playerPosition.z })
     if (adapter.mapDrawer) {
       if (!full.current) {
@@ -85,6 +91,7 @@ export default (
           top: '0px',
           padding: '5px 5px 0px 0px',
           textAlign: 'center',
+          zIndex: 7,
         }}
         onClick={() => {
           toggleFullMap?.()
@@ -106,7 +113,7 @@ export default (
             textShadow: '0.1em 0 black, 0 0.1em black, -0.1em 0 black, 0 -0.1em black, -0.1em -0.1em black, -0.1em 0.1em black, 0.1em -0.1em black, 0.1em 0.1em black'
           }}
         >
-          {position.x.toFixed(2)} {position.y.toFixed(2)} {position.z.toFixed(2)}
+          {Math.round(position.x)} {Math.round(position.y)} {Math.round(position.z)}
         </div>
       </div> : null
 }

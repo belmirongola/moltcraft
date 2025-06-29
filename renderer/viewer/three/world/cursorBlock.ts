@@ -3,6 +3,7 @@ import { LineMaterial, LineSegmentsGeometry, Wireframe } from 'three-stdlib'
 import { Vec3 } from 'vec3'
 import { subscribeKey } from 'valtio/utils'
 import { Block } from 'prismarine-block'
+import { BlockShape, BlocksShapes } from 'renderer/viewer/lib/basePlayerState'
 import { WorldRendererThree } from '../worldrendererThree'
 import destroyStage0 from '../../../../assets/destroy_stage_0.png'
 import destroyStage1 from '../../../../assets/destroy_stage_1.png'
@@ -14,27 +15,39 @@ import destroyStage6 from '../../../../assets/destroy_stage_6.png'
 import destroyStage7 from '../../../../assets/destroy_stage_7.png'
 import destroyStage8 from '../../../../assets/destroy_stage_8.png'
 import destroyStage9 from '../../../../assets/destroy_stage_9.png'
+import { loadThreeJsTextureFromUrl } from '../../lib/utils/skins'
 
 export class CursorBlock {
+  _cursorLinesHidden = false
+  get cursorLinesHidden () {
+    return this._cursorLinesHidden
+  }
+  set cursorLinesHidden (value: boolean) {
+    if (this.interactionLines) {
+      this.interactionLines.mesh.visible = !value
+    }
+    this._cursorLinesHidden = value
+  }
+
   cursorLineMaterial: LineMaterial
-  interactionLines: null | { blockPos; mesh } = null
-  prevColor
+  interactionLines: null | { blockPos: Vec3, mesh: THREE.Group } = null
+  prevColor: string | undefined
   blockBreakMesh: THREE.Mesh
   breakTextures: THREE.Texture[] = []
 
   constructor (public readonly worldRenderer: WorldRendererThree) {
     // Initialize break mesh and textures
-    const loader = new THREE.TextureLoader()
     const destroyStagesImages = [
       destroyStage0, destroyStage1, destroyStage2, destroyStage3, destroyStage4,
       destroyStage5, destroyStage6, destroyStage7, destroyStage8, destroyStage9
     ]
 
     for (let i = 0; i < 10; i++) {
-      const texture = loader.load(destroyStagesImages[i])
-      texture.magFilter = THREE.NearestFilter
-      texture.minFilter = THREE.NearestFilter
-      this.breakTextures.push(texture)
+      void loadThreeJsTextureFromUrl(destroyStagesImages[i]).then((texture) => {
+        texture.magFilter = THREE.NearestFilter
+        texture.minFilter = THREE.NearestFilter
+        this.breakTextures.push(texture)
+      })
     }
 
     const breakMaterial = new THREE.MeshBasicMaterial({
@@ -48,16 +61,14 @@ export class CursorBlock {
     this.blockBreakMesh.name = 'blockBreakMesh'
     this.worldRenderer.scene.add(this.blockBreakMesh)
 
-    subscribeKey(this.worldRenderer.playerState.reactive, 'gameMode', () => {
+    this.worldRenderer.onReactivePlayerStateUpdated('gameMode', () => {
       this.updateLineMaterial()
     })
-
-    this.updateLineMaterial()
   }
 
   // Update functions
   updateLineMaterial () {
-    const inCreative = this.worldRenderer.displayOptions.playerState.reactive.gameMode === 'creative'
+    const inCreative = this.worldRenderer.playerStateReactive.gameMode === 'creative'
     const pixelRatio = this.worldRenderer.renderer.getPixelRatio()
 
     this.cursorLineMaterial = new LineMaterial({
@@ -78,15 +89,13 @@ export class CursorBlock {
     this.prevColor = this.worldRenderer.worldRendererConfig.highlightBlockColor
   }
 
-  updateBreakAnimation (block: Block | undefined, stage: number | null) {
+  updateBreakAnimation (blockPosition: { x: number, y: number, z: number } | undefined, stage: number | null, mergedShape?: BlockShape) {
     this.hideBreakAnimation()
-    if (stage === null || !block) return
+    if (stage === null || !blockPosition || !mergedShape) return
 
-    const mergedShape = bot.mouse.getMergedCursorShape(block)
-    if (!mergedShape) return
-    const { position, width, height, depth } = bot.mouse.getDataFromShape(mergedShape)
+    const { position, width, height, depth } = mergedShape
     this.blockBreakMesh.scale.set(width * 1.001, height * 1.001, depth * 1.001)
-    position.add(block.position)
+    position.add(blockPosition)
     this.blockBreakMesh.position.set(position.x, position.y, position.z)
     this.blockBreakMesh.visible = true;
 
@@ -108,7 +117,7 @@ export class CursorBlock {
     }
   }
 
-  setHighlightCursorBlock (blockPos: Vec3 | null, shapePositions?: Array<{ position: any; width: any; height: any; depth: any; }>): void {
+  setHighlightCursorBlock (blockPos: Vec3 | null, shapePositions?: BlocksShapes): void {
     if (blockPos && this.interactionLines && blockPos.equals(this.interactionLines.blockPos)) {
       return
     }
@@ -132,6 +141,7 @@ export class CursorBlock {
       group.add(wireframe)
     }
     this.worldRenderer.scene.add(group)
+    group.visible = !this.cursorLinesHidden
     this.interactionLines = { blockPos, mesh: group }
   }
 

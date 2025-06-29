@@ -1,0 +1,59 @@
+name: Benchmark
+on:
+  issue_comment:
+    types: [created]
+  push:
+    branches:
+      - perf-test
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/perf-test') ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != '' &&
+        (startsWith(github.event.comment.body, '/benchmark'))
+      )
+    permissions:
+      pull-requests: write
+    steps:
+      - run: lscpu
+
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "pnpm"
+      - name: Move Cypress to dependencies
+        run: |
+          jq '.dependencies.cypress = .optionalDependencies.cypress | del(.optionalDependencies.cypress)' package.json > package.json.tmp
+          mv package.json.tmp package.json
+      - run: pnpm install --no-frozen-lockfile
+
+      - run: pnpm build
+      - run: nohup pnpm prod-start &
+
+      - run: pnpm test:benchmark
+        id: benchmark
+        continue-on-error: true
+      # read benchmark results from stdout
+      - run: |
+          if [ -f benchmark.txt ]; then
+            # Format the benchmark results for GitHub comment
+            BENCHMARK_RESULT=$(cat benchmark.txt | sed 's/^/- /')
+            echo "BENCHMARK_RESULT<<EOF" >> $GITHUB_ENV
+            echo "$BENCHMARK_RESULT" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "BENCHMARK_RESULT=Benchmark failed to run or produce results" >> $GITHUB_ENV
+          fi
+
+      - uses: mshick/add-pr-comment@v2
+        with:
+          allow-repeats: true
+          message: |
+            Benchmark result: ${{ env.BENCHMARK_RESULT }}

@@ -4,11 +4,11 @@ import { ParsedReplayPacket, parseReplayContents } from 'mcraft-fun-mineflayer/b
 import { PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraft-fun-mineflayer/build/worldState'
 import MinecraftData from 'minecraft-data'
 import { GameMode } from 'mineflayer'
-import { LocalServer } from '../customServer'
 import { UserError } from '../mineflayer/userError'
 import { packetsReplayState } from '../react/state/packetsReplayState'
 import { getFixedFilesize } from '../react/simpleUtils'
 import { appQueryParams } from '../appParams'
+import { LocalServer } from '../customServer'
 
 const SUPPORTED_FORMAT_VERSION = 1
 
@@ -194,9 +194,11 @@ const mainPacketsReplayer = async (client: ServerClient, packets: ParsedReplayPa
           continue
         }
         playServerPacket(packet.name, packet.params)
-        await new Promise(resolve => {
-          setTimeout(resolve, packet.diff * packetsReplayState.speed + ADDITIONAL_DELAY * (packetsReplayState.customButtons.packetsSenderDelay.state ? 1 : 0))
-        })
+        if (packet.diff) {
+          await new Promise(resolve => {
+            setTimeout(resolve, packet.diff * packetsReplayState.speed + ADDITIONAL_DELAY * (packetsReplayState.customButtons.packetsSenderDelay.state ? 1 : 0))
+          })
+        }
       } else if (ignoreClientPacketsWait !== true && !ignoreClientPacketsWait.includes(packet.name)) {
         clientPackets.push({ name: packet.name, params: packet.params })
         if (playPackets[i + 1]?.isFromServer) {

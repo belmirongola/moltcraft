@@ -3,47 +3,34 @@ import { Vec3 } from 'vec3'
 import nbt from 'prismarine-nbt'
 import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
-import { subscribeKey } from 'valtio/utils'
 import { renderSign } from '../sign-renderer'
-import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
+import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from '../lib/simpleUtils'
 import { WorldRendererCommon } from '../lib/worldrendererCommon'
-import { addNewStat, removeAllStats } from '../lib/ui/newStats'
+import { addNewStat } from '../lib/ui/newStats'
 import { MesherGeometryOutput } from '../lib/mesher/shared'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { getMyHand } from '../lib/hand'
 import { setBlockPosition } from '../lib/mesher/standaloneRenderer'
+import { loadThreeJsTextureFromBitmap } from '../lib/utils/skins'
 import HoldingBlock from './holdingBlock'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
 import { disposeObject } from './threeJsUtils'
 import { CursorBlock } from './world/cursorBlock'
 import { getItemUv } from './appShared'
-import { initVR } from './world/vr'
 import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { FirstPersonEffects } from './firstPersonEffects'
-
-interface MediaProperties {
-  position: { x: number, y: number, z: number }
-  size: { width: number, height: number }
-  src: string
-  rotation?: 0 | 1 | 2 | 3 // 0-3 for 0°, 90°, 180°, 270°
-  doubleSide?: boolean
-  background?: number // Hexadecimal color (e.g., 0x000000 for black)
-  opacity?: number // 0-1 value for transparency
-  uvMapping?: { startU: number, endU: number, startV: number, endV: number }
-  allowOrigins?: string[] | boolean
-  loop?: boolean
-  volume?: number
-}
+import { ThreeJsMedia } from './threeJsMedia'
+import { Fountain } from './threeJsParticles'
 
 type SectionKey = string
 
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
-  sectionObjects: Record<string, THREE.Object3D> = {}
+  sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean }> = {}
   chunkTextures = new Map<string, { [pos: string]: THREE.Texture }>()
   signsCache = new Map<string, any>()
   starField: StarField
@@ -54,20 +41,40 @@ export class WorldRendererThree extends WorldRendererCommon {
   ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
   directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
   entities = new Entities(this)
-  cameraObjectOverride?: THREE.Object3D // for xr
+  cameraGroupVr?: THREE.Object3D
   material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
   itemsTexture: THREE.Texture
-  cursorBlock = new CursorBlock(this)
+  cursorBlock: CursorBlock
   onRender: Array<() => void> = []
-  customMedia = new Map<string, {
-    mesh: THREE.Object3D
-    video: HTMLVideoElement | undefined
-    texture: THREE.Texture
-    updateUVMapping: (config: { startU: number, endU: number, startV: number, endV: number }) => void
-  }>()
   cameraShake: CameraShake
+  cameraContainer: THREE.Object3D
+  media: ThreeJsMedia
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
   firstPersonEffects: FirstPersonEffects
+  camera: THREE.PerspectiveCamera
+  renderTimeAvg = 0
+  sectionsOffsetsAnimations = {} as {
+    [chunkKey: string]: {
+      time: number,
+      // also specifies direction
+      speedX: number,
+      speedY: number,
+      speedZ: number,
+
+      currentOffsetX: number,
+      currentOffsetY: number,
+      currentOffsetZ: number,
+
+      limitX?: number,
+      limitY?: number,
+      limitZ?: number,
+    }
+  }
+  fountains: Fountain[] = []
+  DEBUG_RAYCAST = false
+
+  private currentPosTween?: tweenJs.Tween<THREE.Vector3>
+  private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -79,25 +86,43 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   constructor (public renderer: THREE.WebGLRenderer, public initOptions: GraphicsInitOptions, public displayOptions: DisplayWorldOptions) {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
-    super(initOptions.resourcesManager, displayOptions, displayOptions.version)
+    super(initOptions.resourcesManager, displayOptions, initOptions)
 
+    this.renderer = renderer
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
-    this.starField = new StarField(this.scene)
+    this.starField = new StarField(this)
+    this.cursorBlock = new CursorBlock(this)
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)
 
     this.addDebugOverlay()
     this.resetScene()
-    this.watchReactivePlayerState()
-    this.init()
-    void initVR(this)
+    void this.init()
 
     this.soundSystem = new ThreeJsSound(this)
-    this.cameraShake = new CameraShake(this.camera, this.onRender)
+    this.cameraShake = new CameraShake(this, this.onRender)
     this.firstPersonEffects = new FirstPersonEffects(this)
+    this.media = new ThreeJsMedia(this)
+    // this.fountain = new Fountain(this.scene, this.scene, {
+    //   position: new THREE.Vector3(0, 10, 0),
+    // })
 
     this.renderUpdateEmitter.on('chunkFinished', (chunkKey: string) => {
       this.finishChunk(chunkKey)
+    })
+    this.worldSwitchActions()
+  }
+
+  get cameraObject () {
+    return this.cameraGroupVr ?? this.cameraContainer
+  }
+
+  worldSwitchActions () {
+    this.onWorldSwitched.push(() => {
+      // clear custom blocks
+      this.protocolCustomBlocks.clear()
+      // Reset section animations
+      this.sectionsOffsetsAnimations = {}
     })
   }
 
@@ -118,6 +143,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
+  updatePlayerEntity (e: any) {
+    this.entities.handlePlayerEntity(e)
+  }
+
   resetScene () {
     this.scene.matrixAutoUpdate = false // for perf
     this.scene.background = new THREE.Color(this.initOptions.config.sceneBackground)
@@ -128,26 +157,46 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     const size = this.renderer.getSize(new THREE.Vector2())
     this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
+    this.cameraContainer = new THREE.Object3D()
+    this.cameraContainer.add(this.camera)
+    this.scene.add(this.cameraContainer)
   }
 
-  watchReactivePlayerState () {
-    const updateValue = <T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) => {
-      callback(this.displayOptions.playerState.reactive[key])
-      subscribeKey(this.displayOptions.playerState.reactive, key, callback)
-    }
-    updateValue('backgroundColor', (value) => {
-      this.changeBackgroundColor(value)
+  override watchReactivePlayerState () {
+    super.watchReactivePlayerState()
+    this.onReactivePlayerStateUpdated('inWater', (value) => {
+      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.playerStateReactive.waterBreathing ? 100 : 20) : null
     })
-    updateValue('inWater', (value) => {
-      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, 100) : null
-    })
-    updateValue('ambientLight', (value) => {
+    this.onReactivePlayerStateUpdated('ambientLight', (value) => {
       if (!value) return
       this.ambientLight.intensity = value
     })
-    updateValue('directionalLight', (value) => {
+    this.onReactivePlayerStateUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
+    })
+    this.onReactivePlayerStateUpdated('lookingAtBlock', (value) => {
+      this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
+    })
+    this.onReactivePlayerStateUpdated('diggingBlock', (value) => {
+      this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
+    })
+    this.onReactivePlayerStateUpdated('perspective', (value) => {
+      // Update camera perspective when it changes
+      const vecPos = new Vec3(this.cameraObject.position.x, this.cameraObject.position.y, this.cameraObject.position.z)
+      this.updateCamera(vecPos, this.cameraShake.getBaseRotation().yaw, this.cameraShake.getBaseRotation().pitch)
+      // todo also update camera when block within camera was changed
+    })
+    this.onReactivePlayerStateUpdated('onFire', (value) => {
+      // Update fire effect when player fire status changes
+      this.firstPersonEffects.setIsOnFire(value)
+    })
+  }
+
+  override watchReactiveConfig () {
+    super.watchReactiveConfig()
+    this.onReactiveConfigUpdated('showChunkBorders', (value) => {
+      this.updateShowChunksBorder(value)
     })
   }
 
@@ -161,20 +210,18 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   async updateAssetsData (): Promise<void> {
-    const resources = this.resourcesManager.currentResources!
+    const resources = this.resourcesManager.currentResources
 
     const oldTexture = this.material.map
     const oldItemsTexture = this.itemsTexture
 
-    const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
+    const texture = loadThreeJsTextureFromBitmap(resources.blocksAtlasImage)
+    texture.needsUpdate = true
     texture.flipY = false
     this.material.map = texture
 
-    const itemsTexture = await new THREE.TextureLoader().loadAsync(resources.itemsAtlasParser.latestImage)
-    itemsTexture.magFilter = THREE.NearestFilter
-    itemsTexture.minFilter = THREE.NearestFilter
+    const itemsTexture = loadThreeJsTextureFromBitmap(resources.itemsAtlasImage)
+    itemsTexture.needsUpdate = true
     itemsTexture.flipY = false
     this.itemsTexture = itemsTexture
 
@@ -216,14 +263,14 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   getItemRenderData (item: Record<string, any>, specificProps: ItemSpecificContextProperties) {
-    return getItemUv(item, specificProps, this.resourcesManager)
+    return getItemUv(item, specificProps, this.resourcesManager, this.playerStateReactive)
   }
 
   async demoModel () {
     //@ts-expect-error
     const pos = cursorBlockRel(0, 1, 0).position
 
-    const mesh = await getMyHand()
+    const mesh = (await getMyHand())!
     // mesh.rotation.y = THREE.MathUtils.degToRad(90)
     setBlockPosition(mesh, pos)
     const helper = new THREE.BoxHelper(mesh, 0xff_ff_00)
@@ -250,9 +297,19 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.debugOverlayAdded = true
     const pane = addNewStat('debug-overlay')
     setInterval(() => {
-      pane.setVisibility(this.displayStats)
-      if (this.displayStats) {
-        pane.updateText(`C: ${this.renderer.info.render.calls} TR: ${this.renderer.info.render.triangles} TE: ${this.renderer.info.memory.textures} F: ${this.tilesRendered} B: ${this.blocksRendered}`)
+      pane.setVisibility(this.displayAdvancedStats)
+      if (this.displayAdvancedStats) {
+        const formatBigNumber = (num: number) => {
+          return new Intl.NumberFormat('en-US', {}).format(num)
+        }
+        let text = ''
+        text += `C: ${formatBigNumber(this.renderer.info.render.calls)} `
+        text += `TR: ${formatBigNumber(this.renderer.info.render.triangles)} `
+        text += `TE: ${formatBigNumber(this.renderer.info.memory.textures)} `
+        text += `F: ${formatBigNumber(this.tilesRendered)} `
+        text += `B: ${formatBigNumber(this.blocksRendered)}`
+        pane.updateText(text)
+        this.backendInfoReport = text
       }
     }, 200)
   }
@@ -268,10 +325,11 @@ export class WorldRendererThree extends WorldRendererCommon {
     section.renderOrder = 500 - chunkDistance
   }
 
-  updateViewerPosition (pos: Vec3): void {
-    this.viewerPosition = pos
-    const cameraPos = this.camera.position.toArray().map(x => Math.floor(x / 16)) as [number, number, number]
-    this.cameraSectionPos = new Vec3(...cameraPos)
+  override updateViewerPosition (pos: Vec3): void {
+    this.viewerChunkPosition = pos
+  }
+
+  cameraSectionPositionUpdate () {
     // eslint-disable-next-line guard-for-in
     for (const key in this.sectionObjects) {
       const value = this.sectionObjects[key]
@@ -309,26 +367,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     //   this.debugRecomputedDeletedObjects++
     // }
 
-    // if (!this.initialChunksLoad && this.enableChunksLoadDelay) {
-    //   const newPromise = new Promise(resolve => {
-    //     if (this.droppedFpsPercentage > 0.5) {
-    //       setTimeout(resolve, 1000 / 50 * this.droppedFpsPercentage)
-    //     } else {
-    //       setTimeout(resolve)
-    //     }
-    //   })
-    //   this.promisesQueue.push(newPromise)
-    //   for (const promise of this.promisesQueue) {
-    //     await promise
-    //   }
-    // }
-
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(data.geometry.positions, 3))
     geometry.setAttribute('normal', new THREE.BufferAttribute(data.geometry.normals, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(data.geometry.colors, 3))
     geometry.setAttribute('uv', new THREE.BufferAttribute(data.geometry.uvs, 2))
-    geometry.setIndex(data.geometry.indices)
+    geometry.index = new THREE.BufferAttribute(data.geometry.indices as Uint32Array | Uint16Array, 1)
 
     const mesh = new THREE.Mesh(geometry, this.material)
     mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
@@ -411,48 +455,148 @@ export class WorldRendererThree extends WorldRendererCommon {
     return tex
   }
 
-  tryIntersectMedia () {
-    const { camera } = this
-    const raycaster = new THREE.Raycaster()
+  getCameraPosition () {
+    const worldPos = new THREE.Vector3()
+    this.camera.getWorldPosition(worldPos)
+    return worldPos
+  }
 
-    // Get mouse position at center of screen
-    const mouse = new THREE.Vector2(0, 0)
+  getWorldCameraPosition () {
+    const pos = this.getCameraPosition()
+    return new Vec3(
+      Math.floor(pos.x / 16),
+      Math.floor(pos.y / 16),
+      Math.floor(pos.z / 16)
+    )
+  }
 
-    // Update the raycaster
-    raycaster.setFromCamera(mouse, camera)
-
-    let result = null as { id: string, x: number, y: number } | null
-    // Check intersection with all video meshes
-    for (const [id, videoData] of this.customMedia.entries()) {
-      // Get the actual mesh (first child of the group)
-      const mesh = videoData.mesh.children[0] as THREE.Mesh
-      if (!mesh) continue
-
-      const intersects = raycaster.intersectObject(mesh, false)
-      if (intersects.length > 0) {
-        const intersection = intersects[0]
-        const { uv } = intersection
-        if (uv) {
-          result = {
-            id,
-            x: uv.x,
-            y: uv.y
-          }
-          break
-        }
-      }
+  updateCameraSectionPos () {
+    const newSectionPos = this.getWorldCameraPosition()
+    if (!this.cameraSectionPos.equals(newSectionPos)) {
+      this.cameraSectionPos = newSectionPos
+      this.cameraSectionPositionUpdate()
     }
-    this.reactiveState.world.intersectMedia = result
   }
 
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
-    const cam = this.cameraObjectOverride || this.camera
-    const yOffset = this.displayOptions.playerState.getEyeHeight()
+    const yOffset = this.playerStateReactive.eyeHeight
 
-    this.camera = cam as THREE.PerspectiveCamera
     this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
-    this.tryIntersectMedia()
+    this.media.tryIntersectMedia()
+    this.updateCameraSectionPos()
   }
+
+  getThirdPersonCamera (pos: THREE.Vector3 | null, yaw: number, pitch: number) {
+    pos ??= this.cameraObject.position
+
+    // Calculate camera offset based on perspective
+    const isBack = this.playerStateReactive.perspective === 'third_person_back'
+    const distance = 4 // Default third person distance
+
+    // Calculate direction vector using proper world orientation
+    // We need to get the camera's current look direction and use that for positioning
+
+    // Create a direction vector that represents where the camera is looking
+    // This matches the Three.js camera coordinate system
+    const direction = new THREE.Vector3(0, 0, -1) // Forward direction in camera space
+
+    // Apply the same rotation that's applied to the camera container
+    const pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch)
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+    const finalQuat = new THREE.Quaternion().multiplyQuaternions(yawQuat, pitchQuat)
+
+    // Transform the direction vector by the camera's rotation
+    direction.applyQuaternion(finalQuat)
+
+    // For back view, we want the camera behind the player (opposite to view direction)
+    // For front view, we want the camera in front of the player (same as view direction)
+    if (isBack) {
+      direction.multiplyScalar(-1)
+    }
+
+    // Create debug visualization if advanced stats are enabled
+    if (this.DEBUG_RAYCAST) {
+      this.debugRaycast(pos, direction, distance)
+    }
+
+    // Perform raycast to avoid camera going through blocks
+    const raycaster = new THREE.Raycaster()
+    raycaster.set(pos, direction)
+    raycaster.far = distance // Limit raycast distance
+
+    // Filter to only nearby chunks for performance
+    const nearbyChunks = Object.values(this.sectionObjects)
+      .filter(obj => obj.name === 'chunk' && obj.visible)
+      .filter(obj => {
+        // Get the mesh child which has the actual geometry
+        const mesh = obj.children.find(child => child.name === 'mesh')
+        if (!mesh) return false
+
+        // Check distance from player position to chunk
+        const chunkWorldPos = new THREE.Vector3()
+        mesh.getWorldPosition(chunkWorldPos)
+        const distance = pos.distanceTo(chunkWorldPos)
+        return distance < 80 // Only check chunks within 80 blocks
+      })
+
+    // Get all mesh children for raycasting
+    const meshes: THREE.Object3D[] = []
+    for (const chunk of nearbyChunks) {
+      const mesh = chunk.children.find(child => child.name === 'mesh')
+      if (mesh) meshes.push(mesh)
+    }
+
+    const intersects = raycaster.intersectObjects(meshes, false)
+
+    let finalDistance = distance
+    if (intersects.length > 0) {
+      // Use intersection distance minus a small offset to prevent clipping
+      finalDistance = Math.max(0.5, intersects[0].distance - 0.2)
+    }
+
+    const finalPos = new Vec3(
+      pos.x + direction.x * finalDistance,
+      pos.y + direction.y * finalDistance,
+      pos.z + direction.z * finalDistance
+    )
+
+    return finalPos
+  }
+
+  private debugRaycastHelper?: THREE.ArrowHelper
+  private debugHitPoint?: THREE.Mesh
+
+  private debugRaycast (pos: THREE.Vector3, direction: THREE.Vector3, distance: number) {
+    // Remove existing debug objects
+    if (this.debugRaycastHelper) {
+      this.scene.remove(this.debugRaycastHelper)
+      this.debugRaycastHelper = undefined
+    }
+    if (this.debugHitPoint) {
+      this.scene.remove(this.debugHitPoint)
+      this.debugHitPoint = undefined
+    }
+
+    // Create raycast arrow
+    this.debugRaycastHelper = new THREE.ArrowHelper(
+      direction.clone().normalize(),
+      pos,
+      distance,
+      0xff_00_00, // Red color
+      distance * 0.1,
+      distance * 0.05
+    )
+    this.scene.add(this.debugRaycastHelper)
+
+    // Create hit point indicator
+    const hitGeometry = new THREE.SphereGeometry(0.2, 8, 8)
+    const hitMaterial = new THREE.MeshBasicMaterial({ color: 0x00_ff_00 })
+    this.debugHitPoint = new THREE.Mesh(hitGeometry, hitMaterial)
+    this.debugHitPoint.position.copy(pos).add(direction.clone().multiplyScalar(distance))
+    this.scene.add(this.debugHitPoint)
+  }
+
+  prevFramePerspective = null as string | null
 
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
     // if (this.freeFlyMode) {
@@ -462,37 +606,154 @@ export class WorldRendererThree extends WorldRendererCommon {
     // }
 
     if (pos) {
-      new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
+      if (this.renderer.xr.isPresenting) {
+        pos.y -= this.camera.position.y // Fix Y position of camera in world
+      }
+
+      this.currentPosTween?.stop()
+      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, this.playerStateUtils.isSpectatingEntity() ? 150 : 50).start()
       // this.freeFlyState.position = pos
     }
-    this.cameraShake.setBaseRotation(pitch, yaw)
+
+    if (this.playerStateUtils.isSpectatingEntity()) {
+      const rotation = this.cameraShake.getBaseRotation()
+      // wrap in the correct direction
+      let yawOffset = 0
+      const halfPi = Math.PI / 2
+      if (rotation.yaw < halfPi && yaw > Math.PI + halfPi) {
+        yawOffset = -Math.PI * 2
+      } else if (yaw < halfPi && rotation.yaw > Math.PI + halfPi) {
+        yawOffset = Math.PI * 2
+      }
+      this.currentRotTween?.stop()
+      this.currentRotTween = new tweenJs.Tween(rotation).to({ pitch, yaw: yaw + yawOffset }, 100)
+        .onUpdate(params => this.cameraShake.setBaseRotation(params.pitch, params.yaw - yawOffset)).start()
+    } else {
+      this.currentRotTween?.stop()
+      this.cameraShake.setBaseRotation(pitch, yaw)
+
+      const { perspective } = this.playerStateReactive
+      if (perspective === 'third_person_back' || perspective === 'third_person_front') {
+        // Use getThirdPersonCamera for proper raycasting with max distance of 4
+        const currentCameraPos = this.cameraObject.position
+        const thirdPersonPos = this.getThirdPersonCamera(
+          new THREE.Vector3(currentCameraPos.x, currentCameraPos.y, currentCameraPos.z),
+          yaw,
+          pitch
+        )
+
+        const distance = currentCameraPos.distanceTo(new THREE.Vector3(thirdPersonPos.x, thirdPersonPos.y, thirdPersonPos.z))
+        // Apply Z offset based on perspective and calculated distance
+        const zOffset = perspective === 'third_person_back' ? distance : -distance
+        this.camera.position.set(0, 0, zOffset)
+
+        if (perspective === 'third_person_front') {
+          // Flip camera view 180 degrees around Y axis for front view
+          this.camera.rotation.set(0, Math.PI, 0)
+        } else {
+          this.camera.rotation.set(0, 0, 0)
+        }
+      } else {
+        this.camera.position.set(0, 0, 0)
+        this.camera.rotation.set(0, 0, 0)
+
+        // remove any debug raycasting
+        if (this.debugRaycastHelper) {
+          this.scene.remove(this.debugRaycastHelper)
+          this.debugRaycastHelper = undefined
+        }
+        if (this.debugHitPoint) {
+          this.scene.remove(this.debugHitPoint)
+          this.debugHitPoint = undefined
+        }
+      }
+    }
+
+    this.updateCameraSectionPos()
+  }
+
+  debugChunksVisibilityOverride () {
+    const { chunksRenderAboveOverride, chunksRenderBelowOverride, chunksRenderDistanceOverride, chunksRenderAboveEnabled, chunksRenderBelowEnabled, chunksRenderDistanceEnabled } = this.reactiveDebugParams
+
+    const baseY = this.cameraSectionPos.y * 16
+
+    if (
+      this.displayOptions.inWorldRenderingConfig.enableDebugOverlay &&
+      chunksRenderAboveOverride !== undefined ||
+      chunksRenderBelowOverride !== undefined ||
+      chunksRenderDistanceOverride !== undefined
+    ) {
+      for (const [key, object] of Object.entries(this.sectionObjects)) {
+        const [x, y, z] = key.split(',').map(Number)
+        const isVisible =
+          // eslint-disable-next-line no-constant-binary-expression, sonarjs/no-redundant-boolean
+          (chunksRenderAboveEnabled && chunksRenderAboveOverride !== undefined) ? y <= (baseY + chunksRenderAboveOverride) : true &&
+          // eslint-disable-next-line @stylistic/indent-binary-ops, no-constant-binary-expression, sonarjs/no-redundant-boolean
+          (chunksRenderBelowEnabled && chunksRenderBelowOverride !== undefined) ? y >= (baseY - chunksRenderBelowOverride) : true &&
+          // eslint-disable-next-line @stylistic/indent-binary-ops
+          (chunksRenderDistanceEnabled && chunksRenderDistanceOverride !== undefined) ? Math.abs(y - baseY) <= chunksRenderDistanceOverride : true
+
+        object.visible = isVisible
+      }
+    } else {
+      for (const object of Object.values(this.sectionObjects)) {
+        object.visible = true
+      }
+    }
   }
 
   render (sizeChanged = false) {
+    if (this.reactiveDebugParams.stopRendering) return
+    this.debugChunksVisibilityOverride()
+    const start = performance.now()
     this.lastRendered = performance.now()
     this.cursorBlock.render()
+    this.updateSectionOffsets()
 
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
-      this.camera.aspect = window.innerWidth / window.innerHeight
+      const size = this.renderer.getSize(new THREE.Vector2())
+      this.camera.aspect = size.width / size.height
       this.camera.fov = this.displayOptions.inWorldRenderingConfig.fov
       this.camera.updateProjectionMatrix()
     }
 
-    this.entities.render()
+    if (!this.reactiveDebugParams.disableEntities) {
+      this.entities.render()
+    }
 
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
-    const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
+    const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
+    if (
+      this.displayOptions.inWorldRenderingConfig.showHand &&
+      this.playerStateReactive.gameMode !== 'spectator' &&
+      this.playerStateReactive.perspective === 'first_person' &&
+      // !this.freeFlyMode &&
+      !this.renderer.xr.isPresenting
+    ) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+    }
+
+    for (const fountain of this.fountains) {
+      if (this.sectionObjects[fountain.sectionId] && !this.sectionObjects[fountain.sectionId].foutain) {
+        fountain.createParticles(this.sectionObjects[fountain.sectionId])
+        this.sectionObjects[fountain.sectionId].foutain = true
+      }
+      fountain.render()
     }
 
     for (const onRender of this.onRender) {
       onRender()
     }
+    const end = performance.now()
+    const totalTime = end - start
+    this.renderTimeAvgCount++
+    this.renderTimeAvg = ((this.renderTimeAvg * (this.renderTimeAvgCount - 1)) + totalTime) / this.renderTimeAvgCount
+    this.renderTimeMax = Math.max(this.renderTimeMax, totalTime)
+    this.currentRenderedFrames++
   }
 
   renderHead (position: Vec3, rotation: number, isWall: boolean, blockEntity) {
@@ -581,7 +842,6 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateShowChunksBorder (value: boolean) {
-    this.displayOptions.inWorldRenderingConfig.showChunkBorders = value
     for (const object of Object.values(this.sectionObjects)) {
       for (const child of object.children) {
         if (child.name === 'helper') {
@@ -596,6 +856,16 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     for (const mesh of Object.values(this.sectionObjects)) {
       this.scene.remove(mesh)
+    }
+
+    // Clean up debug objects
+    if (this.debugRaycastHelper) {
+      this.scene.remove(this.debugRaycastHelper)
+      this.debugRaycastHelper = undefined
+    }
+    if (this.debugHitPoint) {
+      this.scene.remove(this.debugHitPoint)
+      this.debugHitPoint = undefined
     }
   }
 
@@ -666,405 +936,75 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
-  private createErrorTexture (width: number, height: number, background = 0x00_00_00): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas')
-    // Scale up the canvas size for better text quality
-    canvas.width = width * 100
-    canvas.height = height * 100
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return new THREE.CanvasTexture(canvas)
-
-    // Clear with transparent background
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    // Add background color
-    ctx.fillStyle = `rgba(${background >> 16 & 255}, ${background >> 8 & 255}, ${background & 255}, 0.5)`
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // Add red text
-    ctx.fillStyle = '#ff0000'
-    ctx.font = 'bold 10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('Failed to load', canvas.width / 2, canvas.height / 2, canvas.width)
-
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.minFilter = THREE.LinearFilter
-    texture.magFilter = THREE.LinearFilter
-    return texture
-  }
-
-  private createBackgroundTexture (width: number, height: number, color = 0x00_00_00, opacity = 1): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas')
-    canvas.width = 1
-    canvas.height = 1
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return new THREE.CanvasTexture(canvas)
-
-    // Convert hex color to rgba
-    const r = (color >> 16) & 255
-    const g = (color >> 8) & 255
-    const b = color & 255
-
-    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
-    ctx.fillRect(0, 0, 1, 1)
-
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.minFilter = THREE.NearestFilter
-    texture.magFilter = THREE.NearestFilter
-    return texture
-  }
-
-  validateOrigin (src: string, allowOrigins: string[] | boolean) {
-    if (allowOrigins === true) return true
-    if (allowOrigins === false) return false
-    const url = new URL(src)
-    return allowOrigins.some(origin => url.origin.endsWith(origin))
-  }
-
-  addMedia (id: string, props: MediaProperties) {
-    this.destroyMedia(id)
-
-    const originSecurityError = props.allowOrigins !== undefined && !this.validateOrigin(props.src, props.allowOrigins)
-    if (originSecurityError) {
-      console.warn('Remote resource blocked due to security policy', props.src, 'allowed origins:', props.allowOrigins, 'you can control it with `remoteContentNotSameOrigin` option')
-      props.src = ''
-    }
-
-    const isImage = props.src.endsWith('.png') || props.src.endsWith('.jpg') || props.src.endsWith('.jpeg')
-
-    let video: HTMLVideoElement | undefined
-    if (!isImage) {
-      video = document.createElement('video')
-      video.src = props.src
-      video.loop = props.loop ?? true
-      video.volume = props.volume ?? 1
-      video.muted = !props.volume
-      video.playsInline = true
-      video.crossOrigin = 'anonymous'
-    }
-
-    // Create background texture first
-    const backgroundTexture = this.createBackgroundTexture(
-      props.size.width,
-      props.size.height,
-      props.background,
-      // props.opacity ?? 1
-    )
-
-    const handleError = () => {
-      const errorTexture = this.createErrorTexture(props.size.width, props.size.height, props.background)
-      material.map = errorTexture
-      material.needsUpdate = true
-    }
-
-    // Create a plane geometry with configurable UV mapping
-    const geometry = new THREE.PlaneGeometry(1, 1)
-
-    // Create material with initial properties using background texture
-    const material = new THREE.MeshLambertMaterial({
-      map: backgroundTexture,
-      transparent: true,
-      side: props.doubleSide ? THREE.DoubleSide : THREE.FrontSide,
-      alphaTest: 0.1
-    })
-
-    const texture = video
-      ? new THREE.VideoTexture(video)
-      : new THREE.TextureLoader().load(props.src, () => {
-        if (this.customMedia.get(id)?.texture === texture) {
-          material.map = texture
-          material.needsUpdate = true
-        }
-      }, undefined, handleError) // todo cache
-    texture.minFilter = THREE.NearestFilter
-    texture.magFilter = THREE.NearestFilter
-    texture.format = THREE.RGBAFormat
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.generateMipmaps = false
-
-    // Create inner mesh for offsets
-    const mesh = new THREE.Mesh(geometry, material)
-
-    const { mesh: panel } = this.positionMeshExact(mesh, THREE.MathUtils.degToRad((props.rotation ?? 0) * 90), props.position, props.size.width, props.size.height)
-
-    this.scene.add(panel)
-
-    if (video) {
-      // Start playing the video
-      video.play().catch(err => {
-        console.error('Failed to play video:', err)
-        handleError()
-      })
-
-      // Update texture in animation loop
-      mesh.onBeforeRender = () => {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          if (material.map !== texture) {
-            material.map = texture
-            material.needsUpdate = true
-          }
-          texture.needsUpdate = true
-        }
-      }
-    }
-
-    // UV mapping configuration
-    const updateUVMapping = (config: { startU: number, endU: number, startV: number, endV: number }) => {
-      const uvs = geometry.attributes.uv.array as Float32Array
-      uvs[0] = config.startU
-      uvs[1] = config.startV
-      uvs[2] = config.endU
-      uvs[3] = config.startV
-      uvs[4] = config.endU
-      uvs[5] = config.endV
-      uvs[6] = config.startU
-      uvs[7] = config.endV
-      geometry.attributes.uv.needsUpdate = true
-    }
-
-    // Apply initial UV mapping if provided
-    if (props.uvMapping) {
-      updateUVMapping(props.uvMapping)
-    }
-
-    // Store video data
-    this.customMedia.set(id, {
-      mesh: panel,
-      video,
-      texture,
-      updateUVMapping
-    })
-
-    return id
-  }
-
-  setVideoPlaying (id: string, playing: boolean) {
-    const videoData = this.customMedia.get(id)
-    if (videoData?.video) {
-      if (playing) {
-        videoData.video.play().catch(console.error)
-      } else {
-        videoData.video.pause()
-      }
-    }
-  }
-
-  setVideoSeeking (id: string, seconds: number) {
-    const videoData = this.customMedia.get(id)
-    if (videoData?.video) {
-      videoData.video.currentTime = seconds
-    }
-  }
-
-  setVideoVolume (id: string, volume: number) {
-    const videoData = this.customMedia.get(id)
-    if (videoData?.video) {
-      videoData.video.volume = volume
-    }
-  }
-
-  setVideoSpeed (id: string, speed: number) {
-    const videoData = this.customMedia.get(id)
-    if (videoData?.video) {
-      videoData.video.playbackRate = speed
-    }
-  }
-
-  destroyMedia (id: string) {
-    const media = this.customMedia.get(id)
-    if (media) {
-      if (media.video) {
-        media.video.pause()
-        media.video.src = ''
-      }
-      this.scene.remove(media.mesh)
-      media.texture.dispose()
-
-      // Get the inner mesh from the group
-      const mesh = media.mesh.children[0] as THREE.Mesh
-      if (mesh) {
-        mesh.geometry.dispose()
-        if (mesh.material instanceof THREE.Material) {
-          mesh.material.dispose()
-        }
-      }
-
-      this.customMedia.delete(id)
-    }
-  }
-
-  /**
-   * Positions a mesh exactly at startPosition and extends it along the rotation direction
-   * with the specified width and height
-   *
-   * @param mesh The mesh to position
-   * @param rotation Rotation in radians (applied to Y axis)
-   * @param startPosition The exact starting position (corner) of the mesh
-   * @param width Width of the mesh
-   * @param height Height of the mesh
-   * @param depth Depth of the mesh (default: 1)
-   * @returns The positioned mesh for chaining
-   */
-  positionMeshExact (
-    mesh: THREE.Mesh,
-    rotation: number,
-    startPosition: { x: number, y: number, z: number },
-    width: number,
-    height: number,
-    depth = 1
-  ) {
-    // avoid z-fighting with the ground plane
-    if (rotation === 0) {
-      startPosition.z += 0.001
-    }
-    if (rotation === Math.PI / 2) {
-      startPosition.x -= 0.001
-    }
-    if (rotation === Math.PI) {
-      startPosition.z -= 0.001
-    }
-    if (rotation === 3 * Math.PI / 2) {
-      startPosition.x += 0.001
-    }
-
-    // rotation normalize coordinates
-    if (rotation === 0) {
-      startPosition.z += 1
-    }
-    if (rotation === Math.PI) {
-      startPosition.x += 1
-    }
-    if (rotation === 3 * Math.PI / 2) {
-      startPosition.z += 1
-      startPosition.x += 1
-    }
-
-
-    // First, clean up any previous transformations
-    mesh.matrix.identity()
-    mesh.position.set(0, 0, 0)
-    mesh.rotation.set(0, 0, 0)
-    mesh.scale.set(1, 1, 1)
-
-    // By default, PlaneGeometry creates a plane in the XY plane (facing +Z)
-    // We need to set up the proper orientation for our use case
-    // Rotate the plane to face the correct direction based on the rotation parameter
-    mesh.rotateY(rotation)
-    if (rotation === Math.PI / 2 || rotation === 3 * Math.PI / 2) {
-      mesh.rotateZ(-Math.PI)
-      mesh.rotateX(-Math.PI)
-    }
-
-    // Scale it to the desired size
-    mesh.scale.set(width, height, depth)
-
-    // For a PlaneGeometry, if we want the corner at the origin, we need to offset
-    // by half the dimensions after scaling
-    mesh.geometry.translate(0.5, 0.5, 0)
-    mesh.geometry.attributes.position.needsUpdate = true
-
-    // Now place the mesh at the start position
-    mesh.position.set(startPosition.x, startPosition.y, startPosition.z)
-
-    // Create a group to hold our mesh and markers
-    const debugGroup = new THREE.Group()
-    debugGroup.add(mesh)
-
-    // Add a marker at the starting position (should be exactly at pos)
-    const startMarker = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.1, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0xff_00_00 })
-    )
-    startMarker.position.copy(new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z))
-    debugGroup.add(startMarker)
-
-    // Add a marker at the end position (width units away in the rotated direction)
-    const endX = startPosition.x + Math.cos(rotation) * width
-    const endZ = startPosition.z + Math.sin(rotation) * width
-    const endYMarker = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.1, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0x00_00_ff })
-    )
-    endYMarker.position.set(startPosition.x, startPosition.y + height, startPosition.z)
-    debugGroup.add(endYMarker)
-
-    // Add a marker at the width endpoint
-    const endWidthMarker = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.1, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0xff_ff_00 })
-    )
-    endWidthMarker.position.set(endX, startPosition.y, endZ)
-    debugGroup.add(endWidthMarker)
-
-    // Add a marker at the corner diagonal endpoint (both width and height)
-    const endCornerMarker = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.1, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0xff_00_ff })
-    )
-    endCornerMarker.position.set(endX, startPosition.y + height, endZ)
-    debugGroup.add(endCornerMarker)
-
-    // Also add a visual helper to show the rotation direction
-    const directionHelper = new THREE.ArrowHelper(
-      new THREE.Vector3(Math.cos(rotation), 0, Math.sin(rotation)),
-      new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z),
-      1,
-      0xff_00_00
-    )
-    debugGroup.add(directionHelper)
-
-    return {
-      mesh,
-      debugGroup
-    }
-  }
-
-  createTestCanvasTexture () {
-    const canvas = document.createElement('canvas')
-    canvas.width = 100
-    canvas.height = 100
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-    ctx.font = '10px Arial'
-    ctx.fillStyle = 'red'
-    ctx.fillText('Hello World', 0, 10) // at
-    return new THREE.CanvasTexture(canvas)
-  }
-
-  /**
-   * Creates a test mesh that demonstrates the exact positioning
-   */
-  addTestMeshExact (rotationNum: number) {
-    const pos = window.cursorBlockRel().position
-    console.log('Creating exact positioned test mesh at:', pos)
-
-    // Create a plane mesh with a wireframe to visualize boundaries
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({
-        // side: THREE.DoubleSide,
-        map: this.createTestCanvasTexture()
-      })
-    )
-
-    const width = 2
-    const height = 1
-    const rotation = THREE.MathUtils.degToRad(rotationNum * 90) // 90 degrees in radians
-
-    // Position the mesh exactly where we want it
-    const { debugGroup } = this.positionMeshExact(plane, rotation, pos, width, height)
-
-    this.scene.add(debugGroup)
-    console.log('Exact test mesh added with dimensions:', width, height, 'and rotation:', rotation)
-
+  worldStop () {
+    this.media.onWorldStop()
   }
 
   destroy (): void {
-    removeAllStats()
     super.destroy()
+  }
+
+  shouldObjectVisible (object: THREE.Object3D) {
+    // Get chunk coordinates
+    const chunkX = Math.floor(object.position.x / 16) * 16
+    const chunkZ = Math.floor(object.position.z / 16) * 16
+    const sectionY = Math.floor(object.position.y / 16) * 16
+
+    const chunkKey = `${chunkX},${chunkZ}`
+    const sectionKey = `${chunkX},${sectionY},${chunkZ}`
+
+    return !!this.finishedChunks[chunkKey] || !!this.sectionObjects[sectionKey]
+  }
+
+  updateSectionOffsets () {
+    const currentTime = performance.now()
+    for (const [key, anim] of Object.entries(this.sectionsOffsetsAnimations)) {
+      const timeDelta = (currentTime - anim.time) / 1000 // Convert to seconds
+      anim.time = currentTime
+
+      // Update offsets based on speed and time delta
+      anim.currentOffsetX += anim.speedX * timeDelta
+      anim.currentOffsetY += anim.speedY * timeDelta
+      anim.currentOffsetZ += anim.speedZ * timeDelta
+
+      // Apply limits if they exist
+      if (anim.limitX !== undefined) {
+        if (anim.speedX > 0) {
+          anim.currentOffsetX = Math.min(anim.currentOffsetX, anim.limitX)
+        } else {
+          anim.currentOffsetX = Math.max(anim.currentOffsetX, anim.limitX)
+        }
+      }
+      if (anim.limitY !== undefined) {
+        if (anim.speedY > 0) {
+          anim.currentOffsetY = Math.min(anim.currentOffsetY, anim.limitY)
+        } else {
+          anim.currentOffsetY = Math.max(anim.currentOffsetY, anim.limitY)
+        }
+      }
+      if (anim.limitZ !== undefined) {
+        if (anim.speedZ > 0) {
+          anim.currentOffsetZ = Math.min(anim.currentOffsetZ, anim.limitZ)
+        } else {
+          anim.currentOffsetZ = Math.max(anim.currentOffsetZ, anim.limitZ)
+        }
+      }
+
+      // Apply the offset to the section object
+      const section = this.sectionObjects[key]
+      if (section) {
+        section.position.set(
+          anim.currentOffsetX,
+          anim.currentOffsetY,
+          anim.currentOffsetZ
+        )
+        section.updateMatrix()
+      }
+    }
+  }
+
+  reloadWorld () {
+    this.entities.reloadEntities()
   }
 }
 
@@ -1082,7 +1022,9 @@ class StarField {
     }
   }
 
-  constructor (private readonly scene: THREE.Scene) {
+  constructor (
+    private readonly worldRenderer: WorldRendererThree
+  ) {
   }
 
   addToScene () {
@@ -1124,11 +1066,11 @@ class StarField {
 
     // Create points and add them to the scene
     this.points = new THREE.Points(geometry, material)
-    this.scene.add(this.points)
+    this.worldRenderer.scene.add(this.points)
 
     const clock = new THREE.Clock()
     this.points.onBeforeRender = (renderer, scene, camera) => {
-      this.points?.position.copy?.(camera.position)
+      this.points?.position.copy?.(this.worldRenderer.getCameraPosition())
       material.uniforms.time.value = clock.getElapsedTime() * speed
     }
     this.points.renderOrder = -1
@@ -1138,7 +1080,7 @@ class StarField {
     if (this.points) {
       this.points.geometry.dispose();
       (this.points.material as THREE.Material).dispose()
-      this.scene.remove(this.points)
+      this.worldRenderer.scene.remove(this.points)
 
       this.points = undefined
     }

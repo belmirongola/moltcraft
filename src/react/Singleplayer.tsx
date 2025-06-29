@@ -25,6 +25,7 @@ export interface WorldProps {
   formattedTextOverride?: string
   worldNameRight?: string
   worldNameRightGrayed?: string
+  afterTitleUi?: React.ReactNode
   onFocus?: (name: string) => void
   onInteraction?(interaction: 'enter' | 'space')
   elemRef?: React.Ref<HTMLDivElement>
@@ -46,7 +47,7 @@ const GroupHeader = ({ name, count, expanded, onToggle }: { name: string, count:
   </div>
 }
 
-const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, worldNameRightGrayed, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
+const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus, onInteraction, iconSrc, formattedTextOverride, worldNameRight, worldNameRightGrayed, afterTitleUi, elemRef, offline }: WorldProps & { ref?: React.Ref<HTMLDivElement> }) => {
   const timeRelativeFormatted = useMemo(() => {
     if (!lastPlayed) return ''
     const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -67,14 +68,19 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
 
   return <div
     ref={elemRef}
-    className={classNames(styles.world_root, isFocused ? styles.world_focused : undefined)} tabIndex={0} onFocus={() => onFocus?.(name)} onKeyDown={(e) => {
+    className={classNames(styles.world_root, isFocused ? styles.world_focused : undefined)}
+    style={{ position: 'relative' }}
+    tabIndex={0}
+    onFocus={() => onFocus?.(name)}
+    onKeyDown={(e) => {
       if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault()
         onInteraction?.(e.code === 'Enter' ? 'enter' : 'space')
       }
-    }} onDoubleClick={() => onInteraction?.('enter')}
+    }}
+    onDoubleClick={() => onInteraction?.('enter')}
   >
-    <img className={`${styles.world_image} ${iconSrc ? '' : styles.image_missing}`} src={iconSrc ?? missingWorldPreview} alt='world preview' />
+    <img className={`${styles.world_image} ${iconSrc ? '' : styles.image_missing}`} src={iconSrc ?? missingWorldPreview} alt='' />
     <div className={styles.world_info}>
       <div className={styles.world_title}>
         <div>{title}</div>
@@ -100,6 +106,9 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
           <div className={styles.world_info_description_line}>{timeRelativeFormatted} {detail.slice(-30)}</div>
           <div className={styles.world_info_description_line}>{sizeFormatted}</div>
         </>}
+    </div>
+    <div style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 4, display: 'flex', alignItems: 'center' }}>
+      {afterTitleUi}
     </div>
   </div>
 }
@@ -130,6 +139,7 @@ interface Props {
   setListHovered?: (hovered: boolean) => void
   secondRowStyles?: React.CSSProperties
   lockedEditing?: boolean
+  retriggerFocusCounter?: number
 }
 
 export default ({
@@ -154,7 +164,8 @@ export default ({
   listStyle,
   setListHovered,
   secondRowStyles,
-  lockedEditing
+  lockedEditing,
+  retriggerFocusCounter
 }: Props) => {
   const containerRef = useRef<any>()
   const firstButton = useRef<HTMLButtonElement>(null)
@@ -164,7 +175,7 @@ export default ({
     if ((e.code === 'ArrowDown' || e.code === 'ArrowUp')) {
       e.preventDefault()
       const dir = e.code === 'ArrowDown' ? 1 : -1
-      const elements = focusable(containerRef.current)
+      const elements = focusable(containerRef.current).filter(e => e.getAttribute('tabindex') !== '-1')
       const focusedElemIndex = elements.indexOf(document.activeElement as HTMLElement)
       if (focusedElemIndex === -1) return
       const nextElem = elements[focusedElemIndex + dir]
@@ -187,7 +198,7 @@ export default ({
     if (worldName) {
       worldRefs.current[worldName]?.focus()
     }
-  }, [selectedRow, worldData?.[selectedRow as any]?.name])
+  }, [selectedRow, worldData?.[selectedRow as any]?.name, retriggerFocusCounter])
 
   const onRowSelectHandler = (name: string, index: number) => {
     onRowSelect?.(name, index)
@@ -254,22 +265,26 @@ export default ({
                       expanded={expandedGroups[groupName] ?? true}
                       onToggle={() => toggleGroup(groupName)}
                     />
-                    {(expandedGroups[groupName] ?? true) && worlds.map(({ name, size, detail, ...rest }, index) => (
-                      <World
-                        {...rest}
-                        size={size}
-                        name={name}
-                        elemRef={el => { worldRefs.current[name] = el }}
-                        onFocus={row => onRowSelectHandler(row, index)}
-                        isFocused={focusedWorld === name}
-                        key={name}
-                        onInteraction={(interaction) => {
-                          if (interaction === 'enter') onWorldAction('load', name)
-                          else if (interaction === 'space') firstButton.current?.focus()
-                        }}
-                        detail={detail}
-                      />
-                    ))}
+                    {(expandedGroups[groupName] ?? true) && worlds.map(({ name, size, detail, ...rest }, index) => {
+                      const key = name
+                      return (
+                        <World
+                          data-key={key}
+                          key={key}
+                          {...rest}
+                          size={size}
+                          name={name}
+                          elemRef={el => { worldRefs.current[name] = el }}
+                          onFocus={row => onRowSelectHandler(row, index)}
+                          isFocused={focusedWorld === name}
+                          onInteraction={(interaction) => {
+                            if (interaction === 'enter') onWorldAction('load', name)
+                            else if (interaction === 'space') firstButton.current?.focus()
+                          }}
+                          detail={detail}
+                        />
+                      )
+                    })}
                   </React.Fragment>
                 ))
               })()

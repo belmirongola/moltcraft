@@ -16,6 +16,7 @@ import { packetsReplayState } from './react/state/packetsReplayState'
 import { createFullScreenProgressReporter } from './core/progressReporter'
 import { showNotification } from './react/NotificationProvider'
 import { resetAppStorage } from './react/appStorageProvider'
+import { ConnectOptions } from './connect'
 const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive')
 
 browserfs.install(window)
@@ -262,7 +263,7 @@ export const mountGoogleDriveFolder = async (readonly: boolean, rootId: string) 
   return true
 }
 
-export async function removeFileRecursiveAsync (path) {
+export async function removeFileRecursiveAsync (path, removeDirectoryItself = true) {
   const errors = [] as Array<[string, Error]>
   try {
     const files = await fs.promises.readdir(path)
@@ -281,7 +282,9 @@ export async function removeFileRecursiveAsync (path) {
     }))
 
     // After removing all files/directories, remove the current directory
-    await fs.promises.rmdir(path)
+    if (removeDirectoryItself) {
+      await fs.promises.rmdir(path)
+    }
   } catch (error) {
     errors.push([path, error])
   }
@@ -558,7 +561,7 @@ export const openWorldFromHttpDir = async (fileDescriptorUrls: string[]/*  | und
 }
 
 // todo rename method
-const openWorldZipInner = async (file: File | ArrayBuffer, name = file['name']) => {
+const openWorldZipInner = async (file: File | ArrayBuffer, name = file['name'], connectOptions?: Partial<ConnectOptions>) => {
   await new Promise<void>(async resolve => {
     browserfs.configure({
       // todo
@@ -603,7 +606,7 @@ const openWorldZipInner = async (file: File | ArrayBuffer, name = file['name']) 
     }
 
     if (availableWorlds.length === 1) {
-      await loadSave(`/world/${availableWorlds[0]}`)
+      await loadSave(`/world/${availableWorlds[0]}`, connectOptions)
       return
     }
 

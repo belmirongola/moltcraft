@@ -10,7 +10,7 @@ import { versionToNumber } from 'renderer/viewer/common/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
 import { BlockModel } from 'mc-assets'
-import { activeGuiAtlas } from 'renderer/viewer/lib/guiRenderer'
+import { renderSlot } from 'renderer/viewer/three/renderSlot'
 import Generic95 from '../assets/generic_95.png'
 import { appReplacableResources } from './generated/resources'
 import { activeModalStack, hideCurrentModal, hideModal, miscUiState, showModal } from './globalState'
@@ -21,42 +21,26 @@ import { currentScaling } from './scaleInterface'
 import { getItemDescription } from './itemsDescriptions'
 import { MessageFormatPart } from './chatUtils'
 import { GeneralInputItem, getItemMetadata, getItemModelName, getItemNameRaw, RenderItem } from './mineflayer/items'
+import { playerState } from './mineflayer/playerState'
 
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
   loadedImagesCache.delete('blocks')
+  loadedImagesCache.delete('items')
 }
 
 let lastWindow: ReturnType<typeof showInventory>
+let lastWindowType: string | null | undefined // null is inventory
 /** bot version */
 let version: string
 let PrismarineItem: typeof Item
-
-export const allImagesLoadedState = proxy({
-  value: false
-})
 
 export const jeiCustomCategories = proxy({
   value: [] as Array<{ id: string, categoryTitle: string, items: any[] }>
 })
 
-export const onGameLoad = (onLoad) => {
-  allImagesLoadedState.value = false
+export const onGameLoad = () => {
   version = bot.version
-
-  const checkIfLoaded = () => {
-    if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser) return
-    if (!allImagesLoadedState.value) {
-      onLoad?.()
-    }
-    allImagesLoadedState.value = false
-    setTimeout(() => {
-      allImagesLoadedState.value = true
-    }, 0)
-  }
-  appViewer.resourcesManager.on('assetsTexturesUpdated', checkIfLoaded)
-  appViewer.resourcesManager.on('assetsInventoryReady', checkIfLoaded)
-  checkIfLoaded()
 
   PrismarineItem = PItem(version)
 
@@ -134,13 +118,25 @@ export const onGameLoad = (onLoad) => {
     if (!lastWindow) return
     upJei(q)
   })
+
+  if (!appViewer.resourcesManager['_inventoryChangeTracked']) {
+    appViewer.resourcesManager['_inventoryChangeTracked'] = true
+    const texturesChanged = () => {
+      cleanLoadedImagesCache()
+      if (!lastWindow) return
+      upWindowItemsLocal()
+      upJei(lastJeiSearch)
+    }
+    appViewer.resourcesManager.on('assetsInventoryReady', () => texturesChanged())
+    appViewer.resourcesManager.on('assetsTexturesUpdated', () => texturesChanged())
+  }
 }
 
 const getImageSrc = (path): string | HTMLImageElement => {
   switch (path) {
     case 'gui/container/inventory': return appReplacableResources.latest_gui_container_inventory.content
-    case 'blocks': return appViewer.resourcesManager.currentResources!.blocksAtlasParser.latestImage
-    case 'items': return appViewer.resourcesManager.currentResources!.itemsAtlasParser.latestImage
+    case 'blocks': return appViewer.resourcesManager.blocksAtlasParser.latestImage
+    case 'items': return appViewer.resourcesManager.itemsAtlasParser.latestImage
     case 'gui/container/dispenser': return appReplacableResources.latest_gui_container_dispenser.content
     case 'gui/container/furnace': return appReplacableResources.latest_gui_container_furnace.content
     case 'gui/container/crafting_table': return appReplacableResources.latest_gui_container_crafting_table.content
@@ -163,7 +159,9 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   if (image) {
     return image
   }
-  if (!path && !texture) throw new Error('Either pass path or texture')
+  if (!path && !texture) {
+    throw new Error('Either pass path or texture')
+  }
   const loadPath = (blockData ? 'blocks' : path ?? texture)!
   if (loadedImagesCache.has(loadPath)) {
     onLoad()
@@ -182,103 +180,53 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-export type ResolvedItemModelRender = {
-  modelName: string,
-}
-
-export const renderSlot = (model: ResolvedItemModelRender, debugIsQuickbar = false, fullBlockModelSupport = false): {
-  texture: string,
-  blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
-  scale?: number,
-  slice?: number[],
-  modelName?: string,
-  image?: HTMLImageElement
-} | undefined => {
-  let itemModelName = model.modelName
-  const originalItemName = itemModelName
-  const isItem = loadedData.itemsByName[itemModelName]
-
-  // #region normalize item name
-  if (versionToNumber(bot.version) < versionToNumber('1.13')) itemModelName = getRenamedData(isItem ? 'items' : 'blocks', itemModelName, bot.version, '1.13.1') as string
-  // #endregion
-
-
-  let itemTexture
-
-  if (!fullBlockModelSupport) {
-    const atlas = activeGuiAtlas.atlas?.json
-    // todo atlas holds all rendered blocks, not all possibly rendered item/block models, need to request this on demand instead (this is how vanilla works)
-    const item = atlas?.textures[itemModelName.replace('minecraft:', '').replace('block/', '').replace('blocks/', '').replace('item/', '').replace('items/', '').replace('_inventory', '').replace('_bottom', '')]
-    if (item) {
-      const x = item.u * atlas.width
-      const y = item.v * atlas.height
-      return {
-        texture: 'gui',
-        image: activeGuiAtlas.atlas!.image,
-        slice: [x, y, atlas.tileSize, atlas.tileSize],
-        scale: 0.25,
-      }
-    }
-  }
-
-  try {
-    assertDefined(appViewer.resourcesManager.currentResources?.itemsRenderer)
-    itemTexture =
-      appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport)
-      ?? appViewer.resourcesManager.currentResources.itemsRenderer.getItemTexture('item/missing_texture')!
-  } catch (err) {
-    inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
-    itemTexture = appViewer.resourcesManager.currentResources!.itemsRenderer.getItemTexture('block/errored')!
-  }
-
-
-  if ('type' in itemTexture) {
-    // is item
-    return {
-      texture: itemTexture.type,
-      slice: itemTexture.slice,
-      modelName: itemModelName
-    }
-  } else {
-    // is block
-    return {
-      texture: 'blocks',
-      blockData: itemTexture,
-      modelName: itemModelName
-    }
-  }
-}
-
 const getItemName = (slot: Item | RenderItem | null) => {
   const parsed = getItemNameRaw(slot, appViewer.resourcesManager)
   if (!parsed) return
   // todo display full text renderer from sign renderer
-  const text = flat(parsed as MessageFormatPart).map(x => x.text)
+  const text = flat(parsed as MessageFormatPart).map(x => (typeof x === 'string' ? x : x.text))
   return text.join('')
 }
 
-let lastMappedSots = [] as any[]
+let lastMappedSlots = [] as any[]
 const itemToVisualKey = (slot: RenderItem | Item | null) => {
-  if (!slot) return null
-  return slot.name + (slot['metadata'] ?? '-') + (slot.nbt ? JSON.stringify(slot.nbt) : '') + (slot['components'] ? JSON.stringify(slot['components']) : '')
+  if (!slot) return ''
+  const keys = [
+    slot.name,
+    slot.durabilityUsed,
+    slot.maxDurability,
+    slot['count'],
+    slot['metadata'],
+    slot.nbt ? JSON.stringify(slot.nbt) : '',
+    slot['components'] ? JSON.stringify(slot['components']) : '',
+    appViewer.resourcesManager.currentResources!.guiAtlasVersion,
+  ].join('|')
+  return keys
+}
+const validateSlot = (slot: any, index: number) => {
+  if (!slot.texture) {
+    throw new Error(`Slot has no texture: ${index} ${slot.name}`)
+  }
 }
 const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
   const newSlots = slots.map((slot, i) => {
-    // todo stateid
-    if (!slot) return
+    if (!slot) return null
 
     if (!isJei) {
-      const oldKey = itemToVisualKey(lastMappedSots[i])
-      if (oldKey && oldKey === itemToVisualKey(slot)) {
-        return lastMappedSots[i]
+      const oldKey = lastMappedSlots[i]?.cacheKey
+      const newKey = itemToVisualKey(slot)
+      slot['cacheKey'] = i + '|' + newKey
+      if (oldKey && oldKey === newKey) {
+        validateSlot(lastMappedSlots[i], i)
+        return lastMappedSlots[i]
       }
     }
 
     try {
       if (slot.durabilityUsed && slot.maxDurability) slot.durabilityUsed = Math.min(slot.durabilityUsed, slot.maxDurability)
       const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
-      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', }, appViewer.resourcesManager)
-      const slotCustomProps = renderSlot({ modelName }, debugIsQuickbar)
+      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', }, appViewer.resourcesManager, appViewer.playerState.reactive)
+      const slotCustomProps = renderSlot({ modelName, originalItemName: slot.name }, appViewer.resourcesManager, debugIsQuickbar)
       const itemCustomName = getItemName(slot)
       Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error
@@ -288,12 +236,13 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
         const { icon, ...rest } = slot
         return rest
       }
+      validateSlot(slot, i)
     } catch (err) {
       inGameError(err)
     }
     return slot
   })
-  lastMappedSots = newSlots
+  lastMappedSlots = JSON.parse(JSON.stringify(newSlots))
   return newSlots
 }
 
@@ -328,6 +277,7 @@ const implementedContainersGuiMap = {
   'minecraft:generic_3x3': 'DropDispenseWin',
   'minecraft:furnace': 'FurnaceWin',
   'minecraft:smoker': 'FurnaceWin',
+  'minecraft:blast_furnace': 'FurnaceWin',
   'minecraft:crafting': 'CraftingWin',
   'minecraft:crafting3x3': 'CraftingWin', // todo different result slot
   'minecraft:anvil': 'AnvilWin',
@@ -339,7 +289,9 @@ const implementedContainersGuiMap = {
   'minecraft:villager': 'VillagerWin',
 }
 
+let lastJeiSearch = ''
 const upJei = (search: string) => {
+  lastJeiSearch = search
   search = search.toLowerCase()
   // todo fix pre flat
   const itemsArray = [
@@ -384,6 +336,15 @@ export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {
   return inv
 }
 
+const upWindowItemsLocal = () => {
+  if (!lastWindow && bot.currentWindow) {
+    // edge case: might happen due to high ping, inventory should be closed soon!
+    // openWindow(implementedContainersGuiMap[bot.currentWindow.type])
+    return
+  }
+  void Promise.resolve().then(() => upInventoryItems(lastWindowType === null))
+}
+
 let skipClosePacketSending = false
 const openWindow = (type: string | undefined) => {
   // if (activeModalStack.some(x => x.reactType?.includes?.('player_win:'))) {
@@ -396,6 +357,7 @@ const openWindow = (type: string | undefined) => {
       return
     }
   }
+  lastWindowType = type ?? null
   showModal({
     reactType: `player_win:${type}`,
   })
@@ -404,6 +366,7 @@ const openWindow = (type: string | undefined) => {
     if (type !== undefined && bot.currentWindow && !skipClosePacketSending) bot.currentWindow['close']()
     lastWindow.destroy()
     lastWindow = null as any
+    lastWindowType = null
     window.lastWindow = lastWindow
     miscUiState.displaySearchInput = false
     destroyFn()
@@ -441,15 +404,8 @@ const openWindow = (type: string | undefined) => {
   }
 
   lastWindow = inv
-  const upWindowItems = () => {
-    if (!lastWindow && bot.currentWindow) {
-      // edge case: might happen due to high ping, inventory should be closed soon!
-      // openWindow(implementedContainersGuiMap[bot.currentWindow.type])
-      return
-    }
-    void Promise.resolve().then(() => upInventoryItems(type === undefined))
-  }
-  upWindowItems()
+
+  upWindowItemsLocal()
 
   lastWindow.pwindow.touch = miscUiState.currentTouch ?? false
   const oldOnInventoryEvent = lastWindow.pwindow.onInventoryEvent.bind(lastWindow.pwindow)
@@ -465,6 +421,10 @@ const openWindow = (type: string | undefined) => {
     }
   }
   lastWindow.pwindow.onJeiClick = (slotItem, _index, isRightclick) => {
+    if (versionToNumber(bot.version) < versionToNumber('1.13')) {
+      alert('Item give is broken on 1.12.2 and below, we are working on it!')
+      return
+    }
     // slotItem is the slot from mapSlots
     const itemId = loadedData.itemsByName[slotItem.name]?.id
     if (!itemId) {
@@ -511,14 +471,14 @@ const openWindow = (type: string | undefined) => {
 
   if (type === undefined) {
     // player inventory
-    bot.inventory.on('updateSlot', upWindowItems)
+    bot.inventory.on('updateSlot', upWindowItemsLocal)
     destroyFn = () => {
-      bot.inventory.off('updateSlot', upWindowItems)
+      bot.inventory.off('updateSlot', upWindowItemsLocal)
     }
   } else {
     //@ts-expect-error
     bot.currentWindow.on('updateSlot', () => {
-      upWindowItems()
+      upWindowItemsLocal()
     })
   }
 }

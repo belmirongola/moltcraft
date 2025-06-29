@@ -9,10 +9,6 @@ import { makeTextureAtlas } from 'mc-assets/dist/atlasCreator'
 import { proxy, ref } from 'valtio'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 
-export const activeGuiAtlas = proxy({
-  atlas: null as null | { json, image },
-})
-
 export const getNonFullBlocksModels = () => {
   let version = appViewer.resourcesManager.currentResources!.version ?? 'latest'
   if (versionToNumber(version) < versionToNumber('1.13')) version = '1.13'
@@ -47,6 +43,8 @@ export const getNonFullBlocksModels = () => {
     if (!model?.elements?.length) return
     const isFullBlock = model.elements.length === 1 && arrEqual(model.elements[0].from, [0, 0, 0]) && arrEqual(model.elements[0].to, [16, 16, 16])
     if (isFullBlock) return
+    const hasBetterPrerender = assetsParser.blockModelsStore.data.latest[`item/${name}`]?.textures?.['layer0']?.startsWith('invsprite_')
+    if (hasBetterPrerender) return
     model['display'] ??= {}
     model['display']['gui'] ??= standardGuiDisplay
     blockModelsResolved[name] = model
@@ -66,7 +64,6 @@ export const getNonFullBlocksModels = () => {
         handledItemsWithDefinitions.add(name)
       }
       if (resolvedModel?.elements) {
-
         let hasStandardDisplay = true
         if (resolvedModel['display']?.gui) {
           hasStandardDisplay =
@@ -120,18 +117,18 @@ const RENDER_SIZE = 64
 
 const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isItems = false) => {
   const { currentResources } = appViewer.resourcesManager
-  const img = await getLoadedImage(isItems ? currentResources!.itemsAtlasParser.latestImage : currentResources!.blocksAtlasParser.latestImage)
+  const imgBitmap = isItems ? currentResources!.itemsAtlasImage : currentResources!.blocksAtlasImage
   const canvasTemp = document.createElement('canvas')
-  canvasTemp.width = img.width
-  canvasTemp.height = img.height
+  canvasTemp.width = imgBitmap.width
+  canvasTemp.height = imgBitmap.height
   canvasTemp.style.imageRendering = 'pixelated'
   const ctx = canvasTemp.getContext('2d')!
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(img, 0, 0)
+  ctx.drawImage(imgBitmap, 0, 0)
 
-  const atlasParser = isItems ? currentResources!.itemsAtlasParser : currentResources!.blocksAtlasParser
+  const atlasParser = isItems ? appViewer.resourcesManager.itemsAtlasParser : appViewer.resourcesManager.blocksAtlasParser
   const textureAtlas = new TextureAtlas(
-    ctx.getImageData(0, 0, img.width, img.height),
+    ctx.getImageData(0, 0, imgBitmap.width, imgBitmap.height),
     Object.fromEntries(Object.entries(atlasParser.atlas.latest.textures).map(([key, value]) => {
       return [key, [
         value.u,
@@ -145,6 +142,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
   const PREVIEW_ID = Identifier.parse('preview:preview')
   const PREVIEW_DEFINITION = new BlockDefinition({ '': { model: PREVIEW_ID.toString() } }, undefined)
 
+  let textureWasRequested = false
   let modelData: any
   let currentModelName: string | undefined
   const resources: ItemRendererResources = {
@@ -155,6 +153,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
       return null
     },
     getTextureUV (texture) {
+      textureWasRequested = true
       return textureAtlas.getTextureUV(texture.toString().replace('minecraft:', '').replace('block/', '').replace('item/', '').replace('blocks/', '').replace('items/', '') as any)
     },
     getTextureAtlas () {
@@ -203,6 +202,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
   const renderer = new ItemRenderer(gl, item, resources, { display_context: 'gui' })
   const missingTextures = new Set()
   for (const [modelName, model] of Object.entries(models)) {
+    textureWasRequested = false
     if (includeOnly.length && !includeOnly.includes(modelName)) continue
 
     const patchMissingTextures = () => {
@@ -224,6 +224,7 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
     if (!modelData) continue
     renderer.setItem(item, { display_context: 'gui' })
     renderer.drawItem()
+    if (!textureWasRequested) continue
     const url = canvas.toDataURL()
     // eslint-disable-next-line no-await-in-loop
     const img = await getLoadedImage(url)
@@ -237,6 +238,9 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
   return images
 }
 
+/**
+ * @mainThread
+ */
 const generateAtlas = async (images: Record<string, HTMLImageElement>) => {
   const atlas = makeTextureAtlas({
     input: Object.keys(images),
@@ -254,9 +258,9 @@ const generateAtlas = async (images: Record<string, HTMLImageElement>) => {
   // a.download = 'blocks_atlas.png'
   // a.click()
 
-  activeGuiAtlas.atlas = {
+  appViewer.resourcesManager.currentResources!.guiAtlas = {
     json: atlas.json,
-    image: ref(await getLoadedImage(atlas.canvas.toDataURL())),
+    image: await createImageBitmap(atlas.canvas),
   }
 
   return atlas
@@ -273,5 +277,6 @@ export const generateGuiAtlas = async () => {
   const itemImages = await generateItemsGui(itemsModelsResolved, true)
   console.timeEnd('generate items gui atlas')
   await generateAtlas({ ...blockImages, ...itemImages })
+  appViewer.resourcesManager.currentResources!.guiAtlasVersion++
   // await generateAtlas(blockImages)
 }

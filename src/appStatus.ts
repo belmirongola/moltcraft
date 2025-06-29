@@ -3,6 +3,7 @@ import { appStatusState, resetAppStatusState } from './react/AppStatusProvider'
 
 let ourLastStatus: string | undefined = ''
 export const setLoadingScreenStatus = function (status: string | undefined | null, isError = false, hideDots = false, fromFlyingSquid = false, minecraftJsonMessage?: Record<string, any>) {
+  if (typeof status === 'string') status = window.translateText?.(status) ?? status
   // null can come from flying squid, should restore our last status
   if (status === null) {
     status = ourLastStatus

@@ -3,7 +3,7 @@ import { render } from '@xmcl/text-component'
 import { noCase } from 'change-case'
 import mojangson from 'mojangson'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
-import { MessageFormatPart } from '../chatUtils'
+import { MessageFormatOptions, MessageFormatPart } from '../chatUtils'
 import { chatInputValueGlobal } from './Chat'
 import './MessageFormatted.css'
 import { showOptionsModal } from './SelectOption'
@@ -67,9 +67,10 @@ const clickEventToProps = (clickEvent: MessageFormatPart['clickEvent']) => {
   }
 }
 
-export const MessagePart = ({ part, ...props }: { part: MessageFormatPart } & ComponentProps<'span'>) => {
+export const MessagePart = ({ part, formatOptions, ...props }: { part: MessageFormatPart, formatOptions?: MessageFormatOptions } & ComponentProps<'span'>) => {
 
-  const { color, italic, bold, underlined, strikethrough, text, clickEvent, hoverEvent, obfuscated } = part
+  const { color: _color, italic, bold, underlined, strikethrough, text, clickEvent, hoverEvent, obfuscated } = part
+  const color = _color ?? 'white'
 
   const clickProps = clickEventToProps(clickEvent)
   const hoverMessageRaw = hoverItemToText(hoverEvent)
@@ -77,7 +78,7 @@ export const MessagePart = ({ part, ...props }: { part: MessageFormatPart } & Co
 
   const applyStyles = [
     clickProps && messageFormatStylesMap.clickEvent,
-    color ? colorF(color.toLowerCase()) + `; text-shadow: 1px 1px 0px ${getColorShadow(colorF(color.toLowerCase()).replace('color:', ''))}` : messageFormatStylesMap.white,
+    colorF(color.toLowerCase()) + ((formatOptions?.doShadow ?? true) ? `; text-shadow: 1px 1px 0px ${getColorShadow(colorF(color.toLowerCase()).replace('color:', ''))}` : ''),
     italic && messageFormatStylesMap.italic,
     bold && messageFormatStylesMap.bold,
     italic && messageFormatStylesMap.italic,
@@ -89,10 +90,10 @@ export const MessagePart = ({ part, ...props }: { part: MessageFormatPart } & Co
   return <span title={hoverItemText} style={parseInlineStyle(applyStyles.join(';'))} {...clickProps} {...props}>{text}</span>
 }
 
-export default ({ parts, className }: { parts: readonly MessageFormatPart[], className?: string }) => {
+export default ({ parts, className, formatOptions }: { parts: readonly MessageFormatPart[], className?: string, formatOptions?: MessageFormatOptions }) => {
   return (
     <span className={`formatted-message ${className ?? ''}`}>
-      {parts.map((part, i) => <MessagePart key={i} part={part} />)}
+      {parts.map((part, i) => <MessagePart key={i} part={part} formatOptions={formatOptions} />)}
     </span>
   )
 }
@@ -123,22 +124,22 @@ export function parseInlineStyle (style: string): Record<string, any> {
 }
 
 export const messageFormatStylesMap = {
-  black: 'color:#000000',
-  dark_blue: 'color:#0000AA',
-  dark_green: 'color:#00AA00',
-  dark_aqua: 'color:#00AAAA',
-  dark_red: 'color:#AA0000',
-  dark_purple: 'color:#AA00AA',
-  gold: 'color:#FFAA00',
-  gray: 'color:#AAAAAA',
-  dark_gray: 'color:#555555',
-  blue: 'color:#5555FF',
-  green: 'color:#55FF55',
-  aqua: 'color:#55FFFF',
-  red: 'color:#FF5555',
-  light_purple: 'color:#FF55FF',
-  yellow: 'color:#FFFF55',
-  white: 'color:#FFFFFF',
+  black: 'color:color(display-p3 0 0 0)',
+  dark_blue: 'color:color(display-p3 0 0 0.6667)',
+  dark_green: 'color:color(display-p3 0 0.6667 0)',
+  dark_aqua: 'color:color(display-p3 0 0.6667 0.6667)',
+  dark_red: 'color:color(display-p3 0.6667 0 0)',
+  dark_purple: 'color:color(display-p3 0.6667 0 0.6667)',
+  gold: 'color:color(display-p3 1 0.6667 0)',
+  gray: 'color:color(display-p3 0.6667 0.6667 0.6667)',
+  dark_gray: 'color:color(display-p3 0.3333 0.3333 0.3333)',
+  blue: 'color:color(display-p3 0.3333 0.3333 1)',
+  green: 'color:color(display-p3 0.3333 1 0.3333)',
+  aqua: 'color:color(display-p3 0.3333 1 1)',
+  red: 'color:color(display-p3 1 0.3333 0.3333)',
+  light_purple: 'color:color(display-p3 1 0.3333 1)',
+  yellow: 'color:color(display-p3 1 1 0.3333)',
+  white: 'color:color(display-p3 1 1 1)',
   bold: 'font-weight:900',
   strikethrough: 'text-decoration:line-through',
   underlined: 'text-decoration:underline',

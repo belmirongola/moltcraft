@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Transition } from 'react-transition-group'
+import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { allImagesLoadedState, openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
@@ -14,11 +14,10 @@ import { packetsReplayState } from './state/packetsReplayState'
 
 
 const ItemName = ({ itemKey }: { itemKey: string }) => {
-  const nodeRef = useRef(null)
   const [show, setShow] = useState(false)
   const [itemName, setItemName] = useState<Record<string, any> | string>('')
 
-  const duration = 300
+  const duration = 0.3
 
   const defaultStyle: React.CSSProperties = {
     position: 'fixed',
@@ -27,16 +26,7 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
     right: 0,
     fontSize: 10,
     textAlign: 'center',
-    transition: `opacity ${duration}ms ease-in-out`,
-    opacity: 0,
     pointerEvents: 'none',
-  }
-
-  const transitionStyles = {
-    entering: { opacity: 1 },
-    entered: { opacity: 1 },
-    exiting: { opacity: 0 },
-    exited: { opacity: 0 },
   }
 
   useEffect(() => {
@@ -61,15 +51,24 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
     }
   }, [itemKey])
 
-  return <Transition nodeRef={nodeRef} in={show} timeout={duration} >
-    {state => (
-      <SharedHudVars>
-        <div ref={nodeRef} style={{ ...defaultStyle, ...transitionStyles[state] }} className='item-display-name'>
-          <MessageFormattedString message={itemName} />
-        </div>
-      </SharedHudVars>
-    )}
-  </Transition>
+  return (
+    <AnimatePresence>
+      {show && (
+        <SharedHudVars>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration }}
+            style={defaultStyle}
+            className='item-display-name'
+          >
+            <MessageFormattedString message={itemName} />
+          </motion.div>
+        </SharedHudVars>
+      )}
+    </AnimatePresence>
+  )
 }
 
 const HotbarInner = () => {
@@ -81,6 +80,9 @@ const HotbarInner = () => {
     const controller = new AbortController()
 
     const inv = openItemsCanvas('HotbarWin', {
+      _client: {
+        write () {}
+      },
       clickWindow (slot, mouseButton, mode) {
         if (mouseButton === 1) {
           console.log('right click')
@@ -110,7 +112,7 @@ const HotbarInner = () => {
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser || !allImagesLoadedState.value) return
+      if (!appViewer.resourcesManager?.itemsAtlasParser) return
       upInventoryItems(true, inv)
     }
 
@@ -125,7 +127,7 @@ const HotbarInner = () => {
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
     appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
-    const unsub2 = subscribe(allImagesLoadedState, () => {
+    appViewer.resourcesManager.on('assetsInventoryReady', () => {
       upHotbarItems()
     })
 
@@ -196,7 +198,6 @@ const HotbarInner = () => {
     return () => {
       inv.destroy()
       controller.abort()
-      unsub2()
       appViewer.resourcesManager.off('assetsTexturesUpdated', upHotbarItems)
     }
   }, [])

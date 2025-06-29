@@ -27,11 +27,15 @@ export class FirstPersonEffects {
     const spriteMaterial = new THREE.SpriteMaterial({
       map: null,
       transparent: true,
-      alphaTest: 0.1
+      alphaTest: 0.1,
+      blending: THREE.AdditiveBlending, // Makes fire glow effect
+      depthTest: false, // Ensures fire always renders in front
+      depthWrite: false,
+      color: new THREE.Color(1.0, 0.8, 0.4), // Slightly warm tint
     })
 
     this.fireSprite = new THREE.Sprite(spriteMaterial)
-    // this.fireSprite.visible = false
+    this.fireSprite.visible = false
     this.effectsGroup.add(this.fireSprite)
 
     this.worldRenderer.onRender.push(() => {
@@ -43,8 +47,12 @@ export class FirstPersonEffects {
     const fireImageBase64 = [] as string[]
 
     const { blocksAtlasParser } = (this.worldRenderer.resourcesManager.currentResources!)
-    const textureInfo = blocksAtlasParser.getTextureInfo('fire_0') as { u: number, v: number, width?: number, height?: number }
-    if (textureInfo) {
+    
+    // Load all fire animation frames (fire_0, fire_1, etc.)
+    for (let i = 0; i < 32; i++) {
+      const textureInfo = blocksAtlasParser.getTextureInfo(`fire_${i}`) as { u: number, v: number, width?: number, height?: number } | null
+      if (!textureInfo) break // Stop when no more frames available
+      
       const defaultSize = blocksAtlasParser.atlas.latest.tileSize
       const imageWidth = blocksAtlasParser.atlas.latest.width
       const imageHeight = blocksAtlasParser.atlas.latest.height
@@ -66,6 +74,8 @@ export class FirstPersonEffects {
       texture.magFilter = THREE.NearestFilter
       return texture
     })
+    
+    console.log(`Loaded ${this.fireTextures.length} fire animation frames`)
   }
 
   setIsOnFire (isOnFire: boolean) {
@@ -91,14 +101,20 @@ export class FirstPersonEffects {
       this.cameraGroup.rotation.copy(camera.rotation)
     }
 
-    // Position fire in front of camera
-    const distance = 0.5 // Distance in front of camera
+    // Position fire overlay in front of camera but fill the screen like in Minecraft
+    const distance = 0.1 // Very close to camera for overlay effect
     this.effectsGroup.position.set(0, 0, -distance)
 
-    // Scale sprite to take full width while preserving aspect ratio
+    // Scale sprite to fill most of the screen like Minecraft's fire overlay
     const aspect = window.innerWidth / window.innerHeight
-    const width = 2 * Math.tan(camera.fov * Math.PI / 360) * distance
-    const height = width / aspect
-    this.fireSprite.scale.set(width, height, 1)
+    const fovRadians = (camera.fov * Math.PI) / 180
+    const height = 2 * Math.tan(fovRadians / 2) * distance
+    const width = height * aspect
+    
+    // Make fire overlay larger to create immersive burning effect
+    this.fireSprite.scale.set(width * 1.8, height * 1.8, 1)
+    
+    // Slightly offset the fire to the bottom of the screen like in Minecraft
+    this.fireSprite.position.set(0, -height * 0.3, 0)
   }
 }
