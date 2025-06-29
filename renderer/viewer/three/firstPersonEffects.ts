@@ -1,6 +1,35 @@
 import * as THREE from 'three'
 import { getLoadedImage } from 'mc-assets/dist/utils'
 import { WorldRendererThree } from './worldrendererThree'
+import { LoadedResourcesTransferrable, ResourcesManager } from '../../../src/resourcesManager'
+
+// Type definition for texture info returned by AtlasParser
+interface TextureInfo {
+  u: number
+  v: number
+  width?: number
+  height?: number
+  su?: number
+  sv?: number
+}
+
+// Type definition for atlas structure based on usage patterns in codebase
+interface AtlasData {
+  latest: {
+    tileSize: number
+    width: number
+    height: number
+    textures: Record<string, TextureInfo>
+    suSv: number
+  }
+}
+
+// Type definition for AtlasParser based on usage patterns in codebase
+interface AtlasParserType {
+  atlas: AtlasData
+  latestImage?: string
+  getTextureInfo: (name: string) => TextureInfo | null | undefined
+}
 
 export class FirstPersonEffects {
   private readonly fireSprite: THREE.Sprite
@@ -46,24 +75,56 @@ export class FirstPersonEffects {
   async loadTextures () {
     const fireImageBase64 = [] as string[]
 
-    const { blocksAtlasParser } = (this.worldRenderer.resourcesManager.currentResources!)
+    const resources = this.worldRenderer.resourcesManager.currentResources
+    if (!resources) {
+      console.warn('FirstPersonEffects: No resources available for loading fire textures')
+      return
+    }
+
+    // Cast resourcesManager to access blocksAtlasParser using type assertion
+    const resourcesManager = this.worldRenderer.resourcesManager as any
+    const blocksAtlasParser = resourcesManager.blocksAtlasParser as AtlasParserType
+    if (!blocksAtlasParser?.atlas?.latest) {
+      console.warn('FirstPersonEffects: Blocks atlas parser not available')
+      return
+    }
     
     // Load all fire animation frames (fire_0, fire_1, etc.)
     for (let i = 0; i < 32; i++) {
-      const textureInfo = blocksAtlasParser.getTextureInfo(`fire_${i}`) as { u: number, v: number, width?: number, height?: number } | null
-      if (!textureInfo) break // Stop when no more frames available
-      
-      const defaultSize = blocksAtlasParser.atlas.latest.tileSize
-      const imageWidth = blocksAtlasParser.atlas.latest.width
-      const imageHeight = blocksAtlasParser.atlas.latest.height
-      const canvas = new OffscreenCanvas(textureInfo.width ?? defaultSize, textureInfo.height ?? defaultSize)
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        const image = await getLoadedImage(blocksAtlasParser.latestImage)
-        ctx.drawImage(image, textureInfo.u * imageWidth, textureInfo.v * imageHeight, textureInfo.width ?? defaultSize, textureInfo.height ?? defaultSize, 0, 0, textureInfo.width ?? defaultSize, textureInfo.height ?? defaultSize)
-        const blob = await canvas.convertToBlob()
-        const url = URL.createObjectURL(blob)
-        fireImageBase64.push(url)
+      try {
+        const textureInfo = blocksAtlasParser.getTextureInfo(`fire_${i}`)
+        if (!textureInfo) break // Stop when no more frames available
+        
+        const atlas = blocksAtlasParser.atlas
+        const defaultSize = atlas.latest.tileSize || 16
+        const imageWidth = atlas.latest.width || 256
+        const imageHeight = atlas.latest.height || 256
+        
+        const canvas = new OffscreenCanvas(
+          textureInfo.width ?? defaultSize, 
+          textureInfo.height ?? defaultSize
+        )
+        const ctx = canvas.getContext('2d')
+        if (ctx && blocksAtlasParser.latestImage) {
+          const image = await getLoadedImage(blocksAtlasParser.latestImage)
+          const sourceX = textureInfo.u * imageWidth
+          const sourceY = textureInfo.v * imageHeight
+          const sourceWidth = textureInfo.width ?? defaultSize
+          const sourceHeight = textureInfo.height ?? defaultSize
+          
+          ctx.drawImage(
+            image, 
+            sourceX, sourceY, sourceWidth, sourceHeight,
+            0, 0, sourceWidth, sourceHeight
+          )
+          
+          const blob = await canvas.convertToBlob()
+          const url = URL.createObjectURL(blob)
+          fireImageBase64.push(url)
+        }
+      } catch (error) {
+        console.warn(`FirstPersonEffects: Error loading fire texture ${i}:`, error)
+        break
       }
     }
 
@@ -75,7 +136,7 @@ export class FirstPersonEffects {
       return texture
     })
     
-    console.log(`Loaded ${this.fireTextures.length} fire animation frames`)
+    console.log(`FirstPersonEffects: Loaded ${this.fireTextures.length} fire animation frames`)
   }
 
   setIsOnFire (isOnFire: boolean) {
@@ -93,8 +154,8 @@ export class FirstPersonEffects {
     }
 
     // Update camera group position and rotation
-    const { camera } = this.worldRenderer
-    if (this.updateCameraGroup) {
+    const camera = this.worldRenderer.camera as THREE.PerspectiveCamera
+    if (this.updateCameraGroup && camera) {
       this.cameraGroup.position.copy(camera.position)
       this.cameraGroup.rotation.copy(camera.rotation)
     }
