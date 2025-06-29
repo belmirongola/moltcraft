@@ -17,7 +17,7 @@ export default () => {
   if (!isModalActive/*  || conflicts.length === 0 */) return null
 
   const clampText = (text: string) => {
-    if (typeof text !== "string") text = JSON.stringify(text)
+    if (typeof text !== 'string') text = JSON.stringify(text)
     return text.length > 30 ? text.slice(0, 30) + '...' : text
   }
 

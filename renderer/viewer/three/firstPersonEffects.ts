@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { getLoadedImage } from 'mc-assets/dist/utils'
-import { WorldRendererThree } from './worldrendererThree'
 import { LoadedResourcesTransferrable, ResourcesManager } from '../../../src/resourcesManager'
+import { WorldRendererThree } from './worldrendererThree'
 
 // Type definition for texture info returned by AtlasParser
 interface TextureInfo {
@@ -60,7 +60,7 @@ export class FirstPersonEffects {
       blending: THREE.AdditiveBlending, // Makes fire glow effect
       depthTest: false, // Ensures fire always renders in front
       depthWrite: false,
-      color: new THREE.Color(1.0, 0.8, 0.4), // Slightly warm tint
+      color: new THREE.Color(1, 0.8, 0.4), // Slightly warm tint
     })
 
     this.fireSprite = new THREE.Sprite(spriteMaterial)
@@ -88,20 +88,19 @@ export class FirstPersonEffects {
       console.warn('FirstPersonEffects: Blocks atlas parser not available')
       return
     }
-    
+
     // Load all fire animation frames (fire_0, fire_1, etc.)
     for (let i = 0; i < 32; i++) {
       try {
         const textureInfo = blocksAtlasParser.getTextureInfo(`fire_${i}`)
         if (!textureInfo) break // Stop when no more frames available
-        
-        const atlas = blocksAtlasParser.atlas
+
+        const { atlas } = blocksAtlasParser
         const defaultSize = atlas.latest.tileSize || 16
-        const imageWidth = atlas.latest.width || 256
-        const imageHeight = atlas.latest.height || 256
-        
+        const { width: imageWidth = 256, height: imageHeight = 256 } = atlas.latest
+
         const canvas = new OffscreenCanvas(
-          textureInfo.width ?? defaultSize, 
+          textureInfo.width ?? defaultSize,
           textureInfo.height ?? defaultSize
         )
         const ctx = canvas.getContext('2d')
@@ -111,13 +110,19 @@ export class FirstPersonEffects {
           const sourceY = textureInfo.v * imageHeight
           const sourceWidth = textureInfo.width ?? defaultSize
           const sourceHeight = textureInfo.height ?? defaultSize
-          
+
           ctx.drawImage(
-            image, 
-            sourceX, sourceY, sourceWidth, sourceHeight,
-            0, 0, sourceWidth, sourceHeight
+            image,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            0,
+            0,
+            sourceWidth,
+            sourceHeight
           )
-          
+
           const blob = await canvas.convertToBlob()
           const url = URL.createObjectURL(blob)
           fireImageBase64.push(url)
@@ -135,7 +140,7 @@ export class FirstPersonEffects {
       texture.magFilter = THREE.NearestFilter
       return texture
     })
-    
+
     console.log(`FirstPersonEffects: Loaded ${this.fireTextures.length} fire animation frames`)
   }
 
@@ -148,13 +153,13 @@ export class FirstPersonEffects {
 
     const now = Date.now()
     if (now - this.lastTextureUpdate >= this.TEXTURE_UPDATE_INTERVAL) {
-      this.currentTextureIndex = (this.currentTextureIndex + 1) % this.fireTextures.length;
-      (this.fireSprite.material as THREE.SpriteMaterial).map = this.fireTextures[this.currentTextureIndex]
+      this.currentTextureIndex = (this.currentTextureIndex + 1) % this.fireTextures.length
+      this.fireSprite.material.map = this.fireTextures[this.currentTextureIndex]
       this.lastTextureUpdate = now
     }
 
     // Update camera group position and rotation
-    const camera = this.worldRenderer.camera as THREE.PerspectiveCamera
+    const camera = this.worldRenderer.camera
     if (this.updateCameraGroup && camera) {
       this.cameraGroup.position.copy(camera.position)
       this.cameraGroup.rotation.copy(camera.rotation)
@@ -165,14 +170,16 @@ export class FirstPersonEffects {
     this.effectsGroup.position.set(0, 0, -distance)
 
     // Scale sprite to fill most of the screen like Minecraft's fire overlay
-    const aspect = window.innerWidth / window.innerHeight
-    const fovRadians = (camera.fov * Math.PI) / 180
+    const { innerWidth, innerHeight } = window
+    const aspect = innerWidth / innerHeight
+    const { fov } = camera
+    const fovRadians = (fov * Math.PI) / 180
     const height = 2 * Math.tan(fovRadians / 2) * distance
     const width = height * aspect
-    
+
     // Make fire overlay larger to create immersive burning effect
     this.fireSprite.scale.set(width * 1.8, height * 1.8, 1)
-    
+
     // Slightly offset the fire to the bottom of the screen like in Minecraft
     this.fireSprite.position.set(0, -height * 0.3, 0)
   }
