@@ -3,12 +3,12 @@ import { getLoadedImage } from 'mc-assets/dist/utils'
 import { WorldRendererThree } from './worldrendererThree'
 
 export class FirstPersonEffects {
-  private readonly fireSprite: THREE.Sprite | null = null
+  private readonly fireSprite: THREE.Sprite
   private fireTextures: THREE.Texture[] = []
   private currentTextureIndex = 0
   private lastTextureUpdate = 0
   private readonly TEXTURE_UPDATE_INTERVAL = 200 // 5 times per second
-  private readonly cameraGroup = new THREE.Mesh()
+  private readonly cameraGroup = new THREE.Group()
   private readonly effectsGroup = new THREE.Group()
   updateCameraGroup = true
 
@@ -79,18 +79,16 @@ export class FirstPersonEffects {
   }
 
   setIsOnFire (isOnFire: boolean) {
-    if (this.fireSprite) {
-      this.fireSprite.visible = isOnFire
-    }
+    this.fireSprite.visible = isOnFire
   }
 
   update () {
-    if (!this.fireSprite?.visible || this.fireTextures.length === 0) return
+    if (!this.fireSprite.visible || this.fireTextures.length === 0) return
 
     const now = Date.now()
     if (now - this.lastTextureUpdate >= this.TEXTURE_UPDATE_INTERVAL) {
       this.currentTextureIndex = (this.currentTextureIndex + 1) % this.fireTextures.length;
-      (this.fireSprite.material).map = this.fireTextures[this.currentTextureIndex]
+      (this.fireSprite.material as THREE.SpriteMaterial).map = this.fireTextures[this.currentTextureIndex]
       this.lastTextureUpdate = now
     }
 

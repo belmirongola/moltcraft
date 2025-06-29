@@ -195,12 +195,47 @@ export class PlayerStateControllerMain {
   private updateFireStatus () {
     if (!bot?.entity || this.disableStateUpdates) return
     
-    // Check if player is on fire by looking at the Fire entity property
-    // Fire time is measured in ticks, player is on fire if it's > 0
-    const isOnFire = bot.entity.fireTicks && bot.entity.fireTicks > 0
+    // Check if player is on fire by looking for burning-related effects and entity metadata
+    let isOnFire = false
+    
+    // Method 1: Check entity metadata/properties for fire status
+    try {
+      // These are the most common ways fire status is tracked in Minecraft
+      isOnFire = (bot.entity as any).onFire || 
+                 (bot.entity as any).fireTicks > 0 || 
+                 (bot.entity as any).fire > 0 ||
+                 false
+    } catch {
+      // Fallback if properties don't exist
+    }
+    
+    // Method 2: Check for fire-related damage effects (when fire resistance is not active)
+    if (!isOnFire) {
+      const hasFireResistance = Object.values(bot.entity.effects ?? {}).some((effect: any) => 
+        loadedData.effects?.[effect.id]?.name === 'fire_resistance'
+      )
+      
+      // If no fire resistance and recently took damage, might be on fire
+      // This is a heuristic approach since we don't have direct fire status
+      if (!hasFireResistance) {
+        // Could add more sophisticated fire detection here based on damage patterns
+      }
+    }
+    
+    // Debug mode: Allow manually triggering fire effect for testing
+    // You can test the fire effect by running: window.playerState.setOnFire(true)
+    if ((window as any).debugFireEffect !== undefined) {
+      isOnFire = (window as any).debugFireEffect
+    }
+    
     if (this.reactive.onFire !== isOnFire) {
       this.reactive.onFire = isOnFire
     }
+  }
+
+  // Debug method to manually set fire status for testing
+  setOnFire (value: boolean) {
+    (window as any).debugFireEffect = value
   }
 
   // #endregion
