@@ -20,6 +20,204 @@ declare module 'three' {
   }
 }
 
+// Vec3 module declarations
+declare module 'vec3' {
+  export class Vec3 {
+    constructor (x?: number, y?: number, z?: number)
+    x: number
+    y: number
+    z: number
+
+    set (x: number, y: number, z: number): this
+    add (other: Vec3): Vec3
+    subtract (other: Vec3): Vec3
+    multiply (scalar: number): Vec3
+    divide (scalar: number): Vec3
+    dot (other: Vec3): number
+    cross (other: Vec3): Vec3
+    length (): number
+    normalize (): Vec3
+    distance (other: Vec3): number
+    equals (other: Vec3): boolean
+    clone (): Vec3
+    offset (dx: number, dy: number, dz: number): Vec3
+    plus (other: Vec3): Vec3
+    minus (other: Vec3): Vec3
+    scaled (scalar: number): Vec3
+    abs (): Vec3
+    floor (): Vec3
+    ceil (): Vec3
+    round (): Vec3
+    translate (dx: number, dy: number, dz: number): Vec3
+    toString (): string
+    toArray (): [number, number, number]
+
+    static fromArray (arr: [number, number, number]): Vec3
+  }
+  export default Vec3
+}
+
+// Prismarine-nbt module declarations
+declare module 'prismarine-nbt' {
+  export interface NBTData {
+    name: string
+    value: any
+    type: string
+  }
+
+  export interface ParsedNBT {
+    parsed: NBTData
+    type: string
+    metadata: any
+  }
+
+  export function parse (buffer: Buffer, littleEndian?: boolean): Promise<ParsedNBT>
+  export function parseUncompressed (buffer: Buffer, littleEndian?: boolean): ParsedNBT
+  export function writeUncompressed (value: any, littleEndian?: boolean): Buffer
+  export function simplify (data: any): any
+  export function serialize (nbt: any): Buffer
+
+  export class Writer {
+    constructor (littleEndian?: boolean)
+    writeTag (tag: any): void
+    getBuffer (): Buffer
+  }
+
+  export class Reader {
+    constructor (buffer: Buffer, littleEndian?: boolean)
+    readTag (): any
+  }
+
+  export default {
+    parse,
+    parseUncompressed,
+    writeUncompressed,
+    simplify,
+    serialize,
+    Writer,
+    Reader
+  }
+}
+
+// @tweenjs/tween.js module declarations
+declare module '@tweenjs/tween.js' {
+  export interface TweenEasing {
+    Linear: {
+      None (k: number): number
+    }
+    Quadratic: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Cubic: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Quartic: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Quintic: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Sinusoidal: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Exponential: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Circular: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Elastic: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Back: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+    Bounce: {
+      In (k: number): number
+      Out (k: number): number
+      InOut (k: number): number
+    }
+  }
+
+  export class Tween<T extends Record<string, any>> {
+    constructor (object: T, group?: Group)
+    to (properties: Partial<T>, duration: number): this
+    start (time?: number): this
+    stop (): this
+    end (): this
+    stopChainedTweens (): this
+    group (group: Group): this
+    delay (amount: number): this
+    repeat (times: number): this
+    repeatDelay (amount: number): this
+    yoyo (yoyo: boolean): this
+    easing (easingFunction: (k: number) => number): this
+    interpolation (interpolationFunction: (v: number[], k: number) => number): this
+    chain (...tweens: Tween<any>[]): this
+    onStart (callback: (object: T) => void): this
+    onUpdate (callback: (object: T, elapsed: number) => void): this
+    onRepeat (callback: (object: T) => void): this
+    onComplete (callback: (object: T) => void): this
+    onStop (callback: (object: T) => void): this
+    update (time: number): boolean
+    isPlaying (): boolean
+    isPaused (): boolean
+    pause (time?: number): this
+    resume (time?: number): this
+    duration (duration?: number): number
+    getDuration (): number
+    getId (): number
+  }
+
+  export class Group {
+    constructor ()
+    getAll (): Tween<any>[]
+    removeAll (): void
+    add (tween: Tween<any>): void
+    remove (tween: Tween<any>): void
+    update (time?: number): boolean
+  }
+
+  export const Easing: TweenEasing
+
+  export function update (time?: number): boolean
+  export function getAll (): Tween<any>[]
+  export function removeAll (): void
+  export function add (tween: Tween<any>): void
+  export function remove (tween: Tween<any>): void
+  export function now (): number
+
+  export default {
+    Tween,
+    Group,
+    Easing,
+    update,
+    getAll,
+    removeAll,
+    add,
+    remove,
+    now
+  }
+}
+
 // mc-assets module declarations with enhanced types
 declare module 'mc-assets' {
   export interface AtlasParser {
@@ -129,6 +327,12 @@ declare module 'valtio/utils' {
   ): () => void
 }
 
+declare module 'valtio/vanilla' {
+  export function proxy<T extends object>(initialObject: T): T
+  export function subscribe<T>(proxy: T, callback: (ops: any[]) => void): () => void
+  export function snapshot<T extends object>(proxy: T): Readonly<T>
+}
+
 // Three.js addon modules
 declare module 'three/examples/jsm/controls/OrbitControls.js' {
   import { Camera, EventDispatcher } from 'three'
@@ -154,6 +358,10 @@ declare module 'three/examples/jsm/webxr/VRButton.js' {
   export const VRButton: {
     createButton(renderer: WebGLRenderer): HTMLElement
   }
+}
+
+declare module 'three/addons/controls/OrbitControls.js' {
+  export { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 }
 
 declare module 'three-stdlib' {
@@ -182,6 +390,66 @@ declare module 'three-stdlib' {
     constructor ()
     load (url: string, onLoad?: (object: any) => void): void
     parse (data: string): Object3D
+  }
+}
+
+// Additional commonly used modules
+declare module 'stats.js' {
+  export default class Stats {
+    constructor ()
+    dom: HTMLDivElement
+    begin (): void
+    end (): void
+    update (): void
+    setMode (mode: number): void
+    showPanel (panel: number): void
+  }
+}
+
+declare module 'debug' {
+  interface Debug {
+    (namespace: string): Debugger
+    enabled (namespaces: string): boolean
+    humanize (val: number): string
+    names: RegExp[]
+    skips: RegExp[]
+    formatters: Record<string, (v: any) => string>
+  }
+
+  interface Debugger {
+    (formatter: any, ...args: any[]): void
+    enabled: boolean
+    log: (...args: any[]) => any
+    namespace: string
+    destroy (): boolean
+    extend (namespace: string, delimiter?: string): Debugger
+  }
+
+  const debug: Debug
+  export = debug
+}
+
+// Enhanced events module with missing methods
+declare module 'events' {
+  export class EventEmitter {
+    static defaultMaxListeners: number
+    
+    constructor ()
+    on (event: string, listener: (...args: any[]) => void): this
+    once (event: string, listener: (...args: any[]) => void): this
+    emit (event: string, ...args: any[]): boolean
+    off (event: string, listener: (...args: any[]) => void): this
+    removeListener (event: string, listener: (...args: any[]) => void): this
+    removeAllListeners (event?: string): this
+    listeners (event: string): Function[]
+    listenerCount (event: string): number
+    addListener (event: string, listener: (...args: any[]) => void): this
+    prependListener (event: string, listener: (...args: any[]) => void): this
+    prependOnceListener (event: string, listener: (...args: any[]) => void): this
+    setMaxListeners (n: number): this
+    getMaxListeners (): number
+    eventNames (): Array<string | symbol>
+    rawListeners (event: string): Function[]
   }
 }
 
@@ -225,10 +493,18 @@ interface BotEntity {
   velocity: { x: number, y: number, z: number }
 }
 
+// Enhanced bot client interface
+interface BotClient {
+  on (event: string, callback: (...args: any[]) => void): void
+  prependListener (event: string, callback: (...args: any[]) => void): void
+  write<T extends keyof any> (name: T, data: any): Buffer
+}
+
 // Global bot interface enhancement
 declare global {
   const bot: {
     entity?: BotEntity
+    _client?: BotClient
     game?: {
       gameMode?: string
       dimension?: string
@@ -240,9 +516,6 @@ declare global {
     heldItem?: any
     controlState?: {
       sneak: boolean
-    }
-    _client?: {
-      on(event: string, callback: (...args: any[]) => void): void
     }
     on(event: string, callback: (...args: any[]) => void): void
   }
