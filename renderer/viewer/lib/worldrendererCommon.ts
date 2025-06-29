@@ -106,7 +106,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }>
   customTexturesDataUrl = undefined as string | undefined
   workers: any[] = []
-  viewerPosition?: Vec3
+  viewerChunkPosition?: Vec3
   lastCamUpdate = 0
   droppedFpsPercentage = 0
   initialChunkLoadWasStartedIn: number | undefined
@@ -499,7 +499,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   timeUpdated? (newTime: number): void
 
   updateViewerPosition (pos: Vec3) {
-    this.viewerPosition = pos
+    this.viewerChunkPosition = pos
     for (const [key, value] of Object.entries(this.loadedChunks)) {
       if (!value) continue
       this.updatePosDataChunk?.(key)
@@ -513,7 +513,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   }
 
   getDistance (posAbsolute: Vec3) {
-    const [botX, botZ] = chunkPos(this.viewerPosition!)
+    const [botX, botZ] = chunkPos(this.viewerChunkPosition!)
     const dx = Math.abs(botX - Math.floor(posAbsolute.x / 16))
     const dz = Math.abs(botZ - Math.floor(posAbsolute.z / 16))
     return [dx, dz] as [number, number]

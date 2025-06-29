@@ -88,7 +88,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.renderer = renderer
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
-    this.starField = new StarField(this.scene)
+    this.starField = new StarField(this)
     this.cursorBlock = new CursorBlock(this)
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)
@@ -318,10 +318,11 @@ export class WorldRendererThree extends WorldRendererCommon {
     section.renderOrder = 500 - chunkDistance
   }
 
-  updateViewerPosition (pos: Vec3): void {
-    this.viewerPosition = pos
-    const cameraPos = this.cameraObject.position.toArray().map(x => Math.floor(x / 16)) as [number, number, number]
-    this.cameraSectionPos = new Vec3(...cameraPos)
+  override updateViewerPosition (pos: Vec3): void {
+    this.viewerChunkPosition = pos
+  }
+
+  cameraSectionPositionUpdate () {
     // eslint-disable-next-line guard-for-in
     for (const key in this.sectionObjects) {
       const value = this.sectionObjects[key]
@@ -447,11 +448,35 @@ export class WorldRendererThree extends WorldRendererCommon {
     return tex
   }
 
+  getCameraPosition () {
+    const worldPos = new THREE.Vector3()
+    this.camera.getWorldPosition(worldPos)
+    return worldPos
+  }
+
+  getWorldCameraPosition () {
+    const pos = this.getCameraPosition()
+    return new Vec3(
+      Math.floor(pos.x / 16),
+      Math.floor(pos.y / 16),
+      Math.floor(pos.z / 16)
+    )
+  }
+
+  updateCameraSectionPos () {
+    const newSectionPos = this.getWorldCameraPosition()
+    if (!this.cameraSectionPos.equals(newSectionPos)) {
+      this.cameraSectionPos = newSectionPos
+      this.cameraSectionPositionUpdate()
+    }
+  }
+
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
     const yOffset = this.playerStateReactive.eyeHeight
 
     this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
     this.media.tryIntersectMedia()
+    this.updateCameraSectionPos()
   }
 
   getThirdPersonCamera (pos: THREE.Vector3 | null, yaw: number, pitch: number) {
@@ -636,6 +661,8 @@ export class WorldRendererThree extends WorldRendererCommon {
         }
       }
     }
+
+    this.updateCameraSectionPos()
   }
 
   debugChunksVisibilityOverride () {
@@ -988,7 +1015,9 @@ class StarField {
     }
   }
 
-  constructor (private readonly scene: THREE.Scene) {
+  constructor (
+    private readonly worldRenderer: WorldRendererThree
+  ) {
   }
 
   addToScene () {
@@ -1030,11 +1059,11 @@ class StarField {
 
     // Create points and add them to the scene
     this.points = new THREE.Points(geometry, material)
-    this.scene.add(this.points)
+    this.worldRenderer.scene.add(this.points)
 
     const clock = new THREE.Clock()
     this.points.onBeforeRender = (renderer, scene, camera) => {
-      this.points?.position.copy?.(camera.position)
+      this.points?.position.copy?.(this.worldRenderer.getCameraPosition())
       material.uniforms.time.value = clock.getElapsedTime() * speed
     }
     this.points.renderOrder = -1
@@ -1044,7 +1073,7 @@ class StarField {
     if (this.points) {
       this.points.geometry.dispose();
       (this.points.material as THREE.Material).dispose()
-      this.scene.remove(this.points)
+      this.worldRenderer.scene.remove(this.points)
 
       this.points = undefined
     }

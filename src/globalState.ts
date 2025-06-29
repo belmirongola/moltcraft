@@ -46,6 +46,8 @@ export const showModal = (elem: /* (HTMLElement & Record<string, any>) |  */{ re
   activeModalStack.push(resolved)
 }
 
+window.showModal = showModal
+
 /**
  *
  * @returns true if previous modal was restored

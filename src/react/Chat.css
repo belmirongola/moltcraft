@@ -189,23 +189,22 @@ input[type=text],
   background-color: rgba(0, 0, 0, 0.5);
   list-style: none;
   overflow-wrap: break-word;
-}
-
-.chat-message-fadeout {
   opacity: 1;
-  transition: all 3s;
 }
 
-.chat-message-fade {
+.chat-message-fading {
   opacity: 0;
+  transition: opacity 3s ease-in-out;
 }
 
 .chat-message-faded {
-  transition: none !important;
+  display: none;
 }
 
+/* Ensure messages are always visible when chat is open */
 .chat.opened .chat-message {
   opacity: 1 !important;
+  display: block !important;
   transition: none !important;
 }
 

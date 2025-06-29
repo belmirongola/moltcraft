@@ -20,6 +20,7 @@ import { getVersionAutoSelect } from './connect'
 import { createNotificationProgressReporter } from './core/progressReporter'
 import { customKeymaps } from './controls'
 import { appStorage } from './react/appStorageProvider'
+import { exportData, importData } from './core/importExport'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -534,6 +535,30 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        const { cookieStorage } = useSnapshot(appStorage)
+        return <Button
+          label={`Storage: ${cookieStorage ? 'Synced Cookies' : 'Local Storage'}`} onClick={() => {
+            appStorage.cookieStorage = !cookieStorage
+            alert('Reload the page to apply this change')
+          }}
+          inScreen
+        />
+      }
+    },
+    {
+      custom () {
+        const { cookieStorage } = useSnapshot(appStorage)
+        return <Button
+          label={`Storage: ${cookieStorage ? 'Synced Cookies' : 'Local Storage'}`} onClick={() => {
+            appStorage.cookieStorage = !cookieStorage
+            alert('Reload the page to apply this change')
+          }}
+          inScreen
+        />
+      }
+    },
+    {
+      custom () {
         return <Category>Server Connection</Category>
       },
     },
@@ -637,8 +662,7 @@ export const guiOptionsScheme: {
       custom () {
         return <Button
           inScreen
-          disabled={true}
-          onClick={() => {}}
+          onClick={importData}
         >Import Data</Button>
       }
     },
@@ -646,53 +670,7 @@ export const guiOptionsScheme: {
       custom () {
         return <Button
           inScreen
-          onClick={async () => {
-            const data = await showInputsModal('Export Profile', {
-              profileName: {
-                type: 'text',
-              },
-              exportSettings: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-              exportKeybindings: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-              exportServers: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-              saveUsernameAndProxy: {
-                type: 'checkbox',
-                defaultValue: true,
-              },
-            })
-            const fileName = `${data.profileName ? `${data.profileName}-` : ''}web-client-profile.json`
-            const json = {
-              _about: 'Minecraft Web Client (mcraft.fun) Profile',
-              ...data.exportSettings ? {
-                options: getChangedSettings(),
-              } : {},
-              ...data.exportKeybindings ? {
-                keybindings: customKeymaps,
-              } : {},
-              ...data.exportServers ? {
-                servers: appStorage.serversList,
-              } : {},
-              ...data.saveUsernameAndProxy ? {
-                username: appStorage.username,
-                proxy: appStorage.proxiesData?.selected,
-              } : {},
-            }
-            const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = fileName
-            a.click()
-            URL.revokeObjectURL(url)
-          }}
+          onClick={exportData}
         >Export Data</Button>
       }
     },

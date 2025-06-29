@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 
 import { useEffect, useState } from 'react'
 import { formatMessage } from '../chatUtils'
-import Chat, { fadeMessage, chatInputValueGlobal } from './Chat'
+import Chat, { chatInputValueGlobal } from './Chat'
 import Button from './Button'
 
 window.spamMessage = window.spamMessage ?? ''
@@ -63,14 +63,6 @@ const meta: Meta<typeof Chat> = {
       return () => clearInterval(interval)
     }, [autoSpam])
 
-    const fadeMessages = () => {
-      for (const m of messages) {
-        fadeMessage(m, false, () => {
-          setMessages([...messages])
-        })
-      }
-    }
-
     return <div style={{
       marginTop: args.usingTouch ? 100 : 0
     }}
@@ -88,7 +80,6 @@ const meta: Meta<typeof Chat> = {
         }}
       />
       <Button onClick={() => setOpen(s => !s)}>Open: {open ? 'on' : 'off'}</Button>
-      <Button onClick={() => fadeMessages()}>Fade</Button>
       <Button onClick={() => setAutoSpam(s => !s)}>Auto Spam: {autoSpam ? 'on' : 'off'}</Button>
       <Button onClick={() => setMessages(args.messages)}>Reset</Button>
     </div>

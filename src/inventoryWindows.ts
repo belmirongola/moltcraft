@@ -159,7 +159,9 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   if (image) {
     return image
   }
-  if (!path && !texture) throw new Error('Either pass path or texture')
+  if (!path && !texture) {
+    throw new Error('Either pass path or texture')
+  }
   const loadPath = (blockData ? 'blocks' : path ?? texture)!
   if (loadedImagesCache.has(loadPath)) {
     onLoad()
@@ -201,6 +203,11 @@ const itemToVisualKey = (slot: RenderItem | Item | null) => {
   ].join('|')
   return keys
 }
+const validateSlot = (slot: any, index: number) => {
+  if (!slot.texture) {
+    throw new Error(`Slot has no texture: ${index} ${slot.name}`)
+  }
+}
 const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
   const newSlots = slots.map((slot, i) => {
     if (!slot) return null
@@ -210,6 +217,7 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
       const newKey = itemToVisualKey(slot)
       slot['cacheKey'] = i + '|' + newKey
       if (oldKey && oldKey === newKey) {
+        validateSlot(lastMappedSlots[i], i)
         return lastMappedSlots[i]
       }
     }
@@ -228,12 +236,13 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
         const { icon, ...rest } = slot
         return rest
       }
+      validateSlot(slot, i)
     } catch (err) {
       inGameError(err)
     }
     return slot
   })
-  lastMappedSlots = newSlots
+  lastMappedSlots = JSON.parse(JSON.stringify(newSlots))
   return newSlots
 }
 
