@@ -344,7 +344,7 @@ export class Entities {
     }
 
     const dt = this.clock.getDelta()
-    const botPos = this.worldRenderer.viewerPosition
+    const botPos = this.worldRenderer.viewerChunkPosition
     const VISIBLE_DISTANCE = 10 * 10
 
     // Update regular entities

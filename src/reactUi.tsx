@@ -65,6 +65,7 @@ import RendererDebugMenu from './react/RendererDebugMenu'
 import CreditsAboutModal from './react/CreditsAboutModal'
 import GlobalOverlayHints from './react/GlobalOverlayHints'
 import FullscreenTime from './react/FullscreenTime'
+import StorageConflictModal from './react/StorageConflictModal'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -228,6 +229,7 @@ const App = () => {
             <div />
           </RobustPortal>
           <EnterFullscreenButton />
+          <StorageConflictModal />
           <InGameUi />
           <RobustPortal to={document.querySelector('#ui-root')}>
             <AllWidgets />

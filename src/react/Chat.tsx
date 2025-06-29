@@ -11,19 +11,37 @@ import { useScrollBehavior } from './hooks/useScrollBehavior'
 export type Message = {
   parts: MessageFormatPart[],
   id: number
-  fading?: boolean
-  faded?: boolean
+  timestamp?: number
 }
 
-const MessageLine = ({ message, currentPlayerName }: { message: Message, currentPlayerName?: string }) => {
+const MessageLine = ({ message, currentPlayerName, chatOpened }: { message: Message, currentPlayerName?: string, chatOpened?: boolean }) => {
+  const [fadeState, setFadeState] = useState<'visible' | 'fading' | 'faded'>('visible')
+
+  useEffect(() => {
+    // Start fading after 5 seconds
+    const fadeTimeout = setTimeout(() => {
+      setFadeState('fading')
+    }, 5000)
+
+    // Remove after fade animation (3s) completes
+    const removeTimeout = setTimeout(() => {
+      setFadeState('faded')
+    }, 8000)
+
+    // Cleanup timeouts if component unmounts
+    return () => {
+      clearTimeout(fadeTimeout)
+      clearTimeout(removeTimeout)
+    }
+  }, []) // Empty deps array since we only want this to run once when message is added
+
   const classes = {
-    'chat-message-fadeout': message.fading,
-    'chat-message-fade': message.fading,
-    'chat-message-faded': message.faded,
-    'chat-message': true
+    'chat-message': true,
+    'chat-message-fading': !chatOpened && fadeState === 'fading',
+    'chat-message-faded': !chatOpened && fadeState === 'faded'
   }
 
-  return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')}>
+  return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')} data-time={message.timestamp ? new Date(message.timestamp).toLocaleString('en-US', { hour12: false }) : undefined}>
     {message.parts.map((msg, i) => {
       // Check if this is a text part that might contain a mention
       if (msg.text && currentPlayerName) {
@@ -69,17 +87,6 @@ type Props = {
 export const chatInputValueGlobal = proxy({
   value: ''
 })
-
-export const fadeMessage = (message: Message, initialTimeout: boolean, requestUpdate: () => void) => {
-  setTimeout(() => {
-    message.fading = true
-    requestUpdate()
-    setTimeout(() => {
-      message.faded = true
-      requestUpdate()
-    }, 3000)
-  }, initialTimeout ? 5000 : 0)
-}
 
 export default ({
   messages,
@@ -372,7 +379,7 @@ export default ({
             </div>
           )}
           {messages.map((m) => (
-            <MessageLine key={reactKeyForMessage(m)} message={m} currentPlayerName={playerNameValidated} />
+            <MessageLine key={reactKeyForMessage(m)} message={m} currentPlayerName={playerNameValidated} chatOpened={opened} />
           ))}
         </div> || undefined}
       </div>

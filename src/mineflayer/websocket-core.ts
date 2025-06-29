@@ -22,6 +22,8 @@ export const getWebsocketStream = async (host: string) => {
     ws.send(data)
   })
 
+  clientDuplex.on('error', () => {})
+
   ws.addEventListener('message', async message => {
     let { data } = message
     if (data instanceof Blob) {

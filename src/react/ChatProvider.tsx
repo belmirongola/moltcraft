@@ -5,7 +5,7 @@ import { getBuiltinCommandsList, tryHandleBuiltinCommand } from '../builtinComma
 import { gameAdditionalState, hideCurrentModal, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import { viewerVersionState } from '../viewerConnector'
-import Chat, { Message, fadeMessage } from './Chat'
+import Chat, { Message } from './Chat'
 import { useIsModalActive } from './utilsApp'
 import { hideNotification, notificationProxy, showNotification } from './NotificationProvider'
 import { getServerIndex, updateLoadedServerData } from './serversStorage'
@@ -16,6 +16,7 @@ export default () => {
   const [messages, setMessages] = useState([] as Message[])
   const isChatActive = useIsModalActive('chat')
   const lastMessageId = useRef(0)
+  const lastPingTime = useRef(0)
   const usingTouch = useSnapshot(miscUiState).currentTouch
   const { chatSelect, messagesLimit, chatOpacity, chatOpacityOpened, chatVanillaRestrictions, debugChatScroll, chatPingExtension } = useSnapshot(options)
   const isUsingMicrosoftAuth = useMemo(() => !!lastConnectOptions.value?.authenticatedAccount, [])
@@ -29,18 +30,23 @@ export default () => {
         jsonMsg = jsonMsg['unsigned']
       }
       const parts = formatMessage(jsonMsg)
+      const messageText = parts.map(part => part.text).join('')
+
+      // Handle ping response
+      if (messageText === 'Pong!' && lastPingTime.current > 0) {
+        const latency = Date.now() - lastPingTime.current
+        parts.push({ text: ` Latency: ${latency}ms`, color: '#00ff00' })
+        lastPingTime.current = 0
+      }
 
       setMessages(m => {
         lastMessageId.current++
         const newMessage: Message = {
           parts,
           id: lastMessageId.current,
-          faded: false,
+          timestamp: Date.now()
         }
-        fadeMessage(newMessage, true, () => {
-          // eslint-disable-next-line max-nested-callbacks
-          setMessages(m => [...m])
-        })
+
         return [...m, newMessage].slice(-messagesLimit)
       })
     })
@@ -61,6 +67,11 @@ export default () => {
       return players.filter(name => (!value || name.toLowerCase().includes(value.toLowerCase())) && name !== bot.username).map(name => `@${name}`)
     }}
     sendMessage={async (message) => {
+      // Record ping command time
+      if (message === '/ping') {
+        lastPingTime.current = Date.now()
+      }
+
       const builtinHandled = tryHandleBuiltinCommand(message)
       if (getServerIndex() !== undefined && (message.startsWith('/login') || message.startsWith('/register'))) {
         showNotification('Click here to save your password in browser for auto-login', undefined, false, undefined, () => {
