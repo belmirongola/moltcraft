@@ -71,7 +71,7 @@ declare module 'mc-assets/dist/utils' {
 }
 
 declare module 'mc-assets/dist/atlasParser' {
-  export type { AtlasParser, ItemsAtlasesOutputJson } from 'mc-assets'
+  export { AtlasParser, ItemsAtlasesOutputJson } from 'mc-assets'
 }
 
 declare module 'mc-assets/dist/worldBlockProvider' {
@@ -158,51 +158,31 @@ declare module 'three/examples/jsm/webxr/VRButton.js' {
 
 declare module 'three-stdlib' {
   import { Material, Object3D, BufferGeometry, Vector2 } from 'three'
-  
-  export interface LineMaterialConstructor {
-    new (parameters?: any): LineMaterialInstance
-  }
 
-  export interface LineMaterialInstance extends Material {
+  export class LineMaterial extends Material {
+    constructor (parameters?: any)
     color: any
     linewidth: number
     resolution: Vector2
     dashOffset: number
   }
 
-  export const LineMaterial: LineMaterialConstructor
-  
-  export interface LineSegmentsGeometryConstructor {
-    new (): LineSegmentsGeometryInstance
+  export class LineSegmentsGeometry extends BufferGeometry {
+    constructor ()
+    setPositions (positions: number[]): this
+    fromEdgesGeometry (geometry: BufferGeometry): this
   }
 
-  export interface LineSegmentsGeometryInstance extends BufferGeometry {
-    setPositions(positions: number[]): this
-    fromEdgesGeometry(geometry: BufferGeometry): this
+  export class Wireframe extends Object3D {
+    constructor (geometry?: BufferGeometry, material?: Material)
+    computeLineDistances (): void
   }
 
-  export const LineSegmentsGeometry: LineSegmentsGeometryConstructor
-  
-  export interface WireframeConstructor {
-    new (geometry?: BufferGeometry, material?: Material): WireframeInstance
+  export class OBJLoader {
+    constructor ()
+    load (url: string, onLoad?: (object: any) => void): void
+    parse (data: string): Object3D
   }
-
-  export interface WireframeInstance extends Object3D {
-    computeLineDistances(): void
-  }
-
-  export const Wireframe: WireframeConstructor
-  
-  export interface OBJLoaderConstructor {
-    new (): OBJLoaderInstance
-  }
-
-  export interface OBJLoaderInstance {
-    load(url: string, onLoad?: (object: any) => void): void
-    parse(data: string): Object3D
-  }
-
-  export const OBJLoader: OBJLoaderConstructor
 }
 
 // Browser API enhancements
