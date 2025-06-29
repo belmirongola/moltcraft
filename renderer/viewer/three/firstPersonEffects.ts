@@ -1,35 +1,8 @@
 import * as THREE from 'three'
+import type { AtlasParser, TextureInfo } from 'mc-assets'
 import { getLoadedImage } from 'mc-assets/dist/utils'
 import { LoadedResourcesTransferrable, ResourcesManager } from '../../../src/resourcesManager'
 import { WorldRendererThree } from './worldrendererThree'
-
-// Type definition for texture info returned by AtlasParser
-interface TextureInfo {
-  u: number
-  v: number
-  width?: number
-  height?: number
-  su?: number
-  sv?: number
-}
-
-// Type definition for atlas structure based on usage patterns in codebase
-interface AtlasData {
-  latest: {
-    tileSize: number
-    width: number
-    height: number
-    textures: Record<string, TextureInfo>
-    suSv: number
-  }
-}
-
-// Type definition for AtlasParser based on usage patterns in codebase
-interface AtlasParserType {
-  atlas: AtlasData
-  latestImage?: string
-  getTextureInfo: (name: string) => TextureInfo | null | undefined
-}
 
 export class FirstPersonEffects {
   private readonly fireSprite: THREE.Sprite
@@ -81,9 +54,9 @@ export class FirstPersonEffects {
       return
     }
 
-    // Cast resourcesManager to access blocksAtlasParser using type assertion
-    const resourcesManager = this.worldRenderer.resourcesManager as any
-    const blocksAtlasParser = resourcesManager.blocksAtlasParser as AtlasParserType
+    // Cast resourcesManager to access blocksAtlasParser using proper types
+    const resourcesManager = this.worldRenderer.resourcesManager as ResourcesManager
+    const blocksAtlasParser = resourcesManager.blocksAtlasParser as AtlasParser
     if (!blocksAtlasParser?.atlas?.latest) {
       console.warn('FirstPersonEffects: Blocks atlas parser not available')
       return
@@ -159,7 +132,7 @@ export class FirstPersonEffects {
     }
 
     // Update camera group position and rotation
-    const camera = this.worldRenderer.camera
+    const { camera } = this.worldRenderer
     if (this.updateCameraGroup && camera) {
       this.cameraGroup.position.copy(camera.position)
       this.cameraGroup.rotation.copy(camera.rotation)
