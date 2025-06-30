@@ -14,6 +14,7 @@ import { appAndRendererSharedConfig } from './renderer/rsbuildSharedConfig'
 import { genLargeDataAliases } from './scripts/genLargeDataAliases'
 import sharp from 'sharp'
 import supportedVersions from './src/supportedVersions.mjs'
+import { startWsServer } from './scripts/wsServer'
 
 const SINGLE_FILE_BUILD = process.env.SINGLE_FILE_BUILD === 'true'
 
@@ -197,6 +198,12 @@ const appConfig = defineConfig({
                         await execAsync('pnpm run build-mesher')
                     }
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
+
+                    // Start WebSocket server in development
+                    if (dev && process.env.WS_SERVER === 'true') {
+                        startWsServer()
+                    }
+
                     console.timeEnd('total-prep')
                 }
                 if (!dev) {

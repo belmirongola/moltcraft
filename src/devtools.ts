@@ -209,3 +209,91 @@ setInterval(() => {
 }, 1000)
 
 // ---
+
+// Add type declaration for performance.memory
+declare global {
+  interface Performance {
+    memory?: {
+      usedJSHeapSize: number
+      totalJSHeapSize: number
+      jsHeapSizeLimit: number
+    }
+  }
+}
+
+// Performance metrics WebSocket client
+let ws: WebSocket | null = null
+let wsReconnectTimeout: NodeJS.Timeout | null = null
+let metricsInterval: NodeJS.Timeout | null = null
+
+// Start collecting metrics immediately
+const startTime = performance.now()
+
+function collectAndSendMetrics () {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return
+
+  const metrics = {
+    loadTime: performance.now() - startTime,
+    memoryUsage: (performance.memory?.usedJSHeapSize ?? 0) / 1024 / 1024,
+    timestamp: Date.now()
+  }
+
+  ws.send(JSON.stringify(metrics))
+}
+
+function connectWebSocket () {
+  if (ws) return
+
+  ws = new WebSocket('ws://localhost:8081')
+
+  ws.onopen = () => {
+    console.log('Connected to metrics server')
+    if (wsReconnectTimeout) {
+      clearTimeout(wsReconnectTimeout)
+      wsReconnectTimeout = null
+    }
+
+    // Start sending metrics immediately after connection
+    collectAndSendMetrics()
+
+    // Clear existing interval if any
+    if (metricsInterval) {
+      clearInterval(metricsInterval)
+    }
+
+    // Set new interval
+    metricsInterval = setInterval(collectAndSendMetrics, 500)
+  }
+
+  ws.onclose = () => {
+    console.log('Disconnected from metrics server')
+    ws = null
+
+    // Clear metrics interval
+    if (metricsInterval) {
+      clearInterval(metricsInterval)
+      metricsInterval = null
+    }
+
+    // Try to reconnect after 3 seconds
+    wsReconnectTimeout = setTimeout(connectWebSocket, 3000)
+  }
+
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error)
+  }
+}
+
+// Connect immediately
+connectWebSocket()
+
+// Add command to request current metrics
+window.requestMetrics = () => {
+  const metrics = {
+    loadTime: performance.now() - startTime,
+    memoryUsage: (performance.memory?.usedJSHeapSize ?? 0) / 1024 / 1024,
+    timestamp: Date.now()
+  }
+  console.log('Current metrics:', metrics)
+  return metrics
+}

@@ -31,7 +31,8 @@
     "run-playground": "run-p watch-mesher watch-other-workers watch-playground",
     "run-all": "run-p start run-playground",
     "build-playground": "rsbuild build --config renderer/rsbuild.config.ts",
-    "watch-playground": "rsbuild dev --config renderer/rsbuild.config.ts"
+    "watch-playground": "rsbuild dev --config renderer/rsbuild.config.ts",
+    "request-data": "tsx scripts/requestData.ts"
   },
   "keywords": [
     "prismarine",
