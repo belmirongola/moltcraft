@@ -14,7 +14,6 @@ export const renderSlot = (model: ResolvedItemModelRender, resourcesManager: Res
   scale?: number,
   slice?: number[],
   modelName?: string,
-  image?: ImageBitmap
 } | undefined => {
   let itemModelName = model.modelName
   const isItem = loadedData.itemsByName[itemModelName]
@@ -36,7 +35,6 @@ export const renderSlot = (model: ResolvedItemModelRender, resourcesManager: Res
       const y = item.v * atlas.height
       return {
         texture: 'gui',
-        image: resourcesManager.currentResources!.guiAtlas!.image,
         slice: [x, y, atlas.tileSize, atlas.tileSize],
         scale: 0.25,
       }

@@ -34,7 +34,6 @@ jobs:
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --prod
         env:
           CONFIG_JSON_SOURCE: BUNDLED
-      - run: pnpm build-storybook
       - name: Copy playground files
         run: |
           mkdir -p .vercel/output/static/playground
@@ -48,12 +47,12 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .vercel/output/static
           force_orphan: true
-          
+
       - name: Change index.html title
         run: |
           # change <title>Minecraft Web Client</title> to <title>Minecraft Web Client — Free Online Browser Version</title>
           sed -i 's/<title>Minecraft Web Client<\/title>/<title>Minecraft Web Client — Free Online Browser Version<\/title>/' .vercel/output/static/index.html
-          
+
       - name: Deploy Project to Vercel
         uses: mathiasvr/command-output@v2.0.0
         with:

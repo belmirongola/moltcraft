@@ -78,7 +78,6 @@ jobs:
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
         env:
           CONFIG_JSON_SOURCE: BUNDLED
-      - run: pnpm build-storybook
       - name: Copy playground files
         run: |
           mkdir -p .vercel/output/static/playground

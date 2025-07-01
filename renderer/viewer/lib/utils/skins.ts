@@ -16,12 +16,22 @@ export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
   }
 }
 
+export const createCanvas = (width: number, height: number): OffscreenCanvas => {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    return new OffscreenCanvas(width, height)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  return canvas as unknown as OffscreenCanvas // todo-low
+}
+
 export const loadThreeJsTextureFromUrl = async (imageUrl: string) => {
   const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
   return loaded
 }
 export const loadThreeJsTextureFromBitmap = (image: ImageBitmap) => {
-  const canvas = new OffscreenCanvas(image.width, image.height)
+  const canvas = createCanvas(image.width, image.height)
   const ctx = canvas.getContext('2d')!
   ctx.drawImage(image, 0, 0)
   const texture = new THREE.Texture(canvas)
@@ -83,7 +93,7 @@ export async function loadSkinImage (skinUrl: string): Promise<{ canvas: Offscre
   }
 
   const image = await loadImageFromUrl(skinUrl)
-  const skinCanvas = new OffscreenCanvas(64, 64)
+  const skinCanvas = createCanvas(64, 64)
   loadSkinToCanvas(skinCanvas, image)
   return { canvas: skinCanvas, image }
 }

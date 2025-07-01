@@ -8,7 +8,7 @@ import type { BaseServerInfo } from './AddServerOrConnect'
 
 // when opening html file locally in browser, localStorage is shared between all ever opened html files, so we try to avoid conflicts
 const localStoragePrefix = process.env?.SINGLE_FILE_BUILD ? 'minecraft-web-client:' : ''
-const cookiePrefix = ''
+const cookiePrefix = process.env.COOKIE_STORAGE_PREFIX || ''
 const { localStorage } = window
 const migrateRemoveLocalStorage = false
 
@@ -146,7 +146,7 @@ const detectStorageConflicts = (): StorageConflict[] => {
             key,
             localStorageValue: localData,
             localStorageTimestamp: localTimestamp,
-            cookieValue: cookieData,
+            cookieValue: (typeof cookieData === 'object' && cookieData !== null && 'data' in cookieData) ? cookieData.data : cookieData,
             cookieTimestamp
           })
         }
@@ -231,9 +231,10 @@ export const appStorage = proxy({ ...defaultStorageData })
 
 // Check if cookie storage should be used (will be set by options)
 const shouldUseCookieStorage = () => {
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
   const isSecureCookiesAvailable = () => {
     // either https or localhost
-    return window.location.protocol === 'https:' || window.location.hostname === 'localhost'
+    return window.location.protocol === 'https:' || (window.location.hostname === 'localhost' && !isSafari)
   }
   if (!isSecureCookiesAvailable()) {
     return false
@@ -400,6 +401,12 @@ export const resolveStorageConflicts = (useLocalStorage: boolean) => {
       const prefixedKey = `${localStoragePrefix}${conflict.key}`
       localStorage.removeItem(prefixedKey)
     }
+  }
+
+  // forcefully set data again
+  for (const conflict of storageConflicts) {
+    appStorage[conflict.key] = useLocalStorage ? conflict.localStorageValue : conflict.cookieValue
+    saveKey(conflict.key as keyof StorageData)
   }
 
   // Clear conflicts and restore data

@@ -18,7 +18,7 @@ import { isEntityAttackable } from 'mineflayer-mouse/dist/attackableEntity'
 import { Vec3 } from 'vec3'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
-import { loadSkinImage, loadSkinFromUsername, stevePngUrl, steveTexture } from '../lib/utils/skins'
+import { loadSkinImage, loadSkinFromUsername, stevePngUrl, steveTexture, createCanvas } from '../lib/utils/skins'
 import { loadTexture } from '../lib/utils'
 import { getBlockMeshFromModel } from './holdingBlock'
 import * as Entity from './entity/EntityMesh'
@@ -96,7 +96,7 @@ function getUsernameTexture ({
   nameTagBackgroundColor = 'rgba(0, 0, 0, 0.3)',
   nameTagTextOpacity = 255
 }: any, { fontFamily = 'sans-serif' }: any) {
-  const canvas = new OffscreenCanvas(64, 64)
+  const canvas = createCanvas(64, 64)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get 2d context')
 
@@ -550,7 +550,7 @@ export class Entities {
       let skinCanvas: OffscreenCanvas
       if (skinUrl === stevePngUrl) {
         skinTexture = await steveTexture
-        const canvas = new OffscreenCanvas(64, 64)
+        const canvas = createCanvas(64, 64)
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('Failed to get context')
         ctx.drawImage(skinTexture.image, 0, 0)
