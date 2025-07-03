@@ -149,8 +149,8 @@ async function main() {
     }
     fs.writeFileSync(lockfilePath, newLockfileContent)
     console.log('\nUpdated pnpm-lock.yaml with new commit hashes')
-    console.log('Running pnpm install to apply changes...')
-    execSync('pnpm install', { stdio: 'inherit' })
+    // console.log('Running pnpm install to apply changes...')
+    // execSync('pnpm install', { stdio: 'inherit' })
     console.log('Done!')
   } else {
     console.log('\nNo changes were made.')
