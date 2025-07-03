@@ -1,5 +1,3 @@
-This project is tested with BrowserStack
-
 # Minecraft Web Client
 
 ![banner](./docs-assets/banner.jpg)
@@ -47,9 +45,9 @@ All components that are in [Storybook](https://minimap.mcraft.fun/storybook/) ar
 
 ### Browser Notes
 
-This project is tested with BrowserStack ! [BrowserStack](https://www.browserstack.com/)
+This project is tested with BrowserStack. Special thanks to [BrowserStack](https://www.browserstack.com/) for providing testing infrastructure!
 
-Howerver, these browsers have issues:
+Howerver, it's known that these browsers have issues:
 
 **Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
 
