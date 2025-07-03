@@ -71,7 +71,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   }
 
   const musicStartCheck = async (force = false) => {
-    if (!soundMap) return
+    if (!soundMap || !bot) return
     // 20% chance to start music
     if (Math.random() > 0.2 && !force && !options.enableMusic) return
 

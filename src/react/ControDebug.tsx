@@ -50,20 +50,24 @@ export default () => {
   if (!options.debugContro) return null
 
   return (
-    <div style={{
-      position: 'fixed',
-      right: 0,
-      top: '50%',
-      transform: 'translateY(-50%)',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      padding: '8px',
-      fontFamily: 'monospace',
-      fontSize: '8px',
-      color: 'white',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '4px'
-    }}>
+    <div
+      className='debug-contro'
+      style={{
+        position: 'fixed',
+        right: 0,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        padding: '8px',
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        zIndex: 2,
+      }}
+    >
       <div>Keys: {[...pressedKeys].join(', ')}</div>
       <div style={{ color: 'limegreen' }}>Actions: {actions.join(', ')}</div>
     </div>

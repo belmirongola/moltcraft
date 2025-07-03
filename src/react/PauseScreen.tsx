@@ -163,6 +163,7 @@ export default () => {
   const { noConnection } = useSnapshot(gameAdditionalState)
   const { active: packetsReplaceActive, hasRecordedPackets: packetsReplaceHasRecordedPackets } = useSnapshot(packetsRecordingState)
   const { displayRecordButton: displayPacketsButtons } = useSnapshot(options)
+  const { appConfig } = useSnapshot(miscUiState)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -293,7 +294,7 @@ export default () => {
           {fsState.inMemorySave && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
         </Button>
       </>}
-      {noConnection && (
+      {(noConnection || appConfig?.alwaysReconnectButton) && (
         <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
           Reconnect
         </Button>

@@ -177,8 +177,13 @@ New React components, improve UI (including mobile support).
 
 ## Updating Dependencies
 
-1. Ensure mineflayer fork is up to date with the latest version of mineflayer original repo
+1. Use `pnpm update-git-deps` to check and update git dependencies (like mineflayer fork, prismarine packages etc). The script will:
+   - Show which git dependencies have updates available
+   - Ask if you want to update them
+   - Skip dependencies listed in `pnpm.updateConfig.ignoreDependencies`
+
 2. Update PrismarineJS dependencies to the latest version: `minecraft-data` (be sure to replace the version twice in the package.json), `mineflayer`, `minecraft-protocol`, `prismarine-block`, `prismarine-chunk`, `prismarine-item`, ...
+
 3. If `minecraft-protocol` patch fails, do this:
      1. Remove the patch from `patchedDependencies` in `package.json`
      2. Run `pnpm patch minecraft-protocol`, open patch directory

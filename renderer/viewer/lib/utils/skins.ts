@@ -3,6 +3,20 @@ import * as THREE from 'three'
 import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 import { getLoadedImage } from 'mc-assets/dist/utils'
 
+const detectFullOffscreenCanvasSupport = () => {
+  if (typeof OffscreenCanvas === 'undefined') return false
+  try {
+    const canvas = new OffscreenCanvas(1, 1)
+    // Try to get a WebGL context - this will fail on iOS where only 2D is supported (iOS 16)
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    return gl !== null
+  } catch (e) {
+    return false
+  }
+}
+
+const hasFullOffscreenCanvasSupport = detectFullOffscreenCanvasSupport()
+
 export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
   const texture = new THREE.Texture()
   const promise = getLoadedImage(imageUrl).then(image => {
@@ -17,7 +31,7 @@ export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
 }
 
 export const createCanvas = (width: number, height: number): OffscreenCanvas => {
-  if (typeof OffscreenCanvas !== 'undefined') {
+  if (hasFullOffscreenCanvasSupport) {
     return new OffscreenCanvas(width, height)
   }
   const canvas = document.createElement('canvas')

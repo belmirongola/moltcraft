@@ -18,6 +18,7 @@ const MessageLine = ({ message, currentPlayerName, chatOpened }: { message: Mess
   const [fadeState, setFadeState] = useState<'visible' | 'fading' | 'faded'>('visible')
 
   useEffect(() => {
+    if (window.debugStopChatFade) return
     // Start fading after 5 seconds
     const fadeTimeout = setTimeout(() => {
       setFadeState('fading')
@@ -324,7 +325,7 @@ export default ({
   return (
     <>
       <div
-        className={`chat-wrapper chat-messages-wrapper ${usingTouch ? 'display-mobile' : ''}`} style={{
+        className={`chat-wrapper chat-messages-wrapper ${usingTouch ? 'display-mobile' : ''} ${opened ? 'chat-opened' : ''}`} style={{
           userSelect: opened && allowSelection ? 'text' : undefined,
         }}
       >

@@ -54,6 +54,8 @@ export type AppConfig = {
   supportedLanguages?: string[]
   showModsButton?: boolean
   defaultUsername?: string
+  skinTexturesProxy?: string
+  alwaysReconnectButton?: boolean
 }
 
 export const loadAppConfig = (appConfig: AppConfig) => {
@@ -81,6 +83,8 @@ export const loadAppConfig = (appConfig: AppConfig) => {
     Object.assign(customKeymaps, defaultsDeep(appConfig.keybindings, customKeymaps))
     updateBinds(customKeymaps)
   }
+
+  appViewer?.appConfigUdpate()
 
   setStorageDataOnAppConfigLoad(appConfig)
 }

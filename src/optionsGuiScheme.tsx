@@ -547,18 +547,6 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
-        const { cookieStorage } = useSnapshot(appStorage)
-        return <Button
-          label={`Storage: ${cookieStorage ? 'Synced Cookies' : 'Local Storage'}`} onClick={() => {
-            appStorage.cookieStorage = !cookieStorage
-            alert('Reload the page to apply this change')
-          }}
-          inScreen
-        />
-      }
-    },
-    {
-      custom () {
         return <Category>Server Connection</Category>
       },
     },

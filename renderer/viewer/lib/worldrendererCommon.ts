@@ -36,6 +36,7 @@ export const defaultWorldRendererConfig = {
   mesherWorkers: 4,
   isPlayground: false,
   renderEars: true,
+  skinTexturesProxy: undefined as string | undefined,
   // game renderer setting actually
   showHand: false,
   viewBobbing: false,

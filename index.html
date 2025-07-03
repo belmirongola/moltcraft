@@ -63,7 +63,7 @@
 
               if (window.navigator.maxTouchPoints > 1) window.location.hash = '#dev' // show eruda
               // unregister all sw
-              if (window.navigator.serviceWorker) {
+              if (window.navigator.serviceWorker && document.querySelector('.initial-loader').style.opacity !== 0) {
                 console.log('got worker')
                 window.navigator.serviceWorker.getRegistrations().then(registrations => {
                   registrations.forEach(registration => {

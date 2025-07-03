@@ -1,3 +1,4 @@
+/// <reference types="./src/env" />
 import { defineConfig, mergeRsbuildConfig, RsbuildPluginAPI } from '@rsbuild/core'
 import { pluginReact } from '@rsbuild/plugin-react'
 import { pluginTypedCSSModules } from '@rsbuild/plugin-typed-css-modules'
@@ -48,7 +49,7 @@ if (fs.existsSync('./assets/release.json')) {
 
 const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
 try {
-    Object.assign(configJson, JSON.parse(fs.readFileSync('./config.local.json', 'utf8')))
+    Object.assign(configJson, JSON.parse(fs.readFileSync(process.env.LOCAL_CONFIG_FILE || './config.local.json', 'utf8')))
 } catch (err) {}
 if (dev) {
     configJson.defaultProxy = ':8080'
@@ -198,7 +199,7 @@ const appConfig = defineConfig({
                     }
 
                     if (configSource === 'REMOTE') {
-                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
+                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson, undefined, 2), 'utf8')
                     }
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')

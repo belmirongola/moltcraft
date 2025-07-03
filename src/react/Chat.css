@@ -4,6 +4,8 @@ div.chat-wrapper {
   /* z-index: 10; */
   padding-left: calc(env(safe-area-inset-left) / 2);
   padding-right: calc(env(safe-area-inset-right, 4px) / 2);
+  box-sizing: content-box;
+  overflow: hidden;
 }
 
 .chat-messages-wrapper {
@@ -11,10 +13,15 @@ div.chat-wrapper {
   padding: 4px;
   padding-left: 0;
   max-height: var(--chatHeight);
-  width: var(--chatWidth);
+  width: calc(var(--chatWidth) - 5px); /* Custom scrollbar width */
   transform-origin: bottom left;
   transform: scale(var(--chatScale));
   pointer-events: none;
+}
+
+/* Restore full width when chat is opened */
+.chat-messages-wrapper.chat-opened {
+  width: var(--chatWidth);
 }
 
 .chat-input-wrapper {

@@ -14,3 +14,5 @@ Ask AI
 - Some other global variables that can be used without window prefixes are listed in src/globals.d.ts
 
 Rationale: This ensures a clean separation between the Mineflayer logic (server-side/game logic) and the renderer (client-side/view logic), making the renderer portable and testable, and maintains proper usage of global state.
+
+For more general project contributing guides see CONTRIBUTING.md on like how to setup the project. Use pnpm tsc if needed to validate result with typechecking the whole project.

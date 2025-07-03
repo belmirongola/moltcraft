@@ -31,7 +31,8 @@
     "run-playground": "run-p watch-mesher watch-other-workers watch-playground",
     "run-all": "run-p start run-playground",
     "build-playground": "rsbuild build --config renderer/rsbuild.config.ts",
-    "watch-playground": "rsbuild dev --config renderer/rsbuild.config.ts"
+    "watch-playground": "rsbuild dev --config renderer/rsbuild.config.ts",
+    "update-git-deps": "tsx scripts/updateGitDeps.ts"
   },
   "keywords": [
     "prismarine",
@@ -83,7 +84,7 @@
     "jszip": "^3.10.1",
     "lodash-es": "^4.17.21",
     "mcraft-fun-mineflayer": "^0.1.23",
-    "minecraft-data": "3.89.0",
+    "minecraft-data": "3.92.0",
     "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
     "mineflayer-item-map-downloader": "github:zardoy/mineflayer-item-map-downloader",
     "mojangson": "^2.0.4",
@@ -150,10 +151,10 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "^0.2.59",
+    "mc-assets": "^0.2.62",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:zardoy/mineflayer#gen-the-master",
-    "mineflayer-mouse": "^0.1.10",
+    "mineflayer-mouse": "^0.1.11",
     "mineflayer-pathfinder": "^2.4.4",
     "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
@@ -201,7 +202,7 @@
       "diamond-square": "github:zardoy/diamond-square",
       "prismarine-block": "github:zardoy/prismarine-block#next-era",
       "prismarine-world": "github:zardoy/prismarine-world#next-era",
-      "minecraft-data": "3.89.0",
+      "minecraft-data": "3.92.0",
       "prismarine-provider-anvil": "github:zardoy/prismarine-provider-anvil#everything",
       "prismarine-physics": "github:zardoy/prismarine-physics",
       "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
@@ -210,7 +211,10 @@
       "prismarine-item": "latest"
     },
     "updateConfig": {
-      "ignoreDependencies": []
+      "ignoreDependencies": [
+        "browserfs",
+        "google-drive-browserfs"
+      ]
     },
     "patchedDependencies": {
       "pixelarticons@1.8.1": "patches/pixelarticons@1.8.1.patch",
