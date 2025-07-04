@@ -112,7 +112,9 @@ export default ({
 
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
   const [isInputFocused, setIsInputFocused] = useState(false)
-  const spellCheckEnabled = false
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(false)
+  const [preservedInputValue, setPreservedInputValue] = useState('')
+  const [inputKey, setInputKey] = useState(0)
   const pingHistoryRef = useRef(JSON.parse(window.localStorage.pingHistory || '[]'))
 
   const [completePadText, setCompletePadText] = useState('')
@@ -237,12 +239,16 @@ export default ({
     if (opened) {
       completeRequestValue.current = ''
       resetCompletionItems()
+    } else {
+      setPreservedInputValue('')
     }
   }, [opened])
 
   const onMainInputChange = () => {
     const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
-    if (lastWord.startsWith('@') && getPingComplete) {
+    const isCommand = chatInput.current.value.startsWith('/')
+
+    if (lastWord.startsWith('@') && getPingComplete && !isCommand) {
       setCompletePadText(lastWord)
       void fetchPingCompletions(true, lastWord.slice(1))
       return
@@ -322,6 +328,29 @@ export default ({
     return completeValue
   }
 
+  const handleSlashCommand = () => {
+    remountInput('/')
+  }
+
+  const handleAcceptFirstCompletion = () => {
+    if (completionItems.length > 0) {
+      acceptComplete(completionItems[0])
+    }
+  }
+
+  const remountInput = (newValue?: string) => {
+    if (newValue !== undefined) {
+      setPreservedInputValue(newValue)
+    }
+    setInputKey(k => k + 1)
+  }
+
+  useEffect(() => {
+    if (preservedInputValue && chatInput.current) {
+      chatInput.current.focus()
+    }
+  }, [inputKey]) // Changed from spellCheckEnabled to inputKey
+
   return (
     <>
       <div
@@ -386,8 +415,53 @@ export default ({
       </div>
 
       <div className={`chat-wrapper chat-input-wrapper ${usingTouch ? 'input-mobile' : ''}`} hidden={!opened}>
-        {/* close button */}
-        {usingTouch && <Button icon={pixelartIcons.close} onClick={() => onClose?.()} />}
+        {usingTouch && (
+          <>
+            <Button
+              icon={pixelartIcons.close}
+              onClick={() => onClose?.()}
+              style={{
+                width: 20,
+                flexShrink: 0,
+              }}
+            />
+
+            {(chatInput.current?.value && !chatInput.current.value.startsWith('/')) ? (
+              // TOGGLE SPELL CHECK
+              <Button
+                style={{
+                  width: 20,
+                  flexShrink: 0,
+                }}
+                overlayColor={spellCheckEnabled ? '#00ff00' : '#ff0000'}
+                icon={pixelartIcons['text-wrap']}
+                onClick={() => {
+                  setPreservedInputValue(chatInput.current?.value || '')
+                  setSpellCheckEnabled(!spellCheckEnabled)
+                  remountInput()
+                }}
+              />
+            ) : (
+              // SLASH COMMAND
+              <Button
+                style={{
+                  width: 20,
+                  flexShrink: 0,
+                }}
+                label={chatInput.current?.value ? undefined : '/'}
+                icon={chatInput.current?.value ? pixelartIcons['arrow-right'] : undefined}
+                onClick={() => {
+                  const inputValue = chatInput.current.value
+                  if (!inputValue) {
+                    handleSlashCommand()
+                  } else if (completionItems.length > 0) {
+                    handleAcceptFirstCompletion()
+                  }
+                }}
+              />
+            )}
+          </>
+        )}
         <div className="chat-input">
           {isInputFocused && completionItems?.length ? (
             <div className="chat-completions">
@@ -431,9 +505,10 @@ export default ({
             />}
             <input
               maxLength={chatVanillaRestrictions ? 256 : undefined}
-              defaultValue=''
+              defaultValue={preservedInputValue}
               // ios doesn't support toggling autoCorrect on the fly so we need to re-create the input
-              key={spellCheckEnabled ? 'true' : 'false'}
+              key={`${inputKey}`}
+              autoCapitalize={preservedInputValue ? 'off' : 'on'}
               ref={chatInput}
               type="text"
               className="chat-input"

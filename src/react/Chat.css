@@ -5,6 +5,10 @@ div.chat-wrapper {
   padding-left: calc(env(safe-area-inset-left) / 2);
   padding-right: calc(env(safe-area-inset-right, 4px) / 2);
   box-sizing: content-box;
+}
+
+/* Only apply overflow hidden when not in mobile mode */
+div.chat-wrapper:not(.display-mobile):not(.input-mobile) {
   overflow: hidden;
 }
 
@@ -69,7 +73,7 @@ div.chat-wrapper {
   top: 100%;
   padding-left: calc(env(safe-area-inset-left) / 2);
   margin-top: 14px;
-  margin-left: 20px;
+  margin-left: 40px;
   /* input height */
 }
 
@@ -114,6 +118,11 @@ div.chat-wrapper {
 
 .input-mobile .chat-completions-items {
   justify-content: flex-start;
+}
+
+.input-mobile .chat-completions-items > div {
+  padding: 4px 0;
+  font-size: 10px;
 }
 
 .input-mobile {

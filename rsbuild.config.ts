@@ -193,6 +193,7 @@ const appConfig = defineConfig({
                     fs.copyFileSync('./assets/playground.html', './dist/playground.html')
                     fs.copyFileSync('./assets/manifest.json', './dist/manifest.json')
                     fs.copyFileSync('./assets/config.html', './dist/config.html')
+                    fs.copyFileSync('./assets/debug-inputs.html', './dist/debug-inputs.html')
                     fs.copyFileSync('./assets/loading-bg.jpg', './dist/loading-bg.jpg')
                     if (fs.existsSync('./assets/release.json')) {
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
