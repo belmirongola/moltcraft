@@ -66,6 +66,7 @@ import CreditsAboutModal from './react/CreditsAboutModal'
 import GlobalOverlayHints from './react/GlobalOverlayHints'
 import FullscreenTime from './react/FullscreenTime'
 import StorageConflictModal from './react/StorageConflictModal'
+import ProxiesList from './react/ProxiesList'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -250,6 +251,7 @@ const App = () => {
             <SelectOption />
             <CreditsAboutModal />
             <NoModalFoundProvider />
+            <ProxiesList />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>

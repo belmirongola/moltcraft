@@ -97,6 +97,8 @@ import { registerOpenBenchmarkListener } from './benchmark'
 import { tryHandleBuiltinCommand } from './builtinCommands'
 import { loadingTimerState } from './react/LoadingTimer'
 import { loadPluginsIntoWorld } from './react/CreateWorldProvider'
+import { appStorage } from './react/appStorageProvider'
+import { selectBestProxy } from './core/proxyAutoSelect'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -193,8 +195,6 @@ export async function connect (connectOptions: ConnectOptions) {
     const https = connectOptions.proxy.startsWith('https://') || location.protocol === 'https:'
     connectOptions.proxy = `${connectOptions.proxy}:${https ? 443 : 80}`
   }
-  const parsedProxy = parseServerAddress(connectOptions.proxy, false)
-  const proxy = { host: parsedProxy.host, port: parsedProxy.port }
   let { username } = connectOptions
 
   if (connectOptions.server) {
@@ -289,6 +289,26 @@ export async function connect (connectOptions: ConnectOptions) {
   let clientDataStream: Duplex | undefined
 
   if (connectOptions.server && !connectOptions.viewerWsConnect && !parsedServer.isWebSocket) {
+    if (appStorage.proxiesData?.isAutoSelect && appStorage.proxiesData.proxies.length > 0) {
+      setLoadingScreenStatus('Selecting best proxy...')
+      const bestProxy = await selectBestProxy(appStorage.proxiesData.proxies)
+      if (bestProxy) {
+        connectOptions.proxy = bestProxy
+      } else {
+        let message = 'Failed to find a working proxy.'
+        if (navigator.onLine) {
+          message += '\n\nPlease check your internet connection and try again.'
+        } else {
+          message += '\nWe tried these proxies but none of them worked, try opening any of these urls in your browser:'
+          message += `\n${appStorage.proxiesData.proxies.join(', ')}`
+        }
+        setLoadingScreenStatus(message, true)
+        return
+      }
+    }
+
+    const parsedProxy = parseServerAddress(connectOptions.proxy, false)
+    const proxy = { host: parsedProxy.host, port: parsedProxy.port }
     console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
     net['setProxy']({ hostname: proxy.host, port: proxy.port, headers: { Authorization: `Bearer ${new URLSearchParams(location.search).get('token') ?? ''}` } })
   }

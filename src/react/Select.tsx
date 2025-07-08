@@ -19,6 +19,7 @@ interface Props {
   placeholder?: string
   containerStyle?: CSSProperties
   disabled?: boolean
+  renderOption?: (option: OptionStorage) => React.ReactNode
 }
 
 export default ({
@@ -29,7 +30,8 @@ export default ({
   defaultValue,
   containerStyle,
   placeholder,
-  disabled
+  disabled,
+  renderOption
 }: Props) => {
   const [inputValue, setInputValue] = useState<string | undefined>(defaultValue?.label ?? '')
   const [currValue, setCurrValue] = useState<string | undefined>(defaultValue?.label ?? '')
@@ -45,6 +47,12 @@ export default ({
     isClearable={true}
     formatCreateLabel={(value) => {
       return 'Use "' + value + '"'
+    }}
+    formatOptionLabel={(option) => {
+      if (renderOption) {
+        return renderOption(option)
+      }
+      return option.label
     }}
     isDisabled={disabled}
     placeholder={placeholder ?? ''}
