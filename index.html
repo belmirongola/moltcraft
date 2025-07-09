@@ -27,6 +27,7 @@
         <div style="font-size: var(--font-size);color: rgb(176, 176, 176);margin-top: 3px;text-align: center" class="subtitle">A true Minecraft client in your browser!</div>
         <!-- small text pre -->
         <div style="font-size: calc(var(--font-size) * 0.6);color: rgb(150, 150, 150);margin-top: 3px;text-align: center;white-space: pre-line;" class="advanced-info"></div>
+        <div style="font-size: calc(var(--font-size) * 0.6);color: rgb(255, 100, 100);margin-top: 10px;text-align: center;display: none;" class="ios-warning">Only iOS 15+ is supported due to performance optimizations</div>
     </div>
 </div>
 `
@@ -36,6 +37,13 @@
           if (!window.pageLoaded) {
             document.documentElement.appendChild(loadingDivElem)
           }
+
+          // iOS version detection
+          const getIOSVersion = () => {
+            const match = navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+            return match ? parseInt(match[1], 10) : null;
+          }
+
           // load error handling
           const onError = (errorOrMessage, log = false) => {
             let message = errorOrMessage instanceof Error ? (errorOrMessage.stack ?? errorOrMessage.message) : errorOrMessage
@@ -46,12 +54,23 @@
               const [errorMessage, ...errorStack] = message.split('\n')
               document.querySelector('.initial-loader').querySelector('.subtitle').textContent = errorMessage
               document.querySelector('.initial-loader').querySelector('.advanced-info').textContent = errorStack.join('\n')
+
+              // Show iOS warning if applicable
+              const iosVersion = getIOSVersion();
+              if (iosVersion !== null && iosVersion < 15) {
+                document.querySelector('.initial-loader').querySelector('.ios-warning').style.display = 'block';
+              }
+
               if (window.navigator.maxTouchPoints > 1) window.location.hash = '#dev' // show eruda
               // unregister all sw
-              if (window.navigator.serviceWorker) {
+              if (window.navigator.serviceWorker && document.querySelector('.initial-loader').style.opacity !== 0) {
+                console.log('got worker')
                 window.navigator.serviceWorker.getRegistrations().then(registrations => {
                   registrations.forEach(registration => {
-                    registration.unregister()
+                    console.log('got registration')
+                    registration.unregister().then(() => {
+                      console.log('worker unregistered')
+                    })
                   })
                 })
               }

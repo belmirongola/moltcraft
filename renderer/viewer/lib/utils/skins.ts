@@ -3,6 +3,20 @@ import * as THREE from 'three'
 import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 import { getLoadedImage } from 'mc-assets/dist/utils'
 
+const detectFullOffscreenCanvasSupport = () => {
+  if (typeof OffscreenCanvas === 'undefined') return false
+  try {
+    const canvas = new OffscreenCanvas(1, 1)
+    // Try to get a WebGL context - this will fail on iOS where only 2D is supported (iOS 16)
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    return gl !== null
+  } catch (e) {
+    return false
+  }
+}
+
+const hasFullOffscreenCanvasSupport = detectFullOffscreenCanvasSupport()
+
 export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
   const texture = new THREE.Texture()
   const promise = getLoadedImage(imageUrl).then(image => {
@@ -16,12 +30,22 @@ export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
   }
 }
 
+export const createCanvas = (width: number, height: number): OffscreenCanvas => {
+  if (hasFullOffscreenCanvasSupport) {
+    return new OffscreenCanvas(width, height)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  return canvas as unknown as OffscreenCanvas // todo-low
+}
+
 export const loadThreeJsTextureFromUrl = async (imageUrl: string) => {
   const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
   return loaded
 }
 export const loadThreeJsTextureFromBitmap = (image: ImageBitmap) => {
-  const canvas = new OffscreenCanvas(image.width, image.height)
+  const canvas = createCanvas(image.width, image.height)
   const ctx = canvas.getContext('2d')!
   ctx.drawImage(image, 0, 0)
   const texture = new THREE.Texture(canvas)
@@ -83,7 +107,7 @@ export async function loadSkinImage (skinUrl: string): Promise<{ canvas: Offscre
   }
 
   const image = await loadImageFromUrl(skinUrl)
-  const skinCanvas = new OffscreenCanvas(64, 64)
+  const skinCanvas = createCanvas(64, 64)
   loadSkinToCanvas(skinCanvas, image)
   return { canvas: skinCanvas, image }
 }

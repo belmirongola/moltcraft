@@ -3,11 +3,15 @@
   "defaultHost": "<from-proxy>",
   "defaultProxy": "https://proxy.mcraft.fun",
   "mapsProvider": "https://maps.mcraft.fun/",
+  "skinTexturesProxy": "",
   "peerJsServer": "",
   "peerJsServerFallback": "https://p2p.mcraft.fun",
   "promoteServers": [
     {
       "ip": "wss://play.mcraft.fun"
+    },
+    {
+      "ip": "wss://ws.fuchsmc.net"
     },
     {
       "ip": "wss://play2.mcraft.fun"

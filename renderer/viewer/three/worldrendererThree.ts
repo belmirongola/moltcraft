@@ -755,7 +755,12 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     try {
       const textureData = JSON.parse(Buffer.from(textures.Value, 'base64').toString())
-      const skinUrl = textureData.textures?.SKIN?.url
+      let skinUrl = textureData.textures?.SKIN?.url
+      const { skinTexturesProxy } = this.worldRendererConfig
+      if (skinTexturesProxy) {
+        skinUrl = skinUrl?.replace('http://textures.minecraft.net/', skinTexturesProxy)
+          .replace('https://textures.minecraft.net/', skinTexturesProxy)
+      }
 
       const mesh = getMesh(this, skinUrl, armorModel.head)
       const group = new THREE.Group()

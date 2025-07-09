@@ -39,7 +39,9 @@ export class ThreeJsSound implements SoundSystem {
       sound.position.set(position.x, position.y, position.z)
       sound.onEnded = () => {
         this.worldRenderer.scene.remove(sound)
-        sound.disconnect()
+        if (sound.source) {
+          sound.disconnect()
+        }
         this.activeSounds.delete(sound)
         audioLoader.manager.itemEnd(path)
       }
@@ -51,7 +53,9 @@ export class ThreeJsSound implements SoundSystem {
     // Stop and clean up all active sounds
     for (const sound of this.activeSounds) {
       sound.stop()
-      sound.disconnect()
+      if (sound.source) {
+        sound.disconnect()
+      }
     }
 
     // Remove and cleanup audio listener

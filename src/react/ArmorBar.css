@@ -8,7 +8,6 @@
   --offset: calc(-1 * 25px);
   --bg-x: calc(-1 * 16px);
   --bg-y: calc(-1 * 9px);
-  pointer-events: none;
   image-rendering: pixelated;
 }
 

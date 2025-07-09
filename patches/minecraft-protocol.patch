@@ -1,26 +1,26 @@
 diff --git a/src/client/chat.js b/src/client/chat.js
-index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aae0d1d337 100644
+index 8d0869b150681574ad19292a026cce9f67a137ee..2efa2e6600f017b566155974cb9fb1856fa582f9 100644
 --- a/src/client/chat.js
 +++ b/src/client/chat.js
-@@ -111,7 +111,7 @@ module.exports = function (client, options) {
-         for (const player of packet.data) {
-           if (!player.chatSession) continue
-           client._players[player.UUID] = {
--            publicKey: crypto.createPublicKey({ key: player.chatSession.publicKey.keyBytes, format: 'der', type: 'spki' }),
-+            // publicKey: crypto.createPublicKey({ key: player.chatSession.publicKey.keyBytes, format: 'der', type: 'spki' }),
-             publicKeyDER: player.chatSession.publicKey.keyBytes,
-             sessionUuid: player.chatSession.uuid
-           }
-@@ -127,7 +127,7 @@ module.exports = function (client, options) {
-       for (const player of packet.data) {
-         if (player.crypto) {
-           client._players[player.UUID] = {
--            publicKey: crypto.createPublicKey({ key: player.crypto.publicKey, format: 'der', type: 'spki' }),
-+            // publicKey: crypto.createPublicKey({ key: player.crypto.publicKey, format: 'der', type: 'spki' }),
-             publicKeyDER: player.crypto.publicKey,
-             signature: player.crypto.signature,
-             displayName: player.displayName || player.name
-@@ -198,7 +198,7 @@ module.exports = function (client, options) {
+@@ -109,7 +109,7 @@ module.exports = function (client, options) {
+     for (const player of packet.data) {
+       if (player.chatSession) {
+         client._players[player.uuid] = {
+-          publicKey: crypto.createPublicKey({ key: player.chatSession.publicKey.keyBytes, format: 'der', type: 'spki' }),
++          // publicKey: crypto.createPublicKey({ key: player.chatSession.publicKey.keyBytes, format: 'der', type: 'spki' }),
+           publicKeyDER: player.chatSession.publicKey.keyBytes,
+           sessionUuid: player.chatSession.uuid
+         }
+@@ -119,7 +119,7 @@ module.exports = function (client, options) {
+ 
+       if (player.crypto) {
+         client._players[player.uuid] = {
+-          publicKey: crypto.createPublicKey({ key: player.crypto.publicKey, format: 'der', type: 'spki' }),
++          // publicKey: crypto.createPublicKey({ key: player.crypto.publicKey, format: 'der', type: 'spki' }),
+           publicKeyDER: player.crypto.publicKey,
+           signature: player.crypto.signature,
+           displayName: player.displayName || player.name
+@@ -189,7 +189,7 @@ module.exports = function (client, options) {
      if (mcData.supportFeature('useChatSessions')) {
        const tsDelta = BigInt(Date.now()) - packet.timestamp
        const expired = !packet.timestamp || tsDelta > messageExpireTime || tsDelta < 0
@@ -29,7 +29,7 @@ index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aa
        if (verified) client._signatureCache.push(packet.signature)
        client.emit('playerChat', {
          plainMessage: packet.plainMessage,
-@@ -363,7 +363,7 @@ module.exports = function (client, options) {
+@@ -354,7 +354,7 @@ module.exports = function (client, options) {
      }
    }
  
@@ -38,7 +38,7 @@ index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aa
      options.timestamp = options.timestamp || BigInt(Date.now())
      options.salt = options.salt || 1n
  
-@@ -405,7 +405,7 @@ module.exports = function (client, options) {
+@@ -396,7 +396,7 @@ module.exports = function (client, options) {
          message,
          timestamp: options.timestamp,
          salt: options.salt,
@@ -47,7 +47,7 @@ index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aa
          offset: client._lastSeenMessages.pending,
          acknowledged
        })
-@@ -419,7 +419,7 @@ module.exports = function (client, options) {
+@@ -410,7 +410,7 @@ module.exports = function (client, options) {
          message,
          timestamp: options.timestamp,
          salt: options.salt,
@@ -74,7 +74,7 @@ index b9d21bab9faccd5dbf1975fc423fc55c73e906c5..99ffd76527b410e3a393181beb260108
  
        function onJoinServerResponse (err) {
 diff --git a/src/client/play.js b/src/client/play.js
-index 6e06dc15291b38e1eeeec8d7102187b2a23d70a3..f67454942db9276cbb9eab99c281cfe182cb8a1f 100644
+index 559607f34e9a5b2b7809423f8ca4cd6746b60225..4dc1c3139438cc2729b05c57e57bd00252728f8a 100644
 --- a/src/client/play.js
 +++ b/src/client/play.js
 @@ -53,7 +53,7 @@ module.exports = function (client, options) {
@@ -87,7 +87,7 @@ index 6e06dc15291b38e1eeeec8d7102187b2a23d70a3..f67454942db9276cbb9eab99c281cfe1
        })
        // Server should send finish_configuration on its own right after sending the client a dimension codec
 diff --git a/src/client.js b/src/client.js
-index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d248c2a07c 100644
+index 5c7a62b013daa69be91ec9e763b1f48ffe96ffa6..174d42a77740a937afcb106e1f39a9ee824a24b9 100644
 --- a/src/client.js
 +++ b/src/client.js
 @@ -89,10 +89,12 @@ class Client extends EventEmitter {

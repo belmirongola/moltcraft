@@ -1,3 +1,4 @@
+/// <reference types="./src/env" />
 import { defineConfig, mergeRsbuildConfig, RsbuildPluginAPI } from '@rsbuild/core'
 import { pluginReact } from '@rsbuild/plugin-react'
 import { pluginTypedCSSModules } from '@rsbuild/plugin-typed-css-modules'
@@ -49,7 +50,7 @@ if (fs.existsSync('./assets/release.json')) {
 
 const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
 try {
-    Object.assign(configJson, JSON.parse(fs.readFileSync('./config.local.json', 'utf8')))
+    Object.assign(configJson, JSON.parse(fs.readFileSync(process.env.LOCAL_CONFIG_FILE || './config.local.json', 'utf8')))
 } catch (err) {}
 if (dev) {
     configJson.defaultProxy = ':8080'
@@ -112,6 +113,22 @@ const appConfig = defineConfig({
             js: 'source-map',
             css: true,
         },
+        minify: {
+            // js: false,
+            jsOptions: {
+                minimizerOptions: {
+                    mangle: {
+                        safari10: true,
+                        keep_classnames: true,
+                        keep_fnames: true,
+                        keep_private_props: true,
+                    },
+                    compress: {
+                        unused: true,
+                    },
+                },
+            },
+        },
         distPath: SINGLE_FILE_BUILD ? {
             html: './single',
         } : undefined,
@@ -142,6 +159,7 @@ const appConfig = defineConfig({
             'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
             'process.env.INLINED_APP_CONFIG': JSON.stringify(configSource === 'BUNDLED' ? configJson : null),
             'process.env.ENABLE_COOKIE_STORAGE': JSON.stringify(process.env.ENABLE_COOKIE_STORAGE || true),
+            'process.env.COOKIE_STORAGE_PREFIX': JSON.stringify(process.env.COOKIE_STORAGE_PREFIX || ''),
         },
     },
     server: {
@@ -176,13 +194,14 @@ const appConfig = defineConfig({
                     fs.copyFileSync('./assets/playground.html', './dist/playground.html')
                     fs.copyFileSync('./assets/manifest.json', './dist/manifest.json')
                     fs.copyFileSync('./assets/config.html', './dist/config.html')
+                    fs.copyFileSync('./assets/debug-inputs.html', './dist/debug-inputs.html')
                     fs.copyFileSync('./assets/loading-bg.jpg', './dist/loading-bg.jpg')
                     if (fs.existsSync('./assets/release.json')) {
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
                     }
 
                     if (configSource === 'REMOTE') {
-                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
+                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson, undefined, 2), 'utf8')
                     }
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
