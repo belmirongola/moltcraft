@@ -1,3 +1,4 @@
+import { resetStateAfterDisconnect } from './browserfs'
 import { hideModal, activeModalStack, showModal, miscUiState } from './globalState'
 import { appStatusState, resetAppStatusState } from './react/AppStatusProvider'
 
@@ -25,7 +26,6 @@ export const setLoadingScreenStatus = function (status: string | undefined | nul
   }
   showModal({ reactType: 'app-status' })
   if (appStatusState.isError) {
-    miscUiState.gameLoaded = false
     return
   }
   appStatusState.hideDots = hideDots
@@ -33,5 +33,9 @@ export const setLoadingScreenStatus = function (status: string | undefined | nul
   appStatusState.lastStatus = isError ? appStatusState.status : ''
   appStatusState.status = status
   appStatusState.minecraftJsonMessage = minecraftJsonMessage ?? null
+
+  if (isError && miscUiState.gameLoaded) {
+    resetStateAfterDisconnect()
+  }
 }
 globalThis.setLoadingScreenStatus = setLoadingScreenStatus

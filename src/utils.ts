@@ -163,7 +163,7 @@ export const reloadChunks = async () => {
 }
 
 export const openGithub = (addUrl = '') => {
-  window.open(`${process.env.GITHUB_URL}${addUrl}`, '_blank')
+  window.open(`${process.env.GITHUB_URL?.replace(/\/$/, '')}${addUrl}`, '_blank')
 }
 
 export const resolveTimeout = async (promise, timeout = 10_000) => {

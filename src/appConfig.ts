@@ -24,6 +24,7 @@ export type MobileButtonConfig = {
   readonly icon?: string
   readonly action?: ActionType
   readonly actionHold?: ActionType | ActionHoldConfig
+  readonly iconStyle?: React.CSSProperties
 }
 
 export type AppConfig = {
@@ -54,9 +55,14 @@ export type AppConfig = {
   supportedLanguages?: string[]
   showModsButton?: boolean
   defaultUsername?: string
+  skinTexturesProxy?: string
+  alwaysReconnectButton?: boolean
+  reportBugButtonWithReconnect?: boolean
+  disabledCommands?: string[] // Array of command IDs to disable (e.g. ['general.jump', 'general.chat'])
 }
 
 export const loadAppConfig = (appConfig: AppConfig) => {
+
   if (miscUiState.appConfig) {
     Object.assign(miscUiState.appConfig, appConfig)
   } else {
@@ -68,7 +74,7 @@ export const loadAppConfig = (appConfig: AppConfig) => {
       if (value) {
         disabledSettings.value.add(key)
         // since the setting is forced, we need to set it to that value
-        if (appConfig.defaultSettings?.[key] && !qsOptions[key]) {
+        if (appConfig.defaultSettings && key in appConfig.defaultSettings && !qsOptions[key]) {
           options[key] = appConfig.defaultSettings[key]
         }
       } else {
@@ -76,11 +82,14 @@ export const loadAppConfig = (appConfig: AppConfig) => {
       }
     }
   }
+  // todo apply defaultSettings to defaults even if not forced in case of remote config
 
   if (appConfig.keybindings) {
     Object.assign(customKeymaps, defaultsDeep(appConfig.keybindings, customKeymaps))
     updateBinds(customKeymaps)
   }
+
+  appViewer?.appConfigUdpate()
 
   setStorageDataOnAppConfigLoad(appConfig)
 }

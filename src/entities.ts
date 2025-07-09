@@ -4,6 +4,7 @@ import tracker from '@nxg-org/mineflayer-tracker'
 import { loader as autoJumpPlugin } from '@nxg-org/mineflayer-auto-jump'
 import { subscribeKey } from 'valtio/utils'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { Team } from 'mineflayer'
 import { options, watchValue } from './optionsStorage'
 import { gameAdditionalState, miscUiState } from './globalState'
 import { EntityStatus } from './mineflayer/entityStatus'
@@ -197,35 +198,101 @@ customEvents.on('gameLoaded', () => {
     }
   })
 
-  // Texture override from packet properties
-  bot._client.on('player_info', (packet) => {
-    for (const playerEntry of packet.data) {
-      if (!playerEntry.player && !playerEntry.properties) continue
-      let textureProperty = playerEntry.properties?.find(prop => prop?.name === 'textures')
-      if (!textureProperty) {
-        textureProperty = playerEntry.player?.properties?.find(prop => prop?.key === 'textures')
-      }
-      if (textureProperty) {
-        try {
-          const textureData = JSON.parse(Buffer.from(textureProperty.value, 'base64').toString())
-          const skinUrl = textureData.textures?.SKIN?.url
-          const capeUrl = textureData.textures?.CAPE?.url
+  const applySkinTexturesProxy = (url: string | undefined) => {
+    const { appConfig } = miscUiState
+    if (appConfig?.skinTexturesProxy) {
+      return url?.replace('http://textures.minecraft.net/', appConfig.skinTexturesProxy)
+        .replace('https://textures.minecraft.net/', appConfig.skinTexturesProxy)
+    }
+    return url
+  }
 
-          // Find entity with matching UUID and update skin
-          let entityId = ''
-          for (const [entId, entity] of Object.entries(bot.entities)) {
-            if (entity.uuid === playerEntry.uuid) {
-              entityId = entId
-              break
-            }
-          }
-          // even if not found, still record to cache
-          void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, playerEntry.player?.name, playerEntry.uuid, skinUrl, capeUrl)
-        } catch (err) {
-          console.error('Error decoding player texture:', err)
+  // Texture override from packet properties
+  const updateSkin = (player: import('mineflayer').Player) => {
+    if (!player.uuid || !player.username || !player.skinData) return
+
+    try {
+      const skinUrl = applySkinTexturesProxy(player.skinData.url)
+      const capeUrl = applySkinTexturesProxy((player.skinData as any).capeUrl)
+
+      // Find entity with matching UUID and update skin
+      let entityId = ''
+      for (const [entId, entity] of Object.entries(bot.entities)) {
+        if (entity.uuid === player.uuid) {
+          entityId = entId
+          break
+        }
+      }
+      // even if not found, still record to cache
+      void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, player.username, player.uuid, skinUrl ?? true, capeUrl)
+    } catch (err) {
+      console.error('Error decoding player texture:', err)
+    }
+  }
+
+  bot.on('playerJoined', updateSkin)
+  bot.on('playerUpdated', updateSkin)
+
+  bot.on('teamUpdated', (team: Team) => {
+    for (const entity of Object.values(bot.entities)) {
+      if (entity.type === 'player' && entity.username && team.members.includes(entity.username) || entity.uuid && team.members.includes(entity.uuid)) {
+        bot.emit('entityUpdate', entity)
+      }
+    }
+  })
+
+  const updateEntityNameTags = (team: Team) => {
+    for (const entity of Object.values(bot.entities)) {
+      const entityTeam = entity.type === 'player' && entity.username ? bot.teamMap[entity.username] : entity.uuid ? bot.teamMap[entity.uuid] : undefined
+      if ((entityTeam?.nameTagVisibility === 'hideForOwnTeam' && entityTeam.name === team.name)
+        || (entityTeam?.nameTagVisibility === 'hideForOtherTeams' && entityTeam.name !== team.name)) {
+        bot.emit('entityUpdate', entity)
+      }
+    }
+  }
+
+  const doEntitiesNeedUpdating = (team: Team) => {
+    return team.nameTagVisibility === 'never'
+      || (team.nameTagVisibility === 'hideForOtherTeams' && appViewer.playerState.reactive.team?.team !== team.team)
+      || (team.nameTagVisibility === 'hideForOwnTeam' && appViewer.playerState.reactive.team?.team === team.team)
+  }
+
+  bot.on('teamMemberAdded', (team: Team, members: string[]) => {
+    if (members.includes(bot.username) && appViewer.playerState.reactive.team?.team !== team.team) {
+      appViewer.playerState.reactive.team = team
+      // Player was added to a team, need to check if any entities need updating
+      updateEntityNameTags(team)
+    } else if (doEntitiesNeedUpdating(team)) {
+      // Need to update all entities that were added
+      for (const entity of Object.values(bot.entities)) {
+        if (entity.type === 'player' && entity.username && members.includes(entity.username) || entity.uuid && members.includes(entity.uuid)) {
+          bot.emit('entityUpdate', entity)
         }
       }
     }
-
   })
+
+  bot.on('teamMemberRemoved', (team: Team, members: string[]) => {
+    if (members.includes(bot.username) && appViewer.playerState.reactive.team?.team === team.team) {
+      appViewer.playerState.reactive.team = undefined
+      // Player was removed from a team, need to check if any entities need updating
+      updateEntityNameTags(team)
+    } else if (doEntitiesNeedUpdating(team)) {
+      // Need to update all entities that were removed
+      for (const entity of Object.values(bot.entities)) {
+        if (entity.type === 'player' && entity.username && members.includes(entity.username) || entity.uuid && members.includes(entity.uuid)) {
+          bot.emit('entityUpdate', entity)
+        }
+      }
+    }
+  })
+
+  bot.on('teamRemoved', (team: Team) => {
+    if (appViewer.playerState.reactive.team?.team === team.team) {
+      appViewer.playerState.reactive.team = undefined
+      // Player's team was removed, need to update all entities that are in a team
+      updateEntityNameTags(team)
+    }
+  })
+
 })

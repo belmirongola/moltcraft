@@ -99,6 +99,10 @@ export class PlayerStateControllerMain {
     })
     this.reactive.gameMode = bot.game?.gameMode
 
+    customEvents.on('gameLoaded', () => {
+      this.reactive.team = bot.teamMap[bot.username]
+    })
+
     this.watchReactive()
   }
 

@@ -16,9 +16,10 @@ import { Item } from 'prismarine-item'
 import { BlockModel } from 'mc-assets'
 import { isEntityAttackable } from 'mineflayer-mouse/dist/attackableEntity'
 import { Vec3 } from 'vec3'
+import { Team } from 'mineflayer'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
-import { loadSkinImage, loadSkinFromUsername, stevePngUrl, steveTexture } from '../lib/utils/skins'
+import { loadSkinImage, loadSkinFromUsername, stevePngUrl, steveTexture, createCanvas } from '../lib/utils/skins'
 import { loadTexture } from '../lib/utils'
 import { getBlockMeshFromModel } from './holdingBlock'
 import * as Entity from './entity/EntityMesh'
@@ -96,7 +97,7 @@ function getUsernameTexture ({
   nameTagBackgroundColor = 'rgba(0, 0, 0, 0.3)',
   nameTagTextOpacity = 255
 }: any, { fontFamily = 'sans-serif' }: any) {
-  const canvas = new OffscreenCanvas(64, 64)
+  const canvas = createCanvas(64, 64)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get 2d context')
 
@@ -209,7 +210,7 @@ export type SceneEntity = THREE.Object3D & {
   username?: string
   uuid?: string
   additionalCleanup?: () => void
-  originalEntity: import('prismarine-entity').Entity & { delete?; pos?, name }
+  originalEntity: import('prismarine-entity').Entity & { delete?; pos?, name, team?: Team }
 }
 
 export class Entities {
@@ -485,6 +486,7 @@ export class Entities {
       .some(channel => channel !== 0)
   }
 
+  // todo true/undefined doesnt reset the skin to the default one
   // eslint-disable-next-line max-params
   async updatePlayerSkin (entityId: string | number, username: string | undefined, uuidCache: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
     if (uuidCache) {
@@ -550,7 +552,7 @@ export class Entities {
       let skinCanvas: OffscreenCanvas
       if (skinUrl === stevePngUrl) {
         skinTexture = await steveTexture
-        const canvas = new OffscreenCanvas(64, 64)
+        const canvas = createCanvas(64, 64)
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('Failed to get context')
         ctx.drawImage(skinTexture.image, 0, 0)
@@ -900,6 +902,8 @@ export class Entities {
           nameTag.position.y = playerObject.position.y + playerObject.scale.y * 16 + 3
           nameTag.renderOrder = 1000
 
+          nameTag.name = 'nametag'
+
           //@ts-expect-error
           wrapper.add(nameTag)
         }
@@ -1111,9 +1115,11 @@ export class Entities {
       }
     }
 
-    if (entity.username) {
+    if (entity.username !== undefined) {
       e.username = entity.username
     }
+
+    this.updateNameTagVisibility(e)
 
     this.updateEntityPosition(entity, justAdded, overrides)
   }
@@ -1181,6 +1187,20 @@ export class Entities {
         mesh.visible = true
       }
     }
+  }
+
+  updateNameTagVisibility (entity: SceneEntity) {
+    const playerTeam = this.worldRenderer.playerStateReactive.team
+    const entityTeam = entity.originalEntity.team
+    const nameTagVisibility = entityTeam?.nameTagVisibility || 'always'
+    const showNameTag = nameTagVisibility === 'always' ||
+      (nameTagVisibility === 'hideForOwnTeam' && entityTeam?.team !== playerTeam?.team) ||
+      (nameTagVisibility === 'hideForOtherTeams' && (entityTeam?.team === playerTeam?.team || playerTeam === undefined))
+    entity.traverse(c => {
+      if (c.name === 'nametag') {
+        c.visible = showNameTag
+      }
+    })
   }
 
   addMapModel (entityMesh: THREE.Object3D, mapNumber: number, rotation: number) {
@@ -1404,6 +1424,11 @@ function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Obj
         if (textureData) {
           const decodedData = JSON.parse(Buffer.from(textureData, 'base64').toString())
           texturePath = decodedData.textures?.SKIN?.url
+          const { skinTexturesProxy } = this.worldRenderer.worldRendererConfig
+          if (skinTexturesProxy) {
+            texturePath = texturePath?.replace('http://textures.minecraft.net/', skinTexturesProxy)
+              .replace('https://textures.minecraft.net/', skinTexturesProxy)
+          }
         }
       } catch (err) {
         console.error('Error decoding player head texture:', err)

@@ -1,5 +1,5 @@
 diff --git a/fonts/pixelart-icons-font.css b/fonts/pixelart-icons-font.css
-index 3b2ebe839370d96bf93ef5ca94a827f07e49378d..103ab4d6b9f3b5c9f41d1407e3cbf4ac392fbf41 100644
+index 3b2ebe839370d96bf93ef5ca94a827f07e49378d..4f8d76be2ca6e4ddc43c68d0a6f0f69979165ab4 100644
 --- a/fonts/pixelart-icons-font.css
 +++ b/fonts/pixelart-icons-font.css
 @@ -1,16 +1,13 @@
@@ -10,10 +10,11 @@ index 3b2ebe839370d96bf93ef5ca94a827f07e49378d..103ab4d6b9f3b5c9f41d1407e3cbf4ac
 +  src:
    url("pixelart-icons-font.woff2?t=1711815892278") format("woff2"),
    url("pixelart-icons-font.woff?t=1711815892278") format("woff"),
-   url('pixelart-icons-font.ttf?t=1711815892278') format('truetype'), /* chrome, firefox, opera, Safari, Android, iOS 4.2+*/
+-  url('pixelart-icons-font.ttf?t=1711815892278') format('truetype'), /* chrome, firefox, opera, Safari, Android, iOS 4.2+*/
 -  url('pixelart-icons-font.svg?t=1711815892278#pixelart-icons-font') format('svg'); /* iOS 4.1- */
++  url('pixelart-icons-font.ttf?t=1711815892278') format('truetype'); /* chrome, firefox, opera, Safari, Android, iOS 4.2+*/
  }
- 
+
  [class^="pixelart-icons-font-"], [class*=" pixelart-icons-font-"] {
    font-family: 'pixelart-icons-font' !important;
 -  font-size:24px;

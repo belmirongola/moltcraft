@@ -23,7 +23,7 @@ import { MessageFormatPart } from './chatUtils'
 import { GeneralInputItem, getItemMetadata, getItemModelName, getItemNameRaw, RenderItem } from './mineflayer/items'
 import { playerState } from './mineflayer/playerState'
 
-const loadedImagesCache = new Map<string, HTMLImageElement>()
+const loadedImagesCache = new Map<string, HTMLImageElement | ImageBitmap>()
 const cleanLoadedImagesCache = () => {
   loadedImagesCache.delete('blocks')
   loadedImagesCache.delete('items')
@@ -132,11 +132,12 @@ export const onGameLoad = () => {
   }
 }
 
-const getImageSrc = (path): string | HTMLImageElement => {
+const getImageSrc = (path): string | HTMLImageElement | ImageBitmap => {
   switch (path) {
     case 'gui/container/inventory': return appReplacableResources.latest_gui_container_inventory.content
     case 'blocks': return appViewer.resourcesManager.blocksAtlasParser.latestImage
     case 'items': return appViewer.resourcesManager.itemsAtlasParser.latestImage
+    case 'gui': return appViewer.resourcesManager.currentResources!.guiAtlas!.image
     case 'gui/container/dispenser': return appReplacableResources.latest_gui_container_dispenser.content
     case 'gui/container/furnace': return appReplacableResources.latest_gui_container_furnace.content
     case 'gui/container/crafting_table': return appReplacableResources.latest_gui_container_crafting_table.content
@@ -167,6 +168,12 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
     onLoad()
   } else {
     const imageSrc = getImageSrc(loadPath)
+    if (imageSrc instanceof ImageBitmap) {
+      onLoad()
+      loadedImagesCache.set(loadPath, imageSrc)
+      return imageSrc
+    }
+
     let image: HTMLImageElement
     if (imageSrc instanceof Image) {
       image = imageSrc
@@ -277,6 +284,7 @@ const implementedContainersGuiMap = {
   'minecraft:generic_3x3': 'DropDispenseWin',
   'minecraft:furnace': 'FurnaceWin',
   'minecraft:smoker': 'FurnaceWin',
+  'minecraft:shulker_box': 'ChestWin',
   'minecraft:blast_furnace': 'FurnaceWin',
   'minecraft:crafting': 'CraftingWin',
   'minecraft:crafting3x3': 'CraftingWin', // todo different result slot
@@ -367,7 +375,7 @@ const openWindow = (type: string | undefined) => {
     lastWindow.destroy()
     lastWindow = null as any
     lastWindowType = null
-    window.lastWindow = lastWindow
+    window.inventory = null
     miscUiState.displaySearchInput = false
     destroyFn()
     skipClosePacketSending = false
@@ -375,6 +383,7 @@ const openWindow = (type: string | undefined) => {
   cleanLoadedImagesCache()
   const inv = openItemsCanvas(type)
   inv.canvasManager.children[0].mobileHelpers = miscUiState.currentTouch
+  window.inventory = inv
   const title = bot.currentWindow?.title
   const PrismarineChat = PrismarineChatLoader(bot.version)
   try {

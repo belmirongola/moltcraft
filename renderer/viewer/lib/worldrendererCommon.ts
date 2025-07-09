@@ -36,6 +36,7 @@ export const defaultWorldRendererConfig = {
   mesherWorkers: 4,
   isPlayground: false,
   renderEars: true,
+  skinTexturesProxy: undefined as string | undefined,
   // game renderer setting actually
   showHand: false,
   viewBobbing: false,
@@ -127,7 +128,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   handleResize = () => { }
   highestBlocksByChunks = new Map<string, { [chunkKey: string]: HighestBlockInfo }>()
-  highestBlocksBySections = new Map<string, { [sectionKey: string]: HighestBlockInfo }>()
   blockEntities = {}
 
   workersProcessAverageTime = 0
@@ -393,8 +393,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       this.logWorkerWork(() => `-> ${data.workerIndex} geometry ${data.key} ${JSON.stringify({ dataSize: JSON.stringify(data).length })}`)
       this.geometryReceiveCount[data.workerIndex] ??= 0
       this.geometryReceiveCount[data.workerIndex]++
-      const { geometry } = data
-      this.highestBlocksBySections[data.key] = geometry.highestBlocks
       const chunkCoords = data.key.split(',').map(Number)
       this.lastChunkDistance = Math.max(...this.getDistance(new Vec3(chunkCoords[0], 0, chunkCoords[2])))
     }
@@ -692,7 +690,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     for (let y = this.worldSizeParams.minY; y < this.worldSizeParams.worldHeight; y += 16) {
       this.setSectionDirty(new Vec3(x, y, z), false)
       delete this.finishedSections[`${x},${y},${z}`]
-      this.highestBlocksBySections.delete(`${x},${y},${z}`)
     }
     this.highestBlocksByChunks.delete(`${x},${z}`)
 

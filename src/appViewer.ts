@@ -180,6 +180,12 @@ export class AppViewer {
     this.worldView!.listenToBot(bot)
   }
 
+  appConfigUdpate () {
+    if (miscUiState.appConfig) {
+      this.inWorldRenderingConfig.skinTexturesProxy = miscUiState.appConfig.skinTexturesProxy
+    }
+  }
+
   async startWorld (world, renderDistance: number, playerStateSend: PlayerStateRenderer = this.playerState.reactive) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
@@ -187,6 +193,7 @@ export class AppViewer {
     this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
     window.worldView = this.worldView
     watchOptionsAfterWorldViewInit(this.worldView)
+    this.appConfigUdpate()
 
     const displayWorldOptions: DisplayWorldOptions = {
       version: this.resourcesManager.currentConfig!.version,

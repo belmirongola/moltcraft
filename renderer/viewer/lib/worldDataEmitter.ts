@@ -104,6 +104,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         ...e,
         pos: e.position,
         username: e.username,
+        team: bot.teamMap[e.username] || bot.teamMap[e.uuid],
         // set debugTree (obj) {
         //   e.debugTree = obj
         // }
