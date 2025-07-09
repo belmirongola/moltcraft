@@ -3,6 +3,7 @@ declare namespace NodeJS {
     // Build configuration
     NODE_ENV: 'development' | 'production'
     SINGLE_FILE_BUILD?: string
+    WS_SERVER?: string
     DISABLE_SERVICE_WORKER?: string
     CONFIG_JSON_SOURCE?: 'BUNDLED' | 'REMOTE'
     LOCAL_CONFIG_FILE?: string

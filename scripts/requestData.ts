@@ -22,6 +22,9 @@ ws.on('message', (data) => {
     console.log(`Load Time: ${formatTime(metrics.loadTime)}`)
     console.log(`Memory Usage: ${formatBytes(metrics.memoryUsage)}`)
     console.log(`Timestamp: ${new Date(metrics.timestamp).toLocaleString()}`)
+    if (!process.argv.includes('-f')) { // follow mode
+      process.exit(0)
+    }
   } catch (error) {
     console.error('Error parsing metrics:', error)
   }

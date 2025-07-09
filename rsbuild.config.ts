@@ -60,6 +60,8 @@ const configSource = (SINGLE_FILE_BUILD ? 'BUNDLED' : (process.env.CONFIG_JSON_S
 
 const faviconPath = 'favicon.png'
 
+const enableMetrics = process.env.ENABLE_METRICS === 'true'
+
 // base options are in ./renderer/rsbuildSharedConfig.ts
 const appConfig = defineConfig({
     html: {
@@ -160,6 +162,7 @@ const appConfig = defineConfig({
             'process.env.INLINED_APP_CONFIG': JSON.stringify(configSource === 'BUNDLED' ? configJson : null),
             'process.env.ENABLE_COOKIE_STORAGE': JSON.stringify(process.env.ENABLE_COOKIE_STORAGE || true),
             'process.env.COOKIE_STORAGE_PREFIX': JSON.stringify(process.env.COOKIE_STORAGE_PREFIX || ''),
+            'process.env.WS_PORT': JSON.stringify(enableMetrics ? 8081 : false),
         },
     },
     server: {
@@ -219,8 +222,8 @@ const appConfig = defineConfig({
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
 
                     // Start WebSocket server in development
-                    if (dev && process.env.WS_SERVER === 'true') {
-                        startWsServer()
+                    if (dev && enableMetrics) {
+                        await startWsServer(8081, false)
                     }
 
                     console.timeEnd('total-prep')

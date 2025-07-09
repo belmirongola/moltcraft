@@ -241,10 +241,25 @@ function collectAndSendMetrics () {
   ws.send(JSON.stringify(metrics))
 }
 
+function getWebSocketUrl () {
+  const wsPort = process.env.WS_SERVER
+  if (!wsPort) return null
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const { hostname } = window.location
+  return `${protocol}//${hostname}:${wsPort}`
+}
+
 function connectWebSocket () {
   if (ws) return
 
-  ws = new WebSocket('ws://localhost:8081')
+  const wsUrl = getWebSocketUrl()
+  if (!wsUrl) {
+    console.log('WebSocket server not configured')
+    return
+  }
+
+  ws = new WebSocket(wsUrl)
 
   ws.onopen = () => {
     console.log('Connected to metrics server')
