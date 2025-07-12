@@ -116,6 +116,10 @@ export const contro = new ControMax({
 window.controMax = contro
 export type Command = CommandEventArgument<typeof contro['_commandsRaw']>['command']
 
+export const isCommandDisabled = (command: Command) => {
+  return miscUiState.appConfig?.disabledCommands?.includes(command)
+}
+
 onControInit()
 
 updateBinds(customKeymaps)
@@ -544,6 +548,8 @@ const customCommandsHandler = ({ command }) => {
 contro.on('trigger', customCommandsHandler)
 
 contro.on('trigger', ({ command }) => {
+  if (isCommandDisabled(command)) return
+
   const willContinue = !isGameActive(true)
   alwaysPressedHandledCommand(command)
   if (willContinue) return
@@ -677,6 +683,8 @@ contro.on('trigger', ({ command }) => {
 })
 
 contro.on('release', ({ command }) => {
+  if (isCommandDisabled(command)) return
+
   inModalCommand(command, false)
   onTriggerOrReleased(command, false)
 })
@@ -996,8 +1004,15 @@ export const handleMobileButtonCustomAction = (action: CustomAction) => {
   }
 }
 
+export const triggerCommand = (command: Command, isDown: boolean) => {
+  handleMobileButtonActionCommand(command, isDown)
+}
+
 export const handleMobileButtonActionCommand = (command: ActionType | ActionHoldConfig, isDown: boolean) => {
   const commandValue = typeof command === 'string' ? command : 'command' in command ? command.command : command
+
+  // Check if command is disabled before proceeding
+  if (typeof commandValue === 'string' && isCommandDisabled(commandValue as Command)) return
 
   if (typeof commandValue === 'string' && !stringStartsWith(commandValue, 'custom')) {
     const event: CommandEventArgument<typeof contro['_commandsRaw']> = {

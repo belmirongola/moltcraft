@@ -15,6 +15,7 @@ import { appAndRendererSharedConfig } from './renderer/rsbuildSharedConfig'
 import { genLargeDataAliases } from './scripts/genLargeDataAliases'
 import sharp from 'sharp'
 import supportedVersions from './src/supportedVersions.mjs'
+import { startWsServer } from './scripts/wsServer'
 
 const SINGLE_FILE_BUILD = process.env.SINGLE_FILE_BUILD === 'true'
 
@@ -58,6 +59,8 @@ if (dev) {
 const configSource = (SINGLE_FILE_BUILD ? 'BUNDLED' : (process.env.CONFIG_JSON_SOURCE || 'REMOTE')) as 'BUNDLED' | 'REMOTE'
 
 const faviconPath = 'favicon.png'
+
+const enableMetrics = process.env.ENABLE_METRICS === 'true'
 
 // base options are in ./renderer/rsbuildSharedConfig.ts
 const appConfig = defineConfig({
@@ -159,6 +162,7 @@ const appConfig = defineConfig({
             'process.env.INLINED_APP_CONFIG': JSON.stringify(configSource === 'BUNDLED' ? configJson : null),
             'process.env.ENABLE_COOKIE_STORAGE': JSON.stringify(process.env.ENABLE_COOKIE_STORAGE || true),
             'process.env.COOKIE_STORAGE_PREFIX': JSON.stringify(process.env.COOKIE_STORAGE_PREFIX || ''),
+            'process.env.WS_PORT': JSON.stringify(enableMetrics ? 8081 : false),
         },
     },
     server: {
@@ -216,6 +220,12 @@ const appConfig = defineConfig({
                         await execAsync('pnpm run build-mesher')
                     }
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
+
+                    // Start WebSocket server in development
+                    if (dev && enableMetrics) {
+                        await startWsServer(8081, false)
+                    }
+
                     console.timeEnd('total-prep')
                 }
                 if (!dev) {

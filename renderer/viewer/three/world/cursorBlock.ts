@@ -1,10 +1,9 @@
 import * as THREE from 'three'
 import { LineMaterial, LineSegmentsGeometry, Wireframe } from 'three-stdlib'
 import { Vec3 } from 'vec3'
-import { subscribeKey } from 'valtio/utils'
-import { Block } from 'prismarine-block'
 import { BlockShape, BlocksShapes } from 'renderer/viewer/lib/basePlayerState'
 import { WorldRendererThree } from '../worldrendererThree'
+import { loadThreeJsTextureFromUrl } from '../threeJsUtils'
 import destroyStage0 from '../../../../assets/destroy_stage_0.png'
 import destroyStage1 from '../../../../assets/destroy_stage_1.png'
 import destroyStage2 from '../../../../assets/destroy_stage_2.png'
@@ -15,7 +14,6 @@ import destroyStage6 from '../../../../assets/destroy_stage_6.png'
 import destroyStage7 from '../../../../assets/destroy_stage_7.png'
 import destroyStage8 from '../../../../assets/destroy_stage_8.png'
 import destroyStage9 from '../../../../assets/destroy_stage_9.png'
-import { loadThreeJsTextureFromUrl } from '../../lib/utils/skins'
 
 export class CursorBlock {
   _cursorLinesHidden = false

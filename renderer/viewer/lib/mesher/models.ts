@@ -542,7 +542,6 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
     heads: {},
     signs: {},
     // isFull: true,
-    highestBlocks: new Map(),
     hadErrors: false,
     blocksCount: 0
   }
@@ -552,12 +551,6 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
     for (cursor.z = sz; cursor.z < sz + 16; cursor.z++) {
       for (cursor.x = sx; cursor.x < sx + 16; cursor.x++) {
         let block = world.getBlock(cursor, blockProvider, attr)!
-        if (!INVISIBLE_BLOCKS.has(block.name)) {
-          const highest = attr.highestBlocks.get(`${cursor.x},${cursor.z}`)
-          if (!highest || highest.y < cursor.y) {
-            attr.highestBlocks.set(`${cursor.x},${cursor.z}`, { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id })
-          }
-        }
         if (INVISIBLE_BLOCKS.has(block.name)) continue
         if ((block.name.includes('_sign') || block.name === 'sign') && !world.config.disableSignsMapsSupport) {
           const key = `${cursor.x},${cursor.y},${cursor.z}`

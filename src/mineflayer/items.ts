@@ -58,9 +58,17 @@ export const getItemMetadata = (item: GeneralInputItem, resourcesManager: Resour
     }
     if (customModelDataDefinitions) {
       const customModelDataComponent: any = componentMap.get('custom_model_data')
-      if (customModelDataComponent?.data && typeof customModelDataComponent.data === 'number') {
-        const customModelData = customModelDataComponent.data
-        if (customModelDataDefinitions[customModelData]) {
+      if (customModelDataComponent?.data) {
+        let customModelData: number | undefined
+        if (typeof customModelDataComponent.data === 'number') {
+          customModelData = customModelDataComponent.data
+        } else if (typeof customModelDataComponent.data === 'object'
+          && 'floats' in customModelDataComponent.data
+          && Array.isArray(customModelDataComponent.data.floats)
+          && customModelDataComponent.data.floats.length > 0) {
+          customModelData = customModelDataComponent.data.floats[0]
+        }
+        if (customModelData && customModelDataDefinitions[customModelData]) {
           customModel = customModelDataDefinitions[customModelData]
         }
       }

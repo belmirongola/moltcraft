@@ -7,6 +7,7 @@
     "dev-proxy": "node server.js",
     "start": "run-p dev-proxy dev-rsbuild watch-mesher",
     "start2": "run-p dev-rsbuild watch-mesher",
+    "start-metrics": "ENABLE_METRICS=true rsbuild dev",
     "build": "pnpm build-other-workers && rsbuild build",
     "build-analyze": "BUNDLE_ANALYZE=true rsbuild build && pnpm build-other-workers",
     "build-single-file": "SINGLE_FILE_BUILD=true rsbuild build",
@@ -32,7 +33,8 @@
     "run-all": "run-p start run-playground",
     "build-playground": "rsbuild build --config renderer/rsbuild.config.ts",
     "watch-playground": "rsbuild dev --config renderer/rsbuild.config.ts",
-    "update-git-deps": "tsx scripts/updateGitDeps.ts"
+    "update-git-deps": "tsx scripts/updateGitDeps.ts",
+    "request-data": "tsx scripts/requestData.ts"
   },
   "keywords": [
     "prismarine",

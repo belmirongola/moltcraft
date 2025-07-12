@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { openItemsCanvas, upInventoryItems } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
 import { getItemNameRaw } from '../mineflayer/items'
 import { isInRealGameSession } from '../utils'
+import { triggerCommand } from '../controls'
 import MessageFormattedString from './MessageFormattedString'
 import SharedHudVars from './SharedHudVars'
-import { packetsReplayState } from './state/packetsReplayState'
 
 
 const ItemName = ({ itemKey }: { itemKey: string }) => {
@@ -75,6 +75,8 @@ const HotbarInner = () => {
   const container = useRef<HTMLDivElement>(null!)
   const [itemKey, setItemKey] = useState('')
   const hasModals = useSnapshot(activeModalStack).length
+  const { currentTouch, appConfig } = useSnapshot(miscUiState)
+  const mobileOpenInventory = currentTouch && !appConfig?.disabledCommands?.includes('general.inventory')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -105,7 +107,7 @@ const HotbarInner = () => {
       canvasManager.setScale(currentScaling.scale)
 
       canvasManager.windowHeight = 25 * canvasManager.scale
-      canvasManager.windowWidth = (210 - (inv.inventory.supportsOffhand ? 0 : 25) + (miscUiState.currentTouch ? 28 : 0)) * canvasManager.scale
+      canvasManager.windowWidth = (210 - (inv.inventory.supportsOffhand ? 0 : 25) + (mobileOpenInventory ? 28 : 0)) * canvasManager.scale
     }
     setSize()
     watchUnloadForCleanup(subscribe(currentScaling, setSize))
@@ -119,8 +121,9 @@ const HotbarInner = () => {
     canvasManager.canvas.onclick = (e) => {
       if (!isGameActive(true)) return
       const pos = inv.canvasManager.getMousePos(inv.canvas, e)
-      if (canvasManager.canvas.width - pos.x < 35 * inv.canvasManager.scale) {
-        openPlayerInventory()
+      if (canvasManager.canvas.width - pos.x < 35 * inv.canvasManager.scale && mobileOpenInventory) {
+        triggerCommand('general.inventory', true)
+        triggerCommand('general.inventory', false)
       }
     }
 
@@ -180,17 +183,8 @@ const HotbarInner = () => {
     })
     document.addEventListener('touchend', (e) => {
       if (touchStart && (e.target as HTMLElement).closest('.hotbar') && Date.now() - touchStart > 700) {
-        // drop item
-        bot._client.write('block_dig', {
-          'status': 4,
-          'location': {
-            'x': 0,
-            'z': 0,
-            'y': 0
-          },
-          'face': 0,
-          sequence: 0
-        })
+        triggerCommand('general.dropStack', true)
+        triggerCommand('general.dropStack', false)
       }
       touchStart = 0
     })

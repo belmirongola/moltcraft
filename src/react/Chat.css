@@ -9,7 +9,7 @@ div.chat-wrapper {
 
 /* Only apply overflow hidden when not in mobile mode */
 div.chat-wrapper:not(.display-mobile):not(.input-mobile) {
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .chat-messages-wrapper {

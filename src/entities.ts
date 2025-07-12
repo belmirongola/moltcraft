@@ -198,46 +198,40 @@ customEvents.on('gameLoaded', () => {
     }
   })
 
-  // Texture override from packet properties
-  bot._client.on('player_info', (packet) => {
-    const applySkinTexturesProxy = (url: string) => {
-      const { appConfig } = miscUiState
-      if (appConfig?.skinTexturesProxy) {
-        return url?.replace('http://textures.minecraft.net/', appConfig.skinTexturesProxy)
-          .replace('https://textures.minecraft.net/', appConfig.skinTexturesProxy)
-      }
-      return url
+  const applySkinTexturesProxy = (url: string | undefined) => {
+    const { appConfig } = miscUiState
+    if (appConfig?.skinTexturesProxy) {
+      return url?.replace('http://textures.minecraft.net/', appConfig.skinTexturesProxy)
+        .replace('https://textures.minecraft.net/', appConfig.skinTexturesProxy)
     }
+    return url
+  }
 
-    for (const playerEntry of packet.data) {
-      if (!playerEntry.player && !playerEntry.properties) continue
-      let textureProperty = playerEntry.properties?.find(prop => prop?.name === 'textures')
-      if (!textureProperty) {
-        textureProperty = playerEntry.player?.properties?.find(prop => prop?.key === 'textures')
-      }
-      if (textureProperty) {
-        try {
-          const textureData = JSON.parse(Buffer.from(textureProperty.value, 'base64').toString())
-          const skinUrl = applySkinTexturesProxy(textureData.textures?.SKIN?.url)
-          const capeUrl = applySkinTexturesProxy(textureData.textures?.CAPE?.url)
+  // Texture override from packet properties
+  const updateSkin = (player: import('mineflayer').Player) => {
+    if (!player.uuid || !player.username || !player.skinData) return
 
-          // Find entity with matching UUID and update skin
-          let entityId = ''
-          for (const [entId, entity] of Object.entries(bot.entities)) {
-            if (entity.uuid === playerEntry.uuid) {
-              entityId = entId
-              break
-            }
-          }
-          // even if not found, still record to cache
-          void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, playerEntry.player?.name, playerEntry.uuid, skinUrl, capeUrl)
-        } catch (err) {
-          console.error('Error decoding player texture:', err)
+    try {
+      const skinUrl = applySkinTexturesProxy(player.skinData.url)
+      const capeUrl = applySkinTexturesProxy((player.skinData as any).capeUrl)
+
+      // Find entity with matching UUID and update skin
+      let entityId = ''
+      for (const [entId, entity] of Object.entries(bot.entities)) {
+        if (entity.uuid === player.uuid) {
+          entityId = entId
+          break
         }
       }
+      // even if not found, still record to cache
+      void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, player.username, player.uuid, skinUrl ?? true, capeUrl)
+    } catch (err) {
+      console.error('Error decoding player texture:', err)
     }
+  }
 
-  })
+  bot.on('playerJoined', updateSkin)
+  bot.on('playerUpdated', updateSkin)
 
   bot.on('teamUpdated', (team: Team) => {
     for (const entity of Object.values(bot.entities)) {

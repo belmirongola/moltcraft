@@ -1,3 +1,4 @@
 {
-  "alwaysReconnectButton": true
+  "alwaysReconnectButton": true,
+  "reportBugButtonWithReconnect": true
 }

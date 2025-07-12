@@ -1,5 +1,5 @@
-import { fromFormattedString, render, RenderNode, TextComponent } from '@xmcl/text-component'
 import type { ChatMessage } from 'prismarine-chat'
+import { createCanvas } from '../lib/utils'
 
 type SignBlockEntity = {
   Color?: string
@@ -32,29 +32,40 @@ const parseSafe = (text: string, task: string) => {
   }
 }
 
-export const renderSign = (blockEntity: SignBlockEntity, PrismarineChat: typeof ChatMessage, ctxHook = (ctx) => { }) => {
+const LEGACY_COLORS = {
+  black: '#000000',
+  dark_blue: '#0000AA',
+  dark_green: '#00AA00',
+  dark_aqua: '#00AAAA',
+  dark_red: '#AA0000',
+  dark_purple: '#AA00AA',
+  gold: '#FFAA00',
+  gray: '#AAAAAA',
+  dark_gray: '#555555',
+  blue: '#5555FF',
+  green: '#55FF55',
+  aqua: '#55FFFF',
+  red: '#FF5555',
+  light_purple: '#FF55FF',
+  yellow: '#FFFF55',
+  white: '#FFFFFF',
+}
+
+export const renderSign = (
+  blockEntity: SignBlockEntity,
+  isHanging: boolean,
+  PrismarineChat: typeof ChatMessage,
+  ctxHook = (ctx) => { },
+  canvasCreator = (width, height): OffscreenCanvas => { return createCanvas(width, height) }
+) => {
   // todo don't use texture rendering, investigate the font rendering when possible
   // or increase factor when needed
   const factor = 40
+  const fontSize = 1.6 * factor
   const signboardY = [16, 9]
   const heightOffset = signboardY[0] - signboardY[1]
   const heightScalar = heightOffset / 16
-
-  let canvas: HTMLCanvasElement | undefined
-  let _ctx: CanvasRenderingContext2D | null = null
-  const getCtx = () => {
-    if (_ctx) return _ctx
-    canvas = document.createElement('canvas')
-
-    canvas.width = 16 * factor
-    canvas.height = heightOffset * factor
-
-    _ctx = canvas.getContext('2d')!
-    _ctx.imageSmoothingEnabled = false
-
-    ctxHook(_ctx)
-    return _ctx
-  }
+  // todo the text should be clipped based on it's render width (needs investigate)
 
   const texts = 'front_text' in blockEntity ? /* > 1.20 */ blockEntity.front_text.messages : [
     blockEntity.Text1,
@@ -62,78 +73,144 @@ export const renderSign = (blockEntity: SignBlockEntity, PrismarineChat: typeof 
     blockEntity.Text3,
     blockEntity.Text4
   ]
+
+  if (!texts.some((text) => text !== 'null')) {
+    return undefined
+  }
+
+  const canvas = canvasCreator(16 * factor, heightOffset * factor)
+
+  const _ctx = canvas.getContext('2d')!
+
+  ctxHook(_ctx)
   const defaultColor = ('front_text' in blockEntity ? blockEntity.front_text.color : blockEntity.Color) || 'black'
   for (const [lineNum, text] of texts.slice(0, 4).entries()) {
-    // todo: in pre flatenning it seems the format was not json
     if (text === 'null') continue
-    const parsed = text?.startsWith('{') || text?.startsWith('"') ? parseSafe(text ?? '""', 'sign text') : text
-    if (!parsed || (typeof parsed !== 'object' && typeof parsed !== 'string')) continue
-    // todo fix type
-    const message = typeof parsed === 'string' ? fromFormattedString(parsed) : new PrismarineChat(parsed) as never
-    const patchExtra = ({ extra }: TextComponent) => {
-      if (!extra) return
-      for (const child of extra) {
-        if (child.color) {
-          child.color = child.color === 'dark_green' ? child.color.toUpperCase() : child.color.toLowerCase()
-        }
-        patchExtra(child)
-      }
+    renderComponent(text, PrismarineChat, canvas, fontSize, defaultColor, fontSize * (lineNum + 1) + (isHanging ? 0 : -8))
+  }
+  return canvas
+}
+
+export const renderComponent = (
+  text: JsonEncodedType | string | undefined,
+  PrismarineChat: typeof ChatMessage,
+  canvas: OffscreenCanvas,
+  fontSize: number,
+  defaultColor: string,
+  offset = 0
+) => {
+  // todo: in pre flatenning it seems the format was not json
+  const parsed = typeof text === 'string' && (text?.startsWith('{') || text?.startsWith('"')) ? parseSafe(text ?? '""', 'sign text') : text
+  if (!parsed || (typeof parsed !== 'object' && typeof parsed !== 'string')) return
+  // todo fix type
+
+  const ctx = canvas.getContext('2d')!
+  if (!ctx) throw new Error('Could not get 2d context')
+  ctx.imageSmoothingEnabled = false
+  ctx.font = `${fontSize}px mojangles`
+
+  type Formatting = {
+    color: string | undefined
+    underlined: boolean | undefined
+    strikethrough: boolean | undefined
+    bold: boolean | undefined
+    italic: boolean | undefined
+  }
+
+  type Message = ChatMessage & Formatting & { text: string }
+
+  const message = new PrismarineChat(parsed) as Message
+
+  const toRenderCanvas: Array<{
+    fontStyle: string
+    fillStyle: string
+    underlineStyle: boolean
+    strikeStyle: boolean
+    offset: number
+    text: string
+  }> = []
+  let visibleFormatting = false
+  let plainText = ''
+  let textOffset = offset
+  const textWidths: number[] = []
+
+  const renderText = (component: Message, parentFormatting?: Formatting | undefined) => {
+    const { text } = component
+    const formatting = {
+      color: component.color ?? parentFormatting?.color,
+      underlined: component.underlined ?? parentFormatting?.underlined,
+      strikethrough: component.strikethrough ?? parentFormatting?.strikethrough,
+      bold: component.bold ?? parentFormatting?.bold,
+      italic: component.italic ?? parentFormatting?.italic
     }
-    patchExtra(message)
-    const rendered = render(message)
-
-    const toRenderCanvas: Array<{
-      fontStyle: string
-      fillStyle: string
-      underlineStyle: boolean
-      strikeStyle: boolean
-      text: string
-    }> = []
-    let plainText = ''
-    // todo the text should be clipped based on it's render width (needs investigate)
-    const MAX_LENGTH = 50 // avoid abusing the signboard
-    const renderText = (node: RenderNode) => {
-      const { component } = node
-      let { text } = component
-      if (plainText.length + text.length > MAX_LENGTH) {
-        text = text.slice(0, MAX_LENGTH - plainText.length)
-        if (!text) return false
+    visibleFormatting = visibleFormatting || formatting.underlined || formatting.strikethrough || false
+    if (text?.includes('\n')) {
+      for (const line of text.split('\n')) {
+        addTextPart(line, formatting)
+        textOffset += fontSize
+        plainText = ''
       }
-      plainText += text
-      toRenderCanvas.push({
-        fontStyle: `${component.bold ? 'bold' : ''} ${component.italic ? 'italic' : ''}`,
-        fillStyle: node.style['color'] || defaultColor,
-        underlineStyle: component.underlined ?? false,
-        strikeStyle: component.strikethrough ?? false,
-        text
-      })
-      for (const child of node.children) {
-        const stop = renderText(child) === false
-        if (stop) return false
-      }
+    } else if (text) {
+      addTextPart(text, formatting)
     }
-
-    renderText(rendered)
-
-    // skip rendering empty lines (and possible signs)
-    if (!plainText.trim()) continue
-
-    const ctx = getCtx()
-    const fontSize = 1.6 * factor
-    ctx.font = `${fontSize}px mojangles`
-    const textWidth = ctx.measureText(plainText).width
-
-    let renderedWidth = 0
-    for (const { fillStyle, fontStyle, strikeStyle, text, underlineStyle } of toRenderCanvas) {
-      // todo strikeStyle, underlineStyle
-      ctx.fillStyle = fillStyle
-      ctx.font = `${fontStyle} ${fontSize}px mojangles`
-      ctx.fillText(text, (canvas!.width - textWidth) / 2 + renderedWidth, fontSize * (lineNum + 1))
-      renderedWidth += ctx.measureText(text).width // todo isn't the font is monospace?
+    if (component.extra) {
+      for (const child of component.extra) {
+        renderText(child as Message, formatting)
+      }
     }
   }
-  // ctx.fillStyle = 'red'
-  // ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-  return canvas
+  const addTextPart = (text: string, formatting: Formatting) => {
+    plainText += text
+    textWidths[textOffset] = ctx.measureText(plainText).width
+    let color = formatting.color ?? defaultColor
+    if (!color.startsWith('#')) {
+      color = LEGACY_COLORS[color.toLowerCase()] || color
+    }
+    toRenderCanvas.push({
+      fontStyle: `${formatting.bold ? 'bold' : ''} ${formatting.italic ? 'italic' : ''}`,
+      fillStyle: color,
+      underlineStyle: formatting.underlined ?? false,
+      strikeStyle: formatting.strikethrough ?? false,
+      offset: textOffset,
+      text
+    })
+  }
+
+  renderText(message)
+
+  // skip rendering empty lines
+  if (!visibleFormatting && !message.toString().trim()) return
+
+  let renderedWidth = 0
+  let previousOffsetY = 0
+  for (const { fillStyle, fontStyle, underlineStyle, strikeStyle, offset: offsetY, text } of toRenderCanvas) {
+    if (previousOffsetY !== offsetY) {
+      renderedWidth = 0
+    }
+    previousOffsetY = offsetY
+    ctx.fillStyle = fillStyle
+    ctx.textRendering = 'optimizeLegibility'
+    ctx.font = `${fontStyle} ${fontSize}px mojangles`
+    const textWidth = textWidths[offsetY] ?? ctx.measureText(text).width
+    const offsetX = (canvas.width - textWidth) / 2 + renderedWidth
+    ctx.fillText(text, offsetX, offsetY)
+    if (strikeStyle) {
+      ctx.lineWidth = fontSize / 8
+      ctx.strokeStyle = fillStyle
+      ctx.beginPath()
+      ctx.moveTo(offsetX, offsetY - ctx.lineWidth * 2.5)
+      ctx.lineTo(offsetX + ctx.measureText(text).width, offsetY - ctx.lineWidth * 2.5)
+      ctx.stroke()
+    }
+    if (underlineStyle) {
+      ctx.lineWidth = fontSize / 8
+      ctx.strokeStyle = fillStyle
+      ctx.beginPath()
+      ctx.moveTo(offsetX, offsetY + ctx.lineWidth)
+      ctx.lineTo(offsetX + ctx.measureText(text).width, offsetY + ctx.lineWidth)
+      ctx.stroke()
+    }
+    renderedWidth += ctx.measureText(text).width
+  }
 }

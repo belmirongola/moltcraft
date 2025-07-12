@@ -6,7 +6,7 @@ import ocelotPng from '../../../../node_modules/mc-assets/dist/other-textures/la
 import arrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/arrow.png'
 import spectralArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/spectral_arrow.png'
 import tippedArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/tipped_arrow.png'
-import { loadTexture } from '../../lib/utils'
+import { loadTexture } from '../threeJsUtils'
 import { WorldRendererThree } from '../worldrendererThree'
 import entities from './entities.json'
 import { externalModels } from './objModels'
