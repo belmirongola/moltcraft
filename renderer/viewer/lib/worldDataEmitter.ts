@@ -34,6 +34,10 @@ export type WorldDataEmitterEvents = {
 
 export class WorldDataEmitterWorker extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
   static readonly restorerName = 'WorldDataEmitterWorker'
+
+  destroy () {
+    this.removeAllListeners()
+  }
 }
 
 export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {

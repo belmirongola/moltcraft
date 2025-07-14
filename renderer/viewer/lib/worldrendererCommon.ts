@@ -569,7 +569,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   getMesherConfig (): MesherConfig {
     return {
       version: this.version,
-      enableLighting: this.worldRendererConfig.enableLighting && !this.playerState.lightingDisabled,
+      enableLighting: this.worldRendererConfig.enableLighting && !this.playerStateReactive.lightingDisabled,
       skyLight: this.skyLight,
       smoothLighting: this.worldRendererConfig.smoothLighting,
       outputFormat: this.outputFormat,

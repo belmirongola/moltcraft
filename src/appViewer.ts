@@ -261,6 +261,7 @@ export class AppViewer {
     if (cleanState) {
       this.currentState = undefined
       this.currentDisplay = null
+      this.worldView?.destroy()
       this.worldView = undefined
     }
     if (this.backend) {
