@@ -13,7 +13,7 @@ const BASE_MOVEMENT_SPEED = 0.1 // Default walking speed in Minecraft
 const FOV_EFFECT_SCALE = 1 // Equivalent to Minecraft's FOV Effects slider
 
 const updateFovAnimation = () => {
-  if (!bot) return
+  if (!playerState.ready) return
 
   // Calculate base FOV modifier
   let fovModifier = 1
@@ -39,10 +39,10 @@ const updateFovAnimation = () => {
   }
 
   // Item usage modifier
-  if (playerState.getHeldItem()) {
-    const heldItem = playerState.getHeldItem()
-    if (heldItem?.name === 'bow' && playerState.getItemUsageTicks() > 0) {
-      const ticksUsingItem = playerState.getItemUsageTicks()
+  if (playerState.reactive.heldItemMain) {
+    const heldItem = playerState.reactive.heldItemMain
+    if (heldItem?.name === 'bow' && playerState.reactive.itemUsageTicks > 0) {
+      const ticksUsingItem = playerState.reactive.itemUsageTicks
       let usageProgress = ticksUsingItem / 20
       if (usageProgress > 1) {
         usageProgress = 1
@@ -87,9 +87,5 @@ export const watchFov = () => {
 
   customEvents.on('gameLoaded', () => {
     updateFovAnimation()
-  })
-
-  subscribeKey(gameAdditionalState, 'isSneaking', () => {
-    appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
   })
 }

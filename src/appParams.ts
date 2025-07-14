@@ -45,6 +45,7 @@ export type AppQsParams = {
   onlyConnect?: string
   connectText?: string
   freezeSettings?: string
+  testIosCrash?: string
 
   // Replay params
   replayFilter?: string

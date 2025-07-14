@@ -18,6 +18,7 @@ export function onCameraMove (e: MouseEvent | CameraMoveEvent) {
   if (!isGameActive(true)) return
   if (e.type === 'mousemove' && !document.pointerLockElement) return
   e.stopPropagation?.()
+  if (appViewer.playerState.utils.isSpectatingEntity()) return
   const now = performance.now()
   // todo: limit camera movement for now to avoid unexpected jumps
   if (now - lastMouseMove < 4 && !options.preciseMouseInput) return
@@ -31,7 +32,6 @@ export function onCameraMove (e: MouseEvent | CameraMoveEvent) {
   bot.mouse.update()
   updateMotion()
 }
-
 
 export const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
   const maxPitch = 0.5 * Math.PI

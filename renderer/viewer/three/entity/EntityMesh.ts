@@ -6,7 +6,7 @@ import ocelotPng from '../../../../node_modules/mc-assets/dist/other-textures/la
 import arrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/arrow.png'
 import spectralArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/spectral_arrow.png'
 import tippedArrowTexture from '../../../../node_modules/mc-assets/dist/other-textures/1.21.2/entity/projectiles/tipped_arrow.png'
-import { loadTexture } from '../../lib/utils'
+import { loadTexture } from '../threeJsUtils'
 import { WorldRendererThree } from '../worldrendererThree'
 import entities from './entities.json'
 import { externalModels } from './objModels'
@@ -238,10 +238,11 @@ export function getMesh (
   if (useBlockTexture) {
     if (!worldRenderer) throw new Error('worldRenderer is required for block textures')
     const blockName = texture.slice(6)
-    const textureInfo = worldRenderer.resourcesManager.currentResources!.blocksAtlasParser.getTextureInfo(blockName)
+    const textureInfo = worldRenderer.resourcesManager.currentResources.blocksAtlasJson.textures[blockName]
     if (textureInfo) {
       textureWidth = blocksTexture?.image.width ?? textureWidth
       textureHeight = blocksTexture?.image.height ?? textureHeight
+      // todo support su/sv
       textureOffset = [textureInfo.u, textureInfo.v]
     } else {
       console.error(`Unknown block ${blockName}`)
@@ -546,4 +547,4 @@ export class EntityMesh {
     }
   }
 }
-window.EntityMesh = EntityMesh
+globalThis.EntityMesh = EntityMesh

@@ -80,6 +80,12 @@ export const watchOptionsAfterViewerInit = () => {
     updateFpsLimit(o)
   })
 
+  watchValue(options, o => {
+    appViewer.inWorldRenderingConfig.vrSupport = o.vrSupport
+    appViewer.inWorldRenderingConfig.vrPageGameRendering = o.vrPageGameRendering
+    appViewer.inWorldRenderingConfig.enableDebugOverlay = o.rendererPerfDebugOverlay
+  })
+
   watchValue(options, (o, isChanged) => {
     appViewer.inWorldRenderingConfig.clipWorldBelowY = o.clipWorldBelowY
     appViewer.inWorldRenderingConfig.extraBlockRenderers = !o.disableSignsMapsSupport

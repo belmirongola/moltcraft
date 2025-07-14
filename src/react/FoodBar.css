@@ -11,7 +11,6 @@
   --offset: calc(-1 * (52px + (9px * (4 * var(--kind) + var(--lightened) * 2))));
   --bg-x: calc(-1 * (16px + 9px * var(--lightened)));
   --bg-y: calc(-1 * 27px);
-  pointer-events: none;
   image-rendering: pixelated;
 }
 

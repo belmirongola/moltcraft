@@ -32,30 +32,14 @@ export default () => {
         const savePath = await uniqueFileNameFromWorldName(title, getWorldsPath())
         await mkdirRecursive(savePath)
         await loadPluginsIntoWorld(savePath, plugins)
-        let generation
-        if (type === 'flat') {
-          generation = {
-            name: 'superflat',
-          }
-        }
-        if (type === 'void') {
-          generation = {
-            name: 'superflat',
-            layers: [],
-            noDefaults: true
-          }
-        }
-        if (type === 'nether') {
-          generation = {
-            name: 'nether'
-          }
-        }
         hideCurrentModal()
         window.dispatchEvent(new CustomEvent('singleplayer', {
           detail: {
             levelName: title,
             version,
-            generation,
+            generation: {
+              name: type
+            },
             'worldFolder': savePath,
             gameMode: gameMode === 'survival' ? 0 : 1,
           },

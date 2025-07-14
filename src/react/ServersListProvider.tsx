@@ -14,7 +14,7 @@ import { useDidUpdateEffect } from './utils'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import { useCopyKeybinding } from './simpleHooks'
-import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList } from './serversStorage'
+import { AuthenticatedAccount, setNewServersList } from './serversStorage'
 import { appStorage, StoreServerItem } from './appStorageProvider'
 import Button from './Button'
 import { pixelartIcons } from './PixelartIcon'
@@ -45,10 +45,17 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   const { authenticatedAccounts } = useSnapshot(appStorage)
   const [quickConnectIp, setQuickConnectIp] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [retriggerFocusCounter, setRetriggerFocusCounter] = useState(0)
 
-  const { serversList: savedServersList } = useSnapshot(appStorage)
+  useEffect(() => {
+    if (!hidden) {
+      setRetriggerFocusCounter(x => x + 1)
+    }
+  }, [hidden])
 
-  const serversListDisplay = useMemo(() => {
+  const _savedServersListWatchOnly = useSnapshot(appStorage).serversList
+
+  const serversListProvided = useMemo(() => {
     return (
       customServersList
         ? customServersList.map((row): StoreServerItem => {
@@ -60,9 +67,9 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
             name,
           }
         })
-        : [...getInitialServersList()]
+        : [...(appStorage.serversList?.filter(server => server) ?? [])]
     )
-  }, [customServersList, savedServersList])
+  }, [customServersList, _savedServersListWatchOnly])
 
   const [additionalServerData, setAdditionalServerData] = useState<Record<string, AdditionalDisplayData>>({})
 
@@ -78,14 +85,20 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
 
       const newIndex = e.key === 'ArrowUp'
         ? Math.max(0, selectedIndex - 1)
-        : Math.min(serversListDisplay.length - 1, selectedIndex + 1)
+        : Math.min(serversListProvided.length - 1, selectedIndex + 1)
 
       if (newIndex === selectedIndex) return
+      if (newIndex < 0 || newIndex >= serversListProvided.length) return
 
       // Move server in the list
-      const newList = [...serversListDisplay]
+      const newList = [...serversListProvided]
       const oldItem = newList[selectedIndex]
-      newList[selectedIndex] = newList[newIndex]
+      const newItem = newList[newIndex]
+      if (oldItem.isRecommended || newItem.isRecommended) {
+        return
+      }
+
+      newList[selectedIndex] = newItem
       newList[newIndex] = oldItem
 
       appStorage.serversList = newList
@@ -94,9 +107,17 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedIndex, serversListDisplay])
+  }, [selectedIndex, serversListProvided])
 
-  const serversListSorted = useMemo(() => serversListDisplay.map((server, index) => ({ ...server, index })), [serversListDisplay])
+  const serversListSorted: Array<StoreServerItem & { index: number }> = useMemo(() => [
+    ...serversListProvided,
+    ...(customServersList ? [] : (miscUiState.appConfig?.promoteServers ?? [])).map((server): StoreServerItem => ({
+      ip: server.ip,
+      versionOverride: server.version,
+      description: server.description,
+      isRecommended: true
+    }))
+  ].map((server, index) => ({ ...server, index })), [serversListProvided])
   // by lastJoined
   // const serversListSorted = useMemo(() => {
   //   return serversList.map((server, index) => ({ ...server, index })).sort((a, b) => (b.lastJoined ?? 0) - (a.lastJoined ?? 0))
@@ -186,7 +207,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   }, [isEditScreenModal])
 
   useCopyKeybinding(() => {
-    const item = serversListDisplay[selectedIndex]
+    const item = serversListProvided[selectedIndex]
     if (!item) return
     let str = `${item.ip}`
     if (item.versionOverride) {
@@ -209,7 +230,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       if (!serverEditScreen) return
       if (serverEditScreen === true) {
         const server: StoreServerItem = { ...info, lastJoined: Date.now() } // so it appears first
-        appStorage.serversList = [server, ...(appStorage.serversList ?? serversListDisplay)]
+        appStorage.serversList = [server, ...(appStorage.serversList ?? serversListProvided)]
       } else {
         const index = appStorage.serversList?.indexOf(serverEditScreen)
         if (index !== undefined) {
@@ -266,7 +287,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         overrides = server
       }
 
-      const lastJoinedUsername = serversListSorted.find(s => s.usernameOverride)?.usernameOverride
+      const lastJoinedUsername = serversListProvided.find(s => s.usernameOverride)?.usernameOverride
       let username = overrides.usernameOverride || getCurrentUsername() || ''
       if (!username) {
         const promptUsername = prompt('Enter username', lastJoinedUsername || '')
@@ -290,7 +311,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         authenticatedAccount,
         saveServerToHistory: shouldSave,
         onSuccessfulPlay () {
-          if (shouldSave && !serversListDisplay.some(s => s.ip === ip)) {
+          if (shouldSave !== false && !serversListProvided.some(s => s.ip === ip)) {
             const newServersList: StoreServerItem[] = [
               {
                 ip,
@@ -298,7 +319,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
                 versionOverride: overrides.versionOverride,
                 numConnects: 1
               },
-              ...serversListDisplay
+              ...serversListProvided
             ]
             setNewServersList(newServersList)
             miscUiState.loadedServerIndex = (newServersList.length - 1).toString()
@@ -306,10 +327,10 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
 
           if (shouldSave === undefined) { // loading saved
             // find and update
-            const server = serversListDisplay.find(s => s.ip === ip)
+            const server = serversListProvided.find(s => s.ip === ip)
             if (server) {
               // move to top
-              const newList = [...serversListDisplay]
+              const newList = [...serversListProvided]
               const index = newList.indexOf(server)
               const thisItem = newList[index]
               newList.splice(index, 1)
@@ -321,7 +342,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
             }
           }
         },
-        serverIndex: shouldSave ? serversListDisplay.length.toString() : indexOrIp // assume last
+        serverIndex: shouldSave ? serversListProvided.length.toString() : indexOrIp // assume last
       } satisfies ConnectOptions
       dispatchEvent(new CustomEvent('connect', { detail: options }))
       // qsOptions
@@ -334,7 +355,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       appStorage.authenticatedAccounts = authenticatedAccounts.filter(a => a.username !== username)
     }}
     onWorldAction={(action, index) => {
-      const server = serversListDisplay[index]
+      const server = serversListProvided[index]
       if (!server) return
 
       if (action === 'edit') {
@@ -386,6 +407,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
         offline: additional?.offline,
         afterTitleUi: (
           <Button
+            tabIndex={-1}
             icon="external-link"
             style={{ marginRight: 8, width: 20, height: 20 }}
             onClick={(e) => {
@@ -394,14 +416,15 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
             }}
           />
         ),
-        group: customServersList ? 'Provided Servers' : 'Saved Servers'
+        group: customServersList ? 'Provided Servers' : (server.isRecommended ? '⭐️ Recommended Servers' : '💾 Saved Servers')
       }
     })}
     hidden={hidden}
-    onRowSelect={(_, i) => {
-      setSelectedIndex(i)
+    onRowSelect={(serverIndex) => {
+      setSelectedIndex(Number(serverIndex))
     }}
     selectedRow={selectedIndex}
+    retriggerFocusCounter={retriggerFocusCounter}
   />
   return <>
     {serversListJsx}

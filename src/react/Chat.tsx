@@ -11,20 +11,59 @@ import { useScrollBehavior } from './hooks/useScrollBehavior'
 export type Message = {
   parts: MessageFormatPart[],
   id: number
-  fading?: boolean
-  faded?: boolean
+  timestamp?: number
 }
 
-const MessageLine = ({ message }: { message: Message }) => {
+const MessageLine = ({ message, currentPlayerName, chatOpened }: { message: Message, currentPlayerName?: string, chatOpened?: boolean }) => {
+  const [fadeState, setFadeState] = useState<'visible' | 'fading' | 'faded'>('visible')
+
+  useEffect(() => {
+    if (window.debugStopChatFade) return
+    // Start fading after 5 seconds
+    const fadeTimeout = setTimeout(() => {
+      setFadeState('fading')
+    }, 5000)
+
+    // Remove after fade animation (3s) completes
+    const removeTimeout = setTimeout(() => {
+      setFadeState('faded')
+    }, 8000)
+
+    // Cleanup timeouts if component unmounts
+    return () => {
+      clearTimeout(fadeTimeout)
+      clearTimeout(removeTimeout)
+    }
+  }, []) // Empty deps array since we only want this to run once when message is added
+
   const classes = {
-    'chat-message-fadeout': message.fading,
-    'chat-message-fade': message.fading,
-    'chat-message-faded': message.faded,
-    'chat-message': true
+    'chat-message': true,
+    'chat-message-fading': !chatOpened && fadeState === 'fading',
+    'chat-message-faded': !chatOpened && fadeState === 'faded'
   }
 
-  return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')}>
-    {message.parts.map((msg, i) => <MessagePart key={i} part={msg} />)}
+  return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')} data-time={message.timestamp ? new Date(message.timestamp).toLocaleString('en-US', { hour12: false }) : undefined}>
+    {message.parts.map((msg, i) => {
+      // Check if this is a text part that might contain a mention
+      if (msg.text && currentPlayerName) {
+        const parts = msg.text.split(new RegExp(`(@${currentPlayerName})`, 'i'))
+        if (parts.length > 1) {
+          return parts.map((txtPart, j) => {
+            const part = {
+              ...msg,
+              text: txtPart
+            }
+            if (txtPart.toLowerCase() === `@${currentPlayerName}`.toLowerCase()) {
+              part.color = '#ffa500'
+              part.bold = true
+              return <MessagePart key={j} part={part} />
+            }
+            return <MessagePart key={j} part={part} />
+          })
+        }
+      }
+      return <MessagePart key={i} part={msg} />
+    })}
   </li>
 }
 
@@ -42,22 +81,13 @@ type Props = {
   placeholder?: string
   chatVanillaRestrictions?: boolean
   debugChatScroll?: boolean
+  getPingComplete?: (value: string) => Promise<string[]>
+  currentPlayerName?: string
 }
 
 export const chatInputValueGlobal = proxy({
   value: ''
 })
-
-export const fadeMessage = (message: Message, initialTimeout: boolean, requestUpdate: () => void) => {
-  setTimeout(() => {
-    message.fading = true
-    requestUpdate()
-    setTimeout(() => {
-      message.faded = true
-      requestUpdate()
-    }, 3000)
-  }, initialTimeout ? 5000 : 0)
-}
 
 export default ({
   messages,
@@ -71,12 +101,21 @@ export default ({
   inputDisabled,
   placeholder,
   chatVanillaRestrictions,
-  debugChatScroll
+  debugChatScroll,
+  getPingComplete,
+  currentPlayerName
 }: Props) => {
+  const playerNameValidated = useMemo(() => {
+    if (!/^[\w\d_]+$/i.test(currentPlayerName ?? '')) return ''
+    return currentPlayerName
+  }, [currentPlayerName])
+
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
   const [isInputFocused, setIsInputFocused] = useState(false)
-  // const [spellCheckEnabled, setSpellCheckEnabled] = useState(false)
-  const spellCheckEnabled = false
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(false)
+  const [preservedInputValue, setPreservedInputValue] = useState('')
+  const [inputKey, setInputKey] = useState(0)
+  const pingHistoryRef = useRef(JSON.parse(window.localStorage.pingHistory || '[]'))
 
   const [completePadText, setCompletePadText] = useState('')
   const completeRequestValue = useRef('')
@@ -108,9 +147,13 @@ export default ({
   const acceptComplete = (item: string) => {
     const base = completeRequestValue.current === '/' ? '' : getCompleteValue()
     updateInputValue(base + item)
-    // todo would be cool but disabled because some comands don't need args (like ping)
-    // // trigger next tab complete
-    // this.chatInput.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
+    // Record ping completion in history
+    if (item.startsWith('@')) {
+      const newHistory = [item, ...pingHistoryRef.current.filter((x: string) => x !== item)].slice(0, 10)
+      pingHistoryRef.current = newHistory
+      // todo use appStorage
+      window.localStorage.pingHistory = JSON.stringify(newHistory)
+    }
     chatInput.current.focus()
   }
 
@@ -196,10 +239,21 @@ export default ({
     if (opened) {
       completeRequestValue.current = ''
       resetCompletionItems()
+    } else {
+      setPreservedInputValue('')
     }
   }, [opened])
 
   const onMainInputChange = () => {
+    const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
+    const isCommand = chatInput.current.value.startsWith('/')
+
+    if (lastWord.startsWith('@') && getPingComplete && !isCommand) {
+      setCompletePadText(lastWord)
+      void fetchPingCompletions(true, lastWord.slice(1))
+      return
+    }
+
     const completeValue = getCompleteValue()
     setCompletePadText(completeValue === '/' ? '' : completeValue)
     // not sure if enabling would be useful at all (maybe make as a setting in the future?)
@@ -215,9 +269,6 @@ export default ({
       resetCompletionItems()
     }
     completeRequestValue.current = completeValue
-    // if (completeValue === '/') {
-    //   void fetchCompletions(true)
-    // }
   }
 
   const fetchCompletions = async (implicit: boolean, inputValue = chatInput.current.value) => {
@@ -230,6 +281,24 @@ export default ({
     updateFilteredCompleteItems(newItems)
   }
 
+  const fetchPingCompletions = async (implicit: boolean, inputValue: string) => {
+    completeRequestValue.current = inputValue
+    resetCompletionItems()
+    const newItems = await getPingComplete?.(inputValue) ?? []
+    if (inputValue !== completeRequestValue.current) return
+    // Sort items by ping history
+    const sortedItems = [...newItems].sort((a, b) => {
+      const aIndex = pingHistoryRef.current.indexOf(a)
+      const bIndex = pingHistoryRef.current.indexOf(b)
+      if (aIndex === -1 && bIndex === -1) return 0
+      if (aIndex === -1) return 1
+      if (bIndex === -1) return -1
+      return aIndex - bIndex
+    })
+    setCompletionItemsSource(sortedItems)
+    updateFilteredCompleteItems(sortedItems)
+  }
+
   const updateFilteredCompleteItems = (sourceItems: string[] | Array<{ match: string, toolip: string }>) => {
     const newCompleteItems = sourceItems
       .map((item): string => (typeof item === 'string' ? item : item.match))
@@ -237,8 +306,11 @@ export default ({
         // this regex is imporatnt is it controls the word matching
         // const compareableParts = item.split(/[[\]{},_:]/)
         const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
-        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
+        if (lastWord.startsWith('@')) {
+          return item.toLowerCase().includes(lastWord.slice(1).toLowerCase())
+        }
         return item.includes(lastWord)
+        // return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
       })
     setCompletionItems(newCompleteItems)
   }
@@ -247,6 +319,7 @@ export default ({
     const raw = chatInput.current.value
     return raw.slice(0, chatInput.current.selectionEnd ?? raw.length)
   }
+
   const getCompleteValue = (value = getDefaultCompleteValue()) => {
     const valueParts = value.split(' ')
     const lastLength = valueParts.at(-1)!.length
@@ -255,10 +328,33 @@ export default ({
     return completeValue
   }
 
+  const handleSlashCommand = () => {
+    remountInput('/')
+  }
+
+  const handleAcceptFirstCompletion = () => {
+    if (completionItems.length > 0) {
+      acceptComplete(completionItems[0])
+    }
+  }
+
+  const remountInput = (newValue?: string) => {
+    if (newValue !== undefined) {
+      setPreservedInputValue(newValue)
+    }
+    setInputKey(k => k + 1)
+  }
+
+  useEffect(() => {
+    if (preservedInputValue && chatInput.current) {
+      chatInput.current.focus()
+    }
+  }, [inputKey]) // Changed from spellCheckEnabled to inputKey
+
   return (
     <>
       <div
-        className={`chat-wrapper chat-messages-wrapper ${usingTouch ? 'display-mobile' : ''}`} style={{
+        className={`chat-wrapper chat-messages-wrapper ${usingTouch ? 'display-mobile' : ''} ${opened ? 'chat-opened' : ''}`} style={{
           userSelect: opened && allowSelection ? 'text' : undefined,
         }}
       >
@@ -313,14 +409,59 @@ export default ({
             </div>
           )}
           {messages.map((m) => (
-            <MessageLine key={reactKeyForMessage(m)} message={m} />
+            <MessageLine key={reactKeyForMessage(m)} message={m} currentPlayerName={playerNameValidated} chatOpened={opened} />
           ))}
         </div> || undefined}
       </div>
 
       <div className={`chat-wrapper chat-input-wrapper ${usingTouch ? 'input-mobile' : ''}`} hidden={!opened}>
-        {/* close button */}
-        {usingTouch && <Button icon={pixelartIcons.close} onClick={() => onClose?.()} />}
+        {usingTouch && (
+          <>
+            <Button
+              icon={pixelartIcons.close}
+              onClick={() => onClose?.()}
+              style={{
+                width: 20,
+                flexShrink: 0,
+              }}
+            />
+
+            {(chatInput.current?.value && !chatInput.current.value.startsWith('/')) ? (
+              // TOGGLE SPELL CHECK
+              <Button
+                style={{
+                  width: 20,
+                  flexShrink: 0,
+                }}
+                overlayColor={spellCheckEnabled ? '#00ff00' : '#ff0000'}
+                icon={pixelartIcons['text-wrap']}
+                onClick={() => {
+                  setPreservedInputValue(chatInput.current?.value || '')
+                  setSpellCheckEnabled(!spellCheckEnabled)
+                  remountInput()
+                }}
+              />
+            ) : (
+              // SLASH COMMAND
+              <Button
+                style={{
+                  width: 20,
+                  flexShrink: 0,
+                }}
+                label={chatInput.current?.value ? undefined : '/'}
+                icon={chatInput.current?.value ? pixelartIcons['arrow-right'] : undefined}
+                onClick={() => {
+                  const inputValue = chatInput.current.value
+                  if (!inputValue) {
+                    handleSlashCommand()
+                  } else if (completionItems.length > 0) {
+                    handleAcceptFirstCompletion()
+                  }
+                }}
+              />
+            )}
+          </>
+        )}
         <div className="chat-input">
           {isInputFocused && completionItems?.length ? (
             <div className="chat-completions">
@@ -364,9 +505,10 @@ export default ({
             />}
             <input
               maxLength={chatVanillaRestrictions ? 256 : undefined}
-              defaultValue=''
+              defaultValue={preservedInputValue}
               // ios doesn't support toggling autoCorrect on the fly so we need to re-create the input
-              key={spellCheckEnabled ? 'true' : 'false'}
+              key={`${inputKey}`}
+              autoCapitalize={preservedInputValue ? 'off' : 'on'}
               ref={chatInput}
               type="text"
               className="chat-input"

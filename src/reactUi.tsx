@@ -61,8 +61,11 @@ import ControDebug from './react/ControDebug'
 import ChunksDebug from './react/ChunksDebug'
 import ChunksDebugScreen from './react/ChunksDebugScreen'
 import DebugResponseTimeIndicator from './react/debugs/DebugResponseTimeIndicator'
+import RendererDebugMenu from './react/RendererDebugMenu'
 import CreditsAboutModal from './react/CreditsAboutModal'
 import GlobalOverlayHints from './react/GlobalOverlayHints'
+import FullscreenTime from './react/FullscreenTime'
+import StorageConflictModal from './react/StorageConflictModal'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -161,17 +164,19 @@ const InGameUi = () => {
           {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
           {!disabledUiParts.includes('title') && <TitleProvider />}
           {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
-          {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
+          <IndicatorEffectsProvider displayEffects={!disabledUiParts.includes('effects')} displayIndicators={!disabledUiParts.includes('indicators')} />
           {!disabledUiParts.includes('crosshair') && <Crosshair />}
           {!disabledUiParts.includes('books') && <BookProvider />}
           {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
           <VoiceMicrophone />
           <ChunksDebugScreen />
+          <RendererDebugMenu />
         </PerComponentErrorBoundary>
       </div>
 
       <PerComponentErrorBoundary>
         <PauseScreen />
+        <FullscreenTime />
         <MineflayerPluginHud />
         <MineflayerPluginConsole />
         {showUI && <TouchInteractionHint />}
@@ -224,6 +229,7 @@ const App = () => {
             <div />
           </RobustPortal>
           <EnterFullscreenButton />
+          <StorageConflictModal />
           <InGameUi />
           <RobustPortal to={document.querySelector('#ui-root')}>
             <AllWidgets />
@@ -272,13 +278,17 @@ const PerComponentErrorBoundary = ({ children }) => {
   </ErrorBoundary>)
 }
 
-renderToDom(<App />, {
-  strictMode: false,
-  selector: '#react-root',
-})
+if (!new URLSearchParams(window.location.search).get('no-ui')) {
+  renderToDom(<App />, {
+    strictMode: false,
+    selector: '#react-root',
+  })
+}
 
 disableReactProfiling()
 function disableReactProfiling () {
+  if (window.reactPerfPatchApplied) return
+  window.reactPerfPatchApplied = true
   //@ts-expect-error
   window.performance.markOrig = window.performance.mark
   //@ts-expect-error

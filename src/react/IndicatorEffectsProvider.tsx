@@ -1,6 +1,7 @@
 import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useMemo, useState } from 'react'
 import { subscribeKey } from 'valtio/utils'
+import { Effect } from 'mineflayer'
 import { inGameError } from '../utils'
 import { fsState } from '../loadSave'
 import { gameAdditionalState, miscUiState } from '../globalState'
@@ -14,43 +15,52 @@ export const state = proxy({
   effects: [] as EffectType[]
 })
 
-export const addEffect = (newEffect: Omit<EffectType, 'reduceTime' | 'removeEffect'>) => {
-  const effectIndex = getEffectIndex(newEffect as EffectType)
+export const addEffect = (newEffect: Effect) => {
+  const effectData = loadedData.effectsArray.find(e => e.id === newEffect.id)
+  const name = effectData?.name ?? `unknown: ${newEffect.id}`
+  const nameKebab = name.replaceAll(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`).slice(1)
+  const image = images[nameKebab] ?? null
+  if (!image) {
+    inGameError(`received unknown effect id ${newEffect.id}`)
+    return
+  }
+
+  const effectIndex = getEffectIndex({ id: newEffect.id })
   if (typeof effectIndex === 'number') {
-    state.effects[effectIndex].time = newEffect.time
-    state.effects[effectIndex].level = newEffect.level
+    state.effects[effectIndex].initialTime = Date.now()
+    state.effects[effectIndex].level = newEffect.amplifier
+    state.effects[effectIndex].duration = newEffect.duration / 20 // convert ticks to seconds
   } else {
-    const effect = { ...newEffect, reduceTime, removeEffect }
+    const effect: EffectType = {
+      id: newEffect.id,
+      name,
+      image,
+      level: newEffect.amplifier,
+      initialTime: Date.now(),
+      duration: newEffect.duration / 20, // convert ticks to seconds
+    }
     state.effects.push(effect)
   }
 }
 
-const removeEffect = (image: string) => {
+const removeEffect = (id: number) => {
   for (const [index, effect] of (state.effects).entries()) {
-    if (effect.image === image) {
+    if (effect.id === id) {
       state.effects.splice(index, 1)
     }
   }
 }
 
-const reduceTime = (image: string) => {
+const getEffectIndex = (newEffect: Pick<EffectType, 'id'>) => {
   for (const [index, effect] of (state.effects).entries()) {
-    if (effect.image === image) {
-      effect.time -= 1
-    }
-  }
-}
-
-const getEffectIndex = (newEffect: EffectType) => {
-  for (const [index, effect] of (state.effects).entries()) {
-    if (effect.image === newEffect.image) {
+    if (effect.id === newEffect.id) {
       return index
     }
   }
   return null
 }
 
-export default () => {
+export default ({ displayEffects = true, displayIndicators = true }: { displayEffects?: boolean, displayIndicators?: boolean }) => {
   const [dummyState, setDummyState] = useState(false)
   const stateIndicators = useSnapshot(state.indicators)
   const chunksLoading = !useSnapshot(appViewer.rendererState).world.allChunksLoaded
@@ -87,33 +97,32 @@ export default () => {
       const nameKebab = effect.name.replaceAll(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`).slice(1)
       return [effect.id, images[nameKebab]]
     }))
-    bot.on('entityEffect', (entity, effect) => {
+    const gotEffect = (entity: import('prismarine-entity').Entity, effect: Effect) => {
       if (entity.id !== bot.entity.id) return
-      const image = effectsImages[effect.id] ?? null
-      if (!image) {
-        inGameError(`received unknown effect id ${effect.id}}`)
-        return
-      }
-      const newEffect = {
-        image,
-        time: effect.duration / 20, // duration received in ticks
-        level: effect.amplifier,
-      }
-      addEffect(newEffect)
-    })
+      addEffect(effect)
+    }
+    bot.on('entityEffect', gotEffect)
+
+    // gotEffect(bot.entity, {
+    //   id: 1,
+    //   amplifier: 1,
+    //   duration: 100,
+    // })
+
+    for (const effect of Object.values(bot.entity.effects ?? {})) {
+      gotEffect(bot.entity, effect)
+    }
+
     bot.on('entityEffectEnd', (entity, effect) => {
       if (entity.id !== bot.entity.id) return
-      const image = effectsImages[effect.id] ?? null
-      if (!image) {
-        inGameError(`received unknown effect id ${effect.id}}}`)
-        return
-      }
-      removeEffect(image)
+      removeEffect(effect.id)
     })
   }, [])
 
   return <IndicatorEffects
     indicators={allIndicators}
     effects={effects}
+    displayIndicators
+    displayEffects
   />
 }

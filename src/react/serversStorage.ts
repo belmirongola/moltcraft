@@ -85,26 +85,6 @@ export const setNewServersList = (serversList: StoreServerItem[], force = false)
   appStorage.serversList = serversList
 }
 
-export const getInitialServersList = () => {
-  // If we already have servers in appStorage, use those
-  if (appStorage.serversList) return appStorage.serversList
-
-  const servers = [] as StoreServerItem[]
-
-  if (servers.length === 0) {
-    // server list is empty, let's suggest some
-    for (const server of miscUiState.appConfig?.promoteServers ?? []) {
-      servers.push({
-        ip: server.ip,
-        description: server.description,
-        versionOverride: server.version,
-      })
-    }
-  }
-
-  return servers
-}
-
 export const updateAuthenticatedAccountData = (callback: (data: AuthenticatedAccount[]) => AuthenticatedAccount[]) => {
   const accounts = appStorage.authenticatedAccounts
   const newAccounts = callback(accounts)

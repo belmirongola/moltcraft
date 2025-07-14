@@ -32,7 +32,7 @@ const getLoadedImage = async (url: string) => {
 const resourcepackPackBasePath = '/data/resourcePacks/'
 export const uninstallResourcePack = async (name = 'default') => {
   if (await existsAsync('/resourcepack/pack.mcmeta')) {
-    await removeFileRecursiveAsync('/resourcepack')
+    await removeFileRecursiveAsync('/resourcepack', false)
     gameAdditionalState.usingServerResourcePack = false
   }
   const basePath = resourcepackPackBasePath + name
@@ -212,7 +212,6 @@ export const getResourcepackTiles = async (type: 'blocks' | 'items' | 'armor', e
   if (!basePath) return
   let firstTextureSize: number | undefined
   const namespaces = await fs.promises.readdir(join(basePath, 'assets'))
-  progressReporter.beginStage(`generate-atlas-texture-${type}`, `Generating atlas texture for ${type}`)
 
   const textures = {} as Record<string, HTMLImageElement>
   let path
@@ -420,6 +419,7 @@ const prepareBlockstatesAndModels = async (progressReporter: ProgressReporter) =
     }
   } catch (err) {
     console.error('Failed to read some of resource pack blockstates and models', err)
+    currentErrors.push('Failed to read blockstates/models')
     resources.customBlockStates = undefined
     resources.customModels = undefined
     resources.customItemModelNames = {}
@@ -439,8 +439,10 @@ const downloadAndUseResourcePack = async (url: string, progressReporter: Progres
     console.log('Downloading server resource pack', url)
     console.time('downloadServerResourcePack')
     const response = await fetch(url).catch((err) => {
-      console.log(`Ensure server on ${url} support CORS which is not required for regular client, but is required for the web client`)
       console.error(err)
+      if (err.message === 'Failed to fetch') {
+        err.message = `Check internet connection and ensure server on ${url} support CORS which is not required for the vanilla client, but is required for the web client.`
+      }
       progressReporter.error('Failed to download resource pack: ' + err.message)
     })
     console.timeEnd('downloadServerResourcePack')
@@ -475,6 +477,7 @@ const downloadAndUseResourcePack = async (url: string, progressReporter: Progres
       showNotification('Failed to install resource pack: ' + err.message)
     })
   } catch (err) {
+    console.error('Could not install resource pack', err)
     progressReporter.error('Could not install resource pack: ' + err.message)
   } finally {
     progressReporter.endStage('download-resource-pack')
@@ -513,21 +516,19 @@ export const onAppLoad = () => {
             cancel: !forced,
             minecraftJsonMessage: promptMessagePacket,
           })
-      if (Date.now() - start < 700) { // wait for state protocol switch
-        await new Promise(resolve => {
+      if (Date.now() - start < 700) {
+        void new Promise(resolve => {
+          // wait for state protocol switch
           setTimeout(resolve, 700)
+        }).then(() => {
+          if (choice === false || choice === 'Pretend Installed (not recommended)' || choice === 'Download & Install (recommended)' || choice) {
+            console.log('accepting resource pack')
+            bot.acceptResourcePack()
+          } else {
+            bot.denyResourcePack()
+          }
         })
       }
-      if (choice === false) {
-        bot.acceptResourcePack()
-        return
-      }
-      if (!choice) {
-        bot.denyResourcePack()
-        return
-      }
-      console.log('accepting resource pack')
-      bot.acceptResourcePack()
       if (choice === true || choice === 'Download & Install (recommended)') {
         await downloadAndUseResourcePack(packet.url, createFullScreenProgressReporter()).catch((err) => {
           console.error(err)
@@ -590,10 +591,17 @@ const updateTextures = async (progressReporter = createConsoleLogProgressReporte
   const origItemsFiles = Object.keys(appViewer.resourcesManager.sourceItemsAtlases.latest.textures)
   const origArmorFiles = Object.keys(armorTextures)
   const { usedBlockTextures, usedItemTextures } = await prepareBlockstatesAndModels(progressReporter) ?? {}
-  const blocksData = await getResourcepackTiles('blocks', [...origBlocksFiles, ...usedBlockTextures ?? []], progressReporter)
-  const itemsData = await getResourcepackTiles('items', [...origItemsFiles, ...usedItemTextures ?? []], progressReporter)
-  const armorData = await getResourcepackTiles('armor', origArmorFiles, progressReporter)
-  await updateAllReplacableTextures()
+  progressReporter.beginStage(`generate-atlas-texture-blocks`, `Generating atlas textures`)
+  const [
+    blocksData,
+    itemsData,
+    armorData
+  ] = await Promise.all([
+    getResourcepackTiles('blocks', [...origBlocksFiles, ...usedBlockTextures ?? []], progressReporter),
+    getResourcepackTiles('items', [...origItemsFiles, ...usedItemTextures ?? []], progressReporter),
+    getResourcepackTiles('armor', origArmorFiles, progressReporter),
+    updateAllReplacableTextures()
+  ])
   resources.customTextures = {}
 
   if (blocksData) {

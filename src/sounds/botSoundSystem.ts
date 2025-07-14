@@ -71,7 +71,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   }
 
   const musicStartCheck = async (force = false) => {
-    if (!soundMap) return
+    if (!soundMap || !bot) return
     // 20% chance to start music
     if (Math.random() > 0.2 && !force && !options.enableMusic) return
 
@@ -136,6 +136,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   let lastStepSound = 0
   const movementHappening = async () => {
     if (!bot.entity || !soundMap) return // no info yet
+    if (appViewer.playerState.reactive.gameMode === 'spectator') return // Don't play step sounds in spectator mode
     const VELOCITY_THRESHOLD = 0.1
     const RUN_THRESHOLD = 0.15
     const { x, z, y } = bot.entity.velocity

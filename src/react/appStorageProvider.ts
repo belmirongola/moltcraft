@@ -1,13 +1,16 @@
 import { proxy, ref, subscribe } from 'valtio'
 import { UserOverridesConfig } from 'contro-max/build/types/store'
 import { subscribeKey } from 'valtio/utils'
+import { AppConfig } from '../appConfig'
 import { CustomCommand } from './KeybindingsCustom'
 import { AuthenticatedAccount } from './serversStorage'
 import type { BaseServerInfo } from './AddServerOrConnect'
 
 // when opening html file locally in browser, localStorage is shared between all ever opened html files, so we try to avoid conflicts
 const localStoragePrefix = process.env?.SINGLE_FILE_BUILD ? 'minecraft-web-client:' : ''
+const cookiePrefix = process.env.COOKIE_STORAGE_PREFIX || ''
 const { localStorage } = window
+const migrateRemoveLocalStorage = false
 
 export interface SavedProxiesData {
   proxies: string[]
@@ -27,14 +30,22 @@ export interface StoreServerItem extends BaseServerInfo {
   optionsOverride?: Record<string, any>
   autoLogin?: Record<string, string>
   numConnects?: number // Track number of connections
+  isRecommended?: boolean
+}
+
+interface StorageConflict {
+  key: string
+  localStorageValue: any
+  localStorageTimestamp?: number
+  cookieValue: any
+  cookieTimestamp?: number
 }
 
 type StorageData = {
+  cookieStorage: boolean | { ignoreKeys: Array<keyof StorageData> }
   customCommands: Record<string, CustomCommand> | undefined
   username: string | undefined
   keybindings: UserOverridesConfig | undefined
-  /** @deprecated */
-  options: any
   changedSettings: any
   proxiesData: SavedProxiesData | undefined
   serversHistory: ServerHistoryEntry[]
@@ -44,8 +55,120 @@ type StorageData = {
   firstModsPageVisit: boolean
 }
 
+const cookieStoreKeys: Array<keyof StorageData> = [
+  'customCommands',
+  'username',
+  'keybindings',
+  'changedSettings',
+  'serversList',
+]
+
 const oldKeysAliases: Partial<Record<keyof StorageData, string>> = {
   serversHistory: 'serverConnectionHistory',
+}
+
+// Cookie storage functions
+const getCookieValue = (key: string): string | null => {
+  const cookie = document.cookie.split(';').find(c => c.trimStart().startsWith(`${cookiePrefix}${key}=`))
+  if (cookie) {
+    return decodeURIComponent(cookie.split('=')[1])
+  }
+  return null
+}
+
+const topLevelDomain = window.location.hostname.split('.').slice(-2).join('.')
+const cookieBase = `; Domain=.${topLevelDomain}; Path=/; SameSite=Strict; Secure`
+
+const setCookieValue = (key: string, value: string): boolean => {
+  try {
+    const cookieKey = `${cookiePrefix}${key}`
+    let cookie = `${cookieKey}=${encodeURIComponent(value)}`
+    cookie += `${cookieBase}; Max-Age=2147483647`
+
+    // Test if cookie exceeds size limit
+    if (cookie.length > 4096) {
+      throw new Error(`Cookie size limit exceeded for key '${key}'. Cookie size: ${cookie.length} bytes, limit: 4096 bytes.`)
+    }
+
+    document.cookie = cookie
+    return true
+  } catch (error) {
+    console.error(`Failed to set cookie for key '${key}':`, error)
+    window.showNotification(`Failed to save data to cookies: ${error.message}`, 'Consider switching to localStorage in advanced settings.', true)
+    return false
+  }
+}
+
+const deleteCookie = (key: string) => {
+  const cookieKey = `${cookiePrefix}${key}`
+  document.cookie = `${cookieKey}=; ${cookieBase}; expires=Thu, 01 Jan 1970 00:00:00 UTC;`
+}
+
+// Storage conflict detection and resolution
+let storageConflicts: StorageConflict[] = []
+
+const detectStorageConflicts = (): StorageConflict[] => {
+  const conflicts: StorageConflict[] = []
+
+  for (const key of cookieStoreKeys) {
+    const localStorageKey = `${localStoragePrefix}${key}`
+    const localStorageValue = localStorage.getItem(localStorageKey)
+    const cookieValue = getCookieValue(key)
+
+    if (localStorageValue && cookieValue) {
+      try {
+        const localParsed = JSON.parse(localStorageValue)
+        const cookieParsed = JSON.parse(cookieValue)
+
+        if (localStorage.getItem(`${localStorageKey}:migrated`)) {
+          continue
+        }
+
+        // Extract timestamps if they exist
+        const localTimestamp = localParsed?.timestamp
+        const cookieTimestamp = cookieParsed?.timestamp
+
+        // Compare the actual data (excluding timestamp)
+        const localData = localTimestamp ? { ...localParsed } : localParsed
+        const cookieData = cookieTimestamp ? { ...cookieParsed } : cookieParsed
+        delete localData.timestamp
+        delete cookieData.timestamp
+
+        const isDataEmpty = (data: any) => {
+          if (typeof data === 'object' && data !== null) {
+            return Object.keys(data).length === 0
+          }
+          return !data && data !== 0 && data !== false
+        }
+
+        if (JSON.stringify(localData) !== JSON.stringify(cookieData) && !isDataEmpty(localData) && !isDataEmpty(cookieData)) {
+          conflicts.push({
+            key,
+            localStorageValue: localData,
+            localStorageTimestamp: localTimestamp,
+            cookieValue: (typeof cookieData === 'object' && cookieData !== null && 'data' in cookieData) ? cookieData.data : cookieData,
+            cookieTimestamp
+          })
+        }
+      } catch (e) {
+        console.error(`Failed to parse storage values for conflict detection on key '${key}':`, e, localStorageValue, cookieValue)
+      }
+    }
+  }
+
+  return conflicts
+}
+
+const showStorageConflictModal = () => {
+  // Import showModal dynamically to avoid circular dependency
+  const showModal = (window as any).showModal || ((modal: any) => {
+    console.error('Modal system not available:', modal)
+    console.warn('Storage conflicts detected but modal system not available:', storageConflicts)
+  })
+
+  setTimeout(() => {
+    showModal({ reactType: 'storage-conflict', conflicts: storageConflicts })
+  }, 100)
 }
 
 const migrateLegacyData = () => {
@@ -73,10 +196,10 @@ const migrateLegacyData = () => {
 }
 
 const defaultStorageData: StorageData = {
+  cookieStorage: !!process.env.ENABLE_COOKIE_STORAGE && !process.env?.SINGLE_FILE_BUILD,
   customCommands: undefined,
   username: undefined,
   keybindings: undefined,
-  options: {},
   changedSettings: {},
   proxiesData: undefined,
   serversHistory: [],
@@ -86,35 +209,155 @@ const defaultStorageData: StorageData = {
   firstModsPageVisit: true,
 }
 
-export const setStorageDataOnAppConfigLoad = () => {
-  appStorage.username ??= `mcrafter${Math.floor(Math.random() * 1000)}`
+export const setStorageDataOnAppConfigLoad = (appConfig: AppConfig) => {
+  appStorage.username ??= getRandomUsername(appConfig)
+}
+
+export const getRandomUsername = (appConfig: AppConfig) => {
+  if (!appConfig.defaultUsername) return ''
+
+  const username = appConfig.defaultUsername
+    .replaceAll(/{(\d+)-(\d+)}/g, (_, start, end) => {
+      const min = Number(start)
+      const max = Number(end)
+      return Math.floor(Math.random() * (max - min + 1) + min).toString()
+    })
+    .replaceAll('{num}', () => Math.floor(Math.random() * 10).toString())
+
+  return username
 }
 
 export const appStorage = proxy({ ...defaultStorageData })
 
-// Restore data from localStorage
-for (const key of Object.keys(defaultStorageData)) {
-  const prefixedKey = `${localStoragePrefix}${key}`
-  const aliasedKey = oldKeysAliases[key]
-  const storedValue = localStorage.getItem(prefixedKey) ?? (aliasedKey ? localStorage.getItem(aliasedKey) : undefined)
-  if (storedValue) {
-    try {
-      const parsed = JSON.parse(storedValue)
-      // appStorage[key] = parsed && typeof parsed === 'object' ? ref(parsed) : parsed
-      appStorage[key] = parsed
-    } catch (e) {
-      console.error(`Failed to parse stored value for ${key}:`, e)
+// Check if cookie storage should be used (will be set by options)
+const shouldUseCookieStorage = () => {
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+  const isSecureCookiesAvailable = () => {
+    // either https or localhost
+    return window.location.protocol === 'https:' || (window.location.hostname === 'localhost' && !isSafari)
+  }
+  if (!isSecureCookiesAvailable()) {
+    return false
+  }
+
+  const localStorageValue = localStorage.getItem(`${localStoragePrefix}cookieStorage`)
+  if (localStorageValue === null) {
+    return appStorage.cookieStorage === true
+  }
+  return localStorageValue === 'true'
+}
+
+// Restore data from storage with conflict detection
+const restoreStorageData = () => {
+  const useCookieStorage = shouldUseCookieStorage()
+
+  if (useCookieStorage) {
+    // Detect conflicts first
+    storageConflicts = detectStorageConflicts()
+
+    if (storageConflicts.length > 0) {
+      // Show conflict resolution modal
+      showStorageConflictModal()
+      return // Don't restore data until conflict is resolved
+    }
+  }
+
+  for (const key of Object.keys(defaultStorageData)) {
+    const typedKey = key
+    const prefixedKey = `${localStoragePrefix}${key}`
+    const aliasedKey = oldKeysAliases[typedKey]
+
+    let storedValue: string | null = null
+    let cookieValueCanBeUsed = false
+    let usingLocalStorageValue = false
+
+    // Try cookie storage first if enabled and key is in cookieStoreKeys
+    if (useCookieStorage && cookieStoreKeys.includes(typedKey)) {
+      storedValue = getCookieValue(key)
+      cookieValueCanBeUsed = true
+    }
+
+    // Fallback to localStorage if no cookie value found
+    if (storedValue === null) {
+      storedValue = localStorage.getItem(prefixedKey) ?? (aliasedKey ? localStorage.getItem(aliasedKey) : null)
+      usingLocalStorageValue = true
+    }
+
+    if (storedValue) {
+      try {
+        let parsed = JSON.parse(storedValue)
+
+        // Handle timestamped data
+        if (parsed && typeof parsed === 'object' && parsed.timestamp) {
+          delete parsed.timestamp
+          // If it was a wrapped primitive, unwrap it
+          if ('data' in parsed && Object.keys(parsed).length === 1) {
+            parsed = parsed.data
+          }
+        }
+
+        appStorage[typedKey] = parsed
+
+        if (usingLocalStorageValue && cookieValueCanBeUsed) {
+          // migrate localStorage to cookie
+          saveKey(key)
+          markLocalStorageAsMigrated(key)
+        }
+      } catch (e) {
+        console.error(`Failed to parse stored value for ${key}:`, e)
+      }
     }
   }
 }
 
+const markLocalStorageAsMigrated = (key: keyof StorageData) => {
+  const localStorageKey = `${localStoragePrefix}${key}`
+  if (migrateRemoveLocalStorage) {
+    localStorage.removeItem(localStorageKey)
+    return
+  }
+
+  localStorage.setItem(`${localStorageKey}:migrated`, 'true')
+}
+
 const saveKey = (key: keyof StorageData) => {
+  const useCookieStorage = shouldUseCookieStorage()
   const prefixedKey = `${localStoragePrefix}${key}`
   const value = appStorage[key]
-  if (value === undefined) {
-    localStorage.removeItem(prefixedKey)
-  } else {
-    localStorage.setItem(prefixedKey, JSON.stringify(value))
+
+  const dataToSave = value === undefined ? undefined : (
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? { ...value, timestamp: Date.now() }
+      : { data: value, timestamp: Date.now() }
+  )
+
+  const serialized = dataToSave === undefined ? undefined : JSON.stringify(dataToSave)
+
+  let useLocalStorage = true
+  // Save to cookie if enabled and key is in cookieStoreKeys
+  if (useCookieStorage && cookieStoreKeys.includes(key)) {
+    useLocalStorage = false
+    if (serialized === undefined) {
+      deleteCookie(key)
+    } else {
+      const success = setCookieValue(key, serialized)
+      if (success) {
+        // Remove from localStorage if cookie save was successful
+        markLocalStorageAsMigrated(key)
+      } else {
+        // Disabling for now so no confusing conflicts modal after page reload
+        // useLocalStorage = true
+      }
+    }
+  }
+
+  if (useLocalStorage) {
+    // Save to localStorage
+    if (value === undefined) {
+      localStorage.removeItem(prefixedKey)
+    } else {
+      localStorage.setItem(prefixedKey, JSON.stringify(value))
+    }
   }
 }
 
@@ -125,7 +368,6 @@ subscribe(appStorage, (ops) => {
     saveKey(key as keyof StorageData)
   }
 })
-// Subscribe to changes and save to localStorage
 
 export const resetAppStorage = () => {
   for (const key of Object.keys(appStorage)) {
@@ -137,6 +379,44 @@ export const resetAppStorage = () => {
       localStorage.removeItem(key)
     }
   }
+
+  if (!shouldUseCookieStorage()) return
+  const shouldContinue = window.confirm(`Removing all synced cookies will remove all data from all ${topLevelDomain} subdomains websites. Continue?`)
+  if (!shouldContinue) return
+
+  // Clear cookies
+  for (const key of cookieStoreKeys) {
+    deleteCookie(key)
+  }
 }
 
+// Export functions for conflict resolution
+export const resolveStorageConflicts = (useLocalStorage: boolean) => {
+  if (useLocalStorage) {
+    // Disable cookie storage and use localStorage data
+    appStorage.cookieStorage = false
+  } else {
+    // Remove localStorage data and continue using cookie storage
+    for (const conflict of storageConflicts) {
+      const prefixedKey = `${localStoragePrefix}${conflict.key}`
+      localStorage.removeItem(prefixedKey)
+    }
+  }
+
+  // forcefully set data again
+  for (const conflict of storageConflicts) {
+    appStorage[conflict.key] = useLocalStorage ? conflict.localStorageValue : conflict.cookieValue
+    saveKey(conflict.key as keyof StorageData)
+  }
+
+  // Clear conflicts and restore data
+  storageConflicts = []
+  restoreStorageData()
+}
+
+export const getStorageConflicts = () => storageConflicts
+
 migrateLegacyData()
+
+// Restore data after checking for conflicts
+restoreStorageData()

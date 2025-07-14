@@ -1,6 +1,6 @@
 .scoreboard-container {
   z-index: -2;
-  pointer-events: none;
+  /* pointer-events: none; */
   white-space: nowrap;
   position: fixed;
   right: 0px;

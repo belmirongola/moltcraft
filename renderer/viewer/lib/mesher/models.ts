@@ -132,7 +132,7 @@ const getVec = (v: Vec3, dir: Vec3) => {
   return v.plus(dir)
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>, isRealWater: boolean) {
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: MesherGeometryOutput, isRealWater: boolean) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
@@ -192,13 +192,14 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
 
     for (const pos of corners) {
       const height = cornerHeights[pos[2] * 2 + pos[0]]
-      attr.t_positions.push(
-        (pos[0] ? 0.999 : 0.001) + (cursor.x & 15) - 8,
-        (pos[1] ? height - 0.001 : 0.001) + (cursor.y & 15) - 8,
-        (pos[2] ? 0.999 : 0.001) + (cursor.z & 15) - 8
+      const OFFSET = 0.0001
+      attr.t_positions!.push(
+        (pos[0] ? 1 - OFFSET : OFFSET) + (cursor.x & 15) - 8,
+        (pos[1] ? height - OFFSET : OFFSET) + (cursor.y & 15) - 8,
+        (pos[2] ? 1 - OFFSET : OFFSET) + (cursor.z & 15) - 8
       )
-      attr.t_normals.push(...dir)
-      attr.t_uvs.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
+      attr.t_normals!.push(...dir)
+      attr.t_uvs!.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
 
       let cornerLightResult = baseLight
       if (world.config.smoothLighting) {
@@ -223,7 +224,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
       }
 
       // Apply light value to tint
-      attr.t_colors.push(tint[0] * cornerLightResult, tint[1] * cornerLightResult, tint[2] * cornerLightResult)
+      attr.t_colors!.push(tint[0] * cornerLightResult, tint[1] * cornerLightResult, tint[2] * cornerLightResult)
     }
   }
 }
@@ -335,7 +336,7 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
     let localShift = null as any
 
     if (element.rotation && !needTiles) {
-      // todo do we support rescale?
+      // Rescale support for block model rotations
       localMatrix = buildRotationMatrix(
         element.rotation.axis,
         element.rotation.angle
@@ -348,6 +349,37 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
           element.rotation.origin
         )
       )
+
+      // Apply rescale if specified
+      if (element.rotation.rescale) {
+        const FIT_TO_BLOCK_SCALE_MULTIPLIER = 2 - Math.sqrt(2)
+        const angleRad = element.rotation.angle * Math.PI / 180
+        const scale = Math.abs(Math.sin(angleRad)) * FIT_TO_BLOCK_SCALE_MULTIPLIER
+
+        // Get axis vector components (1 for the rotation axis, 0 for others)
+        const axisX = element.rotation.axis === 'x' ? 1 : 0
+        const axisY = element.rotation.axis === 'y' ? 1 : 0
+        const axisZ = element.rotation.axis === 'z' ? 1 : 0
+
+        // Create scale matrix: scale = (1 - axisComponent) * scaleFactor + 1
+        const scaleMatrix = [
+          [(1 - axisX) * scale + 1, 0, 0],
+          [0, (1 - axisY) * scale + 1, 0],
+          [0, 0, (1 - axisZ) * scale + 1]
+        ]
+
+        // Apply scaling to the transformation matrix
+        localMatrix = matmulmat3(localMatrix, scaleMatrix)
+
+        // Recalculate shift with the new matrix
+        localShift = vecsub3(
+          element.rotation.origin,
+          matmul3(
+            localMatrix,
+            element.rotation.origin
+          )
+        )
+      }
     }
 
     const aos: number[] = []
@@ -487,7 +519,7 @@ const isBlockWaterlogged = (block: Block) => {
 }
 
 let unknownBlockModel: BlockModelPartsResolved
-export function getSectionGeometry (sx, sy, sz, world: World) {
+export function getSectionGeometry (sx: number, sy: number, sz: number, world: World) {
   world.hadSkyLight = false
   let delayedRender = [] as Array<() => void>
 
@@ -511,7 +543,6 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     heads: {},
     signs: {},
     // isFull: true,
-    highestBlocks: new Map(),
     hadErrors: false,
     blocksCount: 0
   }
@@ -521,12 +552,6 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     for (cursor.z = sz; cursor.z < sz + 16; cursor.z++) {
       for (cursor.x = sx; cursor.x < sx + 16; cursor.x++) {
         let block = world.getBlock(cursor, blockProvider, attr)!
-        if (!INVISIBLE_BLOCKS.has(block.name)) {
-          const highest = attr.highestBlocks.get(`${cursor.x},${cursor.z}`)
-          if (!highest || highest.y < cursor.y) {
-            attr.highestBlocks.set(`${cursor.x},${cursor.z}`, { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id })
-          }
-        }
         if (INVISIBLE_BLOCKS.has(block.name)) continue
         if ((block.name.includes('_sign') || block.name === 'sign') && !world.config.disableSignsMapsSupport) {
           const key = `${cursor.x},${cursor.y},${cursor.z}`

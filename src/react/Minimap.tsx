@@ -22,8 +22,14 @@ export default (
   const canvasTick = useRef(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [position, setPosition] = useState({ x: 0, y: 0, z: 0 })
+  const lastUpdate = useRef(0)
+  const THROTTLE_MS = 50 // 20fps
 
   const updateMap = () => {
+    const now = Date.now()
+    if (now - lastUpdate.current < THROTTLE_MS) return
+    lastUpdate.current = now
+
     setPosition({ x: adapter.playerPosition.x, y: adapter.playerPosition.y, z: adapter.playerPosition.z })
     if (adapter.mapDrawer) {
       if (!full.current) {

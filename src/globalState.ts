@@ -46,6 +46,8 @@ export const showModal = (elem: /* (HTMLElement & Record<string, any>) |  */{ re
   activeModalStack.push(resolved)
 }
 
+window.showModal = showModal
+
 /**
  *
  * @returns true if previous modal was restored
@@ -121,6 +123,7 @@ export const miscUiState = proxy({
   /** wether game hud is shown (in playing state) */
   gameLoaded: false,
   showUI: true,
+  showDebugHud: false,
   loadedServerIndex: '',
   /** currently trying to load or loaded mc version, after all data is loaded */
   loadedDataVersion: null as string | null,

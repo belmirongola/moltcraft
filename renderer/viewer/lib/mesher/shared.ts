@@ -3,7 +3,8 @@ import { BlockType } from '../../../playground/shared'
 // only here for easier testing
 export const defaultMesherConfig = {
   version: '',
-
+  worldMaxY: 256,
+  worldMinY: 0,
   enableLighting: true,
   skyLight: 15,
   smoothLighting: true,
@@ -11,7 +12,7 @@ export const defaultMesherConfig = {
   flyingSquidWorkarounds: false,
 
   outputFormat: 'threeJs' as 'threeJs' | 'webgpu',
-  textureSize: 1024, // for testing
+  // textureSize: 1024, // for testing
   debugModelVariant: undefined as undefined | number[],
   clipWorldBelowY: undefined as undefined | number,
   disableSignsMapsSupport: false
@@ -44,7 +45,6 @@ export type MesherGeometryOutput = {
   heads: Record<string, any>,
   signs: Record<string, any>,
   // isFull: boolean
-  highestBlocks: Map<string, HighestBlockInfo>
   hadErrors: boolean
   blocksCount: number
   customBlockModels?: CustomBlockModels

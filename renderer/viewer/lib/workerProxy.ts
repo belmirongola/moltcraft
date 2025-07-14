@@ -1,9 +1,20 @@
-export function createWorkerProxy<T extends Record<string, (...args: any[]) => void>> (handlers: T, channel?: MessagePort): { __workerProxy: T } {
+import { proxy, getVersion, subscribe } from 'valtio'
+
+export function createWorkerProxy<T extends Record<string, (...args: any[]) => void | Promise<any>>> (handlers: T, channel?: MessagePort): { __workerProxy: T } {
   const target = channel ?? globalThis
   target.addEventListener('message', (event: any) => {
-    const { type, args } = event.data
+    const { type, args, msgId } = event.data
     if (handlers[type]) {
-      handlers[type](...args)
+      const result = handlers[type](...args)
+      if (result instanceof Promise) {
+        void result.then((result) => {
+          target.postMessage({
+            type: 'result',
+            msgId,
+            args: [result]
+          })
+        })
+      }
     }
   })
   return null as any
@@ -23,6 +34,7 @@ export function createWorkerProxy<T extends Record<string, (...args: any[]) => v
 export const useWorkerProxy = <T extends { __workerProxy: Record<string, (...args: any[]) => void> }> (worker: Worker | MessagePort, autoTransfer = true): T['__workerProxy'] & {
   transfer: (...args: Transferable[]) => T['__workerProxy']
 } => {
+  let messageId = 0
   // in main thread
   return new Proxy({} as any, {
     get (target, prop) {
@@ -41,11 +53,30 @@ export const useWorkerProxy = <T extends { __workerProxy: Record<string, (...arg
         }
       }
       return (...args: any[]) => {
-        const transfer = autoTransfer ? args.filter(arg => arg instanceof ArrayBuffer || arg instanceof MessagePort || arg instanceof ImageBitmap || arg instanceof OffscreenCanvas || arg instanceof ImageData) : []
+        const msgId = messageId++
+        const transfer = autoTransfer ? args.filter(arg => {
+          return arg instanceof ArrayBuffer || arg instanceof MessagePort
+            || (typeof ImageBitmap !== 'undefined' && arg instanceof ImageBitmap)
+            || (typeof OffscreenCanvas !== 'undefined' && arg instanceof OffscreenCanvas)
+            || (typeof ImageData !== 'undefined' && arg instanceof ImageData)
+        }) : []
         worker.postMessage({
           type: prop,
+          msgId,
           args,
-        }, transfer as any[])
+        }, transfer)
+        return {
+          // eslint-disable-next-line unicorn/no-thenable
+          then (onfulfilled: (value: any) => void) {
+            const handler = ({ data }: MessageEvent): void => {
+              if (data.type === 'result' && data.msgId === msgId) {
+                onfulfilled(data.args[0])
+                worker.removeEventListener('message', handler as EventListener)
+              }
+            }
+            worker.addEventListener('message', handler as EventListener)
+          }
+        }
       }
     }
   })

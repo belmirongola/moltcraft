@@ -4,12 +4,12 @@ import PrismarineItem from 'prismarine-item'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { BlockModel } from 'mc-assets'
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from '../lib/mesher/standaloneRenderer'
-import { getMyHand } from '../lib/hand'
-import { IPlayerState, MovementState } from '../lib/basePlayerState'
+import { MovementState, PlayerStateRenderer } from '../lib/basePlayerState'
 import { DebugGui } from '../lib/DebugGui'
 import { SmoothSwitcher } from '../lib/smoothSwitcher'
 import { watchProperty } from '../lib/utils/proxy'
 import { WorldRendererConfig } from '../lib/worldrendererCommon'
+import { getMyHand } from './hand'
 import { WorldRendererThree } from './worldrendererThree'
 import { disposeObject } from './threeJsUtils'
 
@@ -116,16 +116,20 @@ export default class HoldingBlock {
   offHandModeLegacy = false
 
   swingAnimator: HandSwingAnimator | undefined
-  playerState: IPlayerState
   config: WorldRendererConfig
 
   constructor (public worldRenderer: WorldRendererThree, public offHand = false) {
     this.initCameraGroup()
-    this.playerState = worldRenderer.displayOptions.playerState
-    this.playerState.events.on('heldItemChanged', (_, isOffHand) => {
-      if (this.offHand !== isOffHand) return
-      this.updateItem()
-    })
+    this.worldRenderer.onReactivePlayerStateUpdated('heldItemMain', () => {
+      if (!this.offHand) {
+        this.updateItem()
+      }
+    }, false)
+    this.worldRenderer.onReactivePlayerStateUpdated('heldItemOff', () => {
+      if (this.offHand) {
+        this.updateItem()
+      }
+    }, false)
     this.config = worldRenderer.displayOptions.inWorldRenderingConfig
 
     this.offHandDisplay = this.offHand
@@ -134,17 +138,21 @@ export default class HoldingBlock {
       // load default hand
       void getMyHand().then((hand) => {
         this.playerHand = hand
+        // trigger update
+        this.updateItem()
       }).then(() => {
         // now watch over the player skin
         watchProperty(
           async () => {
-            return getMyHand(this.playerState.reactive.playerSkin, this.playerState.onlineMode ? this.playerState.username : undefined)
+            return getMyHand(this.worldRenderer.playerStateReactive.playerSkin, this.worldRenderer.playerStateReactive.onlineMode ? this.worldRenderer.playerStateReactive.username : undefined)
           },
-          this.playerState.reactive,
+          this.worldRenderer.playerStateReactive,
           'playerSkin',
           (newHand) => {
             if (newHand) {
               this.playerHand = newHand
+              // trigger update
+              this.updateItem()
             }
           },
           (oldHand) => {
@@ -156,8 +164,8 @@ export default class HoldingBlock {
   }
 
   updateItem () {
-    if (!this.ready || !this.playerState.getHeldItem) return
-    const item = this.playerState.getHeldItem(this.offHand)
+    if (!this.ready) return
+    const item = this.offHand ? this.worldRenderer.playerStateReactive.heldItemOff : this.worldRenderer.playerStateReactive.heldItemMain
     if (item) {
       void this.setNewItem(item)
     } else if (this.offHand) {
@@ -347,8 +355,8 @@ export default class HoldingBlock {
         itemId: handItem.id,
       }, {
         'minecraft:display_context': 'firstperson',
-        'minecraft:use_duration': this.playerState.getItemUsageTicks?.(),
-        'minecraft:using_item': !!this.playerState.getItemUsageTicks?.(),
+        'minecraft:use_duration': this.worldRenderer.playerStateReactive.itemUsageTicks,
+        'minecraft:using_item': !!this.worldRenderer.playerStateReactive.itemUsageTicks,
       }, this.lastItemModelName)
       if (result) {
         const { mesh: itemMesh, isBlock, modelName } = result
@@ -465,7 +473,7 @@ export default class HoldingBlock {
     this.swingAnimator = new HandSwingAnimator(this.holdingBlockInnerGroup)
     this.swingAnimator.type = result.type
     if (this.config.viewBobbing) {
-      this.idleAnimator = new HandIdleAnimator(this.holdingBlockInnerGroup, this.playerState)
+      this.idleAnimator = new HandIdleAnimator(this.holdingBlockInnerGroup, this.worldRenderer.playerStateReactive)
     }
   }
 
@@ -546,7 +554,7 @@ class HandIdleAnimator {
 
   private readonly debugGui: DebugGui
 
-  constructor (public handMesh: THREE.Object3D, public playerState: IPlayerState) {
+  constructor (public handMesh: THREE.Object3D, public playerState: PlayerStateRenderer) {
     this.handMesh = handMesh
     this.globalTime = 0
     this.currentState = 'NOT_MOVING'
@@ -700,7 +708,7 @@ class HandIdleAnimator {
 
     // Check for state changes from player state
     if (this.playerState) {
-      const newState = this.playerState.getMovementState()
+      const newState = this.playerState.movementState
       if (newState !== this.targetState) {
         this.setState(newState)
       }

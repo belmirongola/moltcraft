@@ -1,10 +1,9 @@
 import * as THREE from 'three'
 import { LineMaterial, LineSegmentsGeometry, Wireframe } from 'three-stdlib'
 import { Vec3 } from 'vec3'
-import { subscribeKey } from 'valtio/utils'
-import { Block } from 'prismarine-block'
 import { BlockShape, BlocksShapes } from 'renderer/viewer/lib/basePlayerState'
 import { WorldRendererThree } from '../worldrendererThree'
+import { loadThreeJsTextureFromUrl } from '../threeJsUtils'
 import destroyStage0 from '../../../../assets/destroy_stage_0.png'
 import destroyStage1 from '../../../../assets/destroy_stage_1.png'
 import destroyStage2 from '../../../../assets/destroy_stage_2.png'
@@ -36,17 +35,17 @@ export class CursorBlock {
 
   constructor (public readonly worldRenderer: WorldRendererThree) {
     // Initialize break mesh and textures
-    const loader = new THREE.TextureLoader()
     const destroyStagesImages = [
       destroyStage0, destroyStage1, destroyStage2, destroyStage3, destroyStage4,
       destroyStage5, destroyStage6, destroyStage7, destroyStage8, destroyStage9
     ]
 
     for (let i = 0; i < 10; i++) {
-      const texture = loader.load(destroyStagesImages[i])
-      texture.magFilter = THREE.NearestFilter
-      texture.minFilter = THREE.NearestFilter
-      this.breakTextures.push(texture)
+      void loadThreeJsTextureFromUrl(destroyStagesImages[i]).then((texture) => {
+        texture.magFilter = THREE.NearestFilter
+        texture.minFilter = THREE.NearestFilter
+        this.breakTextures.push(texture)
+      })
     }
 
     const breakMaterial = new THREE.MeshBasicMaterial({
@@ -60,16 +59,14 @@ export class CursorBlock {
     this.blockBreakMesh.name = 'blockBreakMesh'
     this.worldRenderer.scene.add(this.blockBreakMesh)
 
-    subscribeKey(this.worldRenderer.playerState.reactive, 'gameMode', () => {
+    this.worldRenderer.onReactivePlayerStateUpdated('gameMode', () => {
       this.updateLineMaterial()
     })
-
-    this.updateLineMaterial()
   }
 
   // Update functions
   updateLineMaterial () {
-    const inCreative = this.worldRenderer.displayOptions.playerState.reactive.gameMode === 'creative'
+    const inCreative = this.worldRenderer.playerStateReactive.gameMode === 'creative'
     const pixelRatio = this.worldRenderer.renderer.getPixelRatio()
 
     this.cursorLineMaterial = new LineMaterial({

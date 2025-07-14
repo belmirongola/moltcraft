@@ -7,6 +7,7 @@
     "dev-proxy": "node server.js",
     "start": "run-p dev-proxy dev-rsbuild watch-mesher",
     "start2": "run-p dev-rsbuild watch-mesher",
+    "start-metrics": "ENABLE_METRICS=true rsbuild dev",
     "build": "pnpm build-other-workers && rsbuild build",
     "build-analyze": "BUNDLE_ANALYZE=true rsbuild build && pnpm build-other-workers",
     "build-single-file": "SINGLE_FILE_BUILD=true rsbuild build",
@@ -31,7 +32,9 @@
     "run-playground": "run-p watch-mesher watch-other-workers watch-playground",
     "run-all": "run-p start run-playground",
     "build-playground": "rsbuild build --config renderer/rsbuild.config.ts",
-    "watch-playground": "rsbuild dev --config renderer/rsbuild.config.ts"
+    "watch-playground": "rsbuild dev --config renderer/rsbuild.config.ts",
+    "update-git-deps": "tsx scripts/updateGitDeps.ts",
+    "request-data": "tsx scripts/requestData.ts"
   },
   "keywords": [
     "prismarine",
@@ -51,8 +54,8 @@
   "dependencies": {
     "@dimaka/interface": "0.0.3-alpha.0",
     "@floating-ui/react": "^0.26.1",
-    "@nxg-org/mineflayer-auto-jump": "^0.7.17",
-    "@nxg-org/mineflayer-tracker": "1.2.1",
+    "@nxg-org/mineflayer-auto-jump": "^0.7.18",
+    "@nxg-org/mineflayer-tracker": "1.3.0",
     "@react-oauth/google": "^0.12.1",
     "@stylistic/eslint-plugin": "^2.6.1",
     "@types/gapi": "^0.0.47",
@@ -76,14 +79,14 @@
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "express": "^4.18.2",
     "filesize": "^10.0.12",
-    "flying-squid": "npm:@zardoy/flying-squid@^0.0.59",
+    "flying-squid": "npm:@zardoy/flying-squid@^0.0.62",
     "framer-motion": "^12.9.2",
     "fs-extra": "^11.1.1",
     "google-drive-browserfs": "github:zardoy/browserfs#google-drive",
     "jszip": "^3.10.1",
     "lodash-es": "^4.17.21",
     "mcraft-fun-mineflayer": "^0.1.23",
-    "minecraft-data": "3.83.1",
+    "minecraft-data": "3.92.0",
     "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
     "mineflayer-item-map-downloader": "github:zardoy/mineflayer-item-map-downloader",
     "mojangson": "^2.0.4",
@@ -140,7 +143,7 @@
     "browserify-zlib": "^0.2.0",
     "buffer": "^6.0.3",
     "constants-browserify": "^1.0.0",
-    "contro-max": "^0.1.8",
+    "contro-max": "^0.1.9",
     "crypto-browserify": "^3.12.0",
     "cypress-esbuild-preprocessor": "^1.0.2",
     "eslint": "^8.50.0",
@@ -150,11 +153,11 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "^0.2.54",
+    "mc-assets": "^0.2.62",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "minecraft-lighting": "^0.0.10",
     "mineflayer": "github:zardoy/mineflayer#gen-the-master",
-    "mineflayer-mouse": "^0.1.10",
+    "mineflayer-mouse": "^0.1.11",
     "mineflayer-pathfinder": "^2.4.4",
     "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
@@ -195,14 +198,14 @@
   },
   "pnpm": {
     "overrides": {
-      "@nxg-org/mineflayer-physics-util": "1.8.8",
+      "@nxg-org/mineflayer-physics-util": "1.8.10",
       "buffer": "^6.0.3",
       "vec3": "0.1.10",
       "three": "0.154.0",
       "diamond-square": "github:zardoy/diamond-square",
       "prismarine-block": "github:zardoy/prismarine-block#next-era",
       "prismarine-world": "github:zardoy/prismarine-world#next-era",
-      "minecraft-data": "3.83.1",
+      "minecraft-data": "3.92.0",
       "prismarine-provider-anvil": "github:zardoy/prismarine-provider-anvil#everything",
       "prismarine-physics": "github:zardoy/prismarine-physics",
       "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
@@ -211,7 +214,10 @@
       "prismarine-item": "latest"
     },
     "updateConfig": {
-      "ignoreDependencies": []
+      "ignoreDependencies": [
+        "browserfs",
+        "google-drive-browserfs"
+      ]
     },
     "patchedDependencies": {
       "pixelarticons@1.8.1": "patches/pixelarticons@1.8.1.patch",
@@ -228,7 +234,9 @@
       "cypress",
       "esbuild",
       "fsevents"
-    ]
+    ],
+    "ignorePatchFailures": false,
+    "allowUnusedPatches": false
   },
   "packageManager": "pnpm@10.8.0+sha512.0e82714d1b5b43c74610193cb20734897c1d00de89d0e18420aebc5977fa13d780a9cb05734624e81ebd81cc876cd464794850641c48b9544326b5622ca29971"
 }
