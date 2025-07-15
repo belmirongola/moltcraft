@@ -160,6 +160,9 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   abstract changeBackgroundColor (color: [number, number, number]): void
 
+  // Optional method for getting instanced blocks data (implemented by Three.js renderer)
+  getInstancedBlocksData? (): { instanceableBlocks: Set<string>, allBlocksStateIdToModelIdMap: Record<number, number> } | undefined
+
   worldRendererConfig: WorldRendererConfig
   playerStateReactive: PlayerStateReactive
   playerStateUtils: PlayerStateUtils
@@ -596,6 +599,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     const resources = this.resourcesManager.currentResources
 
     if (this.workers.length === 0) throw new Error('workers not initialized yet')
+
+    // Get instanceable blocks data if available (Three.js specific)
+    const instancedBlocksData = this.getInstancedBlocksData?.()
+
     for (const [i, worker] of this.workers.entries()) {
       const { blockstatesModels } = resources
 
@@ -607,6 +614,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
         },
         blockstatesModels,
         config: this.getMesherConfig(),
+        instancedBlocks: instancedBlocksData?.instanceableBlocks ? [...instancedBlocksData.instanceableBlocks] : [],
+        instancedBlockIds: instancedBlocksData?.allBlocksStateIdToModelIdMap || {}
       })
     }
 

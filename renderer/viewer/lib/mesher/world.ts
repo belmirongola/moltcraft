@@ -43,7 +43,7 @@ export class World {
   sentBlockStateModels = new Set<string>()
   blockStateModelInfo = new Map<string, BlockStateModelInfo>()
   instancedBlocks: Record<string, any> = {}
-  instancedBlockIds = new Map<string, number>()
+  instancedBlockIds = {} as Record<string, number>
 
   constructor (version: string) {
     this.Chunk = Chunks(version) as any
@@ -123,7 +123,6 @@ export class World {
     if (!(pos instanceof Vec3)) pos = new Vec3(...pos as [number, number, number])
     const key = columnKey(Math.floor(pos.x / 16) * 16, Math.floor(pos.z / 16) * 16)
     const blockPosKey = `${pos.x},${pos.y},${pos.z}`
-    const modelOverride = this.customBlockModels.get(key)?.[blockPosKey]
 
     const column = this.columns[key]
     // null column means chunk not loaded
@@ -133,6 +132,7 @@ export class World {
     const locInChunk = posInChunk(loc)
     const stateId = column.getBlockStateId(locInChunk)
 
+    const modelOverride = stateId ? this.customBlockModels.get(key)?.[blockPosKey] : undefined
     const cacheKey = getBlockAssetsCacheKey(stateId, modelOverride)
 
     if (!this.blockCache[cacheKey]) {

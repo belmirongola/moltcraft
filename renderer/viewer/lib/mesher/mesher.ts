@@ -99,7 +99,7 @@ const handleMessage = data => {
       allDataReady = true
       workerIndex = data.workerIndex
       world.instancedBlocks = data.instancedBlocks
-      world.instancedBlockIds = data.instancedBlockIds || new Map()
+      world.instancedBlockIds = data.instancedBlockIds || {}
 
       break
     }

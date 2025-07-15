@@ -24,7 +24,7 @@ import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
-import { InstancedRenderer, INSTANCEABLE_BLOCKS } from './instancedRenderer'
+import { InstancedRenderer } from './instancedRenderer'
 
 type SectionKey = string
 
@@ -97,8 +97,6 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.addDebugOverlay()
     this.resetScene()
-    void this.init()
-
     this.soundSystem = new ThreeJsSound(this)
     this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
@@ -111,6 +109,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.finishChunk(chunkKey)
     })
     this.worldSwitchActions()
+
+    void this.init()
   }
 
   get cameraObject () {
@@ -140,6 +140,16 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.entities.updateEntityPosition(e, false, overrides)
     } else {
       this.entities.update(e, overrides)
+    }
+  }
+
+  getInstancedBlocksData () {
+    const config = this.instancedRenderer.getInstancedBlocksConfig()
+    if (!config) return undefined
+
+    return {
+      instanceableBlocks: config.instanceableBlocks,
+      allBlocksStateIdToModelIdMap: config.allBlocksStateIdToModelIdMap
     }
   }
 
@@ -228,8 +238,12 @@ export class WorldRendererThree extends WorldRendererCommon {
       oldItemsTexture.dispose()
     }
 
+    // Prepare and initialize instanced renderer with dynamic block detection
+    this.instancedRenderer.prepareAndInitialize()
+
     await super.updateAssetsData()
     this.onAllTexturesLoaded()
+
     // Update instanced renderer materials when textures change
     this.instancedRenderer.updateMaterials()
     if (Object.keys(this.loadedChunks).length > 0) {
