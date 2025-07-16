@@ -135,7 +135,11 @@ const getVec = (v: Vec3, dir: Vec3) => {
   return v.plus(dir)
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: MesherGeometryOutput, isRealWater: boolean) {
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: MesherGeometryOutput, isRealWater: boolean, instancingEnabled: boolean) {
+  if (instancingEnabled) {
+    return // todo
+  }
+
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
@@ -557,7 +561,7 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
 
   // Check if instanced rendering is enabled for this section
   const enableInstancedRendering = instancingMode !== InstancingMode.None
-  const forceInstancedOnly = instancingMode === InstancingMode.TexturedInstancing // Only force when using full instancing
+  const forceInstancedOnly = instancingMode === InstancingMode.BlockInstancingOnly || instancingMode === InstancingMode.ColorOnly
 
   const attr: MesherGeometryOutput = {
     sx: sx + 8,
@@ -644,11 +648,11 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
           const pos = cursor.clone()
           // eslint-disable-next-line @typescript-eslint/no-loop-func
           delayedRender.push(() => {
-            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr, !isWaterlogged)
+            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr, !isWaterlogged, forceInstancedOnly)
           })
           attr.blocksCount++
         } else if (block.name === 'lava') {
-          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr, false)
+          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr, false, forceInstancedOnly)
           attr.blocksCount++
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
@@ -661,26 +665,26 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
             }
 
             const blockKey = block.name
-            if (!attr.instancedBlocks[blockKey]) {
-              // Get or create block ID
-              const blockId = world.instancedBlockIds[block.stateId]
-
-              if (blockId !== undefined) {
-                attr.instancedBlocks[blockKey] = {
-                  blockId,
-                  blockName: block.name,
-                  stateId: block.stateId,
-                  positions: []
+            const blockId = world.instancedBlockIds[block.stateId]
+            if (blockId !== undefined) {
+              if (!attr.instancedBlocks[blockKey]) {
+                if (blockId !== undefined) {
+                  attr.instancedBlocks[blockKey] = {
+                    blockId,
+                    blockName: block.name,
+                    stateId: block.stateId,
+                    positions: []
+                  }
                 }
               }
+              attr.instancedBlocks[blockKey].positions.push({
+                x: cursor.x,
+                y: cursor.y,
+                z: cursor.z
+              })
+              attr.blocksCount++
+              continue // Skip regular geometry generation for instanceable blocks
             }
-            attr.instancedBlocks[blockKey].positions.push({
-              x: cursor.x,
-              y: cursor.y,
-              z: cursor.z
-            })
-            attr.blocksCount++
-            continue // Skip regular geometry generation for instanceable blocks
           }
 
           // Skip buffer geometry generation if force instanced only mode is enabled

@@ -1327,12 +1327,12 @@ export class Entities {
     }
   }
 
-  raycastSceneDebug () {
+  debugRaycastScene () {
     // return any object from scene. raycast from camera
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera(new THREE.Vector2(0, 0), this.worldRenderer.camera)
-    const intersects = raycaster.intersectObjects(this.worldRenderer.scene.children)
-    return intersects[0]?.object
+    const intersects = raycaster.intersectObjects(this.worldRenderer.scene.children.filter(child => child.visible))
+    return intersects.find(intersect => intersect.object.visible)?.object
   }
 
   private setupPlayerObject (entity: SceneEntity['originalEntity'], wrapper: THREE.Group, overrides: { texture?: string }): PlayerObjectType {

@@ -189,7 +189,7 @@ export default class HoldingBlock {
     this.swingAnimator?.stopSwing()
   }
 
-  render (originalCamera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer, ambientLight: THREE.AmbientLight, directionalLight: THREE.DirectionalLight) {
+  render (renderer: THREE.WebGLRenderer) {
     if (!this.lastHeldItem) return
     const now = performance.now()
     if (this.lastUpdate && now - this.lastUpdate > 50) { // one tick
@@ -205,15 +205,13 @@ export default class HoldingBlock {
 
     this.blockSwapAnimation?.switcher.update()
 
-    const scene = new THREE.Scene()
+    const scene = this.worldRenderer.templateScene
     scene.add(this.cameraGroup)
     // if (this.camera.aspect !== originalCamera.aspect) {
     //   this.camera.aspect = originalCamera.aspect
     //   this.camera.updateProjectionMatrix()
     // }
     this.updateCameraGroup()
-    scene.add(ambientLight.clone())
-    scene.add(directionalLight.clone())
 
     const viewerSize = renderer.getSize(new THREE.Vector2())
     const minSize = Math.min(viewerSize.width, viewerSize.height)
@@ -241,6 +239,8 @@ export default class HoldingBlock {
     if (offHandDisplay) {
       this.cameraGroup.scale.x = 1
     }
+
+    scene.remove(this.cameraGroup)
   }
 
   // worldTest () {

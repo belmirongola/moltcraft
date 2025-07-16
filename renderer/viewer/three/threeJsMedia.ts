@@ -565,7 +565,7 @@ export class ThreeJsMedia {
     raycaster.setFromCamera(mouse, camera)
 
     // Check intersection with all objects in scene
-    const intersects = raycaster.intersectObjects(scene.children, true)
+    const intersects = raycaster.intersectObjects(scene.children.filter(child => child.visible), true)
     if (intersects.length > 0) {
       const intersection = intersects[0]
       const intersectedObject = intersection.object

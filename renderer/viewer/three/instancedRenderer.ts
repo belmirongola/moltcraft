@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { versionToNumber } from 'flying-squid/dist/utils'
-import PrismarineBlock, { Block } from 'prismarine-block'
+import PrismarineBlock from 'prismarine-block'
 import { IndexedBlock } from 'minecraft-data'
 import moreBlockData from '../lib/moreBlockDataGenerated.json'
 import { MesherGeometryOutput } from '../lib/mesher/shared'
@@ -45,24 +45,32 @@ export interface InstancedBlockModelData {
 export interface InstancedBlocksConfig {
   instanceableBlocks: Set<string>
   blocksDataModel: Record<string, InstancedBlockModelData>
-  allBlocksStateIdToModelIdMap: Record<number, number>
+  stateIdToModelIdMap: Record<number, number>
+  blockNameToIdMap: Record<string, number>
   interestedTextureTiles: Set<string>
 }
 
 export class InstancedRenderer {
   private readonly instancedMeshes = new Map<number, THREE.InstancedMesh>()
+  private readonly sceneUsedMeshes = new Map<string, THREE.InstancedMesh>()
   private readonly blockCounts = new Map<number, number>()
   private readonly sectionInstances = new Map<string, Map<number, number[]>>()
   private readonly cubeGeometry: THREE.BoxGeometry
   private readonly tempMatrix = new THREE.Matrix4()
   private readonly blockIdToName = new Map<number, string>()
-  private readonly blockNameToId = new Map<string, number>()
-  private nextBlockId = 0
 
   // Dynamic instance management
-  private readonly baseInstancesPerBlock = 100_000 // Base instances per block type
-  private readonly maxTotalInstances = 10_000_000 // Total instance budget across all blocks
+  private readonly initialInstancesPerBlock = 15_000 // Increased initial size to reduce early resizing
+  private readonly maxInstancesPerBlock = 100_000 // Cap per block type
+  private readonly maxTotalInstances = 10_000_000 // Total instance budget
   private currentTotalInstances = 0
+  private readonly growthFactor = 1.5 // How much to grow when needed
+
+  // Visibility control
+  private _instancedMeshesVisible = true
+
+  // Memory tracking
+  private totalAllocatedInstances = 0
 
   // New properties for dynamic block detection
   private instancedBlocksConfig: InstancedBlocksConfig | null = null
@@ -72,31 +80,176 @@ export class InstancedRenderer {
     this.cubeGeometry = this.createCubeGeometry()
   }
 
-  private getMaxInstancesPerBlock (): number {
-    const renderDistance = this.worldRenderer.viewDistance
-    if (renderDistance <= 0) return this.baseInstancesPerBlock
+  private getBlockId (blockName: string): number {
+    if (!this.instancedBlocksConfig) {
+      throw new Error('Instanced blocks config not prepared')
+    }
 
-    // Calculate dynamic limit based on render distance
-    // More render distance = more chunks = need more instances
-    const distanceFactor = Math.max(1, renderDistance / 8) // Normalize around render distance 8
-    const dynamicLimit = Math.floor(this.baseInstancesPerBlock * distanceFactor)
+    const blockId = this.instancedBlocksConfig.blockNameToIdMap[blockName]
+    if (blockId === undefined) {
+      throw new Error(`Block ${blockName} not found in blockNameToIdMap`)
+    }
 
-    // Cap at reasonable limits to prevent memory issues
-    return Math.min(dynamicLimit, 500_000)
+    return blockId
+  }
+
+  // Add getter/setter for visibility
+  get instancedMeshesVisible (): boolean {
+    return this._instancedMeshesVisible
+  }
+
+  set instancedMeshesVisible (visible: boolean) {
+    this._instancedMeshesVisible = visible
+    // Update all instanced meshes visibility
+    for (const mesh of this.instancedMeshes.values()) {
+      mesh.visible = visible
+    }
+  }
+
+  private getInitialInstanceCount (blockName: string): number {
+    // Start with small allocation, can grow later if needed
+    return Math.min(this.initialInstancesPerBlock, this.maxInstancesPerBlock)
+  }
+
+  debugResizeMesh () {
+    // Debug helper to test resize operation
+    const blockName = 'grass_block'
+    const blockId = this.getBlockId(blockName)
+    const mesh = this.instancedMeshes.get(blockId)
+    if (!mesh) {
+      console.warn('Debug: Mesh not found for', blockName)
+      return
+    }
+    console.log('Debug: Before resize -',
+      'Mesh in scene:',
+      this.worldRenderer.scene.children.includes(mesh),
+      'Instance count:',
+      mesh.count,
+      'Matrix count:',
+      mesh.instanceMatrix.count)
+
+    const result = this.resizeInstancedMesh(blockId, mesh.instanceMatrix.count * 2)
+
+    const newMesh = this.instancedMeshes.get(blockId)
+    console.log('Debug: After resize -',
+      'Success:',
+      result,
+      'New mesh in scene:',
+      this.worldRenderer.scene.children.includes(newMesh!),
+      'Old mesh in scene:',
+      this.worldRenderer.scene.children.includes(mesh),
+      'New count:',
+      newMesh?.count,
+      'New matrix count:',
+      newMesh?.instanceMatrix.count)
+  }
+
+  private resizeInstancedMesh (blockId: number, newSize: number): boolean {
+    const mesh = this.instancedMeshes.get(blockId)
+    if (!mesh) return false
+
+    const blockName = this.blockIdToName.get(blockId) || 'unknown'
+    const oldSize = mesh.instanceMatrix.count
+    const actualInstanceCount = this.blockCounts.get(blockId) || 0
+
+    console.log(`Growing instances for ${blockName}: ${oldSize} -> ${newSize} (${((newSize / oldSize - 1) * 100).toFixed(1)}% increase)`)
+    console.log(`Current actual instances: ${actualInstanceCount}, Is old mesh in scene:`, this.worldRenderer.scene.children.includes(mesh))
+
+    const { geometry } = mesh
+    const { material } = mesh
+
+    // Create new mesh with increased capacity
+    const newMesh = new THREE.InstancedMesh(
+      geometry,
+      material,
+      newSize
+    )
+    newMesh.name = mesh.name
+    newMesh.frustumCulled = false
+    newMesh.visible = this._instancedMeshesVisible
+
+    // Copy ALL existing instances using our tracked count
+    for (let i = 0; i < actualInstanceCount; i++) {
+      this.tempMatrix.identity()
+      mesh.getMatrixAt(i, this.tempMatrix)
+      newMesh.setMatrixAt(i, this.tempMatrix)
+    }
+
+    // Set the count to match our tracked instances
+    newMesh.count = actualInstanceCount
+    newMesh.instanceMatrix.needsUpdate = true
+
+    // Update tracking
+    this.totalAllocatedInstances += (newSize - oldSize)
+
+    // Important: Add new mesh before removing old one
+    this.worldRenderer.scene.add(newMesh)
+    console.log(`Added new mesh to scene, is present:`, this.worldRenderer.scene.children.includes(newMesh))
+
+    // Update our tracking to point to new mesh
+    this.instancedMeshes.set(blockId, newMesh)
+
+    // Now safe to remove old mesh
+    this.worldRenderer.scene.remove(mesh)
+    console.log(`Removed old mesh from scene, still present:`, this.worldRenderer.scene.children.includes(mesh))
+
+    // Clean up old mesh
+    mesh.geometry.dispose()
+    if (Array.isArray(mesh.material)) {
+      for (const m of mesh.material) m.dispose()
+    } else {
+      mesh.material.dispose()
+    }
+
+    // Verify instance count matches
+    console.log(`Finished growing ${blockName}. Actual instances: ${actualInstanceCount}, New capacity: ${newSize}, Mesh count: ${newMesh.count}`)
+    console.log(`Scene check - New mesh in scene: ${this.worldRenderer.scene.children.includes(newMesh)}, Old mesh in scene: ${this.worldRenderer.scene.children.includes(mesh)}`)
+
+    if (newMesh.count !== actualInstanceCount) {
+      console.warn(`Instance count mismatch for ${blockName}! Mesh: ${newMesh.count}, Tracked: ${actualInstanceCount}`)
+    }
+
+    return true
   }
 
   private canAddMoreInstances (blockId: number, count: number): boolean {
     const currentForBlock = this.blockCounts.get(blockId) || 0
-    const maxPerBlock = this.getMaxInstancesPerBlock()
+    const mesh = this.instancedMeshes.get(blockId)
+    if (!mesh) return false
 
-    // Check per-block limit
-    if (currentForBlock + count > maxPerBlock) {
-      return false
+    const blockName = this.blockIdToName.get(blockId) || 'unknown'
+
+    // If we would exceed current capacity, try to grow
+    if (currentForBlock + count > mesh.instanceMatrix.count) {
+      const currentCapacity = mesh.instanceMatrix.count
+      const neededCapacity = currentForBlock + count
+      const newSize = Math.min(
+        this.maxInstancesPerBlock,
+        Math.ceil(Math.max(
+          neededCapacity,
+          currentCapacity * this.growthFactor
+        ))
+      )
+
+      console.log(`Need to grow ${blockName}: current ${currentForBlock}/${currentCapacity}, need ${neededCapacity}, growing to ${newSize}`)
+
+      // Check if growth would exceed total budget
+      const growthAmount = newSize - currentCapacity
+      if (this.totalAllocatedInstances + growthAmount > this.maxTotalInstances) {
+        console.warn(`Cannot grow instances for ${blockName}: would exceed total budget`)
+        return false
+      }
+
+      // Try to grow
+      if (!this.resizeInstancedMesh(blockId, newSize)) {
+        console.warn(`Failed to grow instances for ${blockName}`)
+        return false
+      }
     }
 
     // Check total instance budget
     if (this.currentTotalInstances + count > this.maxTotalInstances) {
-      console.warn(`Total instance limit reached (${this.currentTotalInstances}/${this.maxTotalInstances}). Consider reducing render distance.`)
+      console.warn(`Total instance limit reached (${this.currentTotalInstances}/${this.maxTotalInstances})`)
       return false
     }
 
@@ -114,7 +267,8 @@ export class InstancedRenderer {
     })
     this.sharedMaterial.map = this.worldRenderer.material.map
 
-    const blocksMap = {
+    const { forceInstancedOnly } = this.worldRenderer.worldRendererConfig
+    const debugBlocksMap = forceInstancedOnly ? {
       'double_stone_slab': 'stone',
       'stone_slab': 'stone',
       'oak_stairs': 'planks',
@@ -133,7 +287,7 @@ export class InstancedRenderer {
       'stone_slab2': 'stone_slab',
       'purpur_stairs': 'purpur_block',
       'purpur_slab': 'purpur_block',
-    }
+    } : {}
 
     const isPreflat = versionToNumber(this.worldRenderer.version) < versionToNumber('1.13')
     const PBlockOriginal = PrismarineBlock(this.worldRenderer.version)
@@ -141,9 +295,9 @@ export class InstancedRenderer {
     const instanceableBlocks = new Set<string>()
     const blocksDataModel = {} as Record<string, InstancedBlockModelData>
     const interestedTextureTiles = new Set<string>()
-    const blocksProcessed = {} as Record<string, boolean>
-    let i = 0
-    const allBlocksStateIdToModelIdMap = {} as Record<number, number>
+    const stateIdToModelIdMap = {} as Record<number, number>
+    const blockNameToIdMap = {} as Record<string, number>
+    let nextModelId = 0
 
     const addBlockModel = (state: number, name: string, props: Record<string, any>, mcBlockData?: IndexedBlock, defaultState = false) => {
       const possibleIssues = [] as string[]
@@ -184,7 +338,7 @@ export class InstancedRenderer {
         textureInfos: Array.from({ length: 6 }).fill(null).map(() => ({ u: 0, v: 0, su: 0, sv: 0 }))
       }
 
-      const blockId = i++
+      const blockId = nextModelId++
       for (const [face, { texture, cullface, rotation = 0 }] of Object.entries(elem.faces)) {
         const faceIndex = facesMapping.findIndex(x => x.includes(face))
         if (faceIndex === -1) {
@@ -207,10 +361,10 @@ export class InstancedRenderer {
         }
       }
 
-      allBlocksStateIdToModelIdMap[state] = blockId
+      stateIdToModelIdMap[state] = blockId
       blocksDataModel[blockId] = blockData
       instanceableBlocks.add(name)
-      blocksProcessed[name] = true
+      blockNameToIdMap[name] = blockId
 
       if (mcBlockData) {
         blockData.transparent = mcBlockData.transparent
@@ -231,7 +385,7 @@ export class InstancedRenderer {
     // Process all blocks to find instanceable ones
     for (const b of (globalThis as any).loadedData.blocksArray) {
       for (let state = b.minStateId; state <= b.maxStateId; state++) {
-        const mapping = blocksMap[b.name]
+        const mapping = debugBlocksMap[b.name]
         const block = PBlockOriginal.fromStateId(mapping && (globalThis as any).loadedData.blocksByName[mapping] ? (globalThis as any).loadedData.blocksByName[mapping].defaultState : state, 0)
         if (isPreflat) {
           getPreflatBlock(block)
@@ -239,7 +393,7 @@ export class InstancedRenderer {
 
         const textureOverride = textureOverrideFullBlocks[block.name] as string | undefined
         if (textureOverride) {
-          const blockId = i++
+          const blockId = nextModelId++
           const { currentResources } = this.worldRenderer.resourcesManager
           if (!currentResources?.worldBlockProvider) continue
           const texture = currentResources.worldBlockProvider.getTextureInfo(textureOverride)
@@ -248,7 +402,7 @@ export class InstancedRenderer {
             continue
           }
           const texIndex = texture.tileIndex
-          allBlocksStateIdToModelIdMap[state] = blockId
+          stateIdToModelIdMap[state] = blockId
           const blockData: InstancedBlockModelData = {
             textures: [texIndex, texIndex, texIndex, texIndex, texIndex, texIndex],
             rotation: [0, 0, 0, 0, 0, 0],
@@ -263,6 +417,7 @@ export class InstancedRenderer {
           blocksDataModel[blockId] = blockData
           instanceableBlocks.add(block.name)
           interestedTextureTiles.add(textureOverride)
+          blockNameToIdMap[block.name] = blockId
           continue
         }
 
@@ -280,7 +435,8 @@ export class InstancedRenderer {
     return {
       instanceableBlocks,
       blocksDataModel,
-      allBlocksStateIdToModelIdMap,
+      stateIdToModelIdMap,
+      blockNameToIdMap,
       interestedTextureTiles
     }
   }
@@ -299,6 +455,7 @@ export class InstancedRenderer {
     }
   }
 
+  // Update initializeInstancedMeshes to respect visibility setting
   initializeInstancedMeshes () {
     if (!this.instancedBlocksConfig) {
       console.warn('Instanced blocks config not prepared')
@@ -311,6 +468,7 @@ export class InstancedRenderer {
       if (this.instancedMeshes.has(blockId)) continue // Skip if already exists
 
       const blockModelData = this.instancedBlocksConfig.blocksDataModel[blockId]
+      const initialCount = this.getInitialInstanceCount(blockName)
 
       const geometry = blockModelData ? this.createCustomGeometry(0, blockModelData) : this.cubeGeometry
       const material = this.createBlockMaterial(blockName)
@@ -318,17 +476,32 @@ export class InstancedRenderer {
       const mesh = new THREE.InstancedMesh(
         geometry,
         material,
-        this.getMaxInstancesPerBlock()
+        initialCount
       )
       mesh.name = `instanced_${blockName}`
-      mesh.frustumCulled = false // Important for performance
+      mesh.frustumCulled = false
       mesh.count = 0
+      mesh.visible = this._instancedMeshesVisible // Set initial visibility
 
       this.instancedMeshes.set(blockId, mesh)
       this.worldRenderer.scene.add(mesh)
+      this.totalAllocatedInstances += initialCount
 
       if (!blockModelData) {
         console.warn(`No block model data found for block ${blockName}`)
+      }
+    }
+  }
+
+  private debugRaycast () {
+    // get instanced block name
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), this.worldRenderer.camera)
+    const intersects = raycaster.intersectObjects(this.worldRenderer.scene.children.filter(child => child.visible))
+    for (const intersect of intersects) {
+      const mesh = intersect.object as THREE.Mesh
+      if (mesh.name.startsWith('instanced_')) {
+        console.log(`Instanced block name: ${mesh.name}`)
       }
     }
   }
@@ -475,7 +648,7 @@ export class InstancedRenderer {
       // Add new instances for this section (with limit checking)
       for (const pos of blockData.positions) {
         if (!this.canAddMoreInstances(blockId, 1)) {
-          console.warn(`Exceeded max instances for block ${blockName} (${currentCount + instanceIndices.length}/${this.getMaxInstancesPerBlock()})`)
+          console.warn(`Exceeded max instances for block ${blockName} (${currentCount + instanceIndices.length}/${this.maxInstancesPerBlock})`)
           break
         }
 
@@ -488,10 +661,16 @@ export class InstancedRenderer {
       // Update tracking
       if (instanceIndices.length > 0) {
         sectionMap.set(blockId, instanceIndices)
-        this.blockCounts.set(blockId, currentCount + instanceIndices.length)
+        const newCount = currentCount + instanceIndices.length
+        this.blockCounts.set(blockId, newCount)
         this.currentTotalInstances += instanceIndices.length
-        mesh.count = this.blockCounts.get(blockId) || 0
+        mesh.count = newCount // Ensure mesh.count matches our tracking
         mesh.instanceMatrix.needsUpdate = true
+
+        // Only track mesh in sceneUsedMeshes if it's actually being used
+        if (newCount > 0) {
+          this.sceneUsedMeshes.set(blockName, mesh)
+        }
       }
     }
   }
@@ -503,6 +682,12 @@ export class InstancedRenderer {
     // Remove instances for each block type in this section
     for (const [blockId, instanceIndices] of sectionMap) {
       this.removeInstancesFromBlock(blockId, instanceIndices)
+
+      // Remove from sceneUsedMeshes if no instances left
+      const blockName = this.blockIdToName.get(blockId)
+      if (blockName && (this.blockCounts.get(blockId) || 0) === 0) {
+        this.sceneUsedMeshes.delete(blockName)
+      }
     }
 
     // Remove section from tracking
@@ -557,6 +742,14 @@ export class InstancedRenderer {
         }
       }
     }
+
+    // Update sceneUsedMeshes if no instances left
+    if (newCount === 0) {
+      const blockName = this.blockIdToName.get(blockId)
+      if (blockName) {
+        this.sceneUsedMeshes.delete(blockName)
+      }
+    }
   }
 
   isBlockInstanceable (blockName: string): boolean {
@@ -593,47 +786,48 @@ export class InstancedRenderer {
     this.blockCounts.clear()
     this.sectionInstances.clear()
     this.blockIdToName.clear()
-    this.blockNameToId.clear()
-    this.nextBlockId = 0
+    this.sceneUsedMeshes.clear()
     this.cubeGeometry.dispose()
   }
 
+  // Add visibility info to stats
   getStats () {
     let totalInstances = 0
     let activeBlockTypes = 0
+    let totalWastedMemory = 0
 
     for (const [blockId, mesh] of this.instancedMeshes) {
-      if (mesh.count > 0) {
-        totalInstances += mesh.count
+      const allocated = mesh.instanceMatrix.count
+      const used = mesh.count
+      totalWastedMemory += (allocated - used) * 64 // 64 bytes per instance (approximate)
+
+      if (used > 0) {
+        totalInstances += used
         activeBlockTypes++
       }
     }
 
-    const maxPerBlock = this.getMaxInstancesPerBlock()
+    const maxPerBlock = this.maxInstancesPerBlock
     const renderDistance = this.worldRenderer.viewDistance
 
     return {
       totalInstances,
       activeBlockTypes,
-      drawCalls: activeBlockTypes, // One draw call per active block type
-      memoryEstimate: totalInstances * 64, // Rough estimate in bytes
+      drawCalls: this._instancedMeshesVisible ? activeBlockTypes : 0,
+      memoryStats: {
+        totalAllocatedInstances: this.totalAllocatedInstances,
+        usedInstances: totalInstances,
+        wastedInstances: this.totalAllocatedInstances - totalInstances,
+        estimatedMemoryUsage: this.totalAllocatedInstances * 64,
+        estimatedWastedMemory: totalWastedMemory,
+        utilizationPercent: ((totalInstances / this.totalAllocatedInstances) * 100).toFixed(1) + '%'
+      },
       maxInstancesPerBlock: maxPerBlock,
       totalInstanceBudget: this.maxTotalInstances,
       renderDistance,
-      instanceUtilization: totalInstances / this.maxTotalInstances
+      instanceUtilization: totalInstances / this.maxTotalInstances,
+      instancedMeshesVisible: this._instancedMeshesVisible
     }
-  }
-
-  private getBlockId (blockName: string): number {
-    // Get the block ID from our local map
-    let blockId = this.blockNameToId.get(blockName)
-    if (blockId === undefined) {
-      // If the block ID doesn't exist, create a new one
-      blockId = this.nextBlockId++
-      this.blockNameToId.set(blockName, blockId)
-      this.blockIdToName.set(blockId, blockName)
-    }
-    return blockId
   }
 
   // New method to prepare and initialize everything

@@ -38,6 +38,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   holdingBlock: HoldingBlock
   holdingBlockLeft: HoldingBlock
   scene = new THREE.Scene()
+  templateScene = new THREE.Scene()
   ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
   directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
   entities = new Entities(this)
@@ -149,12 +150,18 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     return {
       instanceableBlocks: config.instanceableBlocks,
-      allBlocksStateIdToModelIdMap: config.allBlocksStateIdToModelIdMap
+      allBlocksStateIdToModelIdMap: config.stateIdToModelIdMap
     }
   }
 
   updatePlayerEntity (e: any) {
     this.entities.handlePlayerEntity(e)
+  }
+
+  resetTemplateScene () {
+    this.templateScene = new THREE.Scene()
+    this.templateScene.add(this.ambientLight.clone())
+    this.templateScene.add(this.directionalLight.clone())
   }
 
   resetScene () {
@@ -170,6 +177,8 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.cameraContainer = new THREE.Object3D()
     this.cameraContainer.add(this.camera)
     this.scene.add(this.cameraContainer)
+
+    this.resetTemplateScene()
   }
 
   override watchReactivePlayerState () {
@@ -180,10 +189,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.onReactivePlayerStateUpdated('ambientLight', (value) => {
       if (!value) return
       this.ambientLight.intensity = value
+      this.resetTemplateScene()
     })
     this.onReactivePlayerStateUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
+      this.resetTemplateScene()
     })
     this.onReactivePlayerStateUpdated('lookingAtBlock', (value) => {
       this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
@@ -757,8 +768,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       // !this.freeFlyMode &&
       !this.renderer.xr.isPresenting
     ) {
-      this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
-      this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
+      this.holdingBlock.render(this.renderer)
+      this.holdingBlockLeft.render(this.renderer)
     }
 
     for (const fountain of this.fountains) {
@@ -955,11 +966,15 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   setSectionDirty (pos: Vec3, value = true) {
-    const { useInstancedRendering, enableSingleColorMode } = this.worldRendererConfig
+    const { useInstancedRendering, enableSingleColorMode, forceInstancedOnly } = this.worldRendererConfig
     let instancingMode = InstancingMode.None
 
-    if (useInstancedRendering) {
-      instancingMode = enableSingleColorMode ? InstancingMode.ColorOnly : InstancingMode.TexturedInstancing
+    if (useInstancedRendering || enableSingleColorMode) {
+      instancingMode = enableSingleColorMode
+        ? InstancingMode.ColorOnly
+        : forceInstancedOnly
+          ? InstancingMode.BlockInstancingOnly
+          : InstancingMode.BlockInstancing
     }
 
     this.cleanChunkTextures(pos.x, pos.z) // todo don't do this!

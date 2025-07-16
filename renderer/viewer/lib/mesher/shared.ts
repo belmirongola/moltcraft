@@ -3,7 +3,8 @@ import { BlockType } from '../../../playground/shared'
 export enum InstancingMode {
   None = 'none',
   ColorOnly = 'color_only',
-  TexturedInstancing = 'textured_instancing'
+  BlockInstancing = 'block_instancing',
+  BlockInstancingOnly = 'block_instancing_only'
 }
 
 // only here for easier testing
