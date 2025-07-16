@@ -50,7 +50,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraShake: CameraShake
   cameraContainer: THREE.Object3D
   media: ThreeJsMedia
-  instancedRenderer: InstancedRenderer
+  instancedRenderer: InstancedRenderer | undefined
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
   camera: THREE.PerspectiveCamera
   renderTimeAvg = 0
@@ -496,7 +496,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     return worldPos
   }
 
-  getWorldCameraPosition () {
+  getSectionCameraPosition () {
     const pos = this.getCameraPosition()
     return new Vec3(
       Math.floor(pos.x / 16),
@@ -506,7 +506,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateCameraSectionPos () {
-    const newSectionPos = this.getWorldCameraPosition()
+    const newSectionPos = this.getSectionCameraPosition()
     if (!this.cameraSectionPos.equals(newSectionPos)) {
       this.cameraSectionPos = newSectionPos
       this.cameraSectionPositionUpdate()

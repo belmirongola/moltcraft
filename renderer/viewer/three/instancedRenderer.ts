@@ -34,6 +34,7 @@ export interface InstancedSectionData {
 }
 
 export interface InstancedBlockModelData {
+  stateId: number
   textures: number[]
   rotation: number[]
   transparent?: boolean
@@ -51,6 +52,7 @@ export interface InstancedBlocksConfig {
 }
 
 export class InstancedRenderer {
+  USE_APP_GEOMETRY = true
   private readonly instancedMeshes = new Map<number, THREE.InstancedMesh>()
   private readonly sceneUsedMeshes = new Map<string, THREE.InstancedMesh>()
   private readonly blockCounts = new Map<number, number>()
@@ -78,6 +80,7 @@ export class InstancedRenderer {
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
     this.cubeGeometry = this.createCubeGeometry()
+    // Initialize world origin at camera position
   }
 
   private getBlockId (blockName: string): number {
@@ -293,6 +296,7 @@ export class InstancedRenderer {
       ]
 
       const blockData: InstancedBlockModelData = {
+        stateId: state,
         textures: [0, 0, 0, 0, 0, 0],
         rotation: [0, 0, 0, 0, 0, 0],
         textureInfos: Array.from({ length: 6 }).fill(null).map(() => ({ u: 0, v: 0, su: 0, sv: 0 }))
@@ -364,6 +368,7 @@ export class InstancedRenderer {
           const texIndex = texture.tileIndex
           stateIdToModelIdMap[state] = blockId
           const blockData: InstancedBlockModelData = {
+            stateId: state,
             textures: [texIndex, texIndex, texIndex, texIndex, texIndex, texIndex],
             rotation: [0, 0, 0, 0, 0, 0],
             filterLight: b.filterLight,
@@ -425,12 +430,13 @@ export class InstancedRenderer {
     // Create InstancedMesh for each instanceable block type
     for (const blockName of this.instancedBlocksConfig.instanceableBlocks) {
       const blockId = this.getBlockId(blockName)
+      const { stateId } = this.instancedBlocksConfig.blocksDataModel[blockId]
       if (this.instancedMeshes.has(blockId)) continue // Skip if already exists
 
       const blockModelData = this.instancedBlocksConfig.blocksDataModel[blockId]
       const initialCount = this.getInitialInstanceCount(blockName)
 
-      const geometry = blockModelData ? this.createCustomGeometry(0, blockModelData) : this.cubeGeometry
+      const geometry = blockModelData ? this.createCustomGeometry(stateId, blockModelData) : this.cubeGeometry
       const material = this.createBlockMaterial(blockName)
 
       const mesh = new THREE.InstancedMesh(
@@ -475,6 +481,14 @@ export class InstancedRenderer {
   }
 
   private createCustomGeometry (stateId: number, blockModelData: InstancedBlockModelData): THREE.BufferGeometry {
+    if (this.USE_APP_GEOMETRY) {
+      const itemMesh = this.worldRenderer.entities.getItemMesh({
+        blockState: stateId
+      }, {})
+
+      return itemMesh?.meshGeometry
+    }
+
     // Create custom geometry with specific UV coordinates per face
     const geometry = new THREE.BoxGeometry(1, 1, 1)
 
@@ -525,7 +539,9 @@ export class InstancedRenderer {
       const faceUVs = uvs.slice(faceUvStart, faceUvStart + 8)
 
       // Apply rotation if needed (0=0°, 1=90°, 2=180°, 3=270°)
-      if (rotation > 0) {
+      // Add base 180° rotation (2) to all faces
+      const totalRotation = (rotation + 2) % 4
+      if (totalRotation > 0) {
         // Each vertex has 2 UV coordinates (u,v)
         // We need to rotate the 4 vertices as a group
         const vertices: UVVertex[] = []
@@ -539,7 +555,7 @@ export class InstancedRenderer {
         // Rotate vertices
         const rotatedVertices: UVVertex[] = []
         for (let i = 0; i < 4; i++) {
-          const srcIndex = (i + rotation) % 4
+          const srcIndex = (i + totalRotation) % 4
           rotatedVertices.push(vertices[srcIndex])
         }
 
@@ -611,7 +627,10 @@ export class InstancedRenderer {
       // Add new instances for this section
       for (const pos of blockData.positions) {
         const instanceIndex = currentCount + instanceIndices.length
-        this.tempMatrix.setPosition(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
+        const offset = this.USE_APP_GEOMETRY ? 0 : 0.5
+
+        // Calculate position relative to world origin
+        this.tempMatrix.makeTranslation(pos.x + offset, pos.y + offset, pos.z + offset)
         mesh.setMatrixAt(instanceIndex, this.tempMatrix)
         instanceIndices.push(instanceIndex)
       }

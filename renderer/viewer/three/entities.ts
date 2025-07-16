@@ -730,6 +730,7 @@ export class Entities {
       outerGroup.add(mesh)
       return {
         mesh: outerGroup,
+        meshGeometry: mesh.children.find(child => child instanceof THREE.Mesh)?.geometry,
         isBlock: true,
         itemsTexture: null,
         itemsTextureFlipped: null,
