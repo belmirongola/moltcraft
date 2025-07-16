@@ -21,37 +21,37 @@ function parseRgbColor (rgbString: string): number {
 }
 
 export interface InstancedBlockData {
-  blockId: number
+  stateId: number
   positions: Vec3[]
   blockName: string
-  stateId: number
 }
 
 export interface InstancedSectionData {
   sectionKey: string
-  instancedBlocks: Map<string, InstancedBlockData>
+  instancedBlocks: Map<number, InstancedBlockData>
   shouldUseInstancedOnly: boolean
 }
 
 export interface InstancedBlockModelData {
   stateId: number
-  textures: number[]
+  // textures: number[]
   rotation: number[]
   transparent?: boolean
   emitLight?: number
   filterLight?: number
-  textureInfos?: Array<{ u: number, v: number, su: number, sv: number }> // Store texture info for each face
+  textureInfos?: Array<{ u: number, v: number, su: number, sv: number }>
 }
 
 export interface InstancedBlocksConfig {
   instanceableBlocks: Set<string>
-  blocksDataModel: Record<string, InstancedBlockModelData>
-  stateIdToModelIdMap: Record<number, number>
-  blockNameToIdMap: Record<string, number>
+  blocksDataModel: Record<number, InstancedBlockModelData>
+  blockNameToStateIdMap: Record<string, number>
   interestedTextureTiles: Set<string>
 }
 
 export class InstancedRenderer {
+  isPreflat: boolean
+
   USE_APP_GEOMETRY = true
   private readonly instancedMeshes = new Map<number, THREE.InstancedMesh>()
   private readonly sceneUsedMeshes = new Map<string, THREE.InstancedMesh>()
@@ -59,12 +59,12 @@ export class InstancedRenderer {
   private readonly sectionInstances = new Map<string, Map<number, number[]>>()
   private readonly cubeGeometry: THREE.BoxGeometry
   private readonly tempMatrix = new THREE.Matrix4()
-  private readonly blockIdToName = new Map<number, string>()
+  private readonly stateIdToName = new Map<number, string>()
 
   // Dynamic instance management
-  private readonly initialInstancesPerBlock = 2000 // Increased initial size to reduce early resizing
-  private readonly maxInstancesPerBlock = 100_000 // Cap per block type
-  private readonly maxTotalInstances = 10_000_000 // Total instance budget
+  private readonly initialInstancesPerBlock = 2000
+  private readonly maxInstancesPerBlock = 100_000
+  private readonly maxTotalInstances = 10_000_000
   private currentTotalInstances = 0
   private readonly growthFactor = 1.5 // How much to grow when needed
 
@@ -74,26 +74,25 @@ export class InstancedRenderer {
   // Memory tracking
   private totalAllocatedInstances = 0
 
-  // New properties for dynamic block detection
   private instancedBlocksConfig: InstancedBlocksConfig | null = null
   private sharedMaterial: THREE.MeshLambertMaterial | null = null
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
     this.cubeGeometry = this.createCubeGeometry()
-    // Initialize world origin at camera position
+    this.isPreflat = versionToNumber(this.worldRenderer.version) < versionToNumber('1.13')
   }
 
-  private getBlockId (blockName: string): number {
+  private getStateId (blockName: string): number {
     if (!this.instancedBlocksConfig) {
       throw new Error('Instanced blocks config not prepared')
     }
 
-    const blockId = this.instancedBlocksConfig.blockNameToIdMap[blockName]
-    if (blockId === undefined) {
-      throw new Error(`Block ${blockName} not found in blockNameToIdMap`)
+    const stateId = this.instancedBlocksConfig.blockNameToStateIdMap[blockName]
+    if (stateId === undefined) {
+      throw new Error(`Block ${blockName} not found in blockNameToStateIdMap`)
     }
 
-    return blockId
+    return stateId
   }
 
   // Add getter/setter for visibility
@@ -117,20 +116,20 @@ export class InstancedRenderer {
   debugResizeMesh () {
     // Debug helper to test resize operation
     const blockName = 'grass_block'
-    const blockId = this.getBlockId(blockName)
-    const mesh = this.instancedMeshes.get(blockId)
-    this.resizeInstancedMesh(blockId, mesh!.instanceMatrix.count * this.growthFactor)
+    const stateId = this.getStateId(blockName)
+    const mesh = this.instancedMeshes.get(stateId)
+    this.resizeInstancedMesh(stateId, mesh!.instanceMatrix.count * this.growthFactor)
   }
 
-  private resizeInstancedMesh (blockId: number, newSize: number): boolean {
-    const mesh = this.instancedMeshes.get(blockId)
+  private resizeInstancedMesh (stateId: number, newSize: number): boolean {
+    const mesh = this.instancedMeshes.get(stateId)
     if (!mesh) return false
 
-    const blockName = this.blockIdToName.get(blockId) || 'unknown'
+    const blockName = this.stateIdToName.get(stateId) || 'unknown'
     const oldSize = mesh.instanceMatrix.count
-    const actualInstanceCount = this.blockCounts.get(blockId) || 0
+    const actualInstanceCount = this.blockCounts.get(stateId) || 0
 
-    console.log(`Growing instances for ${blockName}: ${oldSize} -> ${newSize} (${((newSize / oldSize - 1) * 100).toFixed(1)}% increase)`)
+    // console.log(`Growing instances for ${blockName}: ${oldSize} -> ${newSize} (${((newSize / oldSize - 1) * 100).toFixed(1)}% increase)`)
 
     const { geometry } = mesh
     const { material } = mesh
@@ -158,7 +157,7 @@ export class InstancedRenderer {
     this.totalAllocatedInstances += (newSize - oldSize)
 
     this.worldRenderer.scene.add(newMesh)
-    this.instancedMeshes.set(blockId, newMesh)
+    this.instancedMeshes.set(stateId, newMesh)
     this.worldRenderer.scene.remove(mesh)
 
     // Clean up old mesh
@@ -175,12 +174,12 @@ export class InstancedRenderer {
     return true
   }
 
-  private canAddMoreInstances (blockId: number, count: number): boolean {
-    const currentForBlock = this.blockCounts.get(blockId) || 0
-    const mesh = this.instancedMeshes.get(blockId)
+  private canAddMoreInstances (stateId: number, count: number): boolean {
+    const currentForBlock = this.blockCounts.get(stateId) || 0
+    const mesh = this.instancedMeshes.get(stateId)
     if (!mesh) return false
 
-    const blockName = this.blockIdToName.get(blockId) || 'unknown'
+    const blockName = this.stateIdToName.get(stateId) || 'unknown'
 
     // If we would exceed current capacity, try to grow
     if (currentForBlock + count > mesh.instanceMatrix.count) {
@@ -204,7 +203,7 @@ export class InstancedRenderer {
       }
 
       // Try to grow
-      if (!this.resizeInstancedMesh(blockId, newSize)) {
+      if (!this.resizeInstancedMesh(stateId, newSize)) {
         console.warn(`Failed to grow instances for ${blockName}`)
         return false
       }
@@ -219,7 +218,80 @@ export class InstancedRenderer {
     return true
   }
 
-  prepareInstancedBlocksData (): InstancedBlocksConfig {
+  prepareInstancedBlock (stateId: number, name: string, props: Record<string, any>, mcBlockData?: IndexedBlock, defaultState = false) {
+    const config = this.instancedBlocksConfig!
+
+    const possibleIssues = [] as string[]
+    const { currentResources } = this.worldRenderer.resourcesManager
+    if (!currentResources?.worldBlockProvider) return
+
+    const models = currentResources.worldBlockProvider.getAllResolvedModels0_1({
+      name,
+      properties: props
+    }, this.isPreflat, possibleIssues, [], [], true)
+
+    // skipping composite blocks
+    if (models.length !== 1 || !models[0]![0].elements) {
+      return
+    }
+    const elements = models[0]![0]?.elements
+    if (!elements || (elements.length !== 1 && name !== 'grass_block')) {
+      return
+    }
+    const elem = elements[0]
+    if (elem.from[0] !== 0 || elem.from[1] !== 0 || elem.from[2] !== 0 || elem.to[0] !== 16 || elem.to[1] !== 16 || elem.to[2] !== 16) {
+      // not full block
+      return
+    }
+
+    const facesMapping = [
+      ['front', 'south'],
+      ['bottom', 'down'],
+      ['top', 'up'],
+      ['right', 'east'],
+      ['left', 'west'],
+      ['back', 'north'],
+    ]
+
+    const blockData: InstancedBlockModelData = {
+      stateId,
+      rotation: [0, 0, 0, 0, 0, 0],
+      textureInfos: Array.from({ length: 6 }).fill(null).map(() => ({ u: 0, v: 0, su: 0, sv: 0 }))
+    }
+
+    for (const [face, { texture, cullface, rotation = 0 }] of Object.entries(elem.faces)) {
+      const faceIndex = facesMapping.findIndex(x => x.includes(face))
+      if (faceIndex === -1) {
+        throw new Error(`Unknown face ${face}`)
+      }
+
+      blockData.rotation[faceIndex] = rotation / 90
+      if (Math.floor(blockData.rotation[faceIndex]) !== blockData.rotation[faceIndex]) {
+        throw new Error(`Invalid rotation ${rotation} ${name}`)
+      }
+      config.interestedTextureTiles.add(texture.debugName)
+
+      // Store texture info for this face
+      blockData.textureInfos![faceIndex] = {
+        u: texture.u,
+        v: texture.v,
+        su: texture.su,
+        sv: texture.sv
+      }
+    }
+
+    config.blocksDataModel[stateId] = blockData
+    config.instanceableBlocks.add(name)
+    config.blockNameToStateIdMap[name] = stateId
+
+    if (mcBlockData) {
+      blockData.transparent = mcBlockData.transparent
+      blockData.emitLight = mcBlockData.emitLight
+      blockData.filterLight = mcBlockData.filterLight
+    }
+  }
+
+  prepareInstancedBlocksData () {
     if (this.sharedMaterial) {
       this.sharedMaterial.dispose()
       this.sharedMaterial = null
@@ -252,93 +324,17 @@ export class InstancedRenderer {
       'purpur_slab': 'purpur_block',
     } : {}
 
-    const isPreflat = versionToNumber(this.worldRenderer.version) < versionToNumber('1.13')
     const PBlockOriginal = PrismarineBlock(this.worldRenderer.version)
 
-    const instanceableBlocks = new Set<string>()
-    const blocksDataModel = {} as Record<string, InstancedBlockModelData>
-    const interestedTextureTiles = new Set<string>()
-    const stateIdToModelIdMap = {} as Record<number, number>
-    const blockNameToIdMap = {} as Record<string, number>
-    let nextModelId = 0
-
-    const addBlockModel = (state: number, name: string, props: Record<string, any>, mcBlockData?: IndexedBlock, defaultState = false) => {
-      const possibleIssues = [] as string[]
-      const { currentResources } = this.worldRenderer.resourcesManager
-      if (!currentResources?.worldBlockProvider) return
-
-      const models = currentResources.worldBlockProvider.getAllResolvedModels0_1({
-        name,
-        properties: props
-      }, isPreflat, possibleIssues, [], [], true)
-
-      // skipping composite blocks
-      if (models.length !== 1 || !models[0]![0].elements) {
-        return
-      }
-      const elements = models[0]![0]?.elements
-      if (!elements || (elements.length !== 1 && name !== 'grass_block')) {
-        return
-      }
-      const elem = elements[0]
-      if (elem.from[0] !== 0 || elem.from[1] !== 0 || elem.from[2] !== 0 || elem.to[0] !== 16 || elem.to[1] !== 16 || elem.to[2] !== 16) {
-        // not full block
-        return
-      }
-
-      const facesMapping = [
-        ['front', 'south'],
-        ['bottom', 'down'],
-        ['top', 'up'],
-        ['right', 'east'],
-        ['left', 'west'],
-        ['back', 'north'],
-      ]
-
-      const blockData: InstancedBlockModelData = {
-        stateId: state,
-        textures: [0, 0, 0, 0, 0, 0],
-        rotation: [0, 0, 0, 0, 0, 0],
-        textureInfos: Array.from({ length: 6 }).fill(null).map(() => ({ u: 0, v: 0, su: 0, sv: 0 }))
-      }
-
-      const blockId = nextModelId++
-      for (const [face, { texture, cullface, rotation = 0 }] of Object.entries(elem.faces)) {
-        const faceIndex = facesMapping.findIndex(x => x.includes(face))
-        if (faceIndex === -1) {
-          throw new Error(`Unknown face ${face}`)
-        }
-
-        blockData.textures[faceIndex] = texture.tileIndex
-        blockData.rotation[faceIndex] = rotation / 90
-        if (Math.floor(blockData.rotation[faceIndex]) !== blockData.rotation[faceIndex]) {
-          throw new Error(`Invalid rotation ${rotation} ${name}`)
-        }
-        interestedTextureTiles.add(texture.debugName)
-
-        // Store texture info for this face
-        blockData.textureInfos![faceIndex] = {
-          u: texture.u,
-          v: texture.v,
-          su: texture.su,
-          sv: texture.sv
-        }
-      }
-
-      stateIdToModelIdMap[state] = blockId
-      blocksDataModel[blockId] = blockData
-      instanceableBlocks.add(name)
-      blockNameToIdMap[name] = blockId
-
-      if (mcBlockData) {
-        blockData.transparent = mcBlockData.transparent
-        blockData.emitLight = mcBlockData.emitLight
-        blockData.filterLight = mcBlockData.filterLight
-      }
+    this.instancedBlocksConfig = {
+      instanceableBlocks: new Set<string>(),
+      blocksDataModel: {} as Record<number, InstancedBlockModelData>,
+      blockNameToStateIdMap: {} as Record<string, number>,
+      interestedTextureTiles: new Set<string>(),
     }
 
     // Add unknown block model
-    addBlockModel(-1, 'unknown', {})
+    this.prepareInstancedBlock(-1, 'unknown', {})
 
     // Handle texture overrides for special blocks
     const textureOverrideFullBlocks = {
@@ -347,17 +343,18 @@ export class InstancedRenderer {
     }
 
     // Process all blocks to find instanceable ones
-    for (const b of (globalThis as any).loadedData.blocksArray) {
-      for (let state = b.minStateId; state <= b.maxStateId; state++) {
+    for (const b of loadedData.blocksArray) {
+      for (let stateId = b.minStateId; stateId <= b.maxStateId; stateId++) {
+        const config = this.instancedBlocksConfig
+
         const mapping = debugBlocksMap[b.name]
-        const block = PBlockOriginal.fromStateId(mapping && (globalThis as any).loadedData.blocksByName[mapping] ? (globalThis as any).loadedData.blocksByName[mapping].defaultState : state, 0)
-        if (isPreflat) {
+        const block = PBlockOriginal.fromStateId(mapping && loadedData.blocksByName[mapping] ? loadedData.blocksByName[mapping].defaultState : stateId, 0)
+        if (this.isPreflat) {
           getPreflatBlock(block)
         }
 
         const textureOverride = textureOverrideFullBlocks[block.name] as string | undefined
         if (textureOverride) {
-          const blockId = nextModelId++
           const { currentResources } = this.worldRenderer.resourcesManager
           if (!currentResources?.worldBlockProvider) continue
           const texture = currentResources.worldBlockProvider.getTextureInfo(textureOverride)
@@ -366,10 +363,8 @@ export class InstancedRenderer {
             continue
           }
           const texIndex = texture.tileIndex
-          stateIdToModelIdMap[state] = blockId
-          const blockData: InstancedBlockModelData = {
-            stateId: state,
-            textures: [texIndex, texIndex, texIndex, texIndex, texIndex, texIndex],
+          config.blocksDataModel[stateId] = {
+            stateId,
             rotation: [0, 0, 0, 0, 0, 0],
             filterLight: b.filterLight,
             textureInfos: Array.from({ length: 6 }).fill(null).map(() => ({
@@ -379,10 +374,9 @@ export class InstancedRenderer {
               sv: texture.sv
             }))
           }
-          blocksDataModel[blockId] = blockData
-          instanceableBlocks.add(block.name)
-          interestedTextureTiles.add(textureOverride)
-          blockNameToIdMap[block.name] = blockId
+          config.instanceableBlocks.add(block.name)
+          config.interestedTextureTiles.add(textureOverride)
+          config.blockNameToStateIdMap[block.name] = stateId
           continue
         }
 
@@ -393,16 +387,8 @@ export class InstancedRenderer {
           continue
         }
 
-        addBlockModel(state, block.name, block.getProperties(), b, state === b.defaultState)
+        this.prepareInstancedBlock(stateId, block.name, block.getProperties(), b, stateId === b.defaultState)
       }
-    }
-
-    return {
-      instanceableBlocks,
-      blocksDataModel,
-      stateIdToModelIdMap,
-      blockNameToIdMap,
-      interestedTextureTiles
     }
   }
 
@@ -429,33 +415,40 @@ export class InstancedRenderer {
 
     // Create InstancedMesh for each instanceable block type
     for (const blockName of this.instancedBlocksConfig.instanceableBlocks) {
-      const blockId = this.getBlockId(blockName)
-      const { stateId } = this.instancedBlocksConfig.blocksDataModel[blockId]
-      if (this.instancedMeshes.has(blockId)) continue // Skip if already exists
+      const stateId = this.getStateId(blockName)
+      this.initializeInstancedMesh(stateId, blockName)
+    }
+  }
 
-      const blockModelData = this.instancedBlocksConfig.blocksDataModel[blockId]
-      const initialCount = this.getInitialInstanceCount(blockName)
+  initializeInstancedMesh (stateId: number, blockName: string) {
+    if (this.instancedMeshes.has(stateId)) return // Skip if already exists
 
-      const geometry = blockModelData ? this.createCustomGeometry(stateId, blockModelData) : this.cubeGeometry
-      const material = this.createBlockMaterial(blockName)
+    if (!this.instancedBlocksConfig!.blocksDataModel) {
+      this.prepareInstancedBlock(stateId, blockName, {})
+    }
 
-      const mesh = new THREE.InstancedMesh(
-        geometry,
-        material,
-        initialCount
-      )
-      mesh.name = `instanced_${blockName}`
-      mesh.frustumCulled = false
-      mesh.count = 0
-      mesh.visible = this._instancedMeshesVisible // Set initial visibility
+    const blockModelData = this.instancedBlocksConfig!.blocksDataModel[stateId]
+    const initialCount = this.getInitialInstanceCount(blockName)
 
-      this.instancedMeshes.set(blockId, mesh)
-      this.worldRenderer.scene.add(mesh)
-      this.totalAllocatedInstances += initialCount
+    const geometry = blockModelData ? this.createCustomGeometry(stateId, blockModelData) : this.cubeGeometry
+    const material = this.createBlockMaterial(blockName)
 
-      if (!blockModelData) {
-        console.warn(`No block model data found for block ${blockName}`)
-      }
+    const mesh = new THREE.InstancedMesh(
+      geometry,
+      material,
+      initialCount
+    )
+    mesh.name = `instanced_${blockName}`
+    mesh.frustumCulled = false
+    mesh.count = 0
+    mesh.visible = this._instancedMeshesVisible // Set initial visibility
+
+    this.instancedMeshes.set(stateId, mesh)
+    this.worldRenderer.scene.add(mesh)
+    this.totalAllocatedInstances += initialCount
+
+    if (!blockModelData) {
+      console.warn(`No block model data found for block ${blockName}`)
     }
   }
 
@@ -482,7 +475,9 @@ export class InstancedRenderer {
 
   private createCustomGeometry (stateId: number, blockModelData: InstancedBlockModelData): THREE.BufferGeometry {
     if (this.USE_APP_GEOMETRY) {
-      const itemMesh = this.worldRenderer.entities.getItemMesh({
+      const itemMesh = this.worldRenderer.entities.getItemMesh(stateId === -1 ? {
+        name: 'unknown'
+      } : {
         blockState: stateId
       }, {})
 
@@ -596,33 +591,36 @@ export class InstancedRenderer {
     const sectionMap = this.sectionInstances.get(sectionKey)!
 
     // Remove old instances for blocks that are being updated
-    const previousBlockIds = [...sectionMap.keys()]
-    for (const blockId of previousBlockIds) {
-      const instanceIndices = sectionMap.get(blockId)
+    const previousStateIds = [...sectionMap.keys()]
+    // TODO stress test updates, maybe need more effective way to remove old instances
+    for (const stateId of previousStateIds) {
+      const instanceIndices = sectionMap.get(stateId)
       if (instanceIndices) {
-        this.removeInstancesFromBlock(blockId, instanceIndices)
-        sectionMap.delete(blockId)
+        this.removeInstancesFromBlock(stateId, instanceIndices)
+        sectionMap.delete(stateId)
       }
     }
 
     // Keep track of blocks that were updated this frame
     for (const [blockName, blockData] of Object.entries(instancedBlocks)) {
-      if (!this.isBlockInstanceable(blockName)) continue
+      const { stateId } = blockData
+      this.stateIdToName.set(stateId, blockName)
 
-      const { blockId, stateId } = blockData
-      this.blockIdToName.set(blockId, blockName)
+      if (this.USE_APP_GEOMETRY) { // only dynamically initialize meshes for app geometry
+        this.initializeInstancedMesh(stateId, blockName)
+      }
 
       const instanceIndices: number[] = []
-      const currentCount = this.blockCounts.get(blockId) || 0
+      const currentCount = this.blockCounts.get(stateId) || 0
 
       // Check if we can add all positions at once
       const neededInstances = blockData.positions.length
-      if (!this.canAddMoreInstances(blockId, neededInstances)) {
+      if (!this.canAddMoreInstances(stateId, neededInstances)) {
         console.warn(`Cannot add ${neededInstances} instances for block ${blockName} (current: ${currentCount}, max: ${this.maxInstancesPerBlock})`)
         continue
       }
 
-      const mesh = this.instancedMeshes.get(blockId)!
+      const mesh = this.instancedMeshes.get(stateId)!
 
       // Add new instances for this section
       for (const pos of blockData.positions) {
@@ -636,9 +634,9 @@ export class InstancedRenderer {
 
       // Update tracking
       if (instanceIndices.length > 0) {
-        sectionMap.set(blockId, instanceIndices)
+        sectionMap.set(stateId, instanceIndices)
         const newCount = currentCount + instanceIndices.length
-        this.blockCounts.set(blockId, newCount)
+        this.blockCounts.set(stateId, newCount)
         this.currentTotalInstances += instanceIndices.length
         mesh.count = newCount // Ensure mesh.count matches our tracking
         mesh.instanceMatrix.needsUpdate = true
@@ -656,12 +654,12 @@ export class InstancedRenderer {
     if (!sectionMap) return // Section not tracked
 
     // Remove instances for each block type in this section
-    for (const [blockId, instanceIndices] of sectionMap) {
-      this.removeInstancesFromBlock(blockId, instanceIndices)
+    for (const [stateId, instanceIndices] of sectionMap) {
+      this.removeInstancesFromBlock(stateId, instanceIndices)
 
       // Remove from sceneUsedMeshes if no instances left
-      const blockName = this.blockIdToName.get(blockId)
-      if (blockName && (this.blockCounts.get(blockId) || 0) === 0) {
+      const blockName = this.stateIdToName.get(stateId)
+      if (blockName && (this.blockCounts.get(stateId) || 0) === 0) {
         this.sceneUsedMeshes.delete(blockName)
       }
     }
@@ -670,11 +668,11 @@ export class InstancedRenderer {
     this.sectionInstances.delete(sectionKey)
   }
 
-  private removeInstancesFromBlock (blockId: number, indicesToRemove: number[]) {
-    const mesh = this.instancedMeshes.get(blockId)
+  private removeInstancesFromBlock (stateId: number, indicesToRemove: number[]) {
+    const mesh = this.instancedMeshes.get(stateId)
     if (!mesh || indicesToRemove.length === 0) return
 
-    const currentCount = this.blockCounts.get(blockId) || 0
+    const currentCount = this.blockCounts.get(stateId) || 0
     const removeSet = new Set(indicesToRemove)
 
     // Update total instance count
@@ -699,29 +697,29 @@ export class InstancedRenderer {
 
     // Update count
     const newCount = writeIndex
-    this.blockCounts.set(blockId, newCount)
+    this.blockCounts.set(stateId, newCount)
     mesh.count = newCount
     mesh.instanceMatrix.needsUpdate = true
 
     // Update all section tracking to reflect new indices
     for (const [sectionKey, sectionMap] of this.sectionInstances) {
-      const sectionIndices = sectionMap.get(blockId)
+      const sectionIndices = sectionMap.get(stateId)
       if (sectionIndices) {
         const updatedIndices = sectionIndices
           .map(index => indexMapping.get(index))
           .filter(index => index !== undefined)
 
         if (updatedIndices.length > 0) {
-          sectionMap.set(blockId, updatedIndices)
+          sectionMap.set(stateId, updatedIndices)
         } else {
-          sectionMap.delete(blockId)
+          sectionMap.delete(stateId)
         }
       }
     }
 
     // Update sceneUsedMeshes if no instances left
     if (newCount === 0) {
-      const blockName = this.blockIdToName.get(blockId)
+      const blockName = this.stateIdToName.get(stateId)
       if (blockName) {
         this.sceneUsedMeshes.delete(blockName)
       }
@@ -736,12 +734,12 @@ export class InstancedRenderer {
     // Reset total instance count since we're clearing everything
     this.currentTotalInstances = 0
 
-    for (const [blockId, mesh] of this.instancedMeshes) {
+    for (const [stateId, mesh] of this.instancedMeshes) {
       if (mesh.material instanceof THREE.Material && mesh.material.name.startsWith('instanced_color_')) {
         mesh.material.dispose()
       }
       mesh.geometry.dispose()
-      this.instancedMeshes.delete(blockId)
+      this.instancedMeshes.delete(stateId)
       this.worldRenderer.scene.remove(mesh)
     }
 
@@ -751,7 +749,7 @@ export class InstancedRenderer {
 
   destroy () {
     // Clean up resources
-    for (const [blockId, mesh] of this.instancedMeshes) {
+    for (const [stateId, mesh] of this.instancedMeshes) {
       this.worldRenderer.scene.remove(mesh)
       mesh.geometry.dispose()
       if (mesh.material instanceof THREE.Material) {
@@ -761,7 +759,7 @@ export class InstancedRenderer {
     this.instancedMeshes.clear()
     this.blockCounts.clear()
     this.sectionInstances.clear()
-    this.blockIdToName.clear()
+    this.stateIdToName.clear()
     this.sceneUsedMeshes.clear()
     this.cubeGeometry.dispose()
   }
@@ -772,7 +770,7 @@ export class InstancedRenderer {
     let activeBlockTypes = 0
     let totalWastedMemory = 0
 
-    for (const [blockId, mesh] of this.instancedMeshes) {
+    for (const [stateId, mesh] of this.instancedMeshes) {
       const allocated = mesh.instanceMatrix.count
       const used = mesh.count
       totalWastedMemory += (allocated - used) * 64 // 64 bytes per instance (approximate)
@@ -809,10 +807,9 @@ export class InstancedRenderer {
   // New method to prepare and initialize everything
   prepareAndInitialize () {
     console.log('Preparing instanced blocks data...')
-    this.instancedBlocksConfig = this.prepareInstancedBlocksData()
-    console.log(`Found ${this.instancedBlocksConfig.instanceableBlocks.size} instanceable blocks:`,
-      [...this.instancedBlocksConfig.instanceableBlocks].slice(0, 10).join(', '),
-      this.instancedBlocksConfig.instanceableBlocks.size > 10 ? '...' : '')
+    this.prepareInstancedBlocksData()
+    const config = this.instancedBlocksConfig!
+    console.log(`Found ${config.instanceableBlocks.size} instanceable blocks`)
 
     this.disposeOldMeshes()
     this.initializeInstancedMeshes()

@@ -657,34 +657,29 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
           // Check if this block can use instanced rendering
-          if (enableInstancedRendering && isBlockInstanceable(world, block)) {
+          if ((enableInstancedRendering && isBlockInstanceable(world, block)) || forceInstancedOnly) {
             // Check if block should be culled (all faces hidden by neighbors)
+            // TODO validate this
             if (shouldCullInstancedBlock(world, cursor, block)) {
               // Block is completely surrounded, skip rendering
               continue
             }
 
             const blockKey = block.name
-            const blockId = world.instancedBlockIds[block.stateId]
-            if (blockId !== undefined) {
-              if (!attr.instancedBlocks[blockKey]) {
-                if (blockId !== undefined) {
-                  attr.instancedBlocks[blockKey] = {
-                    blockId,
-                    blockName: block.name,
-                    stateId: block.stateId,
-                    positions: []
-                  }
-                }
+            if (!attr.instancedBlocks[blockKey]) {
+              attr.instancedBlocks[blockKey] = {
+                stateId: block.stateId,
+                blockName: block.name,
+                positions: []
               }
-              attr.instancedBlocks[blockKey].positions.push({
-                x: cursor.x,
-                y: cursor.y,
-                z: cursor.z
-              })
-              attr.blocksCount++
-              continue // Skip regular geometry generation for instanceable blocks
             }
+            attr.instancedBlocks[blockKey].positions.push({
+              x: cursor.x,
+              y: cursor.y,
+              z: cursor.z
+            })
+            attr.blocksCount++
+            continue // Skip regular geometry generation for instanceable blocks
           }
 
           // Skip buffer geometry generation if force instanced only mode is enabled

@@ -29,9 +29,8 @@ export type CustomBlockModels = {
 export type MesherConfig = typeof defaultMesherConfig
 
 export type InstancedBlockEntry = {
-  blockId: number // Unique ID for this block type
-  blockName: string
   stateId: number
+  blockName: string
   positions: Array<{ x: number, y: number, z: number }>
 }
 
