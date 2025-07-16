@@ -5,7 +5,8 @@ import { BlockType } from '../../../playground/shared'
 import { World, BlockModelPartsResolved, WorldBlock as Block, WorldBlock } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
-import { MesherGeometryOutput, HighestBlockInfo, InstancedBlockEntry, InstancingMode } from './shared'
+import { MesherGeometryOutput, InstancingMode } from './shared'
+import { isBlockInstanceable } from './instancingUtils'
 
 let blockProvider: WorldBlockProvider
 
@@ -550,64 +551,6 @@ const shouldCullInstancedBlock = (world: World, cursor: Vec3, block: Block): boo
   return true
 }
 
-const getInstancedBlockTextureInfo = (block: Block) => {
-  // Cache texture info by block state ID
-  const cacheKey = block.stateId
-  if (textureInfoCache.has(cacheKey)) {
-    return textureInfoCache.get(cacheKey)
-  }
-
-  // Get texture info from the first available face
-  const model = block.models?.[0]?.[0]
-  if (!model?.elements?.[0]) return undefined
-
-  const element = model.elements[0]
-
-  // Try to find a face with texture - prefer visible faces
-  const faceOrder = ['up', 'north', 'east', 'south', 'west', 'down']
-  let textureInfo: any
-
-  for (const faceName of faceOrder) {
-    const face = element.faces[faceName]
-    if (face?.texture) {
-      const texture = face.texture as any
-      textureInfo = {
-        u: texture.u || 0,
-        v: texture.v || 0,
-        su: texture.su || 1,
-        sv: texture.sv || 1
-      }
-      break
-    }
-  }
-
-  // Cache the result
-  textureInfoCache.set(cacheKey, textureInfo)
-  return textureInfo
-}
-
-const isBlockInstanceable = (world: World, block: Block): boolean => {
-  // Use dynamic instanceable blocks data if available
-  const instancedBlocks = world?.instancedBlocks
-  if (Array.isArray(instancedBlocks)) {
-    if (!instancedBlocks.includes(block.name)) return false
-  } else {
-    return false
-  }
-
-  // Check if it's actually a full cube (no rotations, no complex models)
-  if (!block.models || block.models.length !== 1) return false
-
-  const model = block.models[0][0] // First variant of first model
-  if (!model || model.x || model.y || model.z) return false // No rotations
-
-  // Check if all elements are full cubes
-  return (model.elements ?? []).every(element => {
-    return element.from[0] === 0 && element.from[1] === 0 && element.from[2] === 0 &&
-      element.to[0] === 16 && element.to[1] === 16 && element.to[2] === 16
-  })
-}
-
 let unknownBlockModel: BlockModelPartsResolved
 export function getSectionGeometry (sx: number, sy: number, sz: number, world: World, instancingMode = InstancingMode.None): MesherGeometryOutput {
   let delayedRender = [] as Array<() => void>
@@ -719,7 +662,6 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
 
             const blockKey = block.name
             if (!attr.instancedBlocks[blockKey]) {
-              const textureInfo = getInstancedBlockTextureInfo(block)
               // Get or create block ID
               const blockId = world.instancedBlockIds[block.stateId]
 
@@ -728,7 +670,6 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
                   blockId,
                   blockName: block.name,
                   stateId: block.stateId,
-                  textureInfo,
                   positions: []
                 }
               }

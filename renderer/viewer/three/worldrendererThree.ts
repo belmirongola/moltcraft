@@ -366,19 +366,18 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   // debugRecomputedDeletedObjects = 0
-  handleInstancedBlocks (instancedBlocks: Record<string, any>, sectionKey: string): void {
-    this.instancedRenderer.handleInstancedBlocksFromWorker(instancedBlocks, sectionKey)
-  }
-
   handleWorkerMessage (data: { geometry: MesherGeometryOutput, key, type }): void {
     if (data.type !== 'geometry') return
 
     const chunkCoords = data.key.split(',')
     const chunkKey = chunkCoords[0] + ',' + chunkCoords[2]
 
+    // Always clear old instanced blocks for this section first, then add new ones if any
+    this.instancedRenderer.removeSectionInstances(data.key)
+
     // Handle instanced blocks data from worker
     if (data.geometry.instancedBlocks && Object.keys(data.geometry.instancedBlocks).length > 0) {
-      this.handleInstancedBlocks(data.geometry.instancedBlocks, data.key)
+      this.instancedRenderer.handleInstancedBlocksFromWorker(data.geometry.instancedBlocks, data.key)
     }
 
     let object: THREE.Object3D = this.sectionObjects[data.key]

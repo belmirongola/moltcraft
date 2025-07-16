@@ -31,12 +31,6 @@ export type InstancedBlockEntry = {
   blockId: number // Unique ID for this block type
   blockName: string
   stateId: number
-  textureInfo?: {
-    u: number
-    v: number
-    su: number
-    sv: number
-  }
   positions: Array<{ x: number, y: number, z: number }>
 }
 
