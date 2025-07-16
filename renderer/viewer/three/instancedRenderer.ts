@@ -629,8 +629,7 @@ export class InstancedRenderer {
         const instanceIndex = currentCount + instanceIndices.length
         const offset = this.USE_APP_GEOMETRY ? 0 : 0.5
 
-        // Calculate position relative to world origin
-        this.tempMatrix.makeTranslation(pos.x + offset, pos.y + offset, pos.z + offset)
+        this.tempMatrix.setPosition(pos.x + offset, pos.y + offset, pos.z + offset)
         mesh.setMatrixAt(instanceIndex, this.tempMatrix)
         instanceIndices.push(instanceIndex)
       }
