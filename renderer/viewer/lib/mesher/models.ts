@@ -13,9 +13,6 @@ let blockProvider: WorldBlockProvider
 const tints: any = {}
 let needTiles = false
 
-// Cache for texture info to avoid repeated calculations
-const textureInfoCache = new Map<number, any>()
-
 let tintsData
 try {
   tintsData = require('esbuild-data').tints
