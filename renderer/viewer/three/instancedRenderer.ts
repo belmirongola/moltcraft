@@ -39,6 +39,7 @@ export interface InstancedBlockModelData {
   transparent?: boolean
   emitLight?: number
   filterLight?: number
+  textureInfos?: Array<{ u: number, v: number, su: number, sv: number }> // Store texture info for each face
 }
 
 export interface InstancedBlocksConfig {
@@ -46,19 +47,22 @@ export interface InstancedBlocksConfig {
   blocksDataModel: Record<string, InstancedBlockModelData>
   allBlocksStateIdToModelIdMap: Record<number, number>
   interestedTextureTiles: Set<string>
-  textureInfoByBlockId: Record<number, { u: number, v: number, su: number, sv: number }>
 }
 
 export class InstancedRenderer {
   private readonly instancedMeshes = new Map<number, THREE.InstancedMesh>()
   private readonly blockCounts = new Map<number, number>()
   private readonly sectionInstances = new Map<string, Map<number, number[]>>()
-  private readonly maxInstancesPerBlock = process.env.NODE_ENV === 'development' ? 1_000_000 : 10_000_000
   private readonly cubeGeometry: THREE.BoxGeometry
   private readonly tempMatrix = new THREE.Matrix4()
   private readonly blockIdToName = new Map<number, string>()
   private readonly blockNameToId = new Map<string, number>()
   private nextBlockId = 0
+
+  // Dynamic instance management
+  private readonly baseInstancesPerBlock = 100_000 // Base instances per block type
+  private readonly maxTotalInstances = 10_000_000 // Total instance budget across all blocks
+  private currentTotalInstances = 0
 
   // New properties for dynamic block detection
   private instancedBlocksConfig: InstancedBlocksConfig | null = null
@@ -66,6 +70,37 @@ export class InstancedRenderer {
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
     this.cubeGeometry = this.createCubeGeometry()
+  }
+
+  private getMaxInstancesPerBlock (): number {
+    const renderDistance = this.worldRenderer.viewDistance
+    if (renderDistance <= 0) return this.baseInstancesPerBlock
+
+    // Calculate dynamic limit based on render distance
+    // More render distance = more chunks = need more instances
+    const distanceFactor = Math.max(1, renderDistance / 8) // Normalize around render distance 8
+    const dynamicLimit = Math.floor(this.baseInstancesPerBlock * distanceFactor)
+
+    // Cap at reasonable limits to prevent memory issues
+    return Math.min(dynamicLimit, 500_000)
+  }
+
+  private canAddMoreInstances (blockId: number, count: number): boolean {
+    const currentForBlock = this.blockCounts.get(blockId) || 0
+    const maxPerBlock = this.getMaxInstancesPerBlock()
+
+    // Check per-block limit
+    if (currentForBlock + count > maxPerBlock) {
+      return false
+    }
+
+    // Check total instance budget
+    if (this.currentTotalInstances + count > this.maxTotalInstances) {
+      console.warn(`Total instance limit reached (${this.currentTotalInstances}/${this.maxTotalInstances}). Consider reducing render distance.`)
+      return false
+    }
+
+    return true
   }
 
   prepareInstancedBlocksData (): InstancedBlocksConfig {
@@ -109,7 +144,6 @@ export class InstancedRenderer {
     const blocksProcessed = {} as Record<string, boolean>
     let i = 0
     const allBlocksStateIdToModelIdMap = {} as Record<number, number>
-    const textureInfoByBlockId: Record<number, { u: number, v: number, su: number, sv: number }> = {}
 
     const addBlockModel = (state: number, name: string, props: Record<string, any>, mcBlockData?: IndexedBlock, defaultState = false) => {
       const possibleIssues = [] as string[]
@@ -146,7 +180,8 @@ export class InstancedRenderer {
 
       const blockData: InstancedBlockModelData = {
         textures: [0, 0, 0, 0, 0, 0],
-        rotation: [0, 0, 0, 0, 0, 0]
+        rotation: [0, 0, 0, 0, 0, 0],
+        textureInfos: Array.from({ length: 6 }).fill(null).map(() => ({ u: 0, v: 0, su: 0, sv: 0 }))
       }
 
       const blockId = i++
@@ -162,7 +197,14 @@ export class InstancedRenderer {
           throw new Error(`Invalid rotation ${rotation} ${name}`)
         }
         interestedTextureTiles.add(texture.debugName)
-        textureInfoByBlockId[blockId] = { u: texture.u, v: texture.v, su: texture.su, sv: texture.sv }
+
+        // Store texture info for this face
+        blockData.textureInfos![faceIndex] = {
+          u: texture.u,
+          v: texture.v,
+          su: texture.su,
+          sv: texture.sv
+        }
       }
 
       allBlocksStateIdToModelIdMap[state] = blockId
@@ -210,12 +252,17 @@ export class InstancedRenderer {
           const blockData: InstancedBlockModelData = {
             textures: [texIndex, texIndex, texIndex, texIndex, texIndex, texIndex],
             rotation: [0, 0, 0, 0, 0, 0],
-            filterLight: b.filterLight
+            filterLight: b.filterLight,
+            textureInfos: Array.from({ length: 6 }).fill(null).map(() => ({
+              u: texture.u,
+              v: texture.v,
+              su: texture.su,
+              sv: texture.sv
+            }))
           }
           blocksDataModel[blockId] = blockData
           instanceableBlocks.add(block.name)
           interestedTextureTiles.add(textureOverride)
-          textureInfoByBlockId[blockId] = { u: texture.u, v: texture.v, su: texture.su, sv: texture.sv }
           continue
         }
 
@@ -234,12 +281,11 @@ export class InstancedRenderer {
       instanceableBlocks,
       blocksDataModel,
       allBlocksStateIdToModelIdMap,
-      interestedTextureTiles,
-      textureInfoByBlockId
+      interestedTextureTiles
     }
   }
 
-  private createBlockMaterial (blockName: string, textureInfo?: { u: number, v: number, su: number, sv: number }): THREE.Material {
+  private createBlockMaterial (blockName: string): THREE.Material {
     const { enableSingleColorMode } = this.worldRenderer.worldRendererConfig
 
     if (enableSingleColorMode) {
@@ -264,15 +310,15 @@ export class InstancedRenderer {
       const blockId = this.getBlockId(blockName)
       if (this.instancedMeshes.has(blockId)) continue // Skip if already exists
 
-      const textureInfo = this.instancedBlocksConfig.textureInfoByBlockId[blockId]
+      const blockModelData = this.instancedBlocksConfig.blocksDataModel[blockId]
 
-      const geometry = textureInfo ? this.createCustomGeometry(textureInfo) : this.cubeGeometry
-      const material = this.createBlockMaterial(blockName, textureInfo)
+      const geometry = blockModelData ? this.createCustomGeometry(0, blockModelData) : this.cubeGeometry
+      const material = this.createBlockMaterial(blockName)
 
       const mesh = new THREE.InstancedMesh(
         geometry,
         material,
-        this.maxInstancesPerBlock
+        this.getMaxInstancesPerBlock()
       )
       mesh.name = `instanced_${blockName}`
       mesh.frustumCulled = false // Important for performance
@@ -281,10 +327,8 @@ export class InstancedRenderer {
       this.instancedMeshes.set(blockId, mesh)
       this.worldRenderer.scene.add(mesh)
 
-      if (textureInfo) {
-        // console.log(`Created instanced mesh for ${blockName} with texture info:`, textureInfo)
-      } else {
-        console.warn(`No texture info found for block ${blockName}`)
+      if (!blockModelData) {
+        console.warn(`No block model data found for block ${blockName}`)
       }
     }
   }
@@ -297,28 +341,86 @@ export class InstancedRenderer {
     return geometry
   }
 
-  private createCustomGeometry (textureInfo: { u: number, v: number, su: number, sv: number }): THREE.BufferGeometry {
-    // Create custom geometry with specific UV coordinates for this block type
+  private createCustomGeometry (stateId: number, blockModelData: InstancedBlockModelData): THREE.BufferGeometry {
+    // Create custom geometry with specific UV coordinates per face
     const geometry = new THREE.BoxGeometry(1, 1, 1)
 
     // Get UV attribute
     const uvAttribute = geometry.getAttribute('uv') as THREE.BufferAttribute
     const uvs = uvAttribute.array as Float32Array
 
-    // BoxGeometry has 6 faces, each with 2 triangles (4 vertices), so 24 UV pairs total
-    // The order in Three.js BoxGeometry is: +X, -X, +Y, -Y, +Z, -Z
-    // We need to map the texture coordinates properly for each face
+    if (!blockModelData.textureInfos) {
+      console.warn('No texture infos available for block model')
+      return geometry
+    }
 
-    if (this.instancedBlocksConfig && textureInfo) {
-      // For now, apply the same texture to all faces
-      // In the future, this could be enhanced to use different textures per face
-      for (let i = 0; i < uvs.length; i += 2) {
-        const u = uvs[i]
-        const v = uvs[i + 1]
+    // BoxGeometry has 6 faces, each with 4 vertices (8 UV values)
+    // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
+    // Our face mapping: [front, bottom, top, right, left, back] = [south, down, up, east, west, north]
+    // Map to Three.js indices: [+Z, -Y, +Y, +X, -X, -Z] = [4, 3, 2, 0, 1, 5]
 
-        // Map from 0-1 to the specific texture region in the atlas
-        uvs[i] = textureInfo.u + u * textureInfo.su
-        uvs[i + 1] = textureInfo.v + v * textureInfo.sv
+    interface UVVertex {
+      u: number
+      v: number
+    }
+
+    for (let faceIndex = 0; faceIndex < 6; faceIndex++) {
+      // Map Three.js face index to our face index
+      let ourFaceIndex: number
+      switch (faceIndex) {
+        case 0: ourFaceIndex = 3; break // +X -> right (east)
+        case 1: ourFaceIndex = 4; break // -X -> left (west)
+        case 2: ourFaceIndex = 2; break // +Y -> top (up)
+        case 3: ourFaceIndex = 1; break // -Y -> bottom (down)
+        case 4: ourFaceIndex = 0; break // +Z -> front (south)
+        case 5: ourFaceIndex = 5; break // -Z -> back (north)
+        default: continue
+      }
+
+      const textureInfo = blockModelData.textureInfos[ourFaceIndex]
+      const rotation = blockModelData.rotation[ourFaceIndex]
+
+      if (!textureInfo) {
+        console.warn(`No texture info found for face ${ourFaceIndex}`)
+        continue
+      }
+
+      const { u, v, su, sv } = textureInfo
+      const faceUvStart = faceIndex * 8
+
+      // Get original UVs for this face
+      const faceUVs = uvs.slice(faceUvStart, faceUvStart + 8)
+
+      // Apply rotation if needed (0=0°, 1=90°, 2=180°, 3=270°)
+      if (rotation > 0) {
+        // Each vertex has 2 UV coordinates (u,v)
+        // We need to rotate the 4 vertices as a group
+        const vertices: UVVertex[] = []
+        for (let i = 0; i < 8; i += 2) {
+          vertices.push({
+            u: faceUVs[i],
+            v: faceUVs[i + 1]
+          })
+        }
+
+        // Rotate vertices
+        const rotatedVertices: UVVertex[] = []
+        for (let i = 0; i < 4; i++) {
+          const srcIndex = (i + rotation) % 4
+          rotatedVertices.push(vertices[srcIndex])
+        }
+
+        // Write back rotated coordinates
+        for (let i = 0; i < 4; i++) {
+          faceUVs[i * 2] = rotatedVertices[i].u
+          faceUVs[i * 2 + 1] = rotatedVertices[i].v
+        }
+      }
+
+      // Apply texture atlas coordinates to the potentially rotated UVs
+      for (let i = 0; i < 8; i += 2) {
+        uvs[faceUvStart + i] = u + faceUVs[i] * su
+        uvs[faceUvStart + i + 1] = v + faceUVs[i + 1] * sv
       }
     }
 
@@ -370,10 +472,10 @@ export class InstancedRenderer {
       const instanceIndices: number[] = []
       const currentCount = this.blockCounts.get(blockId) || 0
 
-      // Add new instances for this section
+      // Add new instances for this section (with limit checking)
       for (const pos of blockData.positions) {
-        if (currentCount + instanceIndices.length >= this.maxInstancesPerBlock) {
-          console.warn(`Exceeded max instances for block ${blockName} (${currentCount + instanceIndices.length}/${this.maxInstancesPerBlock})`)
+        if (!this.canAddMoreInstances(blockId, 1)) {
+          console.warn(`Exceeded max instances for block ${blockName} (${currentCount + instanceIndices.length}/${this.getMaxInstancesPerBlock()})`)
           break
         }
 
@@ -387,6 +489,7 @@ export class InstancedRenderer {
       if (instanceIndices.length > 0) {
         sectionMap.set(blockId, instanceIndices)
         this.blockCounts.set(blockId, currentCount + instanceIndices.length)
+        this.currentTotalInstances += instanceIndices.length
         mesh.count = this.blockCounts.get(blockId) || 0
         mesh.instanceMatrix.needsUpdate = true
       }
@@ -412,6 +515,9 @@ export class InstancedRenderer {
 
     const currentCount = this.blockCounts.get(blockId) || 0
     const removeSet = new Set(indicesToRemove)
+
+    // Update total instance count
+    this.currentTotalInstances -= indicesToRemove.length
 
     // Create mapping from old indices to new indices
     const indexMapping = new Map<number, number>()
@@ -453,31 +559,14 @@ export class InstancedRenderer {
     }
   }
 
-  // private compactInstancesForBlock (blockId: number, indicesToRemove: number[]) {
-  //   // This method is now replaced by removeInstancesFromBlock
-  //   this.removeInstancesFromBlock(blockId, indicesToRemove)
-  // }
-
-  // shouldUseInstancedRendering (chunkKey: string): boolean {
-  //   const { useInstancedRendering, forceInstancedOnly, instancedOnlyDistance } = this.worldRenderer.worldRendererConfig
-
-  //   if (!useInstancedRendering) return false
-  //   if (forceInstancedOnly) return true
-
-  //   // Check distance for automatic switching
-  //   const [x, z] = chunkKey.split(',').map(Number)
-  //   const chunkPos = new Vec3(x * 16, 0, z * 16)
-  //   const [dx, dz] = this.worldRenderer.getDistance(chunkPos)
-  //   const maxDistance = Math.max(dx, dz)
-
-  //   return maxDistance >= instancedOnlyDistance
-  // }
-
   isBlockInstanceable (blockName: string): boolean {
     return this.instancedBlocksConfig?.instanceableBlocks.has(blockName) ?? false
   }
 
   disposeOldMeshes () {
+    // Reset total instance count since we're clearing everything
+    this.currentTotalInstances = 0
+
     for (const [blockId, mesh] of this.instancedMeshes) {
       if (mesh.material instanceof THREE.Material && mesh.material.name.startsWith('instanced_color_')) {
         mesh.material.dispose()
@@ -486,6 +575,9 @@ export class InstancedRenderer {
       this.instancedMeshes.delete(blockId)
       this.worldRenderer.scene.remove(mesh)
     }
+
+    // Clear counts
+    this.blockCounts.clear()
   }
 
   destroy () {
@@ -517,11 +609,18 @@ export class InstancedRenderer {
       }
     }
 
+    const maxPerBlock = this.getMaxInstancesPerBlock()
+    const renderDistance = this.worldRenderer.viewDistance
+
     return {
       totalInstances,
       activeBlockTypes,
       drawCalls: activeBlockTypes, // One draw call per active block type
-      memoryEstimate: totalInstances * 64 // Rough estimate in bytes
+      memoryEstimate: totalInstances * 64, // Rough estimate in bytes
+      maxInstancesPerBlock: maxPerBlock,
+      totalInstanceBudget: this.maxTotalInstances,
+      renderDistance,
+      instanceUtilization: totalInstances / this.maxTotalInstances
     }
   }
 
