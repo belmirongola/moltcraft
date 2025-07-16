@@ -35,9 +35,10 @@ export class WorldRendererThree extends WorldRendererCommon {
   signsCache = new Map<string, any>()
   starField: StarField
   cameraSectionPos: Vec3 = new Vec3(0, 0, 0)
-  holdingBlock: HoldingBlock
-  holdingBlockLeft: HoldingBlock
-  scene = new THREE.Scene()
+  holdingBlock: HoldingBlock | undefined
+  holdingBlockLeft: HoldingBlock | undefined
+  realScene = new THREE.Scene()
+  scene = new THREE.Group()
   templateScene = new THREE.Scene()
   ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
   directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
@@ -76,6 +77,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
+  private readonly worldOffset = new THREE.Vector3()
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -114,6 +116,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     void this.init()
   }
 
+  // Add this method to update world origin
+  private updateWorldOrigin (pos: THREE.Vector3) {
+    // this.worldOffset.copy(pos)
+    // this.scene.position.copy(this.worldOffset).multiplyScalar(-1)
+  }
+
   get cameraObject () {
     return this.cameraGroupVr ?? this.cameraContainer
   }
@@ -145,7 +153,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   getInstancedBlocksData () {
-    const config = this.instancedRenderer.getInstancedBlocksConfig()
+    const config = this.instancedRenderer?.getInstancedBlocksConfig()
     if (!config) return undefined
 
     return {
@@ -166,17 +174,18 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   resetScene () {
     this.scene.matrixAutoUpdate = false // for perf
-    this.scene.background = new THREE.Color(this.initOptions.config.sceneBackground)
-    this.scene.add(this.ambientLight)
+    this.realScene.background = new THREE.Color(this.initOptions.config.sceneBackground)
+    this.realScene.add(this.ambientLight)
     this.directionalLight.position.set(1, 1, 0.5).normalize()
     this.directionalLight.castShadow = true
-    this.scene.add(this.directionalLight)
+    this.realScene.add(this.directionalLight)
 
     const size = this.renderer.getSize(new THREE.Vector2())
     this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
     this.cameraContainer = new THREE.Object3D()
     this.cameraContainer.add(this.camera)
-    this.scene.add(this.cameraContainer)
+    this.realScene.add(this.cameraContainer)
+    this.realScene.add(this.scene)
 
     this.resetTemplateScene()
   }
@@ -184,7 +193,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   override watchReactivePlayerState () {
     super.watchReactivePlayerState()
     this.onReactivePlayerStateUpdated('inWater', (value) => {
-      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.playerStateReactive.waterBreathing ? 100 : 20) : null
+      this.realScene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.playerStateReactive.waterBreathing ? 100 : 20) : null
     })
     this.onReactivePlayerStateUpdated('ambientLight', (value) => {
       if (!value) return
@@ -220,9 +229,9 @@ export class WorldRendererThree extends WorldRendererCommon {
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
     const holdingBlock = isLeft ? this.holdingBlockLeft : this.holdingBlock
     if (isAnimationPlaying) {
-      holdingBlock.startSwing()
+      holdingBlock?.startSwing()
     } else {
-      holdingBlock.stopSwing()
+      holdingBlock?.stopSwing()
     }
   }
 
@@ -250,7 +259,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
 
     // Prepare and initialize instanced renderer with dynamic block detection
-    this.instancedRenderer.prepareAndInitialize()
+    this.instancedRenderer?.prepareAndInitialize()
 
     await super.updateAssetsData()
     this.onAllTexturesLoaded()
@@ -262,14 +271,18 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   onAllTexturesLoaded () {
-    this.holdingBlock.ready = true
-    this.holdingBlock.updateItem()
-    this.holdingBlockLeft.ready = true
-    this.holdingBlockLeft.updateItem()
+    if (this.holdingBlock) {
+      this.holdingBlock.ready = true
+      this.holdingBlock.updateItem()
+    }
+    if (this.holdingBlockLeft) {
+      this.holdingBlockLeft.ready = true
+      this.holdingBlockLeft.updateItem()
+    }
   }
 
   changeBackgroundColor (color: [number, number, number]): void {
-    this.scene.background = new THREE.Color(color[0], color[1], color[2])
+    this.realScene.background = new THREE.Color(color[0], color[1], color[2])
   }
 
   timeUpdated (newTime: number): void {
@@ -323,15 +336,17 @@ export class WorldRendererThree extends WorldRendererCommon {
         const formatBigNumber = (num: number) => {
           return new Intl.NumberFormat('en-US', {}).format(num)
         }
-        const instancedStats = this.instancedRenderer.getStats()
+        const instancedStats = this.instancedRenderer?.getStats()
         let text = ''
         text += `C: ${formatBigNumber(this.renderer.info.render.calls)} `
         text += `TR: ${formatBigNumber(this.renderer.info.render.triangles)} `
         text += `TE: ${formatBigNumber(this.renderer.info.memory.textures)} `
         text += `F: ${formatBigNumber(this.tilesRendered)} `
         text += `B: ${formatBigNumber(this.blocksRendered)} `
-        text += `I: ${formatBigNumber(instancedStats.totalInstances)}/${instancedStats.activeBlockTypes}t `
-        text += `DC: ${formatBigNumber(instancedStats.drawCalls)}`
+        if (instancedStats) {
+          text += `I: ${formatBigNumber(instancedStats.totalInstances)}/${instancedStats.activeBlockTypes}t `
+          text += `DC: ${formatBigNumber(instancedStats.drawCalls)}`
+        }
         pane.updateText(text)
         this.backendInfoReport = text
       }
@@ -382,11 +397,11 @@ export class WorldRendererThree extends WorldRendererCommon {
     const chunkKey = chunkCoords[0] + ',' + chunkCoords[2]
 
     // Always clear old instanced blocks for this section first, then add new ones if any
-    this.instancedRenderer.removeSectionInstances(data.key)
+    this.instancedRenderer?.removeSectionInstances(data.key)
 
     // Handle instanced blocks data from worker
     if (data.geometry.instancedBlocks && Object.keys(data.geometry.instancedBlocks).length > 0) {
-      this.instancedRenderer.handleInstancedBlocksFromWorker(data.geometry.instancedBlocks, data.key)
+      this.instancedRenderer?.handleInstancedBlocksFromWorker(data.geometry.instancedBlocks, data.key)
     }
 
     let object: THREE.Object3D = this.sectionObjects[data.key]
@@ -493,7 +508,8 @@ export class WorldRendererThree extends WorldRendererCommon {
   getCameraPosition () {
     const worldPos = new THREE.Vector3()
     this.camera.getWorldPosition(worldPos)
-    return worldPos
+    // Add world offset to get true world position
+    return worldPos.add(this.worldOffset)
   }
 
   getSectionCameraPosition () {
@@ -515,6 +531,17 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
     const yOffset = this.playerStateReactive.eyeHeight
+
+    if (pos) {
+      // Convert Vec3 to THREE.Vector3
+      const worldPos = new THREE.Vector3(pos.x, pos.y + yOffset, pos.z)
+
+      // Update world origin before updating camera
+      this.updateWorldOrigin(worldPos)
+
+      // Keep camera at origin and move world instead
+      // this.cameraObject.position.set(pos.x, pos.y + yOffset, pos.z)
+    }
 
     this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
     this.media.tryIntersectMedia()
@@ -759,7 +786,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
     const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
-    this.renderer.render(this.scene, cam)
+    this.renderer.render(this.realScene, cam)
 
     if (
       this.displayOptions.inWorldRenderingConfig.showHand &&
@@ -768,8 +795,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       // !this.freeFlyMode &&
       !this.renderer.xr.isPresenting
     ) {
-      this.holdingBlock.render(this.renderer)
-      this.holdingBlockLeft.render(this.renderer)
+      this.holdingBlock?.render(this.renderer)
+      this.holdingBlockLeft?.render(this.renderer)
     }
 
     for (const fountain of this.fountains) {
@@ -954,7 +981,7 @@ export class WorldRendererThree extends WorldRendererCommon {
       const key = `${x},${y},${z}`
 
       // Remove instanced blocks for this section
-      this.instancedRenderer.removeSectionInstances(key)
+      this.instancedRenderer?.removeSectionInstances(key)
 
       const mesh = this.sectionObjects[key]
       if (mesh) {
@@ -995,7 +1022,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   destroy (): void {
-    this.instancedRenderer.destroy()
+    this.instancedRenderer?.destroy()
     super.destroy()
   }
 
