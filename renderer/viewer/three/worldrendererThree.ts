@@ -152,16 +152,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
-  getInstancedBlocksData () {
-    const config = this.instancedRenderer?.getInstancedBlocksConfig()
-    if (!config) return undefined
-
-    return {
-      instanceableBlocks: config.instanceableBlocks,
-      allBlocksStateIdToModelIdMap: config.stateIdToModelIdMap
-    }
-  }
-
   updatePlayerEntity (e: any) {
     this.entities.handlePlayerEntity(e)
   }
