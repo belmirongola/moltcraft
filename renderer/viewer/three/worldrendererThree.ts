@@ -244,8 +244,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     await super.updateAssetsData()
     this.onAllTexturesLoaded()
 
-    // Update instanced renderer materials when textures change
-    this.instancedRenderer.updateMaterials()
     if (Object.keys(this.loadedChunks).length > 0) {
       console.log('rerendering chunks because of texture update')
       this.rerenderAllChunks()

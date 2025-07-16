@@ -684,6 +684,11 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.checkAllFinished()
   }
 
+  debugRemoveCurrentChunk () {
+    const [x, z] = chunkPos(this.viewerChunkPosition!)
+    this.removeColumn(x, z)
+  }
+
   removeColumn (x, z) {
     delete this.loadedChunks[`${x},${z}`]
     for (const worker of this.workers) {
