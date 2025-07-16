@@ -60,7 +60,7 @@ export class InstancedRenderer {
   private readonly blockIdToName = new Map<number, string>()
 
   // Dynamic instance management
-  private readonly initialInstancesPerBlock = 15_000 // Increased initial size to reduce early resizing
+  private readonly initialInstancesPerBlock = 2000 // Increased initial size to reduce early resizing
   private readonly maxInstancesPerBlock = 100_000 // Cap per block type
   private readonly maxTotalInstances = 10_000_000 // Total instance budget
   private currentTotalInstances = 0
@@ -116,32 +116,7 @@ export class InstancedRenderer {
     const blockName = 'grass_block'
     const blockId = this.getBlockId(blockName)
     const mesh = this.instancedMeshes.get(blockId)
-    if (!mesh) {
-      console.warn('Debug: Mesh not found for', blockName)
-      return
-    }
-    console.log('Debug: Before resize -',
-      'Mesh in scene:',
-      this.worldRenderer.scene.children.includes(mesh),
-      'Instance count:',
-      mesh.count,
-      'Matrix count:',
-      mesh.instanceMatrix.count)
-
-    const result = this.resizeInstancedMesh(blockId, mesh.instanceMatrix.count * 2)
-
-    const newMesh = this.instancedMeshes.get(blockId)
-    console.log('Debug: After resize -',
-      'Success:',
-      result,
-      'New mesh in scene:',
-      this.worldRenderer.scene.children.includes(newMesh!),
-      'Old mesh in scene:',
-      this.worldRenderer.scene.children.includes(mesh),
-      'New count:',
-      newMesh?.count,
-      'New matrix count:',
-      newMesh?.instanceMatrix.count)
+    this.resizeInstancedMesh(blockId, mesh!.instanceMatrix.count * this.growthFactor)
   }
 
   private resizeInstancedMesh (blockId: number, newSize: number): boolean {
@@ -153,7 +128,6 @@ export class InstancedRenderer {
     const actualInstanceCount = this.blockCounts.get(blockId) || 0
 
     console.log(`Growing instances for ${blockName}: ${oldSize} -> ${newSize} (${((newSize / oldSize - 1) * 100).toFixed(1)}% increase)`)
-    console.log(`Current actual instances: ${actualInstanceCount}, Is old mesh in scene:`, this.worldRenderer.scene.children.includes(mesh))
 
     const { geometry } = mesh
     const { material } = mesh
@@ -175,23 +149,14 @@ export class InstancedRenderer {
       newMesh.setMatrixAt(i, this.tempMatrix)
     }
 
-    // Set the count to match our tracked instances
     newMesh.count = actualInstanceCount
     newMesh.instanceMatrix.needsUpdate = true
 
-    // Update tracking
     this.totalAllocatedInstances += (newSize - oldSize)
 
-    // Important: Add new mesh before removing old one
     this.worldRenderer.scene.add(newMesh)
-    console.log(`Added new mesh to scene, is present:`, this.worldRenderer.scene.children.includes(newMesh))
-
-    // Update our tracking to point to new mesh
     this.instancedMeshes.set(blockId, newMesh)
-
-    // Now safe to remove old mesh
     this.worldRenderer.scene.remove(mesh)
-    console.log(`Removed old mesh from scene, still present:`, this.worldRenderer.scene.children.includes(mesh))
 
     // Clean up old mesh
     mesh.geometry.dispose()
@@ -203,11 +168,6 @@ export class InstancedRenderer {
 
     // Verify instance count matches
     console.log(`Finished growing ${blockName}. Actual instances: ${actualInstanceCount}, New capacity: ${newSize}, Mesh count: ${newMesh.count}`)
-    console.log(`Scene check - New mesh in scene: ${this.worldRenderer.scene.children.includes(newMesh)}, Old mesh in scene: ${this.worldRenderer.scene.children.includes(mesh)}`)
-
-    if (newMesh.count !== actualInstanceCount) {
-      console.warn(`Instance count mismatch for ${blockName}! Mesh: ${newMesh.count}, Tracked: ${actualInstanceCount}`)
-    }
 
     return true
   }
@@ -636,22 +596,20 @@ export class InstancedRenderer {
       const { blockId, stateId } = blockData
       this.blockIdToName.set(blockId, blockName)
 
-      const mesh = this.instancedMeshes.get(blockId)
-      if (!mesh) {
-        console.warn(`Failed to find mesh for block ${blockName}`)
-        continue
-      }
-
       const instanceIndices: number[] = []
       const currentCount = this.blockCounts.get(blockId) || 0
 
-      // Add new instances for this section (with limit checking)
-      for (const pos of blockData.positions) {
-        if (!this.canAddMoreInstances(blockId, 1)) {
-          console.warn(`Exceeded max instances for block ${blockName} (${currentCount + instanceIndices.length}/${this.maxInstancesPerBlock})`)
-          break
-        }
+      // Check if we can add all positions at once
+      const neededInstances = blockData.positions.length
+      if (!this.canAddMoreInstances(blockId, neededInstances)) {
+        console.warn(`Cannot add ${neededInstances} instances for block ${blockName} (current: ${currentCount}, max: ${this.maxInstancesPerBlock})`)
+        continue
+      }
 
+      const mesh = this.instancedMeshes.get(blockId)!
+
+      // Add new instances for this section
+      for (const pos of blockData.positions) {
         const instanceIndex = currentCount + instanceIndices.length
         this.tempMatrix.setPosition(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
         mesh.setMatrixAt(instanceIndex, this.tempMatrix)

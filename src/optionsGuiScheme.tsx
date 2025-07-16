@@ -116,6 +116,50 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        let status = 'OFF'
+        const { useInstancedRendering, forceInstancedOnly, enableSingleColorMode } = useSnapshot(options)
+        if (useInstancedRendering) {
+          status = 'ON'
+          if (enableSingleColorMode) {
+            status = 'ON (single color)'
+          } else if (forceInstancedOnly) {
+            status = 'ON (force)'
+          }
+        }
+
+        return <Button
+          onClick={() => {
+            // cycle
+            if (useInstancedRendering) {
+              if (enableSingleColorMode) {
+                options.useInstancedRendering = false
+                options.enableSingleColorMode = false
+                options.forceInstancedOnly = false
+              } else if (forceInstancedOnly) {
+                options.useInstancedRendering = true
+                options.enableSingleColorMode = true
+                options.forceInstancedOnly = false
+              } else {
+                options.useInstancedRendering = true
+                options.enableSingleColorMode = false
+                options.forceInstancedOnly = true
+              }
+            } else {
+              options.useInstancedRendering = true
+              options.enableSingleColorMode = false
+              options.forceInstancedOnly = false
+            }
+
+          }}
+          inScreen
+        >
+          <span>Instacing</span>:{' '}
+          <span>{status}</span>
+        </Button>
+      },
+    },
+    {
+      custom () {
         const { _renderByChunks } = useSnapshot(options).rendererSharedOptions
         return <Button
           inScreen
