@@ -28,10 +28,11 @@ export type CustomBlockModels = {
 
 export type MesherConfig = typeof defaultMesherConfig
 
-export type InstancedBlockEntry = {
+export interface InstancedBlockEntry {
   stateId: number
   blockName: string
   positions: Array<{ x: number, y: number, z: number }>
+  matrices: number[][] // Pre-calculated transformation matrices from worker
 }
 
 export type InstancingMesherData = {

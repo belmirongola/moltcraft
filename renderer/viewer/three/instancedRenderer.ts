@@ -61,6 +61,9 @@ export class InstancedRenderer {
   private readonly tempMatrix = new THREE.Matrix4()
   private readonly stateIdToName = new Map<number, string>()
 
+  // Cache for single color materials
+  private readonly colorMaterials = new Map<number, THREE.MeshBasicMaterial>()
+
   // Dynamic instance management
   private readonly initialInstancesPerBlock = 2000
   private readonly maxInstancesPerBlock = 100_000
@@ -76,11 +79,16 @@ export class InstancedRenderer {
 
   private instancedBlocksConfig: InstancedBlocksConfig | null = null
   private sharedSolidMaterial: THREE.MeshLambertMaterial | null = null
-  private sharedTransparentMaterial: THREE.MeshLambertMaterial | null = null
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
     this.cubeGeometry = this.createCubeGeometry()
     this.isPreflat = versionToNumber(this.worldRenderer.version) < versionToNumber('1.13')
+
+    // Create shared solid material with no transparency
+    this.sharedSolidMaterial = new THREE.MeshLambertMaterial({
+      transparent: false,
+      alphaTest: 0.1
+    })
   }
 
   private getStateId (blockName: string): number {
@@ -170,7 +178,7 @@ export class InstancedRenderer {
     }
 
     // Verify instance count matches
-    console.log(`Finished growing ${blockName}. Actual instances: ${actualInstanceCount}, New capacity: ${newSize}, Mesh count: ${newMesh.count}`)
+    // console.log(`Finished growing ${blockName}. Actual instances: ${actualInstanceCount}, New capacity: ${newSize}, Mesh count: ${newMesh.count}`)
 
     return true
   }
@@ -194,7 +202,7 @@ export class InstancedRenderer {
         ))
       )
 
-      console.log(`Need to grow ${blockName}: current ${currentForBlock}/${currentCapacity}, need ${neededCapacity}, growing to ${newSize}`)
+      // console.log(`Need to grow ${blockName}: current ${currentForBlock}/${currentCapacity}, need ${neededCapacity}, growing to ${newSize}`)
 
       // Check if growth would exceed total budget
       const growthAmount = newSize - currentCapacity
@@ -303,12 +311,12 @@ export class InstancedRenderer {
       alphaTest: 0.1
     })
     this.sharedSolidMaterial.map = this.worldRenderer.material.map
-    this.sharedTransparentMaterial = new THREE.MeshLambertMaterial({
-      transparent: true,
-      // depthWrite: false,
-      alphaTest: 0.1
-    })
-    this.sharedTransparentMaterial.map = this.worldRenderer.material.map
+    // this.sharedTransparentMaterial = new THREE.MeshLambertMaterial({
+    //   transparent: true,
+    //   // depthWrite: false,
+    //   alphaTest: 0.1
+    // })
+    // this.sharedTransparentMaterial.map = this.worldRenderer.material.map
 
     const { forceInstancedOnly } = this.worldRenderer.worldRendererConfig
     const debugBlocksMap = forceInstancedOnly ? {
@@ -400,17 +408,27 @@ export class InstancedRenderer {
     }
   }
 
-  private createBlockMaterial (blockName: string, isTransparent: boolean): THREE.Material {
-    const { enableSingleColorMode } = this.worldRenderer.worldRendererConfig
+  private getOrCreateColorMaterial (blockName: string): THREE.Material {
+    const color = this.getBlockColor(blockName)
+    const materialKey = color
 
-    if (enableSingleColorMode) {
-      // Ultra-performance mode: solid colors only
-      const color = this.getBlockColor(blockName)
-      const material = new THREE.MeshBasicMaterial({ color })
+    let material = this.colorMaterials.get(materialKey)
+    if (!material) {
+      material = new THREE.MeshBasicMaterial({
+        color,
+        transparent: false
+      })
       material.name = `instanced_color_${blockName}`
-      return material
+      this.colorMaterials.set(materialKey, material)
+    }
+    return material
+  }
+
+  private createBlockMaterial (blockName: string, instancingMode: InstancingMode): THREE.Material {
+    if (instancingMode === InstancingMode.ColorOnly) {
+      return this.getOrCreateColorMaterial(blockName)
     } else {
-      return isTransparent ? this.sharedTransparentMaterial! : this.sharedSolidMaterial!
+      return this.sharedSolidMaterial!
     }
   }
 
@@ -423,11 +441,14 @@ export class InstancedRenderer {
 
     // Create InstancedMesh for each instanceable block type
     for (const stateId of this.instancedBlocksConfig.instanceableBlocks) {
-      this.initializeInstancedMesh(stateId, this.stateIdToName.get(stateId)!)
+      const blockName = this.stateIdToName.get(stateId)
+      if (blockName) {
+        this.initializeInstancedMesh(stateId, blockName, InstancingMode.ColorOnly)
+      }
     }
   }
 
-  initializeInstancedMesh (stateId: number, blockName: string) {
+  initializeInstancedMesh (stateId: number, blockName: string, instancingMode: InstancingMode) {
     if (this.instancedMeshes.has(stateId)) return // Skip if already exists
 
     if (!this.instancedBlocksConfig!.blocksDataModel) {
@@ -439,7 +460,7 @@ export class InstancedRenderer {
     const initialCount = this.getInitialInstanceCount(blockName)
 
     const geometry = blockModelData ? this.createCustomGeometry(stateId, blockModelData) : this.cubeGeometry
-    const material = this.createBlockMaterial(blockName, isTransparent)
+    const material = this.createBlockMaterial(blockName, instancingMode)
 
     const mesh = new THREE.InstancedMesh(
       geometry,
@@ -454,7 +475,7 @@ export class InstancedRenderer {
     // mesh.renderOrder = isTransparent ? 1 : 0
 
     this.instancedMeshes.set(stateId, mesh)
-    this.worldRenderer.scene.add(mesh)
+    // Don't add to scene until actually used
     this.totalAllocatedInstances += initialCount
 
     if (!blockModelData) {
@@ -589,6 +610,9 @@ export class InstancedRenderer {
       return parseRgbColor(rgbString)
     }
 
+    // Debug: Log when color is not found
+    console.warn(`No color found for block: ${blockName}, using default gray`)
+
     // Fallback to default gray if color not found
     return 0x99_99_99
   }
@@ -602,7 +626,6 @@ export class InstancedRenderer {
 
     // Remove old instances for blocks that are being updated
     const previousStateIds = [...sectionMap.keys()]
-    // TODO stress test updates, maybe need more effective way to remove old instances
     for (const stateId of previousStateIds) {
       const instanceIndices = sectionMap.get(stateId)
       if (instanceIndices) {
@@ -613,18 +636,18 @@ export class InstancedRenderer {
 
     // Keep track of blocks that were updated this frame
     for (const [blockName, blockData] of Object.entries(instancedBlocks)) {
-      const { stateId } = blockData
+      const { stateId, positions, matrices } = blockData
       this.stateIdToName.set(stateId, blockName)
 
-      if (this.USE_APP_GEOMETRY) { // only dynamically initialize meshes for app geometry
-        this.initializeInstancedMesh(stateId, blockName)
+      if (this.USE_APP_GEOMETRY) {
+        this.initializeInstancedMesh(stateId, blockName, instancingMode)
       }
 
       const instanceIndices: number[] = []
       const currentCount = this.blockCounts.get(stateId) || 0
 
       // Check if we can add all positions at once
-      const neededInstances = blockData.positions.length
+      const neededInstances = positions.length
       if (!this.canAddMoreInstances(stateId, neededInstances)) {
         console.warn(`Cannot add ${neededInstances} instances for block ${blockName} (current: ${currentCount}, max: ${this.maxInstancesPerBlock})`)
         continue
@@ -632,13 +655,10 @@ export class InstancedRenderer {
 
       const mesh = this.instancedMeshes.get(stateId)!
 
-      // Add new instances for this section
-      for (const pos of blockData.positions) {
+      // Add new instances for this section using pre-calculated matrices from worker
+      for (let i = 0; i < positions.length; i++) {
         const instanceIndex = currentCount + instanceIndices.length
-        const offset = this.USE_APP_GEOMETRY ? 0 : 0.5
-
-        this.tempMatrix.setPosition(pos.x + offset, pos.y + offset, pos.z + offset)
-        mesh.setMatrixAt(instanceIndex, this.tempMatrix)
+        mesh.setMatrixAt(instanceIndex, new THREE.Matrix4().fromArray(matrices[i]))
         instanceIndices.push(instanceIndex)
       }
 
@@ -648,13 +668,14 @@ export class InstancedRenderer {
         const newCount = currentCount + instanceIndices.length
         this.blockCounts.set(stateId, newCount)
         this.currentTotalInstances += instanceIndices.length
-        mesh.count = newCount // Ensure mesh.count matches our tracking
+        mesh.count = newCount
         mesh.instanceMatrix.needsUpdate = true
 
-        // Only track mesh in sceneUsedMeshes if it's actually being used
-        if (newCount > 0) {
-          this.sceneUsedMeshes.set(blockName, mesh)
+        // Only add mesh to scene when it's first used
+        if (newCount === instanceIndices.length) {
+          this.worldRenderer.scene.add(mesh)
         }
+        this.sceneUsedMeshes.set(blockName, mesh)
       }
     }
   }
@@ -762,6 +783,17 @@ export class InstancedRenderer {
         mesh.material.dispose()
       }
     }
+
+    // Clean up materials
+    if (this.sharedSolidMaterial) {
+      this.sharedSolidMaterial.dispose()
+      this.sharedSolidMaterial = null
+    }
+    for (const material of this.colorMaterials.values()) {
+      material.dispose()
+    }
+    this.colorMaterials.clear()
+
     this.instancedMeshes.clear()
     this.blockCounts.clear()
     this.sectionInstances.clear()

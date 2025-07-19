@@ -552,7 +552,27 @@ const shouldCullInstancedBlock = (world: World, cursor: Vec3, block: Block): boo
   return true
 }
 
+// Add matrix calculation helper
+function calculateInstanceMatrix (pos: { x: number, y: number, z: number }, offset = 0.5): number[] {
+  // Create a 4x4 matrix array (16 elements)
+  const matrix = Array.from({ length: 16 }).fill(0) as number[]
+
+  // Set identity matrix
+  matrix[0] = 1 // m11
+  matrix[5] = 1 // m22
+  matrix[10] = 1 // m33
+  matrix[15] = 1 // m44
+
+  // Set translation (position)
+  matrix[12] = pos.x + offset // tx
+  matrix[13] = pos.y + offset // ty
+  matrix[14] = pos.z + offset // tz
+
+  return matrix
+}
+
 let unknownBlockModel: BlockModelPartsResolved
+
 export function getSectionGeometry (sx: number, sy: number, sz: number, world: World, instancingMode = InstancingMode.None): MesherGeometryOutput {
   let delayedRender = [] as Array<() => void>
 
@@ -667,14 +687,24 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
               attr.instancedBlocks[blockKey] = {
                 stateId: block.stateId,
                 blockName: block.name,
-                positions: []
+                positions: [],
+                matrices: [] // Add matrices array
               }
             }
-            attr.instancedBlocks[blockKey].positions.push({
+
+            const pos = {
               x: cursor.x,
               y: cursor.y,
               z: cursor.z
-            })
+            }
+
+            // Pre-calculate transformation matrix
+            const offset = instancingMode === InstancingMode.ColorOnly ? 0 : 0.5
+            const matrix = calculateInstanceMatrix(pos, offset)
+
+            attr.instancedBlocks[blockKey].positions.push(pos)
+            attr.instancedBlocks[blockKey].matrices.push(matrix)
+
             attr.blocksCount++
             continue // Skip regular geometry generation for instanceable blocks
           }

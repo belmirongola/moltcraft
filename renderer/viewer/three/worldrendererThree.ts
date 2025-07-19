@@ -30,7 +30,7 @@ type SectionKey = string
 
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
-  sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean }> = {}
+  sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean, boxHelper?: THREE.BoxHelper, mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial> }> = {}
   sectionInstancingMode: Record<string, InstancingMode> = {}
   chunkTextures = new Map<string, { [pos: string]: THREE.Texture }>()
   signsCache = new Map<string, any>()
@@ -56,6 +56,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
   camera: THREE.PerspectiveCamera
   renderTimeAvg = 0
+  chunkBoxMaterial = new THREE.MeshBasicMaterial({ color: 0x00_00_00, transparent: true, opacity: 0 })
   sectionsOffsetsAnimations = {} as {
     [chunkKey: string]: {
       time: number,
@@ -222,7 +223,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   override watchReactiveConfig () {
     super.watchReactiveConfig()
     this.onReactiveConfigUpdated('showChunkBorders', (value) => {
-      this.updateShowChunksBorder(value)
+      this.updateShowChunksBorder()
     })
   }
 
@@ -370,16 +371,18 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   cameraSectionPositionUpdate () {
     // eslint-disable-next-line guard-for-in
-    for (const key in this.sectionObjects) {
-      const value = this.sectionObjects[key]
-      if (!value) continue
-      this.updatePosDataChunk(key)
+    for (const key in this.sectionInstancingMode) {
+      const object = this.sectionObjects[key]
+      if (object) {
+        this.updatePosDataChunk(key)
+      }
 
       if (this.worldRendererConfig.dynamicInstancing) {
-        const [x, y, z] = key.split(',').map(x => +x / 16)
+        const [x, y, z] = key.split(',').map(x => +x)
         const pos = new Vec3(x, y, z)
         const instancingMode = this.getInstancingMode(pos)
         if (instancingMode !== this.sectionInstancingMode[key]) {
+          // console.log('update section', key, this.sectionInstancingMode[key], '->', instancingMode)
           // update section
           this.setSectionDirty(pos)
         }
@@ -407,24 +410,26 @@ export class WorldRendererThree extends WorldRendererCommon {
     const chunkKey = chunkCoords[0] + ',' + chunkCoords[2]
 
     const hasInstancedBlocks = data.geometry.instancedBlocks && Object.keys(data.geometry.instancedBlocks).length > 0
-    const shouldUpdateInstanced = hasInstancedBlocks || this.sectionObjects[data.key]
 
-    if (shouldUpdateInstanced) {
-      // Only remove if we have something to replace it with or need to clear existing
-      this.instancedRenderer?.removeSectionInstances(data.key)
-    }
+    this.instancedRenderer?.removeSectionInstances(data.key)
+
+    // if (data.key === '48,64,32') {
+    //   console.log('handleWorkerMessage', data.key, this.sectionObjects[data.key], this.sectionInstancingMode[data.key], Object.keys(data.geometry.instancedBlocks).length, data.geometry.positions.length)
+    // }
 
     // Handle instanced blocks data from worker
     if (hasInstancedBlocks) {
       this.instancedRenderer?.handleInstancedBlocksFromWorker(data.geometry.instancedBlocks, data.key, this.getInstancingMode(new Vec3(chunkCoords[0], chunkCoords[1], chunkCoords[2])))
     }
 
-    let object: THREE.Object3D = this.sectionObjects[data.key]
+    let object = this.sectionObjects[data.key]
     if (object) {
       this.scene.remove(object)
       disposeObject(object)
       delete this.sectionObjects[data.key]
     }
+
+    object = this.sectionObjects[data.key]
 
     if (!this.loadedChunks[chunkKey] || !data.geometry.positions.length || !this.active) return
 
@@ -432,30 +437,28 @@ export class WorldRendererThree extends WorldRendererCommon {
     //   this.debugRecomputedDeletedObjects++
     // }
 
-    const geometry = new THREE.BufferGeometry()
+    const geometry = object?.mesh?.geometry ?? new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(data.geometry.positions, 3))
     geometry.setAttribute('normal', new THREE.BufferAttribute(data.geometry.normals, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(data.geometry.colors, 3))
     geometry.setAttribute('uv', new THREE.BufferAttribute(data.geometry.uvs, 2))
     geometry.index = new THREE.BufferAttribute(data.geometry.indices as Uint32Array | Uint16Array, 1)
+    const { sx, sy, sz } = data.geometry
 
-    const mesh = new THREE.Mesh(geometry, this.material)
+    // Set bounding box for the 16x16x16 section
+    geometry.boundingBox = new THREE.Box3(new THREE.Vector3(-8, -8, -8), new THREE.Vector3(8, 8, 8))
+    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), Math.sqrt(3 * 8 ** 2))
+
+    const mesh = object?.mesh ?? new THREE.Mesh(geometry, this.material)
     mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
     mesh.name = 'mesh'
-    object = new THREE.Group()
-    object.add(mesh)
-    // mesh with static dimensions: 16x16x16
-    const staticChunkMesh = new THREE.Mesh(new THREE.BoxGeometry(16, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00_00_00, transparent: true, opacity: 0 }))
-    staticChunkMesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
-    const boxHelper = new THREE.BoxHelper(staticChunkMesh, 0xff_ff_00)
-    boxHelper.name = 'helper'
-    object.add(boxHelper)
-    object.name = 'chunk';
+    if (!object) {
+      object = new THREE.Group()
+      object.add(mesh)
+    }
     (object as any).tilesCount = data.geometry.positions.length / 3 / 4;
     (object as any).blocksCount = data.geometry.blocksCount
-    if (!this.displayOptions.inWorldRenderingConfig.showChunkBorders) {
-      boxHelper.visible = false
-    }
+
     // should not compute it once
     if (Object.keys(data.geometry.signs).length) {
       for (const [posKey, { isWall, isHanging, rotation }] of Object.entries(data.geometry.signs)) {
@@ -477,7 +480,15 @@ export class WorldRendererThree extends WorldRendererCommon {
         object.add(head)
       }
     }
-    this.sectionObjects[data.key] = object
+
+    if (!this.sectionObjects[data.key]) {
+      this.sectionObjects[data.key] = object
+      this.sectionObjects[data.key].mesh = mesh
+      this.scene.add(object)
+    }
+
+    this.updateBoxHelper(data.key)
+
     if (this.displayOptions.inWorldRenderingConfig._renderByChunks) {
       object.visible = false
       const chunkKey = `${chunkCoords[0]},${chunkCoords[2]}`
@@ -494,8 +505,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     mesh.onAfterRender = (renderer, scene, camera, geometry, material, group) => {
       // mesh.matrixAutoUpdate = false
     }
-
-    this.scene.add(object)
   }
 
   getSignTexture (position: Vec3, blockEntity, backSide = false) {
@@ -923,13 +932,32 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
-  updateShowChunksBorder (value: boolean) {
-    for (const object of Object.values(this.sectionObjects)) {
-      for (const child of object.children) {
-        if (child.name === 'helper') {
-          child.visible = value
-        }
+  updateShowChunksBorder () {
+    for (const key of Object.keys(this.sectionObjects)) {
+      this.updateBoxHelper(key)
+    }
+  }
+
+  updateBoxHelper (key: string) {
+    const { showChunkBorders } = this.worldRendererConfig
+    const section = this.sectionObjects[key]
+    if (!section) return
+    if (showChunkBorders) {
+      if (!section.boxHelper) {
+        // mesh with static dimensions: 16x16x16
+        const staticChunkMesh = new THREE.Mesh(new THREE.BoxGeometry(16, 16, 16), this.chunkBoxMaterial)
+        staticChunkMesh.position.set(section.mesh!.position.x, section.mesh!.position.y, section.mesh!.position.z)
+        const boxHelper = new THREE.BoxHelper(staticChunkMesh, 0xff_ff_00)
+        boxHelper.name = 'helper'
+        // boxHelper.geometry.boundingSphere = section.mesh!.geometry.boundingSphere
+        section.add(boxHelper)
+        section.name = 'chunk'
+        section.boxHelper = boxHelper
       }
+
+      section.boxHelper.visible = true
+    } else if (section.boxHelper) {
+      section.boxHelper.visible = false
     }
   }
 
@@ -987,6 +1015,11 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
+  removeCurrentChunk () {
+    const currentChunk = this.cameraSectionPos
+    this.removeColumn(currentChunk.x * 16, currentChunk.z * 16)
+  }
+
   removeColumn (x, z) {
     super.removeColumn(x, z)
 
@@ -1018,7 +1051,10 @@ export class WorldRendererThree extends WorldRendererCommon {
           ? InstancingMode.BlockInstancingOnly
           : InstancingMode.BlockInstancing
     } else if (dynamicInstancing) {
-      const distance = Math.abs(pos.x / 16 - this.cameraSectionPos.x) + Math.abs(pos.z / 16 - this.cameraSectionPos.z)
+      const dx = pos.x / 16 - this.cameraSectionPos.x
+      const dz = pos.z / 16 - this.cameraSectionPos.z
+      const distance = Math.floor(Math.hypot(dx, dz))
+      // console.log('distance', distance, `${pos.x},${pos.y},${pos.z}`)
       if (distance > dynamicColorModeDistance) {
         instancingMode = InstancingMode.ColorOnly
       } else if (distance > dynamicInstancingModeDistance) {
@@ -1031,9 +1067,10 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   setSectionDirty (pos: Vec3, value = true) {
     this.cleanChunkTextures(pos.x, pos.z) // todo don't do this!
-    super.setSectionDirty(pos, value, undefined, this.getInstancingMode(pos))
+    const instancingMode = this.getInstancingMode(pos)
+    super.setSectionDirty(pos, value, undefined, instancingMode)
     if (value) {
-      this.sectionInstancingMode[pos.toString()] = this.getInstancingMode(pos)
+      this.sectionInstancingMode[`${pos.x},${pos.y},${pos.z}`] = instancingMode
     }
   }
 
