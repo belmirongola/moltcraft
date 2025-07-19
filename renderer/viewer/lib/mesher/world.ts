@@ -42,7 +42,7 @@ export class World {
   customBlockModels = new Map<string, CustomBlockModels>() // chunkKey -> blockModels
   sentBlockStateModels = new Set<string>()
   blockStateModelInfo = new Map<string, BlockStateModelInfo>()
-  instancedBlocks: Record<number, boolean> = {}
+  instancedBlocks: number[] = []
   instancedBlockIds = {} as Record<number, number>
 
   constructor (version: string) {

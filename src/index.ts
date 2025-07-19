@@ -276,6 +276,10 @@ export async function connect (connectOptions: ConnectOptions) {
         return
       }
     }
+    if (e.reason?.stack?.includes('chrome-extension://')) {
+      // ignore issues caused by chrome extension
+      return
+    }
     handleError(e.reason)
   }, {
     signal: errorAbortController.signal

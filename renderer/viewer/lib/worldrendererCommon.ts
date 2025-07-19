@@ -60,6 +60,9 @@ export const defaultWorldRendererConfig = {
   // New instancing options
   useInstancedRendering: false,
   forceInstancedOnly: false,
+  dynamicInstancing: false,
+  dynamicInstancingModeDistance: 1, // chunks beyond this distance use instancing only
+  dynamicColorModeDistance: 1, // chunks beyond this distance use color mode only
   instancedOnlyDistance: 6, // chunks beyond this distance use instancing only
   enableSingleColorMode: false, // ultra-performance mode with solid colors
 }
@@ -161,7 +164,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   abstract changeBackgroundColor (color: [number, number, number]): void
 
   // Optional method for getting instanced blocks data (implemented by Three.js renderer)
-  getInstancedBlocksData? (): { instanceableBlocks: Set<string>, allBlocksStateIdToModelIdMap: Record<number, number> } | undefined
+  getInstancedBlocksData? (): { instanceableBlocks?: Set<number>, allBlocksStateIdToModelIdMap?: Record<number, number> } | undefined
 
   worldRendererConfig: WorldRendererConfig
   playerStateReactive: PlayerStateReactive

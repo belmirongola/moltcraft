@@ -4,7 +4,7 @@ import { versionToNumber } from 'flying-squid/dist/utils'
 import PrismarineBlock from 'prismarine-block'
 import { IndexedBlock } from 'minecraft-data'
 import moreBlockData from '../lib/moreBlockDataGenerated.json'
-import { MesherGeometryOutput } from '../lib/mesher/shared'
+import { InstancingMode, MesherGeometryOutput } from '../lib/mesher/shared'
 import { getPreflatBlock } from './getPreflatBlock'
 import { WorldRendererThree } from './worldrendererThree'
 
@@ -43,7 +43,7 @@ export interface InstancedBlockModelData {
 }
 
 export interface InstancedBlocksConfig {
-  instanceableBlocks: Set<string>
+  instanceableBlocks: Set<number>
   blocksDataModel: Record<number, InstancedBlockModelData>
   blockNameToStateIdMap: Record<string, number>
   interestedTextureTiles: Set<string>
@@ -75,7 +75,8 @@ export class InstancedRenderer {
   private totalAllocatedInstances = 0
 
   private instancedBlocksConfig: InstancedBlocksConfig | null = null
-  private sharedMaterial: THREE.MeshLambertMaterial | null = null
+  private sharedSolidMaterial: THREE.MeshLambertMaterial | null = null
+  private sharedTransparentMaterial: THREE.MeshLambertMaterial | null = null
 
   constructor (private readonly worldRenderer: WorldRendererThree) {
     this.cubeGeometry = this.createCubeGeometry()
@@ -281,7 +282,7 @@ export class InstancedRenderer {
     }
 
     config.blocksDataModel[stateId] = blockData
-    config.instanceableBlocks.add(name)
+    config.instanceableBlocks.add(stateId)
     config.blockNameToStateIdMap[name] = stateId
 
     if (mcBlockData) {
@@ -292,15 +293,22 @@ export class InstancedRenderer {
   }
 
   prepareInstancedBlocksData () {
-    if (this.sharedMaterial) {
-      this.sharedMaterial.dispose()
-      this.sharedMaterial = null
+    if (this.sharedSolidMaterial) {
+      this.sharedSolidMaterial.dispose()
+      this.sharedSolidMaterial = null
     }
-    this.sharedMaterial = new THREE.MeshLambertMaterial({
+    this.sharedSolidMaterial = new THREE.MeshLambertMaterial({
       transparent: true,
+      // depthWrite: true,
       alphaTest: 0.1
     })
-    this.sharedMaterial.map = this.worldRenderer.material.map
+    this.sharedSolidMaterial.map = this.worldRenderer.material.map
+    this.sharedTransparentMaterial = new THREE.MeshLambertMaterial({
+      transparent: true,
+      // depthWrite: false,
+      alphaTest: 0.1
+    })
+    this.sharedTransparentMaterial.map = this.worldRenderer.material.map
 
     const { forceInstancedOnly } = this.worldRenderer.worldRendererConfig
     const debugBlocksMap = forceInstancedOnly ? {
@@ -327,11 +335,11 @@ export class InstancedRenderer {
     const PBlockOriginal = PrismarineBlock(this.worldRenderer.version)
 
     this.instancedBlocksConfig = {
-      instanceableBlocks: new Set<string>(),
-      blocksDataModel: {} as Record<number, InstancedBlockModelData>,
-      blockNameToStateIdMap: {} as Record<string, number>,
-      interestedTextureTiles: new Set<string>(),
-    }
+      instanceableBlocks: new Set(),
+      blocksDataModel: {},
+      blockNameToStateIdMap: {},
+      interestedTextureTiles: new Set(),
+    } satisfies InstancedBlocksConfig
 
     // Add unknown block model
     this.prepareInstancedBlock(-1, 'unknown', {})
@@ -374,7 +382,7 @@ export class InstancedRenderer {
               sv: texture.sv
             }))
           }
-          config.instanceableBlocks.add(block.name)
+          config.instanceableBlocks.add(block.stateId)
           config.interestedTextureTiles.add(textureOverride)
           config.blockNameToStateIdMap[block.name] = stateId
           continue
@@ -392,7 +400,7 @@ export class InstancedRenderer {
     }
   }
 
-  private createBlockMaterial (blockName: string): THREE.Material {
+  private createBlockMaterial (blockName: string, isTransparent: boolean): THREE.Material {
     const { enableSingleColorMode } = this.worldRenderer.worldRendererConfig
 
     if (enableSingleColorMode) {
@@ -402,7 +410,7 @@ export class InstancedRenderer {
       material.name = `instanced_color_${blockName}`
       return material
     } else {
-      return this.sharedMaterial!
+      return isTransparent ? this.sharedTransparentMaterial! : this.sharedSolidMaterial!
     }
   }
 
@@ -414,9 +422,8 @@ export class InstancedRenderer {
     }
 
     // Create InstancedMesh for each instanceable block type
-    for (const blockName of this.instancedBlocksConfig.instanceableBlocks) {
-      const stateId = this.getStateId(blockName)
-      this.initializeInstancedMesh(stateId, blockName)
+    for (const stateId of this.instancedBlocksConfig.instanceableBlocks) {
+      this.initializeInstancedMesh(stateId, this.stateIdToName.get(stateId)!)
     }
   }
 
@@ -428,10 +435,11 @@ export class InstancedRenderer {
     }
 
     const blockModelData = this.instancedBlocksConfig!.blocksDataModel[stateId]
+    const isTransparent = blockModelData?.transparent ?? false
     const initialCount = this.getInitialInstanceCount(blockName)
 
     const geometry = blockModelData ? this.createCustomGeometry(stateId, blockModelData) : this.cubeGeometry
-    const material = this.createBlockMaterial(blockName)
+    const material = this.createBlockMaterial(blockName, isTransparent)
 
     const mesh = new THREE.InstancedMesh(
       geometry,
@@ -442,6 +450,8 @@ export class InstancedRenderer {
     mesh.frustumCulled = false
     mesh.count = 0
     mesh.visible = this._instancedMeshesVisible // Set initial visibility
+
+    // mesh.renderOrder = isTransparent ? 1 : 0
 
     this.instancedMeshes.set(stateId, mesh)
     this.worldRenderer.scene.add(mesh)
@@ -583,7 +593,7 @@ export class InstancedRenderer {
     return 0x99_99_99
   }
 
-  handleInstancedBlocksFromWorker (instancedBlocks: MesherGeometryOutput['instancedBlocks'], sectionKey: string) {
+  handleInstancedBlocksFromWorker (instancedBlocks: MesherGeometryOutput['instancedBlocks'], sectionKey: string, instancingMode: InstancingMode) {
     // Initialize section tracking if not exists
     if (!this.sectionInstances.has(sectionKey)) {
       this.sectionInstances.set(sectionKey, new Map())
@@ -724,10 +734,6 @@ export class InstancedRenderer {
         this.sceneUsedMeshes.delete(blockName)
       }
     }
-  }
-
-  isBlockInstanceable (blockName: string): boolean {
-    return this.instancedBlocksConfig?.instanceableBlocks.has(blockName) ?? false
   }
 
   disposeOldMeshes () {

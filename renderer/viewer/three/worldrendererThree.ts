@@ -31,6 +31,7 @@ type SectionKey = string
 export class WorldRendererThree extends WorldRendererCommon {
   outputFormat = 'threeJs' as const
   sectionObjects: Record<string, THREE.Object3D & { foutain?: boolean }> = {}
+  sectionInstancingMode: Record<string, InstancingMode> = {}
   chunkTextures = new Map<string, { [pos: string]: THREE.Texture }>()
   signsCache = new Map<string, any>()
   starField: StarField
@@ -209,6 +210,15 @@ export class WorldRendererThree extends WorldRendererCommon {
     })
   }
 
+  getInstancedBlocksData () {
+    const config = this.instancedRenderer?.getInstancedBlocksConfig()
+    if (!config) return undefined
+
+    return {
+      instanceableBlocks: config.instanceableBlocks,
+    }
+  }
+
   override watchReactiveConfig () {
     super.watchReactiveConfig()
     this.onReactiveConfigUpdated('showChunkBorders', (value) => {
@@ -364,6 +374,16 @@ export class WorldRendererThree extends WorldRendererCommon {
       const value = this.sectionObjects[key]
       if (!value) continue
       this.updatePosDataChunk(key)
+
+      if (this.worldRendererConfig.dynamicInstancing) {
+        const [x, y, z] = key.split(',').map(x => +x / 16)
+        const pos = new Vec3(x, y, z)
+        const instancingMode = this.getInstancingMode(pos)
+        if (instancingMode !== this.sectionInstancingMode[key]) {
+          // update section
+          this.setSectionDirty(pos)
+        }
+      }
     }
   }
 
@@ -386,12 +406,17 @@ export class WorldRendererThree extends WorldRendererCommon {
     const chunkCoords = data.key.split(',')
     const chunkKey = chunkCoords[0] + ',' + chunkCoords[2]
 
-    // Always clear old instanced blocks for this section first, then add new ones if any
-    this.instancedRenderer?.removeSectionInstances(data.key)
+    const hasInstancedBlocks = data.geometry.instancedBlocks && Object.keys(data.geometry.instancedBlocks).length > 0
+    const shouldUpdateInstanced = hasInstancedBlocks || this.sectionObjects[data.key]
+
+    if (shouldUpdateInstanced) {
+      // Only remove if we have something to replace it with or need to clear existing
+      this.instancedRenderer?.removeSectionInstances(data.key)
+    }
 
     // Handle instanced blocks data from worker
-    if (data.geometry.instancedBlocks && Object.keys(data.geometry.instancedBlocks).length > 0) {
-      this.instancedRenderer?.handleInstancedBlocksFromWorker(data.geometry.instancedBlocks, data.key)
+    if (hasInstancedBlocks) {
+      this.instancedRenderer?.handleInstancedBlocksFromWorker(data.geometry.instancedBlocks, data.key, this.getInstancingMode(new Vec3(chunkCoords[0], chunkCoords[1], chunkCoords[2])))
     }
 
     let object: THREE.Object3D = this.sectionObjects[data.key]
@@ -982,8 +1007,8 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
-  setSectionDirty (pos: Vec3, value = true) {
-    const { useInstancedRendering, enableSingleColorMode, forceInstancedOnly } = this.worldRendererConfig
+  getInstancingMode (pos: Vec3) {
+    const { useInstancedRendering, enableSingleColorMode, forceInstancedOnly, dynamicInstancing, dynamicInstancingModeDistance, dynamicColorModeDistance } = this.worldRendererConfig
     let instancingMode = InstancingMode.None
 
     if (useInstancedRendering || enableSingleColorMode) {
@@ -992,10 +1017,24 @@ export class WorldRendererThree extends WorldRendererCommon {
         : forceInstancedOnly
           ? InstancingMode.BlockInstancingOnly
           : InstancingMode.BlockInstancing
+    } else if (dynamicInstancing) {
+      const distance = Math.abs(pos.x / 16 - this.cameraSectionPos.x) + Math.abs(pos.z / 16 - this.cameraSectionPos.z)
+      if (distance > dynamicColorModeDistance) {
+        instancingMode = InstancingMode.ColorOnly
+      } else if (distance > dynamicInstancingModeDistance) {
+        instancingMode = InstancingMode.BlockInstancingOnly
+      }
     }
 
+    return instancingMode
+  }
+
+  setSectionDirty (pos: Vec3, value = true) {
     this.cleanChunkTextures(pos.x, pos.z) // todo don't do this!
-    super.setSectionDirty(pos, value, undefined, instancingMode)
+    super.setSectionDirty(pos, value, undefined, this.getInstancingMode(pos))
+    if (value) {
+      this.sectionInstancingMode[pos.toString()] = this.getInstancingMode(pos)
+    }
   }
 
   static getRendererInfo (renderer: THREE.WebGLRenderer) {

@@ -191,6 +191,18 @@ self.onmessage = ({ data }) => {
   handleMessage(data)
 }
 
+// Debug flag to spam last geometry output
+globalThis.DEBUG_GEOMETRY_SPAM = false // set to true to enable geometry spam for performance testing
+globalThis.lastGeometryKey = null
+
+// Track last 50 unique geometry objects with their respective keys for aggressive debugging
+interface GeometryEntry {
+  key: string
+  geometry: any
+}
+const lastGeometryEntries: GeometryEntry[] = []
+const MAX_GEOMETRY_ENTRIES = 50
+
 setInterval(() => {
   if (world === null || !allDataReady) return
 
@@ -205,10 +217,24 @@ setInterval(() => {
     if (chunk?.getSection(new Vec3(x, y, z))) {
       const start = performance.now()
       const geometry = getSectionGeometry(x, y, z, world, instancingMode)
-      const transferable = [geometry.positions?.buffer, geometry.normals?.buffer, geometry.colors?.buffer, geometry.uvs?.buffer].filter(Boolean)
-      //@ts-expect-error
-      postMessage({ type: 'geometry', key, geometry, workerIndex }, transferable)
+      const transferable = [geometry.positions?.buffer, geometry.normals?.buffer, geometry.colors?.buffer, geometry.uvs?.buffer].filter(Boolean) as any
+      postMessage({ type: 'geometry', key, geometry, workerIndex }/* , transferable */)
       processTime = performance.now() - start
+      // Store last geometry for debug spam
+      globalThis.lastGeometryKey = key
+
+      // Track unique geometry entries for aggressive debugging
+      const existingIndex = lastGeometryEntries.findIndex(entry => entry.key === key)
+      if (existingIndex >= 0) {
+        // Update existing entry with new geometry
+        lastGeometryEntries[existingIndex].geometry = geometry
+      } else {
+        // Add new entry
+        lastGeometryEntries.push({ key, geometry })
+        if (lastGeometryEntries.length > MAX_GEOMETRY_ENTRIES) {
+          lastGeometryEntries.shift() // Remove oldest
+        }
+      }
     } else {
       // console.info('[mesher] Missing section', x, y, z)
     }
@@ -238,3 +264,24 @@ setInterval(() => {
   // const time = performance.now() - start
   // console.log(`Processed ${sections.length} sections in ${time} ms (${time / sections.length} ms/section)`)
 }, 50)
+
+// Debug spam: repeatedly send last geometry output every 100ms
+setInterval(() => {
+  if (globalThis.DEBUG_GEOMETRY_SPAM) {
+    // Send the last geometry
+
+    // Aggressive debugging: send all tracked geometry entries with their respective geometries
+    // console.log(`[DEBUG] Sending ${lastGeometryEntries.length} unique geometry entries:`, lastGeometryEntries.map(e => e.key))
+
+    // Send each unique geometry entry with its respective geometry for maximum stress testing
+    for (const entry of lastGeometryEntries) {
+      postMessage({
+        type: 'geometry',
+        key: entry.key,
+        geometry: entry.geometry,
+        workerIndex,
+        debug: true // Mark as debug message
+      })
+    }
+  }
+}, 20)
