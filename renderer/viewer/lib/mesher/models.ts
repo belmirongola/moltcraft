@@ -674,7 +674,7 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
           // Check if this block can use instanced rendering
-          if ((enableInstancedRendering && isBlockInstanceable(world, block)) || forceInstancedOnly) {
+          if ((enableInstancedRendering && isBlockInstanceable(world, block))/*  || forceInstancedOnly */) {
             // Check if block should be culled (all faces hidden by neighbors)
             // TODO validate this
             if (shouldCullInstancedBlock(world, cursor, block)) {

@@ -102,7 +102,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
     this.instancedRenderer = new InstancedRenderer(this)
-    this.chunkMeshManager = new ChunkMeshManager(this, this.realScene, this.material, this.worldSizeParams.worldHeight, this.viewDistance)
+    this.chunkMeshManager = new ChunkMeshManager(this, this.scene, this.material, this.worldSizeParams.worldHeight, this.viewDistance)
 
     // Enable bypass pooling for debugging if URL param is present
     if (new URLSearchParams(location.search).get('bypassMeshPooling') === 'true') {

@@ -6,7 +6,7 @@ import { versionToNumber } from 'mc-assets/dist/utils'
 import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
 import { AppOptions, getChangedSettings, options, resetOptions } from './optionsStorage'
 import Button from './react/Button'
-import { OptionMeta, OptionSlider } from './react/OptionsItems'
+import { OptionButton, OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
 import { getScreenRefreshRate } from './utils'
 import { setLoadingScreenStatus } from './appStatus'
@@ -127,7 +127,14 @@ export const guiOptionsScheme: {
           }
         }
 
-        return <Button
+        return <OptionButton
+          item={{
+            type: 'toggle',
+            text: 'Instacing',
+            requiresChunksReload: true,
+          }}
+          cacheKey='instacing'
+          valueText={status}
           onClick={() => {
             // cycle
             if (useInstancedRendering) {
@@ -149,13 +156,8 @@ export const guiOptionsScheme: {
               options.enableSingleColorMode = false
               options.forceInstancedOnly = false
             }
-
           }}
-          inScreen
-        >
-          <span>Instacing</span>:{' '}
-          <span>{status}</span>
-        </Button>
+        />
       },
     },
     {

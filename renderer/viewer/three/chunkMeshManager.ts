@@ -61,7 +61,7 @@ export class ChunkMeshManager {
 
   constructor (
     public worldRenderer: WorldRendererThree,
-    public scene: THREE.Scene,
+    public scene: THREE.Group,
     public material: THREE.Material,
     public worldHeight: number,
     viewDistance = 3,
@@ -674,7 +674,7 @@ class SignHeadsRenderer {
   }
 
   renderSign (position: Vec3, rotation: number, isWall: boolean, isHanging: boolean, blockEntity) {
-    const tex = this.getSignTexture(position, blockEntity)
+    const tex = this.getSignTexture(position, blockEntity, isHanging)
 
     if (!tex) return
 
@@ -715,7 +715,7 @@ class SignHeadsRenderer {
     return group
   }
 
-  getSignTexture (position: Vec3, blockEntity, backSide = false) {
+  getSignTexture (position: Vec3, blockEntity, isHanging, backSide = false) {
     const chunk = chunkPos(position)
     let textures = this.chunkTextures.get(`${chunk[0]},${chunk[1]}`)
     if (!textures) {
@@ -727,7 +727,7 @@ class SignHeadsRenderer {
     if (textures[texturekey]) return textures[texturekey]
 
     const PrismarineChat = PrismarineChatLoader(this.worldRendererThree.version)
-    const canvas = renderSign(blockEntity, PrismarineChat)
+    const canvas = renderSign(blockEntity, isHanging, PrismarineChat)
     if (!canvas) return
     const tex = new THREE.Texture(canvas)
     tex.magFilter = THREE.NearestFilter
