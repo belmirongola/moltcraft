@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { subscribe, useSnapshot } from 'valtio'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { isItemActivatableMobile } from 'mineflayer-mouse/dist/activatableItemsMobile'
 import { options } from '../optionsStorage'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
@@ -77,7 +78,10 @@ function GameInteractionOverlayInner ({
       if (options.touchInteractionType === 'classic') {
         virtualClickTimeout ??= setTimeout(() => {
           virtualClickActive = true
-          document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
+          // If held item is activatable, use right click instead of left
+          const heldItemName = bot?.heldItem?.name
+          const isOnlyActivatable = heldItemName && isItemActivatableMobile(heldItemName, loadedData)
+          document.dispatchEvent(new MouseEvent('mousedown', { button: isOnlyActivatable ? 2 : 0 }))
         }, touchStartBreakingBlockMs)
       }
     }
@@ -150,16 +154,23 @@ function GameInteractionOverlayInner ({
 
       if (virtualClickActive) {
         // button 0 is left click
-        document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
+        // If held item is activatable, use right click instead of left
+        const heldItemName = bot?.heldItem?.name
+        const isOnlyActivatable = heldItemName && isItemActivatableMobile(heldItemName, loadedData)
+        document.dispatchEvent(new MouseEvent('mouseup', { button: isOnlyActivatable ? 2 : 0 }))
         virtualClickActive = false
       } else if (!capturedPointer.active.activateCameraMove && (Date.now() - capturedPointer.active.time < touchStartBreakingBlockMs)) {
         // single click action
         const MOUSE_BUTTON_RIGHT = 2
         const MOUSE_BUTTON_LEFT = 0
+        const heldItemName = bot?.heldItem?.name
+        const isOnlyActivatable = heldItemName && isItemActivatableMobile(heldItemName, loadedData)
         const gonnaAttack = !!bot.mouse.getCursorState().entity || !!videoCursorInteraction()
-        document.dispatchEvent(new MouseEvent('mousedown', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
+        // If not attacking entity and item is activatable, use right click for breaking
+        const useButton = !gonnaAttack && isOnlyActivatable ? MOUSE_BUTTON_RIGHT : (gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT)
+        document.dispatchEvent(new MouseEvent('mousedown', { button: useButton }))
         bot.mouse.update()
-        document.dispatchEvent(new MouseEvent('mouseup', { button: gonnaAttack ? MOUSE_BUTTON_LEFT : MOUSE_BUTTON_RIGHT }))
+        document.dispatchEvent(new MouseEvent('mouseup', { button: useButton }))
       }
 
       if (screenTouches > 0) {

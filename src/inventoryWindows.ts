@@ -522,7 +522,7 @@ const getResultingRecipe = (slots: Array<Item | null>, gridRows: number) => {
   type Result = RecipeItem | undefined
   let shapelessResult: Result
   let shapeResult: Result
-  outer: for (const [id, recipeVariants] of Object.entries(loadedData.recipes)) {
+  outer: for (const [id, recipeVariants] of Object.entries(loadedData.recipes ?? {})) {
     for (const recipeVariant of recipeVariants) {
       if ('inShape' in recipeVariant && equals(currentShape, recipeVariant.inShape as number[][])) {
         shapeResult = recipeVariant.result!
@@ -550,7 +550,7 @@ const getAllItemRecipes = (itemName: string) => {
   const item = loadedData.itemsByName[itemName]
   if (!item) return
   const itemId = item.id
-  const recipes = loadedData.recipes[itemId]
+  const recipes = loadedData.recipes?.[itemId]
   if (!recipes) return
   const results = [] as Array<{
     result: Item,
@@ -595,7 +595,7 @@ const getAllItemUsages = (itemName: string) => {
   if (!item) return
   const foundRecipeIds = [] as string[]
 
-  for (const [id, recipes] of Object.entries(loadedData.recipes)) {
+  for (const [id, recipes] of Object.entries(loadedData.recipes ?? {})) {
     for (const recipe of recipes) {
       if ('inShape' in recipe) {
         if (recipe.inShape.some(row => row.includes(item.id))) {

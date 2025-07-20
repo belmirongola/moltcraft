@@ -4,11 +4,13 @@ import { titleCase } from 'title-case'
 import { useMemo } from 'react'
 import { disabledSettings, options, qsOptions } from '../optionsStorage'
 import { hideAllModals, miscUiState } from '../globalState'
+import { reloadChunksAction } from '../controls'
 import Button from './Button'
 import Slider from './Slider'
 import Screen from './Screen'
 import { showOptionsModal } from './SelectOption'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
+import { reconnectReload } from './AppStatusProvider'
 
 type GeneralItem<T extends string | number | boolean> = {
   id?: string
@@ -18,7 +20,8 @@ type GeneralItem<T extends string | number | boolean> = {
   tooltip?: string
   // description?: string
   enableWarning?: string
-  willHaveNoEffect?: boolean
+  requiresRestart?: boolean
+  requiresChunksReload?: boolean
   values?: Array<T | [T, string]>
   disableIf?: [option: keyof typeof options, value: any]
 }
@@ -56,7 +59,14 @@ const useCommonComponentsProps = (item: OptionMeta) => {
   }
 }
 
-export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'toggle' }> }) => {
+const ignoreReloadWarningsCache = new Set<string>()
+
+export const OptionButton = ({ item, onClick, valueText, cacheKey }: {
+  item: Extract<OptionMeta, { type: 'toggle' }>,
+  onClick?: () => void,
+  valueText?: string,
+  cacheKey?: string,
+}) => {
   const { disabledBecauseOfSetting } = useCommonComponentsProps(item)
 
   const optionValue = useSnapshot(options)[item.id!]
@@ -84,40 +94,63 @@ export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'togg
 
   return <Button
     data-setting={item.id}
-    label={`${item.text}: ${valuesTitlesMap[optionValue]}`}
-    // label={`${item.text}:`}
-    // postLabel={valuesTitlesMap[optionValue]}
+    label={`${translate(item.text)}: ${translate(valueText ?? valuesTitlesMap[optionValue])}`}
     onClick={async (event) => {
       if (disabledReason) {
-        await showOptionsModal(`The option is unavailable. ${disabledReason}`, [])
+        await showOptionsModal(`${translate('The option is not available')}: ${disabledReason}`, [])
         return
       }
       if (item.enableWarning && !options[item.id!]) {
         const result = await showOptionsModal(item.enableWarning, ['Enable'])
         if (!result) return
       }
-      const { values } = item
-      if (values) {
-        const getOptionValue = (arrItem) => {
-          if (typeof arrItem === 'string') {
-            return arrItem
+      onClick?.()
+      if (item.id) {
+        const { values } = item
+        if (values) {
+          const getOptionValue = (arrItem) => {
+            if (typeof arrItem === 'string') {
+              return arrItem
+            } else {
+              return arrItem[0]
+            }
+          }
+          const currentIndex = values.findIndex((value) => {
+            return getOptionValue(value) === optionValue
+          })
+          if (currentIndex === -1) {
+            options[item.id] = getOptionValue(values[0])
           } else {
-            return arrItem[0]
+            const nextIndex = event.shiftKey
+              ? (currentIndex - 1 + values.length) % values.length
+              : (currentIndex + 1) % values.length
+            options[item.id] = getOptionValue(values[nextIndex])
+          }
+        } else {
+          options[item.id] = !options[item.id]
+        }
+      }
+
+      const toCacheKey = cacheKey ?? item.id ?? ''
+      if (toCacheKey && !ignoreReloadWarningsCache.has(toCacheKey)) {
+        ignoreReloadWarningsCache.add(toCacheKey)
+
+        if (item.requiresRestart) {
+          const result = await showOptionsModal(translate('The option requires a restart to take effect'), ['Restart', 'I will do it later'], {
+            cancel: false,
+          })
+          if (result) {
+            reconnectReload()
           }
         }
-        const currentIndex = values.findIndex((value) => {
-          return getOptionValue(value) === optionValue
-        })
-        if (currentIndex === -1) {
-          options[item.id!] = getOptionValue(values[0])
-        } else {
-          const nextIndex = event.shiftKey
-            ? (currentIndex - 1 + values.length) % values.length
-            : (currentIndex + 1) % values.length
-          options[item.id!] = getOptionValue(values[nextIndex])
+        if (item.requiresChunksReload) {
+          const result = await showOptionsModal(translate('The option requires a chunks reload to take effect'), ['Reload', 'I will do it later'], {
+            cancel: false,
+          })
+          if (result) {
+            reloadChunksAction()
+          }
         }
-      } else {
-        options[item.id!] = !options[item.id!]
       }
     }}
     title={disabledReason ? `${disabledReason} | ${item.tooltip}` : item.tooltip}

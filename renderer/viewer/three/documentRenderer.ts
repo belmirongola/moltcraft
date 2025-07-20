@@ -61,8 +61,9 @@ export class DocumentRenderer {
     this.previousCanvasWidth = this.canvas.width
     this.previousCanvasHeight = this.canvas.height
 
+    const supportsWebGL2 = 'WebGL2RenderingContext' in window
     // Only initialize stats and DOM-related features in main thread
-    if (!externalCanvas) {
+    if (!externalCanvas && supportsWebGL2) {
       this.stats = new TopRightStats(this.canvas as HTMLCanvasElement, this.config.statsVisible)
       this.setupFpsTracking()
     }

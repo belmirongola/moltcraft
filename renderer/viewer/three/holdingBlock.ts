@@ -357,7 +357,7 @@ export default class HoldingBlock {
         'minecraft:display_context': 'firstperson',
         'minecraft:use_duration': this.worldRenderer.playerStateReactive.itemUsageTicks,
         'minecraft:using_item': !!this.worldRenderer.playerStateReactive.itemUsageTicks,
-      }, this.lastItemModelName)
+      }, false, this.lastItemModelName)
       if (result) {
         const { mesh: itemMesh, isBlock, modelName } = result
         if (isBlock) {

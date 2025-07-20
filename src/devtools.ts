@@ -255,7 +255,6 @@ function connectWebSocket () {
 
   const wsUrl = getWebSocketUrl()
   if (!wsUrl) {
-    console.log('WebSocket server not configured')
     return
   }
 
