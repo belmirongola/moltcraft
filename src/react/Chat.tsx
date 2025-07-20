@@ -45,7 +45,7 @@ const MessageLine = ({ message, currentPlayerName, chatOpened }: { message: Mess
   return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')} data-time={message.timestamp ? new Date(message.timestamp).toLocaleString('en-US', { hour12: false }) : undefined}>
     {message.parts.map((msg, i) => {
       // Check if this is a text part that might contain a mention
-      if (msg.text && currentPlayerName) {
+      if (typeof msg.text === 'string' && currentPlayerName) {
         const parts = msg.text.split(new RegExp(`(@${currentPlayerName})`, 'i'))
         if (parts.length > 1) {
           return parts.map((txtPart, j) => {
