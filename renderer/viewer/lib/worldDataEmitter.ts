@@ -20,7 +20,7 @@ export type WorldDataEmitterEvents = {
   entityMoved: (data: any) => void
   playerEntity: (data: any) => void
   time: (data: number) => void
-  renderDistance: (viewDistance: number) => void
+  renderDistance: (viewDistance: number, keepChunksDistance: number) => void
   blockEntities: (data: Record<string, any> | { blockEntities: Record<string, any> }) => void
   markAsLoaded: (data: { x: number, z: number }) => void
   unloadChunk: (data: { x: number, z: number }) => void
@@ -79,7 +79,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
 
   updateViewDistance (viewDistance: number) {
     this.viewDistance = viewDistance
-    this.emitter.emit('renderDistance', viewDistance)
+    this.emitter.emit('renderDistance', viewDistance, this.keepChunksDistance)
   }
 
   listenToBot (bot: typeof __type_bot) {

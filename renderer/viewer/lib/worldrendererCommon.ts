@@ -487,7 +487,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       this.allChunksFinished = true
       this.allLoadedIn ??= Date.now() - this.initialChunkLoadWasStartedIn!
     }
-    this.updateChunksStats()
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeftHand: boolean): void { }

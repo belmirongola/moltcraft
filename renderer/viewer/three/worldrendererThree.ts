@@ -7,6 +7,7 @@ import { renderSign } from '../sign-renderer'
 import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from '../lib/simpleUtils'
 import { WorldRendererCommon } from '../lib/worldrendererCommon'
+import { WorldDataEmitterWorker } from '../lib/worldDataEmitter'
 import { addNewStat } from '../lib/ui/newStats'
 import { MesherGeometryOutput, InstancingMode } from '../lib/mesher/shared'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
@@ -25,6 +26,7 @@ import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
 import { InstancedRenderer } from './instancedRenderer'
+import { ChunkMeshManager } from './chunkMeshManager'
 
 type SectionKey = string
 
@@ -53,6 +55,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraContainer: THREE.Object3D
   media: ThreeJsMedia
   instancedRenderer: InstancedRenderer | undefined
+  chunkMeshManager: ChunkMeshManager
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
   camera: THREE.PerspectiveCamera
   renderTimeAvg = 0
@@ -106,6 +109,14 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
     this.instancedRenderer = new InstancedRenderer(this)
+    this.chunkMeshManager = new ChunkMeshManager(this.material, this.worldSizeParams.worldHeight, this.viewDistance)
+
+    // Enable bypass pooling for debugging if URL param is present
+    if (new URLSearchParams(location.search).get('bypassMeshPooling') === 'true') {
+      this.chunkMeshManager.bypassPooling = true
+      console.log('ChunkMeshManager: Bypassing pooling for debugging')
+    }
+
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
     // })
@@ -134,6 +145,15 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.protocolCustomBlocks.clear()
       // Reset section animations
       this.sectionsOffsetsAnimations = {}
+    })
+  }
+
+  override connect (worldView: WorldDataEmitterWorker) {
+    super.connect(worldView)
+
+    // Add additional renderDistance handling for mesh pool updates
+    worldView.on('renderDistance', (viewDistance) => {
+      this.chunkMeshManager.updateViewDistance(viewDistance)
     })
   }
 
@@ -346,8 +366,11 @@ export class WorldRendererThree extends WorldRendererCommon {
         text += `B: ${formatBigNumber(this.blocksRendered)} `
         if (instancedStats) {
           text += `I: ${formatBigNumber(instancedStats.totalInstances)}/${instancedStats.activeBlockTypes}t `
-          text += `DC: ${formatBigNumber(instancedStats.drawCalls)}`
+          text += `DC: ${formatBigNumber(instancedStats.drawCalls)} `
         }
+        const poolStats = this.chunkMeshManager.getStats()
+        const poolMode = this.chunkMeshManager.bypassPooling ? 'BYPASS' : poolStats.hitRate
+        text += `MP: ${poolStats.activeCount}/${poolStats.poolSize} ${poolMode}`
         pane.updateText(text)
         this.backendInfoReport = text
       }
@@ -361,7 +384,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     const [x, y, z] = key.split(',').map(x => Math.floor(+x / 16))
     // sum of distances: x + y + z
     const chunkDistance = Math.abs(x - this.cameraSectionPos.x) + Math.abs(y - this.cameraSectionPos.y) + Math.abs(z - this.cameraSectionPos.z)
-    const section = this.sectionObjects[key].children.find(child => child.name === 'mesh')!
+    const section = this.sectionObjects[key].mesh!
     section.renderOrder = 500 - chunkDistance
   }
 
@@ -402,7 +425,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     delete this.waitingChunksToDisplay[chunkKey]
   }
 
-  // debugRecomputedDeletedObjects = 0
   handleWorkerMessage (data: { geometry: MesherGeometryOutput, key, type }): void {
     if (data.type !== 'geometry') return
 
@@ -413,55 +435,74 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     this.instancedRenderer?.removeSectionInstances(data.key)
 
-    // if (data.key === '48,64,32') {
-    //   console.log('handleWorkerMessage', data.key, this.sectionObjects[data.key], this.sectionInstancingMode[data.key], Object.keys(data.geometry.instancedBlocks).length, data.geometry.positions.length)
-    // }
-
     // Handle instanced blocks data from worker
     if (hasInstancedBlocks) {
       this.instancedRenderer?.handleInstancedBlocksFromWorker(data.geometry.instancedBlocks, data.key, this.getInstancingMode(new Vec3(chunkCoords[0], chunkCoords[1], chunkCoords[2])))
     }
 
+    // Check if chunk should be loaded and has geometry
+    if (!this.loadedChunks[chunkKey] || !data.geometry.positions.length || !this.active) {
+      // Release any existing section from the pool
+      this.chunkMeshManager.releaseSection(data.key)
+      return
+    }
+
+    // remvoe object from scene
     let object = this.sectionObjects[data.key]
     if (object) {
       this.scene.remove(object)
-      disposeObject(object)
+      // disposeObject(object)
       delete this.sectionObjects[data.key]
     }
 
-    object = this.sectionObjects[data.key]
+    // Use ChunkMeshManager for optimized mesh handling
+    const mesh = this.chunkMeshManager.updateSection(data.key, data.geometry)
 
-    if (!this.loadedChunks[chunkKey] || !data.geometry.positions.length || !this.active) return
+    if (!mesh) {
+      console.warn(`Failed to get mesh for section ${data.key}`)
+      return
+    }
 
-    // if (object) {
-    //   this.debugRecomputedDeletedObjects++
+    // Create or update the section object container
+    object = new THREE.Group()
+    this.sectionObjects[data.key] = object
+    this.scene.add(object)
+
+    // Add the pooled mesh to the container
+    object.add(mesh)
+    this.sectionObjects[data.key].mesh = mesh as THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>
+
+    // Handle signs and heads (these are added to the container, not the pooled mesh)
+    this.addSignsAndHeads(object as THREE.Group, data.geometry)
+
+    this.updateBoxHelper(data.key)
+
+    // Handle chunk-based rendering
+    if (this.displayOptions.inWorldRenderingConfig._renderByChunks) {
+      object.visible = false
+      const chunkKey = `${chunkCoords[0]},${chunkCoords[2]}`
+      this.waitingChunksToDisplay[chunkKey] ??= []
+      this.waitingChunksToDisplay[chunkKey].push(data.key)
+      if (this.finishedChunks[chunkKey]) {
+        this.finishChunk(chunkKey)
+      }
+    }
+
+    this.updatePosDataChunk(data.key)
+    object.matrixAutoUpdate = false
+  }
+
+  private addSignsAndHeads (object: THREE.Group, geometry: MesherGeometryOutput) {
+    // Clear existing signs and heads
+    // const childrenToRemove = object.children.filter(child => child.name !== 'mesh' && child.name !== 'helper')
+    // for (const child of childrenToRemove) {
+    //   object.remove(child)
+    //   disposeObject(child)
     // }
 
-    const geometry = object?.mesh?.geometry ?? new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.BufferAttribute(data.geometry.positions, 3))
-    geometry.setAttribute('normal', new THREE.BufferAttribute(data.geometry.normals, 3))
-    geometry.setAttribute('color', new THREE.BufferAttribute(data.geometry.colors, 3))
-    geometry.setAttribute('uv', new THREE.BufferAttribute(data.geometry.uvs, 2))
-    geometry.index = new THREE.BufferAttribute(data.geometry.indices as Uint32Array | Uint16Array, 1)
-    const { sx, sy, sz } = data.geometry
-
-    // Set bounding box for the 16x16x16 section
-    geometry.boundingBox = new THREE.Box3(new THREE.Vector3(-8, -8, -8), new THREE.Vector3(8, 8, 8))
-    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), Math.sqrt(3 * 8 ** 2))
-
-    const mesh = object?.mesh ?? new THREE.Mesh(geometry, this.material)
-    mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
-    mesh.name = 'mesh'
-    if (!object) {
-      object = new THREE.Group()
-      object.add(mesh)
-    }
-    (object as any).tilesCount = data.geometry.positions.length / 3 / 4;
-    (object as any).blocksCount = data.geometry.blocksCount
-
-    // should not compute it once
-    if (Object.keys(data.geometry.signs).length) {
-      for (const [posKey, { isWall, isHanging, rotation }] of Object.entries(data.geometry.signs)) {
+    // Add signs
+    if (Object.keys(geometry.signs).length) {
+      for (const [posKey, { isWall, isHanging, rotation }] of Object.entries(geometry.signs)) {
         const signBlockEntity = this.blockEntities[posKey]
         if (!signBlockEntity) continue
         const [x, y, z] = posKey.split(',')
@@ -470,8 +511,10 @@ export class WorldRendererThree extends WorldRendererCommon {
         object.add(sign)
       }
     }
-    if (Object.keys(data.geometry.heads).length) {
-      for (const [posKey, { isWall, rotation }] of Object.entries(data.geometry.heads)) {
+
+    // Add heads
+    if (Object.keys(geometry.heads).length) {
+      for (const [posKey, { isWall, rotation }] of Object.entries(geometry.heads)) {
         const headBlockEntity = this.blockEntities[posKey]
         if (!headBlockEntity) continue
         const [x, y, z] = posKey.split(',')
@@ -479,31 +522,6 @@ export class WorldRendererThree extends WorldRendererCommon {
         if (!head) continue
         object.add(head)
       }
-    }
-
-    if (!this.sectionObjects[data.key]) {
-      this.sectionObjects[data.key] = object
-      this.sectionObjects[data.key].mesh = mesh
-      this.scene.add(object)
-    }
-
-    this.updateBoxHelper(data.key)
-
-    if (this.displayOptions.inWorldRenderingConfig._renderByChunks) {
-      object.visible = false
-      const chunkKey = `${chunkCoords[0]},${chunkCoords[2]}`
-      this.waitingChunksToDisplay[chunkKey] ??= []
-      this.waitingChunksToDisplay[chunkKey].push(data.key)
-      if (this.finishedChunks[chunkKey]) {
-        // todo it might happen even when it was not an update
-        this.finishChunk(chunkKey)
-      }
-    }
-
-    this.updatePosDataChunk(data.key)
-    object.matrixAutoUpdate = false
-    mesh.onAfterRender = (renderer, scene, camera, geometry, material, group) => {
-      // mesh.matrixAutoUpdate = false
     }
   }
 
@@ -1031,10 +1049,13 @@ export class WorldRendererThree extends WorldRendererCommon {
       // Remove instanced blocks for this section
       this.instancedRenderer?.removeSectionInstances(key)
 
-      const mesh = this.sectionObjects[key]
-      if (mesh) {
-        this.scene.remove(mesh)
-        disposeObject(mesh)
+      // Release section from mesh pool
+      this.chunkMeshManager.releaseSection(key)
+
+      const object = this.sectionObjects[key]
+      if (object) {
+        this.scene.remove(object)
+        disposeObject(object)
       }
       delete this.sectionObjects[key]
     }
@@ -1089,6 +1110,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   destroy (): void {
     this.instancedRenderer?.destroy()
+    this.chunkMeshManager.dispose()
     super.destroy()
   }
 
