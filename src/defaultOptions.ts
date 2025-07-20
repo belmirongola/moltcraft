@@ -44,6 +44,7 @@ export const defaultOptions = {
   useVersionsTextures: 'latest',
   // Instanced rendering options
   useInstancedRendering: false,
+  autoLowerRenderDistance: false,
   forceInstancedOnly: false,
   instancedOnlyDistance: 6,
   enableSingleColorMode: false,

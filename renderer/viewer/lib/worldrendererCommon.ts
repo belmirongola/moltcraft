@@ -65,6 +65,7 @@ export const defaultWorldRendererConfig = {
   dynamicColorModeDistance: 1, // chunks beyond this distance use color mode only
   instancedOnlyDistance: 6, // chunks beyond this distance use instancing only
   enableSingleColorMode: false, // ultra-performance mode with solid colors
+  autoLowerRenderDistance: false,
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig

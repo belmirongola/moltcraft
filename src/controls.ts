@@ -504,7 +504,9 @@ const alwaysPressedHandledCommand = (command: Command) => {
     lockUrl()
   }
   if (command === 'communication.toggleMicrophone') {
-    toggleMicrophoneMuted?.()
+    if (typeof toggleMicrophoneMuted === 'function') {
+      toggleMicrophoneMuted()
+    }
   }
 }
 

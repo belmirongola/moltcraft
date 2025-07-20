@@ -116,6 +116,10 @@ export const watchOptionsAfterViewerInit = () => {
     // appViewer.inWorldRenderingConfig.neighborChunkUpdates = o.neighborChunkUpdates
   })
 
+  watchValue(options, o => {
+    appViewer.inWorldRenderingConfig.autoLowerRenderDistance = o.autoLowerRenderDistance
+  })
+
   // Instanced rendering options
   watchValue(options, o => {
     appViewer.inWorldRenderingConfig.useInstancedRendering = o.useInstancedRendering
