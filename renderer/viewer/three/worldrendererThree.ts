@@ -385,7 +385,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     // sum of distances: x + y + z
     const chunkDistance = Math.abs(x - this.cameraSectionPos.x) + Math.abs(y - this.cameraSectionPos.y) + Math.abs(z - this.cameraSectionPos.z)
     const sectionObject = this.chunkMeshManager.getSectionObject(key)!
-    sectionObject.renderOrder = 500 - chunkDistance
+    sectionObject.mesh!.renderOrder = 500 - chunkDistance
   }
 
   override updateViewerPosition (pos: Vec3): void {
