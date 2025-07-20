@@ -153,36 +153,40 @@ export class ChunkMeshManager {
     sectionObject.tilesCount = geometryData.positions.length / 3 / 4
     sectionObject.blocksCount = geometryData.blocksCount
 
-    // Add signs container
-    if (Object.keys(geometryData.signs).length > 0) {
-      const signsContainer = new THREE.Group()
-      signsContainer.name = 'signs'
-      for (const [posKey, { isWall, isHanging, rotation }] of Object.entries(geometryData.signs)) {
-        const signBlockEntity = this.worldRenderer.blockEntities[posKey]
-        if (!signBlockEntity) continue
-        const [x, y, z] = posKey.split(',')
-        const sign = this.signHeadsRenderer.renderSign(new Vec3(+x, +y, +z), rotation, isWall, isHanging, nbt.simplify(signBlockEntity))
-        if (!sign) continue
-        signsContainer.add(sign)
+    try {
+      // Add signs container
+      if (Object.keys(geometryData.signs).length > 0) {
+        const signsContainer = new THREE.Group()
+        signsContainer.name = 'signs'
+        for (const [posKey, { isWall, isHanging, rotation }] of Object.entries(geometryData.signs)) {
+          const signBlockEntity = this.worldRenderer.blockEntities[posKey]
+          if (!signBlockEntity) continue
+          const [x, y, z] = posKey.split(',')
+          const sign = this.signHeadsRenderer.renderSign(new Vec3(+x, +y, +z), rotation, isWall, isHanging, nbt.simplify(signBlockEntity))
+          if (!sign) continue
+          signsContainer.add(sign)
+        }
+        sectionObject.add(signsContainer)
+        sectionObject.signsContainer = signsContainer
       }
-      sectionObject.add(signsContainer)
-      sectionObject.signsContainer = signsContainer
-    }
 
-    // Add heads container
-    if (Object.keys(geometryData.heads).length > 0) {
-      const headsContainer = new THREE.Group()
-      headsContainer.name = 'heads'
-      for (const [posKey, { isWall, rotation }] of Object.entries(geometryData.heads)) {
-        const headBlockEntity = this.worldRenderer.blockEntities[posKey]
-        if (!headBlockEntity) continue
-        const [x, y, z] = posKey.split(',')
-        const head = this.signHeadsRenderer.renderHead(new Vec3(+x, +y, +z), rotation, isWall, nbt.simplify(headBlockEntity))
-        if (!head) continue
-        headsContainer.add(head)
+      // Add heads container
+      if (Object.keys(geometryData.heads).length > 0) {
+        const headsContainer = new THREE.Group()
+        headsContainer.name = 'heads'
+        for (const [posKey, { isWall, rotation }] of Object.entries(geometryData.heads)) {
+          const headBlockEntity = this.worldRenderer.blockEntities[posKey]
+          if (!headBlockEntity) continue
+          const [x, y, z] = posKey.split(',')
+          const head = this.signHeadsRenderer.renderHead(new Vec3(+x, +y, +z), rotation, isWall, nbt.simplify(headBlockEntity))
+          if (!head) continue
+          headsContainer.add(head)
+        }
+        sectionObject.add(headsContainer)
+        sectionObject.headsContainer = headsContainer
       }
-      sectionObject.add(headsContainer)
-      sectionObject.headsContainer = headsContainer
+    } catch (err) {
+      console.error('ChunkMeshManager: Error adding signs or heads to section', err)
     }
 
     // Store and add to scene
