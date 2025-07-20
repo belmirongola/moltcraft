@@ -1,30 +1,3 @@
-import * as THREE from 'three'
-import { loadThreeJsTextureFromUrl, loadThreeJsTextureFromUrlSync } from './utils/skins'
-
-let textureCache: Record<string, THREE.Texture> = {}
-let imagesPromises: Record<string, Promise<THREE.Texture>> = {}
-
-export async function loadTexture (texture: string, cb: (texture: THREE.Texture) => void, onLoad?: () => void): Promise<void> {
-  const cached = textureCache[texture]
-  if (!cached) {
-    const { promise, resolve } = Promise.withResolvers<THREE.Texture>()
-    const t = loadThreeJsTextureFromUrlSync(texture)
-    textureCache[texture] = t.texture
-    void t.promise.then(resolve)
-    imagesPromises[texture] = promise
-  }
-
-  cb(textureCache[texture])
-  void imagesPromises[texture].then(() => {
-    onLoad?.()
-  })
-}
-
-export const clearTextureCache = () => {
-  textureCache = {}
-  imagesPromises = {}
-}
-
 export const loadScript = async function (scriptSrc: string, highPriority = true): Promise<HTMLScriptElement> {
   const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${scriptSrc}"]`)
   if (existingScript) {
@@ -51,4 +24,34 @@ export const loadScript = async function (scriptSrc: string, highPriority = true
 
     document.head.appendChild(scriptElement)
   })
+}
+
+const detectFullOffscreenCanvasSupport = () => {
+  if (typeof OffscreenCanvas === 'undefined') return false
+  try {
+    const canvas = new OffscreenCanvas(1, 1)
+    // Try to get a WebGL context - this will fail on iOS where only 2D is supported (iOS 16)
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    return gl !== null
+  } catch (e) {
+    return false
+  }
+}
+
+const hasFullOffscreenCanvasSupport = detectFullOffscreenCanvasSupport()
+
+export const createCanvas = (width: number, height: number): OffscreenCanvas => {
+  if (hasFullOffscreenCanvasSupport) {
+    return new OffscreenCanvas(width, height)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  return canvas as unknown as OffscreenCanvas // todo-low
+}
+
+export async function loadImageFromUrl (imageUrl: string): Promise<ImageBitmap> {
+  const response = await fetch(imageUrl)
+  const blob = await response.blob()
+  return createImageBitmap(blob)
 }

@@ -210,7 +210,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     if (bot?.time?.timeOfDay) {
       this.emitter.emit('time', bot.time.timeOfDay)
     }
-    if (bot.entity) {
+    if (bot?.entity) {
       this.emitter.emit('playerEntity', bot.entity)
     }
     this.emitterGotConnected()

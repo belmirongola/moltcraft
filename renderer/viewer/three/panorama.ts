@@ -7,12 +7,13 @@ import type { GraphicsInitOptions } from '../../../src/appViewer'
 import { WorldDataEmitter } from '../lib/worldDataEmitter'
 import { defaultWorldRendererConfig, WorldRendererCommon } from '../lib/worldrendererCommon'
 import { getDefaultRendererState } from '../baseGraphicsBackend'
-import { loadThreeJsTextureFromUrl, loadThreeJsTextureFromUrlSync } from '../lib/utils/skins'
 import { ResourcesManager } from '../../../src/resourcesManager'
 import { getInitialPlayerStateRenderer } from '../lib/basePlayerState'
+import { loadThreeJsTextureFromUrl, loadThreeJsTextureFromUrlSync } from './threeJsUtils'
 import { WorldRendererThree } from './worldrendererThree'
 import { EntityMesh } from './entity/EntityMesh'
 import { DocumentRenderer } from './documentRenderer'
+import { PANORAMA_VERSION } from './panoramaShared'
 
 const panoramaFiles = [
   'panorama_3.png', // right (+x)
@@ -156,7 +157,7 @@ export class PanoramaRenderer {
   }
 
   async worldBlocksPanorama () {
-    const version = '1.21.4'
+    const version = PANORAMA_VERSION
     const fullResourceManager = this.options.resourcesManager as ResourcesManager
     fullResourceManager.currentConfig = { version, noInventoryGui: true, }
     await fullResourceManager.updateAssetsData({ })

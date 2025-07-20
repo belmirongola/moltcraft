@@ -1,68 +1,7 @@
 import { loadSkinToCanvas } from 'skinview-utils'
-import * as THREE from 'three'
-import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
-import { getLoadedImage } from 'mc-assets/dist/utils'
+import { createCanvas, loadImageFromUrl } from '../utils'
 
-const detectFullOffscreenCanvasSupport = () => {
-  if (typeof OffscreenCanvas === 'undefined') return false
-  try {
-    const canvas = new OffscreenCanvas(1, 1)
-    // Try to get a WebGL context - this will fail on iOS where only 2D is supported (iOS 16)
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
-    return gl !== null
-  } catch (e) {
-    return false
-  }
-}
-
-const hasFullOffscreenCanvasSupport = detectFullOffscreenCanvasSupport()
-
-export const loadThreeJsTextureFromUrlSync = (imageUrl: string) => {
-  const texture = new THREE.Texture()
-  const promise = getLoadedImage(imageUrl).then(image => {
-    texture.image = image
-    texture.needsUpdate = true
-    return texture
-  })
-  return {
-    texture,
-    promise
-  }
-}
-
-export const createCanvas = (width: number, height: number): OffscreenCanvas => {
-  if (hasFullOffscreenCanvasSupport) {
-    return new OffscreenCanvas(width, height)
-  }
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  return canvas as unknown as OffscreenCanvas // todo-low
-}
-
-export const loadThreeJsTextureFromUrl = async (imageUrl: string) => {
-  const loaded = new THREE.TextureLoader().loadAsync(imageUrl)
-  return loaded
-}
-export const loadThreeJsTextureFromBitmap = (image: ImageBitmap) => {
-  const canvas = createCanvas(image.width, image.height)
-  const ctx = canvas.getContext('2d')!
-  ctx.drawImage(image, 0, 0)
-  const texture = new THREE.Texture(canvas)
-  texture.magFilter = THREE.NearestFilter
-  texture.minFilter = THREE.NearestFilter
-  return texture
-}
-
-export const stevePngUrl = stevePng
-export const steveTexture = loadThreeJsTextureFromUrl(stevePngUrl)
-
-
-export async function loadImageFromUrl (imageUrl: string): Promise<ImageBitmap> {
-  const response = await fetch(imageUrl)
-  const blob = await response.blob()
-  return createImageBitmap(blob)
-}
+export { default as stevePngUrl } from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 
 const config = {
   apiEnabled: true,

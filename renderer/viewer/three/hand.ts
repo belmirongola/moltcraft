@@ -1,6 +1,7 @@
 import * as THREE from 'three'
-import { loadSkinToCanvas } from 'skinview-utils'
-import { loadSkinFromUsername, loadSkinImage, steveTexture } from './utils/skins'
+import { loadSkinFromUsername, loadSkinImage } from '../lib/utils/skins'
+import { steveTexture } from './entities'
+
 
 export const getMyHand = async (image?: string, userName?: string) => {
   let newMap: THREE.Texture
