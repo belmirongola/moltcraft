@@ -818,6 +818,11 @@ export const f3Keybinds: Array<{
   }
 ]
 
+export const reloadChunksAction = () => {
+  const action = f3Keybinds.find(f3Keybind => f3Keybind.key === 'KeyA')
+  void action!.action()
+}
+
 document.addEventListener('keydown', (e) => {
   if (!isGameActive(false)) return
   if (contro.pressedKeys.has('F3')) {
@@ -987,14 +992,17 @@ export function updateBinds (commands: any) {
 }
 
 export const onF3LongPress = async () => {
-  const select = await showOptionsModal('', f3Keybinds.filter(f3Keybind => {
+  const actions = f3Keybinds.filter(f3Keybind => {
     return f3Keybind.mobileTitle && (f3Keybind.enabled?.() ?? true)
-  }).map(f3Keybind => {
+  })
+  const actionNames = actions.map(f3Keybind => {
     return `${f3Keybind.mobileTitle}${f3Keybind.key ? ` (F3+${f3Keybind.key})` : ''}`
-  }))
+  })
+  const select = await showOptionsModal('', actionNames)
   if (!select) return
-  const f3Keybind = f3Keybinds.find(f3Keybind => f3Keybind.mobileTitle === select)
-  if (f3Keybind) void f3Keybind.action()
+  const actionIndex = actionNames.indexOf(select)
+  const f3Keybind = actions[actionIndex]!
+  void f3Keybind.action()
 }
 
 export const handleMobileButtonCustomAction = (action: CustomAction) => {

@@ -14,7 +14,6 @@ For building the project yourself / contributing, see [Development, Debugging & 
 
 > **Note**: You can deploy it on your own server in less than a minute using a one-liner script from [Minecraft Everywhere repo](https://github.com/zardoy/minecraft-everywhere)
 
-
 ### Big Features
 
 - Official Mineflayer [plugin integration](https://github.com/zardoy/mcraft-fun-mineflayer-plugin)! View / Control your bot remotely.
@@ -57,6 +56,7 @@ Howerver, it's known that these browsers have issues:
 
 Server versions 1.8 - 1.21.4 are supported.
 First class versions (most of the features are tested on these versions):
+
 - 1.19.4
 - 1.21.4
 
@@ -125,11 +125,11 @@ There is world renderer playground ([link](https://mcon.vercel.app/playground/))
 
 However, there are many things that can be done in online production version (like debugging actual source code). Also you can access some global variables in the console and there are a few useful examples:
 
-- `localStorage.debug = '*'` - Enables all debug messages! Warning: this will start all packets spam.
+- If you type `debugToggle`, press enter in console - It will enables all debug messages! Warning: this will start all packets spam.
 Instead I recommend setting `options.debugLogNotFrequentPackets`. Also you can use `debugTopPackets` (with JSON.stringify) to see what packets were received/sent by name
 
 - `bot` - Mineflayer bot instance. See Mineflayer documentation for more.
-- `viewer` - Three.js viewer instance, basically does all the rendering.
+- `world` - Three.js world instance, basically does all the rendering (part of renderer backend).
 - `world.sectionObjects` - Object with all active chunk sections (geometries) in the world. Each chunk section is a Three.js mesh or group.
 - `debugSceneChunks` - The same as above, but relative to current bot position (e.g. 0,0 is the current chunk).
 - `debugChangedOptions` - See what options are changed. Don't change options here.
@@ -139,7 +139,7 @@ Instead I recommend setting `options.debugLogNotFrequentPackets`. Also you can u
 
 - `nbt.simplify(someNbt)` - Simplifies nbt data, so it's easier to read.
 
-The most useful thing in devtools is the watch expression. You can add any expression there and it will be re-evaluated in real time. For example, you can add `camera.position` to see the camera position and so on.
+The most useful thing in devtools is the watch expression. You can add any expression there and it will be re-evaluated in real time. For example, you can add `world.getCameraPosition()` to see the camera position and so on.
 
 <img src="./docs-assets/watch-expr.png" alt="Watch expression" width="480"/>
 

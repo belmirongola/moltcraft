@@ -289,11 +289,6 @@ export default () => {
           />
         </div>
       ) : null}
-      {!lockConnect && <>
-        <Button className="button" style={{ width: '204px' }} onClick={disconnect}>
-          {fsState.inMemorySave && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
-        </Button>
-      </>}
       {(noConnection || appConfig?.alwaysReconnectButton) && (
         <div className={styles.row}>
           <Button className="button" style={{ width: appConfig?.reportBugButtonWithReconnect ? '98px' : '204px' }} onClick={reconnectReload}>
@@ -343,6 +338,11 @@ export default () => {
           )}
         </div>
       )}
+      {!lockConnect && <>
+        <Button className="button" style={{ width: '204px' }} onClick={disconnect}>
+          {fsState.inMemorySave && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
+        </Button>
+      </>}
     </div>
     <LoadingTimer />
   </Screen>

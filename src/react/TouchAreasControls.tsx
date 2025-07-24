@@ -1,5 +1,6 @@
 import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react'
 import { proxy, ref, useSnapshot } from 'valtio'
+import activatableItemsMobile from 'mineflayer-mouse/dist/activatableItemsMobile'
 import { contro } from '../controls'
 import { options } from '../optionsStorage'
 import PixelartIcon from './PixelartIcon'
@@ -72,10 +73,12 @@ export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props)
       break: false,
       jump: bot?.getControlState('jump'),
     }[name]
+    const RIGHT_MOUSE_BUTTON = 2
+    const LEFT_MOUSE_BUTTON = 0
     const holdDown = {
       action () {
         if (!bot) return
-        document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
+        document.dispatchEvent(new MouseEvent('mousedown', { button: RIGHT_MOUSE_BUTTON }))
         bot.mouse.update()
       },
       sneak () {
@@ -87,7 +90,7 @@ export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props)
       },
       break () {
         if (!bot) return
-        document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
+        document.dispatchEvent(new MouseEvent('mousedown', { button: LEFT_MOUSE_BUTTON }))
         bot.mouse.update()
         active = true
       },
@@ -101,7 +104,7 @@ export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props)
     }
     const holdUp = {
       action () {
-        document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
+        document.dispatchEvent(new MouseEvent('mouseup', { button: RIGHT_MOUSE_BUTTON }))
       },
       sneak () {
         void contro.emit('release', {
@@ -112,7 +115,7 @@ export default ({ setupActive, closeButtonsSetup, foregroundGameActive }: Props)
       },
       break () {
         if (!bot) return
-        document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
+        document.dispatchEvent(new MouseEvent('mouseup', { button: LEFT_MOUSE_BUTTON }))
         bot.mouse.update()
         active = false
       },

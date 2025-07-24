@@ -19,6 +19,7 @@ export const defaultOptions = {
   enableMusic: false,
   // fov: 70,
   fov: 75,
+  defaultPerspective: 'first_person' as 'first_person' | 'third_person_back' | 'third_person_front',
   guiScale: 3,
   autoRequestCompletions: true,
   touchButtonsSize: 40,

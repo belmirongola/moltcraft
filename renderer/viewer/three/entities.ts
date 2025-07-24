@@ -717,7 +717,7 @@ export class Entities {
     return typeof component === 'string' ? component : component.text ?? ''
   }
 
-  getItemMesh (item, specificProps: ItemSpecificContextProperties, previousModel?: string) {
+  getItemMesh (item, specificProps: ItemSpecificContextProperties, faceCamera = false, previousModel?: string) {
     if (!item.nbt && item.nbtData) item.nbt = item.nbtData
     const textureUv = this.worldRenderer.getItemRenderData(item, specificProps)
     if (previousModel && previousModel === textureUv?.modelName) return undefined
@@ -757,26 +757,37 @@ export class Entities {
       itemsTexture.needsUpdate = true
       itemsTexture.magFilter = THREE.NearestFilter
       itemsTexture.minFilter = THREE.NearestFilter
-      const itemsTextureFlipped = itemsTexture.clone()
-      itemsTextureFlipped.repeat.x *= -1
-      itemsTextureFlipped.needsUpdate = true
-      itemsTextureFlipped.offset.set(u + (sizeX), 1 - v - sizeY)
-      const material = new THREE.MeshStandardMaterial({
-        map: itemsTexture,
-        transparent: true,
-        alphaTest: 0.1,
-      })
-      const materialFlipped = new THREE.MeshStandardMaterial({
-        map: itemsTextureFlipped,
-        transparent: true,
-        alphaTest: 0.1,
-      })
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0), [
-        // top left and right bottom are black box materials others are transparent
-        new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
-        new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
-        material, materialFlipped,
-      ])
+      let mesh: THREE.Object3D
+      let itemsTextureFlipped: THREE.Texture | undefined
+      if (faceCamera) {
+        const spriteMat = new THREE.SpriteMaterial({
+          map: itemsTexture,
+          transparent: true,
+          alphaTest: 0.1,
+        })
+        mesh = new THREE.Sprite(spriteMat)
+      } else {
+        itemsTextureFlipped = itemsTexture.clone()
+        itemsTextureFlipped.repeat.x *= -1
+        itemsTextureFlipped.needsUpdate = true
+        itemsTextureFlipped.offset.set(u + (sizeX), 1 - v - sizeY)
+        const material = new THREE.MeshStandardMaterial({
+          map: itemsTexture,
+          transparent: true,
+          alphaTest: 0.1,
+        })
+        const materialFlipped = new THREE.MeshStandardMaterial({
+          map: itemsTextureFlipped,
+          transparent: true,
+          alphaTest: 0.1,
+        })
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0), [
+          // top left and right bottom are black box materials others are transparent
+          new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
+          new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
+          material, materialFlipped,
+        ])
+      }
       let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
         SCALE = 0.5
@@ -805,8 +816,6 @@ export class Entities {
   }
 
   update (entity: SceneEntity['originalEntity'], overrides) {
-    const justAdded = !this.entities[entity.id]
-
     const isPlayerModel = entity.name === 'player'
     if (entity.name === 'zombie_villager' || entity.name === 'husk') {
       overrides.texture = `textures/1.16.4/entity/${entity.name === 'zombie_villager' ? 'zombie_villager/zombie_villager.png' : `zombie/${entity.name}.png`}`
@@ -817,6 +826,7 @@ export class Entities {
     }
     // this can be undefined in case where packet entity_destroy was sent twice (so it was already deleted)
     let e = this.entities[entity.id]
+    const justAdded = !e
 
     if (entity.delete) {
       if (!e) return
@@ -836,21 +846,23 @@ export class Entities {
     if (e === undefined) {
       const group = new THREE.Group() as unknown as SceneEntity
       group.originalEntity = entity
-      if (entity.name === 'item' || entity.name === 'tnt' || entity.name === 'falling_block') {
-        const item = entity.name === 'tnt'
-          ? { name: 'tnt' }
+      if (entity.name === 'item' || entity.name === 'tnt' || entity.name === 'falling_block' || entity.name === 'snowball'
+        || entity.name === 'egg' || entity.name === 'ender_pearl' || entity.name === 'experience_bottle'
+        || entity.name === 'splash_potion' || entity.name === 'lingering_potion') {
+        const item = entity.name === 'tnt' || entity.type === 'projectile'
+          ? { name: entity.name }
           : entity.name === 'falling_block'
             ? { blockState: entity['objectData'] }
             : entity.metadata?.find((m: any) => typeof m === 'object' && m?.itemCount)
         if (item) {
           const object = this.getItemMesh(item, {
             'minecraft:display_context': 'ground',
-          })
+          }, entity.type === 'projectile')
           if (object) {
             mesh = object.mesh
-            if (entity.name === 'item') {
+            if (entity.name === 'item' || entity.type === 'projectile') {
               mesh.scale.set(0.5, 0.5, 0.5)
-              mesh.position.set(0, 0.2, 0)
+              mesh.position.set(0, entity.name === 'item' ? 0.2 : 0.1, 0)
             } else {
               mesh.scale.set(2, 2, 2)
               mesh.position.set(0, 0.5, 0)
@@ -858,8 +870,8 @@ export class Entities {
             // set faces
             // mesh.position.set(targetPos.x + 0.5 + 2, targetPos.y + 0.5, targetPos.z + 0.5)
             // viewer.scene.add(mesh)
-            const clock = new THREE.Clock()
             if (entity.name === 'item') {
+              const clock = new THREE.Clock()
               mesh.onBeforeRender = () => {
                 const delta = clock.getDelta()
                 mesh!.rotation.y += delta

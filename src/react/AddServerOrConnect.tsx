@@ -29,10 +29,9 @@ interface Props {
   accounts?: string[]
   authenticatedAccounts?: number
   versions?: string[]
-  allowAutoConnect?: boolean
 }
 
-export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, placeholders, accounts, versions, allowAutoConnect }: Props) => {
+export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, placeholders, accounts, versions }: Props) => {
   const isSmallHeight = !usePassesScaledDimensions(null, 350)
   const qsParamName = parseQs ? appQueryParams.name : undefined
   const qsParamIp = parseQs ? appQueryParams.ip : undefined
@@ -40,7 +39,6 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const qsParamProxy = parseQs ? appQueryParams.proxy : undefined
   const qsParamUsername = parseQs ? appQueryParams.username : undefined
   const qsParamLockConnect = parseQs ? appQueryParams.lockConnect : undefined
-  const qsParamAutoConnect = parseQs ? appQueryParams.autoConnect : undefined
 
   const parsedQsIp = parseServerAddress(qsParamIp)
   const parsedInitialIp = parseServerAddress(initialData?.ip)
@@ -117,12 +115,6 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
       return { border: 'red solid 1px' }
     }
   }
-
-  useEffect(() => {
-    if (qsParamAutoConnect && qsParamIp && qsParamVersion && allowAutoConnect) {
-      onQsConnect?.(commonUseOptions)
-    }
-  }, [])
 
   const displayConnectButton = qsParamIp
   const serverExamples = ['example.com:25565', 'play.hypixel.net', 'ws://play.pcm.gg']
@@ -231,7 +223,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
             Cancel
           </ButtonWrapper>
           <ButtonWrapper type='submit'>
-            {displayConnectButton ? 'Save' : <strong>Save</strong>}
+            {displayConnectButton ? translate('Save') : <strong>{translate('Save')}</strong>}
           </ButtonWrapper>
         </>}
         {displayConnectButton && (
@@ -246,7 +238,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
                 onQsConnect?.(commonUseOptions)
               }}
             >
-              <strong>Connect</strong>
+              <strong>{translate('Connect')}</strong>
             </ButtonWrapper>
           </div>
         )}

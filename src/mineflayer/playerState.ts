@@ -3,6 +3,7 @@ import { getInitialPlayerState, getPlayerStateUtils, PlayerStateReactive, Player
 import { subscribe } from 'valtio'
 import { subscribeKey } from 'valtio/utils'
 import { gameAdditionalState } from '../globalState'
+import { options } from '../optionsStorage'
 
 /**
  * can be used only in main thread. Mainly for more convenient reactive state updates.
@@ -42,6 +43,7 @@ export class PlayerStateControllerMain {
   private botCreated () {
     console.log('bot created & plugins injected')
     this.reactive = getInitialPlayerState()
+    this.reactive.perspective = options.defaultPerspective
     this.utils = getPlayerStateUtils(this.reactive)
     this.onBotCreatedOrGameJoined()
 

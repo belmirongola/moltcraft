@@ -139,6 +139,13 @@ const appConfig = defineConfig({
         // 50kb limit for data uri
         dataUriLimit: SINGLE_FILE_BUILD ? 1 * 1024 * 1024 * 1024 : 50 * 1024
     },
+    performance: {
+        // prefetch: {
+        //     include(filename) {
+        //         return filename.includes('mc-data') || filename.includes('mc-assets')
+        //     },
+        // },
+    },
     source: {
         entry: {
             index: './src/index.ts',
@@ -154,7 +161,7 @@ const appConfig = defineConfig({
             'process.platform': '"browser"',
             'process.env.GITHUB_URL':
                 JSON.stringify(`https://github.com/${process.env.GITHUB_REPOSITORY || `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` || githubRepositoryFallback}`),
-            'process.env.DEPS_VERSIONS': JSON.stringify({}),
+            'process.env.ALWAYS_MINIMAL_SERVER_UI': JSON.stringify(process.env.ALWAYS_MINIMAL_SERVER_UI),
             'process.env.RELEASE_TAG': JSON.stringify(releaseTag),
             'process.env.RELEASE_LINK': JSON.stringify(releaseLink),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
@@ -190,7 +197,7 @@ const appConfig = defineConfig({
                         childProcess.execSync('tsx ./scripts/optimizeBlockCollisions.ts', { stdio: 'inherit' })
                     }
                     // childProcess.execSync(['tsx', './scripts/genLargeDataAliases.ts', ...(SINGLE_FILE_BUILD ? ['--compressed'] : [])].join(' '), { stdio: 'inherit' })
-                    genLargeDataAliases(SINGLE_FILE_BUILD)
+                    genLargeDataAliases(SINGLE_FILE_BUILD || process.env.ALWAYS_COMPRESS_LARGE_DATA === 'true')
                     fsExtra.copySync('./node_modules/mc-assets/dist/other-textures/latest/entity', './dist/textures/entity')
                     fsExtra.copySync('./assets/background', './dist/background')
                     fs.copyFileSync('./assets/favicon.png', './dist/favicon.png')

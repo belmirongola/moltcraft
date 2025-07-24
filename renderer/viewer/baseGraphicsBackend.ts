@@ -1,3 +1,4 @@
+import { proxy } from 'valtio'
 import { NonReactiveState, RendererReactiveState } from '../../src/appViewer'
 
 export const getDefaultRendererState = (): {
@@ -5,7 +6,7 @@ export const getDefaultRendererState = (): {
   nonReactive: NonReactiveState
 } => {
   return {
-    reactive: {
+    reactive: proxy({
       world: {
         chunksLoaded: new Set(),
         heightmaps: new Map(),
@@ -15,7 +16,7 @@ export const getDefaultRendererState = (): {
       },
       renderer: '',
       preventEscapeMenu: false
-    },
+    }),
     nonReactive: {
       world: {
         chunksLoaded: new Set(),

@@ -29,7 +29,7 @@ import './reactUi'
 import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
 import { possiblyCleanHandle } from './browserfs'
-import downloadAndOpenFile from './downloadAndOpenFile'
+import downloadAndOpenFile, { isInterestedInDownload } from './downloadAndOpenFile'
 
 import fs from 'fs'
 import net, { Socket } from 'net'
@@ -97,6 +97,7 @@ import { registerOpenBenchmarkListener } from './benchmark'
 import { tryHandleBuiltinCommand } from './builtinCommands'
 import { loadingTimerState } from './react/LoadingTimer'
 import { loadPluginsIntoWorld } from './react/CreateWorldProvider'
+import { getCurrentProxy, getCurrentUsername } from './react/ServersList'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -166,6 +167,7 @@ export async function connect (connectOptions: ConnectOptions) {
     })
   }
 
+  appStatusState.showReconnect = false
   loadingTimerState.loading = true
   loadingTimerState.start = Date.now()
   miscUiState.hasErrors = false
@@ -275,6 +277,10 @@ export async function connect (connectOptions: ConnectOptions) {
       if (confirm(`Failed to load server plugin ${e.reason.pluginName} (invoking ${e.reason.pluginMethod}). Continue?`)) {
         return
       }
+    }
+    if (e.reason?.stack?.includes('chrome-extension://')) {
+      // ignore issues caused by chrome extension
+      return
     }
     handleError(e.reason)
   }, {
@@ -880,37 +886,7 @@ export async function connect (connectOptions: ConnectOptions) {
   }
 }
 
-const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
-
 listenGlobalEvents()
-const unsubscribe = subscribe(miscUiState, async () => {
-  if (miscUiState.fsReady && miscUiState.appConfig) {
-    unsubscribe()
-    if (reconnectOptions) {
-      sessionStorage.removeItem('reconnectOptions')
-      if (Date.now() - reconnectOptions.timestamp < 1000 * 60 * 2) {
-        void connect(reconnectOptions.value)
-      }
-    } else {
-      if (appQueryParams.singleplayer === '1' || appQueryParams.sp === '1') {
-        loadSingleplayer({}, {
-          worldFolder: undefined,
-          ...appQueryParams.version ? { version: appQueryParams.version } : {}
-        })
-      }
-      if (appQueryParams.loadSave) {
-        const savePath = `/data/worlds/${appQueryParams.loadSave}`
-        try {
-          await fs.promises.stat(savePath)
-        } catch (err) {
-          alert(`Save ${savePath} not found`)
-          return
-        }
-        await loadInMemorySave(savePath)
-      }
-    }
-  }
-})
 
 // #region fire click event on touch as we disable default behaviors
 let activeTouch: { touch: Touch, elem: HTMLElement, start: number } | undefined
@@ -946,90 +922,148 @@ document.body.addEventListener('touchstart', (e) => {
 }, { passive: false })
 // #endregion
 
-// qs open actions
-if (!reconnectOptions) {
-  downloadAndOpenFile().then((downloadAction) => {
-    if (downloadAction) return
-    if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
-      const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
+// immediate game enter actions: reconnect or URL QS
+const maybeEnterGame = () => {
+  const waitForConfigFsLoad = (fn: () => void) => {
+    let unsubscribe: () => void | undefined
+    const checkDone = () => {
+      if (miscUiState.fsReady && miscUiState.appConfig) {
+        fn()
+        unsubscribe?.()
+        return true
+      }
+      return false
+    }
+
+    if (!checkDone()) {
+      const text = miscUiState.appConfig ? 'Loading' : 'Loading config'
+      setLoadingScreenStatus(text)
+      unsubscribe = subscribe(miscUiState, checkDone)
+    }
+  }
+
+  const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
+
+  if (reconnectOptions) {
+    sessionStorage.removeItem('reconnectOptions')
+    if (Date.now() - reconnectOptions.timestamp < 1000 * 60 * 2) {
+      return waitForConfigFsLoad(async () => {
+        void connect(reconnectOptions.value)
+      })
+    }
+  }
+
+  if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
+    const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
+    return waitForConfigFsLoad(async () => {
       void connect({
         botVersion: appQueryParams.version ?? undefined,
         ...lastConnect,
         ip: appQueryParams.ip || undefined
       })
-      return
-    }
-    if (appQueryParams.ip || appQueryParams.proxy) {
-      const waitAppConfigLoad = !appQueryParams.proxy
-      const openServerEditor = () => {
-        hideModal()
-        if (appQueryParams.onlyConnect) {
-          showModal({ reactType: 'only-connect-server' })
-        } else {
-          showModal({ reactType: 'editServer' })
-        }
-      }
-      showModal({ reactType: 'empty' })
-      if (waitAppConfigLoad) {
-        const unsubscribe = subscribe(miscUiState, checkCanDisplay)
-        checkCanDisplay()
-        // eslint-disable-next-line no-inner-declarations
-        function checkCanDisplay () {
-          if (miscUiState.appConfig) {
-            unsubscribe()
-            openServerEditor()
-            return true
-          }
-        }
-      } else {
-        openServerEditor()
-      }
-    }
-
-    void Promise.resolve().then(() => {
-      // try to connect to peer
-      const peerId = appQueryParams.connectPeer
-      const peerOptions = {} as ConnectPeerOptions
-      if (appQueryParams.server) {
-        peerOptions.server = appQueryParams.server
-      }
-      const version = appQueryParams.peerVersion
-      if (peerId) {
-        let username: string | null = options.guestUsername
-        if (options.askGuestName) username = prompt('Enter your username', username)
-        if (!username) return
-        options.guestUsername = username
-        void connect({
-          username,
-          botVersion: version || undefined,
-          peerId,
-          peerOptions
-        })
-      }
     })
+  }
 
-    if (appQueryParams.serversList && !appQueryParams.ip) {
-      showModal({ reactType: 'serversList' })
-    }
-
-    const viewerWsConnect = appQueryParams.viewerConnect
-    if (viewerWsConnect) {
-      void connect({
-        username: `viewer-${Math.random().toString(36).slice(2, 10)}`,
-        viewerWsConnect,
+  if (appQueryParams.singleplayer === '1' || appQueryParams.sp === '1') {
+    return waitForConfigFsLoad(async () => {
+      loadSingleplayer({}, {
+        worldFolder: undefined,
+        ...appQueryParams.version ? { version: appQueryParams.version } : {}
       })
-    }
-
-    if (appQueryParams.modal) {
-      const modals = appQueryParams.modal.split(',')
-      for (const modal of modals) {
-        showModal({ reactType: modal })
+    })
+  }
+  if (appQueryParams.loadSave) {
+    const enterSave = async () => {
+      const savePath = `/data/worlds/${appQueryParams.loadSave}`
+      try {
+        await fs.promises.stat(savePath)
+        await loadInMemorySave(savePath)
+      } catch (err) {
+        alert(`Save ${savePath} not found`)
       }
     }
-  }, (err) => {
-    console.error(err)
-    alert(`Something went wrong: ${err}`)
-  })
+    return waitForConfigFsLoad(enterSave)
+  }
+
+  if (appQueryParams.ip || appQueryParams.proxy) {
+    const openServerAction = () => {
+      if (appQueryParams.autoConnect && miscUiState.appConfig?.allowAutoConnect) {
+        void connect({
+          server: appQueryParams.ip,
+          proxy: getCurrentProxy(),
+          botVersion: appQueryParams.version ?? undefined,
+          username: getCurrentUsername()!,
+        })
+        return
+      }
+
+      setLoadingScreenStatus(undefined)
+      if (appQueryParams.onlyConnect || process.env.ALWAYS_MINIMAL_SERVER_UI === 'true') {
+        showModal({ reactType: 'only-connect-server' })
+      } else {
+        showModal({ reactType: 'editServer' })
+      }
+    }
+
+    // showModal({ reactType: 'empty' })
+    return waitForConfigFsLoad(openServerAction)
+  }
+
+  if (appQueryParams.connectPeer) {
+    // try to connect to peer
+    const peerId = appQueryParams.connectPeer
+    const peerOptions = {} as ConnectPeerOptions
+    if (appQueryParams.server) {
+      peerOptions.server = appQueryParams.server
+    }
+    const version = appQueryParams.peerVersion
+    let username: string | null = options.guestUsername
+    if (options.askGuestName) username = prompt('Enter your username to connect to peer', username)
+    if (!username) return
+    options.guestUsername = username
+    void connect({
+      username,
+      botVersion: version || undefined,
+      peerId,
+      peerOptions
+    })
+    return
+
+  }
+
+  if (appQueryParams.viewerConnect) {
+    void connect({
+      username: `viewer-${Math.random().toString(36).slice(2, 10)}`,
+      viewerWsConnect: appQueryParams.viewerConnect,
+    })
+    return
+  }
+
+  if (appQueryParams.modal) {
+    const modals = appQueryParams.modal.split(',')
+    for (const modal of modals) {
+      showModal({ reactType: modal })
+    }
+    return
+  }
+
+  if (appQueryParams.serversList && !miscUiState.appConfig?.appParams?.serversList) {
+    // open UI only if it's in URL
+    showModal({ reactType: 'serversList' })
+  }
+
+  if (isInterestedInDownload()) {
+    void downloadAndOpenFile()
+  }
+
+  void possiblyHandleStateVariable()
+}
+
+try {
+  maybeEnterGame()
+} catch (err) {
+  console.error(err)
+  alert(`Something went wrong: ${err}`)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -1040,6 +1074,5 @@ if (initialLoader) {
 }
 window.pageLoaded = true
 
-void possiblyHandleStateVariable()
 appViewer.waitBackendLoadPromises.push(appStartup())
 registerOpenBenchmarkListener()

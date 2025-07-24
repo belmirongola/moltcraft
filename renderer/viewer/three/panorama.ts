@@ -13,6 +13,7 @@ import { loadThreeJsTextureFromUrl, loadThreeJsTextureFromUrlSync } from './thre
 import { WorldRendererThree } from './worldrendererThree'
 import { EntityMesh } from './entity/EntityMesh'
 import { DocumentRenderer } from './documentRenderer'
+import { PANORAMA_VERSION } from './panoramaShared'
 
 const panoramaFiles = [
   'panorama_3.png', // right (+x)
@@ -156,7 +157,7 @@ export class PanoramaRenderer {
   }
 
   async worldBlocksPanorama () {
-    const version = '1.21.4'
+    const version = PANORAMA_VERSION
     const fullResourceManager = this.options.resourcesManager as ResourcesManager
     fullResourceManager.currentConfig = { version, noInventoryGui: true, }
     await fullResourceManager.updateAssetsData({ })

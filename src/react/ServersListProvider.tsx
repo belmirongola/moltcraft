@@ -156,13 +156,22 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
               const isWebSocket = server.ip.startsWith('ws://') || server.ip.startsWith('wss://')
               let data
               if (isWebSocket) {
-                const pingResult = await getServerInfo(server.ip, undefined, undefined, true)
-                console.log('pingResult.fullInfo.description', pingResult.fullInfo.description)
-                data = {
-                  formattedText: pingResult.fullInfo.description,
-                  textNameRight: `ws ${pingResult.latency}ms`,
-                  textNameRightGrayed: `${pingResult.fullInfo.players?.online ?? '??'}/${pingResult.fullInfo.players?.max ?? '??'}`,
-                  offline: false
+                try {
+                  const pingResult = await getServerInfo(server.ip, undefined, undefined, true)
+                  console.log('pingResult.fullInfo.description', pingResult.fullInfo.description)
+                  data = {
+                    formattedText: pingResult.fullInfo.description,
+                    textNameRight: `ws ${pingResult.latency}ms`,
+                    textNameRightGrayed: `${pingResult.fullInfo.players?.online ?? '??'}/${pingResult.fullInfo.players?.max ?? '??'}`,
+                    offline: false
+                  }
+                } catch (err) {
+                  data = {
+                    formattedText: 'Failed to connect',
+                    textNameRight: '',
+                    textNameRightGrayed: '',
+                    offline: true
+                  }
                 }
               } else {
                 data = await fetchServerStatus(server.ip, /* signal */undefined, server.versionOverride) // DONT ADD SIGNAL IT WILL CRUSH JS RUNTIME
@@ -217,7 +226,6 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
   })
 
   const editModalJsx = isEditScreenModal ? <AddServerOrConnect
-    allowAutoConnect={miscUiState.appConfig?.allowAutoConnect}
     placeholders={{
       proxyOverride: getCurrentProxy(),
       usernameOverride: getCurrentUsername(),

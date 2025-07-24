@@ -8,6 +8,7 @@ import { proxy, subscribe } from 'valtio'
 import { getDefaultRendererState } from 'renderer/viewer/baseGraphicsBackend'
 import { getSyncWorld } from 'renderer/playground/shared'
 import { MaybePromise } from 'contro-max/build/types/store'
+import { PANORAMA_VERSION } from 'renderer/viewer/three/panoramaShared'
 import { playerState } from './mineflayer/playerState'
 import { createNotificationProgressReporter, ProgressReporter } from './core/progressReporter'
 import { setLoadingScreenStatus } from './appStatus'
@@ -15,6 +16,7 @@ import { activeModalStack, miscUiState } from './globalState'
 import { options } from './optionsStorage'
 import { ResourcesManager, ResourcesManagerTransferred } from './resourcesManager'
 import { watchOptionsAfterWorldViewInit } from './watchOptions'
+import { loadMinecraftData } from './connect'
 
 export interface RendererReactiveState {
   world: {
@@ -112,7 +114,7 @@ export class AppViewer {
   inWorldRenderingConfig: WorldRendererConfig = proxy(defaultWorldRendererConfig)
   lastCamUpdate = 0
   playerState = playerState
-  rendererState = proxy(getDefaultRendererState().reactive)
+  rendererState = getDefaultRendererState().reactive
   nonReactiveState: NonReactiveState = getDefaultRendererState().nonReactive
   worldReady: Promise<void>
   private resolveWorldReady: () => void
@@ -162,11 +164,15 @@ export class AppViewer {
 
     // Execute queued action if exists
     if (this.currentState) {
-      const { method, args } = this.currentState
-      this.backend[method](...args)
-      if (method === 'startWorld') {
-        void this.worldView!.init(bot.entity.position)
-        // void this.worldView!.init(args[0].playerState.getPosition())
+      if (this.currentState.method === 'startPanorama') {
+        this.startPanorama()
+      } else {
+        const { method, args } = this.currentState
+        this.backend[method](...args)
+        if (method === 'startWorld') {
+          void this.worldView!.init(bot.entity.position)
+          // void this.worldView!.init(args[0].playerState.getPosition())
+        }
       }
     }
 
@@ -225,10 +231,16 @@ export class AppViewer {
 
   startPanorama () {
     if (this.currentDisplay === 'menu') return
-    this.currentDisplay = 'menu'
     if (options.disableAssets) return
-    if (this.backend) {
-      this.backend.startPanorama()
+    if (this.backend && !hasAppStatus()) {
+      this.currentDisplay = 'menu'
+      if (process.env.SINGLE_FILE_BUILD_MODE) {
+        void loadMinecraftData(PANORAMA_VERSION).then(() => {
+          this.backend?.startPanorama()
+        })
+      } else {
+        this.backend.startPanorama()
+      }
     }
     this.currentState = { method: 'startPanorama', args: [] }
   }
@@ -316,15 +328,16 @@ const initialMenuStart = async () => {
 }
 window.initialMenuStart = initialMenuStart
 
+const hasAppStatus = () => activeModalStack.some(m => m.reactType === 'app-status')
+
 const modalStackUpdateChecks = () => {
   // maybe start panorama
-  if (!miscUiState.gameLoaded) {
+  if (!miscUiState.gameLoaded && !hasAppStatus()) {
     void initialMenuStart()
   }
 
   if (appViewer.backend) {
-    const hasAppStatus = activeModalStack.some(m => m.reactType === 'app-status')
-    appViewer.backend.setRendering(!hasAppStatus)
+    appViewer.backend.setRendering(!hasAppStatus())
   }
 
   appViewer.inWorldRenderingConfig.foreground = activeModalStack.length === 0

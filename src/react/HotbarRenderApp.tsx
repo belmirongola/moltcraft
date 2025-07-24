@@ -200,17 +200,28 @@ const HotbarInner = () => {
     <ItemName itemKey={itemKey} />
     <Portal>
       <div
-        className='hotbar' ref={container} style={{
+        className='hotbar-fullscreen-container'
+        style={{
           position: 'fixed',
+          top: 0,
           left: 0,
-          right: 0,
+          width: '100dvw',
+          height: '100dvh',
+          zIndex: hasModals ? 1 : 8,
           display: 'flex',
           justifyContent: 'center',
-          zIndex: hasModals ? 1 : 8,
           pointerEvents: 'none',
-          bottom: 'var(--hud-bottom-raw)'
-        }}
-      />
+        }}>
+        <div
+          className='hotbar'
+          ref={container}
+          style={{
+            position: 'absolute',
+            pointerEvents: 'none',
+            bottom: 'var(--hud-bottom-raw)'
+          }}
+        />
+      </div>
     </Portal>
   </SharedHudVars>
 }
