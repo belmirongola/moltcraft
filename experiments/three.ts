@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import globalTexture from 'mc-assets/dist/blocksAtlasLegacy.png'
 
+// Import the renderBlockThree function
+import { renderBlockThree } from '../renderer/viewer/lib/mesher/standaloneRenderer'
+
 // Create scene, camera and renderer
 const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -22,65 +25,107 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4)
 directionalLight.position.set(1, 1, 1)
 scene.add(directionalLight)
 
+// Add grid helper for orientation
+const gridHelper = new THREE.GridHelper(10, 10)
+scene.add(gridHelper)
+
 // Create shared material that will be used by all blocks
 const sharedMaterial = new THREE.MeshLambertMaterial({
   vertexColors: true,
   transparent: true,
-  alphaTest: 0.1
+  alphaTest: 0.1,
+  // wireframe: true // Add wireframe for debugging
 })
 
-function createCustomGeometry(textureInfo: { u: number, v: number, su: number, sv: number }): THREE.BufferGeometry {
-  // Create custom geometry with specific UV coordinates for this block type
-  const geometry = new THREE.BoxGeometry(1, 1, 1)
-
-  // Get UV attribute
-  const uvAttribute = geometry.getAttribute('uv') as THREE.BufferAttribute
-  const uvs = uvAttribute.array as Float32Array
-
-  console.log('Original UVs:', Array.from(uvs))
-  console.log('Texture info:', textureInfo)
-
-  // BoxGeometry has 6 faces, each with 2 triangles (4 vertices), so 24 UV pairs total
-  // Apply the same texture to all faces for simplicity
-  for (let i = 0; i < uvs.length; i += 2) {
-    const u = uvs[i]
-    const v = uvs[i + 1]
-
-    // Map from 0-1 to the specific texture region in the atlas
-    uvs[i] = textureInfo.u + u * textureInfo.su
-    uvs[i + 1] = textureInfo.v + v * textureInfo.sv
-  }
-
-  console.log('Modified UVs:', Array.from(uvs))
-  uvAttribute.needsUpdate = true
-  return geometry
+// Create simple block models for testing
+function createFullBlockModel(textureObj: any): any {
+  return [[{
+    elements: [{
+      from: [0, 0, 0],
+      to: [16, 16, 16],
+      faces: {
+        up: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        },
+        down: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        },
+        north: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        },
+        south: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        },
+        east: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        },
+        west: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        }
+      }
+    }]
+  }]]
 }
 
-let currentInstancedMesh: THREE.InstancedMesh | null = null
-let currentRefCube: THREE.Mesh | null = null
+function createHalfBlockModel(textureObj: any): any {
+  return [[{
+    elements: [{
+      from: [0, 0, 0],
+      to: [16, 8, 16], // Half height (8 instead of 16)
+      faces: {
+        up: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        },
+        down: {
+          texture: textureObj,
+          uv: [0, 0, 16, 16]
+        },
+        north: {
+          texture: textureObj,
+          uv: [0, 0, 16, 8] // Half height UV
+        },
+        south: {
+          texture: textureObj,
+          uv: [0, 0, 16, 8] // Half height UV
+        },
+        east: {
+          texture: textureObj,
+          uv: [0, 0, 16, 8] // Half height UV
+        },
+        west: {
+          texture: textureObj,
+          uv: [0, 0, 16, 8] // Half height UV
+        }
+      }
+    }]
+  }]]
+}
+
+let currentFullBlockInstancedMesh: THREE.InstancedMesh | null = null
+let currentHalfBlockInstancedMesh: THREE.InstancedMesh | null = null
 
 async function createInstancedBlock() {
   try {
     // Clean up previous meshes if they exist
-    if (currentInstancedMesh) {
-      scene.remove(currentInstancedMesh)
-      currentInstancedMesh.geometry.dispose()
+    if (currentFullBlockInstancedMesh) {
+      scene.remove(currentFullBlockInstancedMesh)
+      currentFullBlockInstancedMesh.geometry.dispose()
     }
-    if (currentRefCube) {
-      scene.remove(currentRefCube)
-      currentRefCube.geometry.dispose()
+    if (currentHalfBlockInstancedMesh) {
+      scene.remove(currentHalfBlockInstancedMesh)
+      currentHalfBlockInstancedMesh.geometry.dispose()
     }
 
     // Load the blocks atlas texture
     const textureLoader = new THREE.TextureLoader()
-    const texture = await new Promise<THREE.Texture>((resolve, reject) => {
-      textureLoader.load(
-        globalTexture,
-        resolve,
-        undefined,
-        reject
-      )
-    })
+    const texture = await textureLoader.loadAsync(globalTexture)
 
     // Configure texture for pixel art
     texture.magFilter = THREE.NearestFilter
@@ -101,7 +146,7 @@ async function createInstancedBlock() {
 
     const textureInfo = {
       u: 0 / atlasWidth,        // Left edge (first column)
-      v: 2 * tileSize / atlasHeight,       // Top edge (first row)
+      v: 2 * tileSize / atlasHeight,       // Top edge (third row)
       su: tileSize / atlasWidth,  // Width of one tile
       sv: tileSize / atlasHeight  // Height of one tile
     }
@@ -109,39 +154,96 @@ async function createInstancedBlock() {
     console.log('Atlas size:', atlasWidth, 'x', atlasHeight)
     console.log('Calculated texture info:', textureInfo)
 
-    // Create custom geometry with proper UV mapping
-    const geometry = createCustomGeometry(textureInfo)
+    // Create mock texture object that matches what the renderer expects
+    const mockTexture = {
+      u: textureInfo.u,
+      v: textureInfo.v,
+      su: textureInfo.su,
+      sv: textureInfo.sv,
+      debugName: 'test_texture'
+    }
 
-    // Create instanced mesh using shared material
-    currentInstancedMesh = new THREE.InstancedMesh(geometry, sharedMaterial, 1)
+        // Create block models with the mock texture
+    const fullBlockModel = createFullBlockModel(mockTexture)
+    const halfBlockModel = createHalfBlockModel(mockTexture)
+
+    // Mock data for the renderBlockThree function
+    const mockBlock = undefined // No specific block data needed for this test
+    const mockBiome = 'plains'
+    const mockMcData = {} as any
+    const mockVariants = []
+    const mockNeighbors = {}
+
+    // Render the full block
+    const fullBlockGeometry = renderBlockThree(
+      fullBlockModel,
+      mockBlock,
+      mockBiome,
+      mockMcData,
+      mockVariants,
+      mockNeighbors
+    )
+
+    // Render the half block
+    const halfBlockGeometry = renderBlockThree(
+      halfBlockModel,
+      mockBlock,
+      mockBiome,
+      mockMcData,
+      mockVariants,
+      mockNeighbors
+    )
+
+            // Create instanced mesh for full blocks
+    currentFullBlockInstancedMesh = new THREE.InstancedMesh(fullBlockGeometry, sharedMaterial, 2) // Support 2 instances
     const matrix = new THREE.Matrix4()
-    matrix.setPosition(0.5, 0.5, 0.5) // Offset by +0.5 on each axis
-    currentInstancedMesh.setMatrixAt(0, matrix)
-    currentInstancedMesh.count = 1
-    currentInstancedMesh.instanceMatrix.needsUpdate = true
-    scene.add(currentInstancedMesh)
 
-    // Reference non-instanced cube using same material
-    currentRefCube = new THREE.Mesh(geometry, sharedMaterial)
-    currentRefCube.position.set(2.5, 0.5, 0.5) // Offset by +0.5 on each axis
-    scene.add(currentRefCube)
+    // First instance (full block)
+    matrix.setPosition(-1.5, 0.5, 0.5)
+    currentFullBlockInstancedMesh.setMatrixAt(0, matrix)
 
-    console.log('Instanced block created successfully')
+    // Second instance (full block)
+    matrix.setPosition(1.5, 0.5, 0.5)
+    currentFullBlockInstancedMesh.setMatrixAt(1, matrix)
+
+    currentFullBlockInstancedMesh.count = 2
+    currentFullBlockInstancedMesh.instanceMatrix.needsUpdate = true
+    scene.add(currentFullBlockInstancedMesh)
+
+    // Create instanced mesh for half blocks
+    currentHalfBlockInstancedMesh = new THREE.InstancedMesh(halfBlockGeometry, sharedMaterial, 1) // Support 1 instance
+    const halfMatrix = new THREE.Matrix4()
+
+    // Half block instance
+    halfMatrix.setPosition(0, 0.75, 0.5) // Positioned higher so top aligns with full blocks
+    currentHalfBlockInstancedMesh.setMatrixAt(0, halfMatrix)
+
+    currentHalfBlockInstancedMesh.count = 1
+    currentHalfBlockInstancedMesh.instanceMatrix.needsUpdate = true
+    scene.add(currentHalfBlockInstancedMesh)
+
+    console.log('Instanced blocks created successfully')
+    console.log('Full block geometry:', fullBlockGeometry)
+    console.log('Half block geometry:', halfBlockGeometry)
 
   } catch (error) {
-    console.error('Error creating instanced block:', error)
+    console.error('Error creating instanced blocks:', error)
 
-    // Fallback: create a colored cube
+    // Fallback: create colored cubes
     const geometry = new THREE.BoxGeometry(1, 1, 1)
-    const material = new THREE.MeshLambertMaterial({ color: 0xff0000 })
-    currentRefCube = new THREE.Mesh(geometry, material)
-    scene.add(currentRefCube)
+    const material = new THREE.MeshLambertMaterial({ color: 0xff0000, wireframe: true })
+    const fallbackMesh = new THREE.Mesh(geometry, material)
+    fallbackMesh.position.set(0, 0.5, 0.5)
+    scene.add(fallbackMesh)
+
     console.log('Created fallback colored cube')
   }
 }
 
 // Create the instanced block
-createInstancedBlock()
+createInstancedBlock().then(() => {
+  render()
+})
 
 // Simple render loop (no animation)
 function render() {
@@ -165,7 +267,7 @@ renderer.domElement.addEventListener('mousemove', (event) => {
   const deltaX = event.clientX - mouseX
   const deltaY = event.clientY - mouseY
 
-  // Rotate camera around the cube
+  // Rotate camera around the center
   const spherical = new THREE.Spherical()
   spherical.setFromVector3(camera.position)
   spherical.theta -= deltaX * 0.01
