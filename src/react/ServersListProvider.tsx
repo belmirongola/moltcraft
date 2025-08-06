@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { useSnapshot } from 'valtio'
+import { supportedVersions } from 'minecraft-protocol'
+import { versionToNumber } from 'mc-assets/dist/utils'
 import { ConnectOptions } from '../connect'
 import { activeModalStack, hideCurrentModal, miscUiState, notHideableModalsWithoutForce, showModal } from '../globalState'
-import supportedVersions from '../supportedVersions.mjs'
+import appSupportedVersions from '../supportedVersions.mjs'
 import { appQueryParams } from '../appParams'
 import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
 import { getServerInfo } from '../mineflayer/mc-protocol'
@@ -19,6 +21,10 @@ import { appStorage, StoreServerItem } from './appStorageProvider'
 import Button from './Button'
 import { pixelartIcons } from './PixelartIcon'
 import { showNotification } from './NotificationProvider'
+
+const firstProtocolVersion = versionToNumber(supportedVersions[0])
+const lastProtocolVersion = versionToNumber(supportedVersions.at(-1)!)
+const protocolSupportedVersions = appSupportedVersions.filter(v => versionToNumber(v) >= firstProtocolVersion && versionToNumber(v) <= lastProtocolVersion)
 
 const EXPLICIT_SHARE_SERVER_MODE = false
 
@@ -262,7 +268,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
       }
       dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
     }}
-    versions={supportedVersions}
+    versions={protocolSupportedVersions}
   /> : null
 
   const serversListJsx = <ServersList

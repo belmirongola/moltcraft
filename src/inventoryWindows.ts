@@ -9,6 +9,7 @@ import PItem, { Item } from 'prismarine-item'
 import { versionToNumber } from 'renderer/viewer/common/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
 import PrismarineChatLoader from 'prismarine-chat'
+import * as nbt from 'prismarine-nbt'
 import { BlockModel } from 'mc-assets'
 import { renderSlot } from 'renderer/viewer/three/renderSlot'
 import Generic95 from '../assets/generic_95.png'
@@ -59,9 +60,9 @@ export const onGameLoad = () => {
   bot.on('windowOpen', (win) => {
     const implementedWindow = implementedContainersGuiMap[mapWindowType(win.type as string, win.inventoryStart)]
     if (implementedWindow) {
-      openWindow(implementedWindow)
+      openWindow(implementedWindow, nbt.simplify(win.title as any))
     } else if (options.unimplementedContainers) {
-      openWindow('ChestWin')
+      openWindow('ChestWin', nbt.simplify(win.title as any))
     } else {
       // todo format
       displayClientChat(`[client error] cannot open unimplemented window ${win.id} (${win.type}). Slots: ${win.slots.map(item => getItemName(item)).filter(Boolean).join(', ')}`)
@@ -354,7 +355,7 @@ const upWindowItemsLocal = () => {
 }
 
 let skipClosePacketSending = false
-const openWindow = (type: string | undefined) => {
+const openWindow = (type: string | undefined, title: string | any = undefined) => {
   // if (activeModalStack.some(x => x.reactType?.includes?.('player_win:'))) {
   if (activeModalStack.length) { // game is not in foreground, don't close current modal
     if (type) {
@@ -384,7 +385,6 @@ const openWindow = (type: string | undefined) => {
   const inv = openItemsCanvas(type)
   inv.canvasManager.children[0].mobileHelpers = miscUiState.currentTouch
   window.inventory = inv
-  const title = bot.currentWindow?.title
   const PrismarineChat = PrismarineChatLoader(bot.version)
   try {
     inv.canvasManager.children[0].customTitleText = title ?
