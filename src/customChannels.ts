@@ -15,6 +15,28 @@ export default () => {
     registerMediaChannels()
     registerSectionAnimationChannels()
     registeredJeiChannel()
+    sendTokenChannel()
+  })
+}
+
+const sendTokenChannel = () => {
+  const CHANNEL_NAME = 'minecraft-web-client:token'
+  bot._client.registerChannel(CHANNEL_NAME, [
+    'container',
+    [
+      {
+        name: 'token',
+        type: ['pstring', { countType: 'i16' }]
+      },
+      {
+        name: 'userId',
+        type: ['pstring', { countType: 'i16' }]
+      },
+    ]
+  ], true)
+  bot._client.writeChannel(CHANNEL_NAME, {
+    token: new URLSearchParams(window.location.search).get('token') ?? '',
+    userId: new URLSearchParams(window.location.search).get('userId') ?? ''
   })
 }
 
