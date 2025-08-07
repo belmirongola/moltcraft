@@ -1,8 +1,8 @@
 diff --git a/src/client/chat.js b/src/client/chat.js
-index a50f4b988ad9fb29d5eb9e1633b498615aa9cd28..b8b819eef0762a77d9db5c0fb06be648303628c7 100644
+index 0021870994fc59a82f0ac8aba0a65a8be43ef2f4..a53fceb843105ea2a1d88722b3fc7c3b43cb102a 100644
 --- a/src/client/chat.js
 +++ b/src/client/chat.js
-@@ -110,7 +110,7 @@ module.exports = function (client, options) {
+@@ -116,7 +116,7 @@ module.exports = function (client, options) {
      for (const player of packet.data) {
        if (player.chatSession) {
          client._players[player.uuid] = {
@@ -11,8 +11,8 @@ index a50f4b988ad9fb29d5eb9e1633b498615aa9cd28..b8b819eef0762a77d9db5c0fb06be648
            publicKeyDER: player.chatSession.publicKey.keyBytes,
            sessionUuid: player.chatSession.uuid
          }
-@@ -120,7 +120,7 @@ module.exports = function (client, options) {
-
+@@ -126,7 +126,7 @@ module.exports = function (client, options) {
+ 
        if (player.crypto) {
          client._players[player.uuid] = {
 -          publicKey: crypto.createPublicKey({ key: player.crypto.publicKey, format: 'der', type: 'spki' }),
@@ -20,7 +20,7 @@ index a50f4b988ad9fb29d5eb9e1633b498615aa9cd28..b8b819eef0762a77d9db5c0fb06be648
            publicKeyDER: player.crypto.publicKey,
            signature: player.crypto.signature,
            displayName: player.displayName || player.name
-@@ -190,7 +190,7 @@ module.exports = function (client, options) {
+@@ -196,7 +196,7 @@ module.exports = function (client, options) {
      if (mcData.supportFeature('useChatSessions')) {
        const tsDelta = BigInt(Date.now()) - packet.timestamp
        const expired = !packet.timestamp || tsDelta > messageExpireTime || tsDelta < 0
@@ -29,16 +29,16 @@ index a50f4b988ad9fb29d5eb9e1633b498615aa9cd28..b8b819eef0762a77d9db5c0fb06be648
        if (verified) client._signatureCache.push(packet.signature)
        client.emit('playerChat', {
          globalIndex: packet.globalIndex,
-@@ -356,7 +356,7 @@ module.exports = function (client, options) {
+@@ -362,7 +362,7 @@ module.exports = function (client, options) {
      }
    }
-
+ 
 -  client._signedChat = (message, options = {}) => {
 +  client._signedChat = async (message, options = {}) => {
      options.timestamp = options.timestamp || BigInt(Date.now())
      options.salt = options.salt || 1n
-
-@@ -401,7 +401,7 @@ module.exports = function (client, options) {
+ 
+@@ -407,7 +407,7 @@ module.exports = function (client, options) {
          message,
          timestamp: options.timestamp,
          salt: options.salt,
@@ -47,7 +47,7 @@ index a50f4b988ad9fb29d5eb9e1633b498615aa9cd28..b8b819eef0762a77d9db5c0fb06be648
          offset: client._lastSeenMessages.pending,
          checksum: computeChatChecksum(client._lastSeenMessages), // 1.21.5+
          acknowledged
-@@ -416,7 +416,7 @@ module.exports = function (client, options) {
+@@ -422,7 +422,7 @@ module.exports = function (client, options) {
          message,
          timestamp: options.timestamp,
          salt: options.salt,
@@ -71,10 +71,10 @@ index 63cc2bd9615100bd2fd63dfe14c094aa6b8cd1c9..36df57d1196af9761d920fa285ac48f8
 +        //   clearTimeout(loginTimeout)
 +        // })
        }
-
+ 
        function onJoinServerResponse (err) {
 diff --git a/src/client.js b/src/client.js
-index e369e77d055ba919e8f9da7b8e8b5dc879c74cf4..11c6bff299f1186ab1ecb6744f53ff0c648ab192 100644
+index e369e77d055ba919e8f9da7b8e8b5dc879c74cf4..54bb9e6644388e9b6bd42b3012951875989cdf0c 100644
 --- a/src/client.js
 +++ b/src/client.js
 @@ -111,7 +111,13 @@ class Client extends EventEmitter {
@@ -94,7 +94,7 @@ index e369e77d055ba919e8f9da7b8e8b5dc879c74cf4..11c6bff299f1186ab1ecb6744f53ff0c
    }
 @@ -169,7 +175,10 @@ class Client extends EventEmitter {
      }
-
+ 
      const onFatalError = (err) => {
 -      this.emit('error', err)
 +      // todo find out what is trying to write after client disconnect
@@ -103,58 +103,23 @@ index e369e77d055ba919e8f9da7b8e8b5dc879c74cf4..11c6bff299f1186ab1ecb6744f53ff0c
 +      }
        endSocket()
      }
-
-@@ -198,6 +207,8 @@ class Client extends EventEmitter {
+ 
+@@ -198,6 +207,10 @@ class Client extends EventEmitter {
      serializer -> framer -> socket -> splitter -> deserializer */
      if (this.serializer) {
        this.serializer.end()
-+      this.socket?.end()
-+      this.socket?.emit('end')
++      setTimeout(() => {
++        this.socket?.end()
++        this.socket?.emit('end')
++      }, 2000) // allow the serializer to finish writing
      } else {
        if (this.socket) this.socket.end()
      }
-@@ -243,6 +254,7 @@ class Client extends EventEmitter {
+@@ -243,6 +256,7 @@ class Client extends EventEmitter {
        debug('writing packet ' + this.state + '.' + name)
        debug(params)
      }
 +    this.emit('writePacket', name, params)
      this.serializer.write({ name, params })
    }
-
-diff --git a/src/client.js.rej b/src/client.js.rej
-new file mode 100644
-index 0000000000000000000000000000000000000000..1101e2477adfdc004381b78e7d70953dacb7b484
---- /dev/null
-+++ b/src/client.js.rej
-@@ -0,0 +1,31 @@
-+@@ -89,10 +89,12 @@
-+       parsed.metadata.name = parsed.data.name
-+       parsed.data = parsed.data.params
-+       parsed.metadata.state = state
-+-      debug('read packet ' + state + '.' + parsed.metadata.name)
-+-      if (debug.enabled) {
-+-        const s = JSON.stringify(parsed.data, null, 2)
-+-        debug(s && s.length > 10000 ? parsed.data : s)
-++      if (!globalThis.excludeCommunicationDebugEvents?.includes(parsed.metadata.name)) {
-++        debug('read packet ' + state + '.' + parsed.metadata.name)
-++        if (debug.enabled) {
-++          const s = JSON.stringify(parsed.data, null, 2)
-++          debug(s && s.length > 10000 ? parsed.data : s)
-++        }
-+       }
-+       if (this._hasBundlePacket && parsed.metadata.name === 'bundle_delimiter') {
-+         if (this._mcBundle.length) { // End bundle
-+@@ -239,8 +252,11 @@
-+
-+   write (name, params) {
-+     if (!this.serializer.writable) { return }
-+-    debug('writing packet ' + this.state + '.' + name)
-+-    debug(params)
-++    if (!globalThis.excludeCommunicationDebugEvents?.includes(name)) {
-++      debug(`[${this.state}] from ${this.isServer ? 'server' : 'client'}: ` + name)
-++      debug(params)
-++    }
-++    this.emit('writePacket', name, params)
-+     this.serializer.write({ name, params })
-+   }
-+
+ 
