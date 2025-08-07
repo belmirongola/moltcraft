@@ -219,8 +219,8 @@
       ]
     },
     "patchedDependencies": {
-      "pixelarticons@1.8.1": "/Users/vit/Documents/prismarine-web-client/patches/pixelarticons@1.8.1.patch",
-      "mineflayer-item-map-downloader@1.2.0": "/Users/vit/Documents/prismarine-web-client/patches/mineflayer-item-map-downloader@1.2.0.patch",
+      "pixelarticons@1.8.1": "patches/pixelarticons@1.8.1.patch",
+      "mineflayer-item-map-downloader@1.2.0": "patches/mineflayer-item-map-downloader@1.2.0.patch",
       "minecraft-protocol": "patches/minecraft-protocol.patch"
     },
     "ignoredBuiltDependencies": [
