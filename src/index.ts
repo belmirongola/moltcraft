@@ -231,8 +231,12 @@ export async function connect (connectOptions: ConnectOptions) {
       bot.emit('end', '')
       bot.removeAllListeners()
       bot._client.removeAllListeners()
-      //@ts-expect-error TODO?
-      bot._client = undefined
+      bot._client = {
+        //@ts-expect-error
+        write (packetName) {
+          console.warn('Tried to write packet', packetName, 'after bot was destroyed')
+        }
+      }
       //@ts-expect-error
       window.bot = bot = undefined
     }
