@@ -54,7 +54,7 @@ Howerver, it's known that these browsers have issues:
 
 ### Versions Support
 
-Server versions 1.8 - 1.21.4 are supported.
+Server versions 1.8 - 1.21.5 are supported.
 First class versions (most of the features are tested on these versions):
 
 - 1.19.4

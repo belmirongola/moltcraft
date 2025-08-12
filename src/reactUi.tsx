@@ -66,6 +66,7 @@ import CreditsAboutModal from './react/CreditsAboutModal'
 import GlobalOverlayHints from './react/GlobalOverlayHints'
 import FullscreenTime from './react/FullscreenTime'
 import StorageConflictModal from './react/StorageConflictModal'
+import FireRenderer from './react/FireRenderer'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -171,6 +172,7 @@ const InGameUi = () => {
           <VoiceMicrophone />
           <ChunksDebugScreen />
           <RendererDebugMenu />
+          {!disabledUiParts.includes('fire') && <FireRenderer />}
         </PerComponentErrorBoundary>
       </div>
 

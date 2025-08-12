@@ -1,8 +1,11 @@
+import net from 'net'
 import { Client } from 'minecraft-protocol'
 import { appQueryParams } from '../appParams'
 import { downloadAllMinecraftData, getVersionAutoSelect } from '../connect'
 import { gameAdditionalState } from '../globalState'
 import { ProgressReporter } from '../core/progressReporter'
+import { parseServerAddress } from '../parseServerAddress'
+import { getCurrentProxy } from '../react/ServersList'
 import { pingServerVersion, validatePacket } from './minecraft-protocol-extra'
 import { getWebsocketStream } from './websocket-core'
 
@@ -35,7 +38,7 @@ setInterval(() => {
 }, 1000)
 
 
-export const getServerInfo = async (ip: string, port?: number, preferredVersion = getVersionAutoSelect(), ping = false, progressReporter?: ProgressReporter) => {
+export const getServerInfo = async (ip: string, port?: number, preferredVersion = getVersionAutoSelect(), ping = false, progressReporter?: ProgressReporter, setProxyParams?: ProxyParams) => {
   await downloadAllMinecraftData()
   const isWebSocket = ip.startsWith('ws://') || ip.startsWith('wss://')
   let stream
@@ -43,6 +46,8 @@ export const getServerInfo = async (ip: string, port?: number, preferredVersion 
     progressReporter?.setMessage('Connecting to WebSocket server')
     stream = (await getWebsocketStream(ip)).mineflayerStream
     progressReporter?.setMessage('WebSocket connected. Ping packet sent, waiting for response')
+  } else if (setProxyParams) {
+    setProxy(setProxyParams)
   }
   window.setLoadingMessage = (message?: string) => {
     if (message === undefined) {
@@ -58,4 +63,46 @@ export const getServerInfo = async (ip: string, port?: number, preferredVersion 
   }).finally(() => {
     window.setLoadingMessage = undefined
   })
+}
+
+globalThis.debugTestPing = async (ip: string) => {
+  const parsed = parseServerAddress(ip, false)
+  const result = await getServerInfo(parsed.host, parsed.port ? Number(parsed.port) : undefined, undefined, true, undefined, { address: getCurrentProxy(), })
+  console.log('result', result)
+  return result
+}
+
+export const getDefaultProxyParams = () => {
+  return {
+    headers: {
+      Authorization: `Bearer ${new URLSearchParams(location.search).get('token') ?? ''}`
+    }
+  }
+}
+
+export type ProxyParams = {
+  address?: string
+  headers?: Record<string, string>
+}
+
+export const setProxy = (proxyParams: ProxyParams) => {
+  if (proxyParams.address?.startsWith(':')) {
+    proxyParams.address = `${location.protocol}//${location.hostname}${proxyParams.address}`
+  }
+  if (proxyParams.address && location.port !== '80' && location.port !== '443' && !/:\d+$/.test(proxyParams.address)) {
+    const https = proxyParams.address.startsWith('https://') || location.protocol === 'https:'
+    proxyParams.address = `${proxyParams.address}:${https ? 443 : 80}`
+  }
+
+  const parsedProxy = parseServerAddress(proxyParams.address, false)
+  const proxy = { host: parsedProxy.host, port: parsedProxy.port }
+  proxyParams.headers ??= getDefaultProxyParams().headers
+  net['setProxy']({
+    hostname: proxy.host,
+    port: proxy.port,
+    headers: proxyParams.headers
+  })
+  return {
+    proxy
+  }
 }

@@ -48,6 +48,7 @@ export const getInitialPlayerState = () => proxy({
   heldItemMain: undefined as HandItemBlock | undefined,
   heldItemOff: undefined as HandItemBlock | undefined,
   perspective: 'first_person' as CameraPerspective,
+  onFire: false,
 
   cameraSpectatingEntity: undefined as number | undefined,
 

@@ -10,11 +10,11 @@ export type ResolvedItemModelRender = {
 
 export const renderSlot = (model: ResolvedItemModelRender, resourcesManager: ResourcesManagerCommon, debugIsQuickbar = false, fullBlockModelSupport = false): {
   texture: string,
-  blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
-  scale?: number,
-  slice?: number[],
-  modelName?: string,
-} | undefined => {
+  blockData: Record<string, { slice, path }> & { resolvedModel: BlockModel } | null,
+  scale: number | null,
+  slice: number[] | null,
+  modelName: string | null,
+} => {
   let itemModelName = model.modelName
   const isItem = loadedData.itemsByName[itemModelName]
 
@@ -37,6 +37,8 @@ export const renderSlot = (model: ResolvedItemModelRender, resourcesManager: Res
         texture: 'gui',
         slice: [x, y, atlas.tileSize, atlas.tileSize],
         scale: 0.25,
+        blockData: null,
+        modelName: null
       }
     }
   }
@@ -63,14 +65,18 @@ export const renderSlot = (model: ResolvedItemModelRender, resourcesManager: Res
     return {
       texture: itemTexture.type,
       slice: itemTexture.slice,
-      modelName: itemModelName
+      modelName: itemModelName,
+      blockData: null,
+      scale: null
     }
   } else {
     // is block
     return {
       texture: 'blocks',
       blockData: itemTexture,
-      modelName: itemModelName
+      modelName: itemModelName,
+      slice: null,
+      scale: null
     }
   }
 }

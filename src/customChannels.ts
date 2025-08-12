@@ -15,6 +15,7 @@ export default () => {
     registerMediaChannels()
     registerSectionAnimationChannels()
     registeredJeiChannel()
+    registerBlockInteractionsCustomizationChannel()
   })
 }
 
@@ -30,6 +31,36 @@ const registerChannel = (channelName: string, packetStructure: any[], handler: (
   })
 
   console.debug(`registered custom channel ${channelName} channel`)
+}
+
+const registerBlockInteractionsCustomizationChannel = () => {
+  const CHANNEL_NAME = 'minecraft-web-client:block-interactions-customization'
+  const packetStructure = [
+    'container',
+    [
+      {
+        name: 'newConfiguration',
+        type: ['pstring', { countType: 'i16' }]
+      },
+    ]
+  ]
+
+  registerChannel(CHANNEL_NAME, packetStructure, (data) => {
+    const config = JSON.parse(data.newConfiguration)
+    if (config.customBreakTime !== undefined && Object.values(config.customBreakTime).every(x => typeof x === 'number')) {
+      bot.mouse.customBreakTime = config.customBreakTime
+    }
+    if (config.customBreakTimeToolAllowance !== undefined) {
+      bot.mouse.customBreakTimeToolAllowance = new Set(config.customBreakTimeToolAllowance)
+    }
+
+    if (config.blockPlacePrediction !== undefined) {
+      bot.mouse.settings.blockPlacePrediction = config.blockPlacePrediction
+    }
+    if (config.blockPlacePredictionDelay !== undefined) {
+      bot.mouse.settings.blockPlacePredictionDelay = config.blockPlacePredictionDelay
+    }
+  }, true)
 }
 
 const registerBlockModelsChannel = () => {

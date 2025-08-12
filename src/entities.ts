@@ -126,6 +126,28 @@ customEvents.on('gameLoaded', () => {
     if (entityStatus === EntityStatus.HURT) {
       getThreeJsRendererMethods()?.damageEntity(entityId, entityStatus)
     }
+
+    if (entityStatus === EntityStatus.BURNED) {
+      updateEntityStates(entityId, true, true)
+    }
+  })
+
+  // on fire events
+  bot._client.on('entity_metadata', (data) => {
+    if (data.entityId !== bot.entity.id) return
+    handleEntityMetadata(data)
+  })
+
+  bot.on('end', () => {
+    if (onFireTimeout) {
+      clearTimeout(onFireTimeout)
+    }
+  })
+
+  bot.on('respawn', () => {
+    if (onFireTimeout) {
+      clearTimeout(onFireTimeout)
+    }
   })
 
   const updateCamera = (entity: Entity) => {
@@ -296,3 +318,44 @@ customEvents.on('gameLoaded', () => {
   })
 
 })
+
+// Constants
+const SHARED_FLAGS_KEY = 0
+const ENTITY_FLAGS = {
+  ON_FIRE: 0x01, // Bit 0
+  SNEAKING: 0x02, // Bit 1
+  SPRINTING: 0x08, // Bit 3
+  SWIMMING: 0x10, // Bit 4
+  INVISIBLE: 0x20, // Bit 5
+  GLOWING: 0x40, // Bit 6
+  FALL_FLYING: 0x80 // Bit 7 (elytra flying)
+}
+
+let onFireTimeout: NodeJS.Timeout | undefined
+const updateEntityStates = (entityId: number, onFire: boolean, timeout?: boolean) => {
+  if (entityId !== bot.entity.id) return
+  appViewer.playerState.reactive.onFire = onFire
+  if (onFireTimeout) {
+    clearTimeout(onFireTimeout)
+  }
+  if (timeout) {
+    onFireTimeout = setTimeout(() => {
+      updateEntityStates(entityId, false, false)
+    }, 5000)
+  }
+}
+
+// Process entity metadata packet
+function handleEntityMetadata (packet: { entityId: number, metadata: Array<{ key: number, type: string, value: number }> }) {
+  const { entityId, metadata } = packet
+
+  // Find shared flags in metadata
+  const flagsData = metadata.find(meta => meta.key === SHARED_FLAGS_KEY &&
+    meta.type === 'byte')
+
+  // Update fire state if flags were found
+  if (flagsData) {
+    const wasOnFire = appViewer.playerState.reactive.onFire
+    appViewer.playerState.reactive.onFire = (flagsData.value & ENTITY_FLAGS.ON_FIRE) !== 0
+  }
+}

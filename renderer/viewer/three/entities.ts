@@ -141,7 +141,7 @@ const addNametag = (entity, options: { fontFamily: string }, mesh, version: stri
     const canvas = getUsernameTexture(entity, options, version)
     const tex = new THREE.Texture(canvas)
     tex.needsUpdate = true
-    let nameTag
+    let nameTag: THREE.Object3D
     if (entity.nameTagFixed) {
       const geometry = new THREE.PlaneGeometry()
       const material = new THREE.MeshBasicMaterial({ map: tex })
@@ -171,6 +171,7 @@ const addNametag = (entity, options: { fontFamily: string }, mesh, version: stri
     nameTag.name = 'nametag'
 
     mesh.add(nameTag)
+    return nameTag
   }
 }
 
@@ -494,6 +495,10 @@ export class Entities {
   // todo true/undefined doesnt reset the skin to the default one
   // eslint-disable-next-line max-params
   async updatePlayerSkin (entityId: string | number, username: string | undefined, uuidCache: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
+    const isCustomSkin = skinUrl !== stevePngUrl
+    if (isCustomSkin) {
+      this.loadedSkinEntityIds.add(String(entityId))
+    }
     if (uuidCache) {
       if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuidCache] = {}
       if (typeof skinUrl === 'string') this.uuidPerSkinUrlsCache[uuidCache].skinUrl = skinUrl
@@ -912,20 +917,14 @@ export class Entities {
         mesh = wrapper
 
         if (entity.username) {
-          // todo proper colors
-          const nameTag = new NameTagObject(fromFormattedString(entity.username).text, {
-            font: `48px ${this.entitiesOptions.fontFamily}`,
-          })
-          nameTag.position.y = playerObject.position.y + playerObject.scale.y * 16 + 3
-          nameTag.renderOrder = 1000
-
-          nameTag.name = 'nametag'
-
-          //@ts-expect-error
-          wrapper.add(nameTag)
+          const nametag = addNametag(entity, { fontFamily: 'mojangles' }, wrapper, this.worldRenderer.version)
+          if (nametag) {
+            nametag.position.y = playerObject.position.y + playerObject.scale.y * 16 + 3
+            nametag.scale.multiplyScalar(12)
+          }
         }
       } else {
-        mesh = getEntityMesh(entity, this.worldRenderer, this.entitiesOptions, overrides)
+        mesh = getEntityMesh(entity, this.worldRenderer, this.entitiesOptions, { ...overrides, customModel: entity['customModel'] })
       }
       if (!mesh) return
       mesh.name = 'mesh'
@@ -1181,8 +1180,7 @@ export class Entities {
     const cameraPos = this.worldRenderer.cameraObject.position
     const distance = mesh.position.distanceTo(cameraPos)
     if (distance < MAX_DISTANCE_SKIN_LOAD && distance < (this.worldRenderer.viewDistance * 16)) {
-      if (this.loadedSkinEntityIds.has(entityId)) return
-      this.loadedSkinEntityIds.add(entityId)
+      if (this.loadedSkinEntityIds.has(String(entityId))) return
       void this.updatePlayerSkin(entityId, mesh.playerObject.realUsername, mesh.playerObject.realPlayerUuid, true, true)
     }
   }

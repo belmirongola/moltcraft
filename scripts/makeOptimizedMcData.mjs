@@ -90,15 +90,18 @@ const dataTypeBundling = {
   },
   blocks: {
     arrKey: 'name',
-    processData(current, prev) {
+    processData(current, prev, _, version) {
       for (const block of current) {
+        const prevBlock = prev?.find(x => x.name === block.name)
         if (block.transparent) {
           const forceOpaque = block.name.includes('shulker_box') || block.name.match(/^double_.+_slab\d?$/) || ['melon_block', 'lit_pumpkin', 'lit_redstone_ore', 'lit_furnace'].includes(block.name)
 
-          const prevBlock = prev?.find(x => x.name === block.name)
           if (forceOpaque || (prevBlock && !prevBlock.transparent)) {
             block.transparent = false
           }
+        }
+        if (block.hardness === 0 && prevBlock && prevBlock.hardness > 0) {
+          block.hardness = prevBlock.hardness
         }
       }
     }

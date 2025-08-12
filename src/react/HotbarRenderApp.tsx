@@ -115,7 +115,7 @@ const HotbarInner = () => {
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
       if (!appViewer.resourcesManager?.itemsAtlasParser) return
-      upInventoryItems(true, inv)
+      globalThis.debugHotbarItems = upInventoryItems(true, inv)
     }
 
     canvasManager.canvas.onclick = (e) => {
@@ -127,6 +127,7 @@ const HotbarInner = () => {
       }
     }
 
+    globalThis.debugUpHotbarItems = upHotbarItems
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
     appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
