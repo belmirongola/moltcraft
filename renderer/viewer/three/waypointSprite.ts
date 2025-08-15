@@ -5,7 +5,7 @@ export const WAYPOINT_CONFIG = {
   // Target size in screen pixels (this controls the final sprite size)
   TARGET_SCREEN_PX: 150,
   // Canvas size for internal rendering (keep power of 2 for textures)
-  CANVAS_SIZE: 256,
+  CANVAS_SIZE: 512, // Increased from 256 for better resolution
   // Relative positions in canvas (0-1)
   LAYOUT: {
     DOT_Y: 0.3,
@@ -13,9 +13,9 @@ export const WAYPOINT_CONFIG = {
     DISTANCE_Y: 0.55,
   },
   // Multiplier for canvas internal resolution to keep text crisp
-  CANVAS_SCALE: 2,
+  CANVAS_SCALE: 3, // Increased from 2 for sharper text
   ARROW: {
-    enabledDefault: false,
+    enabledDefault: true, // Changed from false to true
     pixelSize: 30,
     paddingPx: 50,
   },
@@ -125,22 +125,45 @@ export function createWaypointSprite (options: {
 
   function ensureArrow () {
     if (arrowSprite) return
-    const size = 128
+    
+    // Create a canvas with the same waypoint sprite but with directional arrow overlay
+    const scale = WAYPOINT_CONFIG.CANVAS_SCALE * (globalThis.devicePixelRatio || 1)
+    const size = WAYPOINT_CONFIG.CANVAS_SIZE * scale
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
     const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, size, size)
+    
+    // Draw the same waypoint sprite as the main one
+    drawCombinedCanvas(color, currentLabel, '0m', ctx, size)
+    
+    // Add directional arrow overlay in the center
+    const arrowSize = Math.round(size * 0.15) // Arrow takes up ~15% of canvas
+    const centerX = size / 2
+    const centerY = size / 2
+    
+    // Draw arrow pointing right (will be rotated based on direction)
+    ctx.save()
+    ctx.translate(centerX, centerY)
+    
+    // Arrow shape (pointing right)
     ctx.beginPath()
-    ctx.moveTo(size * 0.2, size * 0.5)
-    ctx.lineTo(size * 0.8, size * 0.5)
-    ctx.lineTo(size * 0.5, size * 0.2)
+    ctx.moveTo(-arrowSize * 0.3, 0)
+    ctx.lineTo(arrowSize * 0.3, 0)
+    ctx.lineTo(arrowSize * 0.1, -arrowSize * 0.2)
+    ctx.lineTo(arrowSize * 0.3, 0)
+    ctx.lineTo(arrowSize * 0.1, arrowSize * 0.2)
     ctx.closePath()
-    ctx.lineWidth = 4
-    ctx.strokeStyle = 'black'
-    ctx.stroke()
+    
+    // Fill with white and black outline
     ctx.fillStyle = 'white'
     ctx.fill()
+    ctx.lineWidth = Math.max(3, Math.round(4 * scale))
+    ctx.strokeStyle = 'black'
+    ctx.stroke()
+    
+    ctx.restore()
+    
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false })
     arrowSprite = new THREE.Sprite(material)
@@ -240,13 +263,18 @@ export function createWaypointSprite (options: {
     arrowSprite.visible = true
     arrowSprite.position.copy(pos)
 
-    // Angle for rotation relative to screen right/up (derived from camera up vector)
-    const angle = Math.atan2(ry, rx)
-    arrowSprite.material.rotation = angle - Math.PI / 2
+    // Calculate the direction vector from camera to waypoint
+    const direction = new THREE.Vector3(group.position.x, group.position.y, group.position.z).sub(camPos).normalize()
+    
+    // Calculate the angle in the XZ plane (horizontal direction)
+    const horizontalAngle = Math.atan2(direction.x, direction.z)
+    
+    // Rotate the arrow to point in the direction of the waypoint
+    arrowSprite.material.rotation = horizontalAngle
 
-    // Constant pixel size for arrow (use fixed placement distance)
+    // Use the same scale as the main waypoint sprite for consistency
     const worldUnitsPerScreenHeightAtDist = Math.tan(vFovRad / 2) * 2 * placeDist
-    const sPx = worldUnitsPerScreenHeightAtDist * (WAYPOINT_CONFIG.ARROW.pixelSize / viewportHeightPx)
+    const sPx = worldUnitsPerScreenHeightAtDist * (WAYPOINT_CONFIG.TARGET_SCREEN_PX / viewportHeightPx)
     arrowSprite.scale.set(sPx, sPx, 1)
     return false
   }
@@ -299,60 +327,60 @@ export function createWaypointSprite (options: {
 }
 
 // Internal helpers
-function drawCombinedCanvas (color: number, id: string, distance: string): HTMLCanvasElement {
+function drawCombinedCanvas (color: number, id: string, distance: string, ctx?: CanvasRenderingContext2D, size?: number): HTMLCanvasElement {
   const scale = WAYPOINT_CONFIG.CANVAS_SCALE * (globalThis.devicePixelRatio || 1)
-  const size = WAYPOINT_CONFIG.CANVAS_SIZE * scale
+  const sizeCanvas = size || WAYPOINT_CONFIG.CANVAS_SIZE * scale
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = sizeCanvas
+  canvas.height = sizeCanvas
+  const ctxCanvas = ctx || canvas.getContext('2d')!
 
   // Clear canvas
-  ctx.clearRect(0, 0, size, size)
+  ctxCanvas.clearRect(0, 0, sizeCanvas, sizeCanvas)
 
   // Draw dot
-  const centerX = size / 2
-  const dotY = Math.round(size * WAYPOINT_CONFIG.LAYOUT.DOT_Y)
-  const radius = Math.round(size * 0.05) // Dot takes up ~12% of canvas height
+  const centerX = sizeCanvas / 2
+  const dotY = Math.round(sizeCanvas * WAYPOINT_CONFIG.LAYOUT.DOT_Y)
+  const radius = Math.round(sizeCanvas * 0.05) // Dot takes up ~12% of canvas height
   const borderWidth = Math.max(2, Math.round(4 * scale))
 
   // Outer border (black)
-  ctx.beginPath()
-  ctx.arc(centerX, dotY, radius + borderWidth, 0, Math.PI * 2)
-  ctx.fillStyle = 'black'
-  ctx.fill()
+  ctxCanvas.beginPath()
+  ctxCanvas.arc(centerX, dotY, radius + borderWidth, 0, Math.PI * 2)
+  ctxCanvas.fillStyle = 'black'
+  ctxCanvas.fill()
 
   // Inner circle (colored)
-  ctx.beginPath()
-  ctx.arc(centerX, dotY, radius, 0, Math.PI * 2)
-  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`
-  ctx.fill()
+  ctxCanvas.beginPath()
+  ctxCanvas.arc(centerX, dotY, radius, 0, Math.PI * 2)
+  ctxCanvas.fillStyle = `#${color.toString(16).padStart(6, '0')}`
+  ctxCanvas.fill()
 
   // Text properties
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
+  ctxCanvas.textAlign = 'center'
+  ctxCanvas.textBaseline = 'middle'
 
   // Title
-  const nameFontPx = Math.round(size * 0.08) // ~8% of canvas height
-  const distanceFontPx = Math.round(size * 0.06) // ~6% of canvas height
-  ctx.font = `bold ${nameFontPx}px mojangles`
-  ctx.lineWidth = Math.max(2, Math.round(3 * scale))
-  const nameY = Math.round(size * WAYPOINT_CONFIG.LAYOUT.NAME_Y)
+  const nameFontPx = Math.round(sizeCanvas * 0.12) // Increased from 0.08 (~12% of canvas height)
+  const distanceFontPx = Math.round(sizeCanvas * 0.09) // Increased from 0.06 (~9% of canvas height)
+  ctxCanvas.font = `bold ${nameFontPx}px mojangles`
+  ctxCanvas.lineWidth = Math.max(3, Math.round(4 * scale)) // Increased line width for better text outline
+  const nameY = Math.round(sizeCanvas * WAYPOINT_CONFIG.LAYOUT.NAME_Y)
 
-  ctx.strokeStyle = 'black'
-  ctx.strokeText(id, centerX, nameY)
-  ctx.fillStyle = 'white'
-  ctx.fillText(id, centerX, nameY)
+  ctxCanvas.strokeStyle = 'black'
+  ctxCanvas.strokeText(id, centerX, nameY)
+  ctxCanvas.fillStyle = 'white'
+  ctxCanvas.fillText(id, centerX, nameY)
 
   // Distance
-  ctx.font = `bold ${distanceFontPx}px mojangles`
-  ctx.lineWidth = Math.max(2, Math.round(2 * scale))
-  const distanceY = Math.round(size * WAYPOINT_CONFIG.LAYOUT.DISTANCE_Y)
+  ctxCanvas.font = `bold ${distanceFontPx}px mojangles`
+  ctxCanvas.lineWidth = Math.max(3, Math.round(3 * scale)) // Increased line width for better text outline
+  const distanceY = Math.round(sizeCanvas * WAYPOINT_CONFIG.LAYOUT.DISTANCE_Y)
 
-  ctx.strokeStyle = 'black'
-  ctx.strokeText(distance, centerX, distanceY)
-  ctx.fillStyle = '#CCCCCC'
-  ctx.fillText(distance, centerX, distanceY)
+  ctxCanvas.strokeStyle = 'black'
+  ctxCanvas.strokeText(distance, centerX, distanceY)
+  ctxCanvas.fillStyle = '#CCCCCC'
+  ctxCanvas.fillText(distance, centerX, distanceY)
 
   return canvas
 }

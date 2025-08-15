@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waypoint Test - Improved Directional Arrows</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .feature-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .feature-list h3 {
+            margin-top: 0;
+            color: #28a745;
+        }
+        .feature-list ul {
+            margin: 10px 0;
+        }
+        .feature-list li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Improved Waypoint System Test</h1>
+        
+        <div class="info">
+            <strong>What's New:</strong> This test demonstrates the improved waypoint system with directional arrows when out of sight and enhanced text clarity.
+        </div>
+
+        <div class="feature-list">
+            <h3>✨ New Features</h3>
+            <ul>
+                <li><strong>Directional Arrows:</strong> When waypoints are out of sight, they now show the same sprite with an arrow pointing in the direction of the waypoint</li>
+                <li><strong>Better Text Clarity:</strong> Increased font sizes and higher resolution for sharper, more visible text</li>
+                <li><strong>Improved Resolution:</strong> Canvas size increased from 256x256 to 512x512 pixels</li>
+                <li><strong>Enhanced Scaling:</strong> Canvas scale increased from 2x to 3x for crisp text rendering</li>
+                <li><strong>Larger Fonts:</strong> Title font increased from 8% to 12% of canvas height, distance font from 6% to 9%</li>
+                <li><strong>Better Outlines:</strong> Increased stroke width for improved text visibility</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Instructions</h3>
+            <p>To test the improved waypoint system:</p>
+            <ol>
+                <li>Open the Minecraft Web Client</li>
+                <li>Wait for the world to load completely</li>
+                <li>Open the browser console (F12 → Console)</li>
+                <li>Use the console commands below to test waypoints</li>
+                <li>Move around so waypoints go out of sight</li>
+                <li>Observe the directional arrows pointing toward waypoints</li>
+                <li>Notice the improved text clarity and larger fonts</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>⌨️ Console Commands</h3>
+            <p>Use these commands in the browser console to test waypoints:</p>
+            <ul>
+                <li><code>testWaypoints()</code> - Add test waypoints (green, yellow, blue)</li>
+                <li><code>addTestWaypoint('Home', 0, 70, 0, 0xFF0000, 'My Home')</code> - Add custom waypoint</li>
+                <li><code>removeWaypoint('Test Point')</code> - Remove specific waypoint</li>
+                <li><code>listWaypoints()</code> - List all active waypoints</li>
+            </ul>
+            <div class="info">
+                <strong>Note:</strong> Make sure the world is fully loaded before running these commands.
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 Custom Channel Usage</h3>
+            <p>The waypoint system uses these custom channels:</p>
+            <ul>
+                <li><code>minecraft-web-client:waypoint-add</code> - Add a new waypoint</li>
+                <li><code>minecraft-web-client:waypoint-delete</code> - Remove a waypoint</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Technical Details</h3>
+            <p><strong>Canvas Resolution:</strong> Increased from 256x256 to 512x512 pixels</p>
+            <p><strong>Scale Factor:</strong> Increased from 2x to 3x for device pixel ratio</p>
+            <p><strong>Font Sizes:</strong> Title: 12% of canvas height, Distance: 9% of canvas height</p>
+            <p><strong>Arrow Overlay:</strong> Shows same waypoint sprite with directional arrow in center</p>
+            <p><strong>Text Outlines:</strong> Enhanced stroke width for better visibility</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🎨 Visual Improvements</h3>
+            <ul>
+                <li>Waypoints now maintain their full appearance when out of sight</li>
+                <li>Directional arrows clearly indicate which way to go</li>
+                <li>Text is much more readable with larger fonts</li>
+                <li>Higher resolution ensures crisp rendering on all devices</li>
+                <li>Better contrast with improved text outlines</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <strong>Note:</strong> The waypoint system automatically enables offscreen arrows for all waypoints, ensuring you never lose track of important locations.
+        </div>
+    </div>
+</body>
+</html>

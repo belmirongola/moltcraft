@@ -79,7 +79,7 @@ export class WaypointsRenderer {
       color,
       label: (label || id),
     })
-    sprite.enableOffscreenArrow(true)
+    sprite.enableOffscreenArrow(true) // Always enable offscreen arrows
     sprite.setArrowParent(this.waypointScene)
 
     this.waypointScene.add(sprite.group)
