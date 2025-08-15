@@ -53,61 +53,6 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
   }
 }
 
-// Add global waypoint testing functions for easier testing
-if (typeof window !== 'undefined') {
-  window.testWaypoints = () => {
-    if (worldRenderer?.waypoints) {
-      worldRenderer.waypoints.testWaypoint()
-      console.log('✅ Test waypoints added! Move around to see the improved directional arrows and text clarity.')
-    } else {
-      console.log('❌ World renderer not ready yet. Please wait for the world to load.')
-    }
-  }
-  
-  window.addTestWaypoint = (id: string, x: number, y: number, z: number, color?: number, label?: string) => {
-    if (worldRenderer?.waypoints) {
-      worldRenderer.waypoints.addWaypoint(id, x, y, z, { 
-        color: color || 0xFF_00_00, 
-        label: label || id 
-      })
-      console.log(`✅ Waypoint "${id}" added at (${x}, ${y}, ${z})`)
-    } else {
-      console.log('❌ World renderer not ready yet. Please wait for the world to load.')
-    }
-  }
-  
-  window.removeWaypoint = (id: string) => {
-    if (worldRenderer?.waypoints) {
-      worldRenderer.waypoints.removeWaypoint(id)
-      console.log(`✅ Waypoint "${id}" removed`)
-    } else {
-      console.log('❌ World renderer not ready yet. Please wait for the world to load.')
-    }
-  }
-  
-  window.listWaypoints = () => {
-    if (worldRenderer?.waypoints) {
-      const waypoints = worldRenderer.waypoints.getAllWaypoints()
-      if (waypoints.length === 0) {
-        console.log('📍 No waypoints currently active')
-      } else {
-        console.log('📍 Active waypoints:')
-        waypoints.forEach(wp => {
-          console.log(`  - ${wp.id}: (${wp.x}, ${wp.y}, ${wp.z}) - Color: #${wp.color.toString(16).padStart(6, '0')}`)
-        })
-      }
-    } else {
-      console.log('❌ World renderer not ready yet. Please wait for the world to load.')
-    }
-  }
-  
-  console.log('🎯 Waypoint testing functions added to window:')
-  console.log('  - testWaypoints() - Add test waypoints')
-  console.log('  - addTestWaypoint(id, x, y, z, color?, label?) - Add custom waypoint')
-  console.log('  - removeWaypoint(id) - Remove waypoint')
-  console.log('  - listWaypoints() - List all active waypoints')
-}
-
 export type ThreeJsBackendMethods = ReturnType<typeof getBackendMethods>
 
 const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitOptions) => {
