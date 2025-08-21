@@ -67,6 +67,7 @@ import GlobalOverlayHints from './react/GlobalOverlayHints'
 import FullscreenTime from './react/FullscreenTime'
 import StorageConflictModal from './react/StorageConflictModal'
 import FireRenderer from './react/FireRenderer'
+import MonacoEditor from './react/MonacoEditor'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -248,7 +249,6 @@ const App = () => {
             <PacketsReplayProvider />
             <NotificationProvider />
             <ModsPage />
-
             <SelectOption />
             <CreditsAboutModal />
             <NoModalFoundProvider />
@@ -259,6 +259,7 @@ const App = () => {
             </div>
             <div />
             <DebugEdges />
+            <MonacoEditor />
             <DebugResponseTimeIndicator />
           </RobustPortal>
         </ButtonAppProvider>

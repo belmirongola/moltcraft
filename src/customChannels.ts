@@ -2,6 +2,7 @@ import PItem from 'prismarine-item'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options } from './optionsStorage'
 import { jeiCustomCategories } from './inventoryWindows'
+import { registerIdeChannels } from './core/ideChannels'
 
 export default () => {
   customEvents.on('mineflayerBotCreated', async () => {
@@ -17,6 +18,7 @@ export default () => {
     registeredJeiChannel()
     registerBlockInteractionsCustomizationChannel()
     registerWaypointChannels()
+    registerIdeChannels()
   })
 }
 
