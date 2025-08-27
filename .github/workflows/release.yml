@@ -49,12 +49,11 @@ jobs:
           publish_dir: .vercel/output/static
           force_orphan: true
 
-      # Deploy to mcw-mcraft-page repository (github.mcraft.fun)
-      - name: Deploy to mcw-mcraft-page repository
+      - name: Deploy to mwc-mcraft-pages repository
         uses: peaceiris/actions-gh-pages@v3
         with:
           personal_token: ${{ secrets.MCW_MCRAFT_PAGE_DEPLOY_TOKEN }}
-          external_repository: ${{ github.repository_owner }}/mcw-mcraft-pages
+          external_repository: ${{ github.repository_owner }}/mwc-mcraft-pages
           publish_dir: .vercel/output/static
           publish_branch: main
           destination_dir: docs
