@@ -98,13 +98,16 @@ export default ({
                 cursor: chunk ? 'pointer' : 'default',
                 position: 'relative',
                 width: `${tileSize}px`,
+                flexDirection: 'column',
                 height: `${tileSize}px`,
+                padding: 1,
                 // pre-wrap
                 whiteSpace: 'pre',
               }}
             >
               {relX}, {relZ}{'\n'}
-              {chunk?.lines.join('\n')}
+              {chunk?.lines[0]}{'\n'}
+              <span style={{ fontSize: `${fontSize * 0.8}px` }}>{chunk?.lines[1]}</span>
             </div>
           )
         })}

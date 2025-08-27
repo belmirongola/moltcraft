@@ -43,7 +43,7 @@ export async function loadSound (path: string, contents = path) {
   }
 }
 
-export const loadOrPlaySound = async (url, soundVolume = 1, loadTimeout = 500) => {
+export const loadOrPlaySound = async (url, soundVolume = 1, loadTimeout = options.remoteSoundsLoadTimeout, loop = false) => {
   const soundBuffer = sounds[url]
   if (!soundBuffer) {
     const start = Date.now()
@@ -51,10 +51,10 @@ export const loadOrPlaySound = async (url, soundVolume = 1, loadTimeout = 500) =
     if (cancelled || Date.now() - start > loadTimeout) return
   }
 
-  return playSound(url, soundVolume)
+  return playSound(url, soundVolume, loop)
 }
 
-export async function playSound (url, soundVolume = 1) {
+export async function playSound (url, soundVolume = 1, loop = false) {
   const volume = soundVolume * (options.volume / 100)
 
   if (!volume) return
@@ -75,6 +75,7 @@ export async function playSound (url, soundVolume = 1) {
   const gainNode = audioContext.createGain()
   const source = audioContext.createBufferSource()
   source.buffer = soundBuffer
+  source.loop = loop
   source.connect(gainNode)
   gainNode.connect(audioContext.destination)
   gainNode.gain.value = volume
@@ -99,6 +100,16 @@ export async function playSound (url, soundVolume = 1) {
     onEnded (callback: () => void) {
       callbacks.push(callback)
     },
+    stop () {
+      try {
+        source.stop()
+        // Remove from active sounds
+        const index = activeSounds.findIndex(s => s.source === source)
+        if (index !== -1) activeSounds.splice(index, 1)
+      } catch (err) {
+        console.warn('Failed to stop sound:', err)
+      }
+    },
   }
 }
 
@@ -111,6 +122,19 @@ export function stopAllSounds () {
     }
   }
   activeSounds.length = 0
+}
+
+export function stopSound (url: string) {
+  const soundIndex = activeSounds.findIndex(s => s.source.buffer === sounds[url])
+  if (soundIndex !== -1) {
+    const { source } = activeSounds[soundIndex]
+    try {
+      source.stop()
+    } catch (err) {
+      console.warn('Failed to stop sound:', err)
+    }
+    activeSounds.splice(soundIndex, 1)
+  }
 }
 
 export function changeVolumeOfCurrentlyPlayingSounds (newVolume: number) {

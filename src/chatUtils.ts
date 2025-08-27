@@ -118,6 +118,14 @@ export const formatMessage = (message: MessageInput, mcData: IndexedData = globa
   return msglist
 }
 
+export const messageToString = (message: MessageInput | string) => {
+  if (typeof message === 'string') {
+    return message
+  }
+  const msglist = formatMessage(message)
+  return msglist.map(msg => msg.text).join('')
+}
+
 const blockToItemRemaps = {
   water: 'water_bucket',
   lava: 'lava_bucket',

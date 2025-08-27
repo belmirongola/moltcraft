@@ -44,6 +44,12 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     shakeFromDamage: worldRenderer.cameraShake.shakeFromDamage.bind(worldRenderer.cameraShake),
     onPageInteraction: worldRenderer.media.onPageInteraction.bind(worldRenderer.media),
     downloadMesherLog: worldRenderer.downloadMesherLog.bind(worldRenderer),
+
+    addWaypoint: worldRenderer.waypoints.addWaypoint.bind(worldRenderer.waypoints),
+    removeWaypoint: worldRenderer.waypoints.removeWaypoint.bind(worldRenderer.waypoints),
+
+    // New method for updating skybox
+    setSkyboxImage: worldRenderer.skyboxRenderer.setSkyboxImage.bind(worldRenderer.skyboxRenderer)
   }
 }
 

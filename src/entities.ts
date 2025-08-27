@@ -310,7 +310,7 @@ customEvents.on('gameLoaded', () => {
   })
 
   bot.on('teamRemoved', (team: Team) => {
-    if (appViewer.playerState.reactive.team?.team === team.team) {
+    if (appViewer.playerState.reactive.team?.team === team?.team) {
       appViewer.playerState.reactive.team = undefined
       // Player's team was removed, need to update all entities that are in a team
       updateEntityNameTags(team)

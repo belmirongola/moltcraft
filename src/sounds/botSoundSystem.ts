@@ -11,6 +11,7 @@ import { showNotification } from '../react/NotificationProvider'
 import { pixelartIcons } from '../react/PixelartIcon'
 import { createSoundMap, SoundMap } from './soundsMap'
 import { musicSystem } from './musicSystem'
+import './customSoundSystem'
 
 let soundMap: SoundMap | undefined
 
@@ -50,8 +51,9 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
         appViewer.backend?.soundSystem?.playSound(
           position,
           soundData.url,
-          soundData.volume * (options.volume / 100),
-          Math.max(Math.min(pitch ?? 1, 2), 0.5)
+          soundData.volume,
+          Math.max(Math.min(pitch ?? 1, 2), 0.5),
+          soundData.timeout ?? options.remoteSoundsLoadTimeout
         )
       }
       if (getDistance(bot.entity.position, position) < 4 * 16) {
@@ -81,7 +83,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
     }
     const randomMusicKey = musicKeys[Math.floor(Math.random() * musicKeys.length)]
     const soundData = await soundMap.getSoundUrl(randomMusicKey)
-    if (!soundData) return
+    if (!soundData || !soundMap) return
     await musicSystem.playMusic(soundData.url, soundData.volume)
   }
 
@@ -109,6 +111,9 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   }
 
   bot.on('soundEffectHeard', async (soundId, position, volume, pitch) => {
+    if (/^https?:/.test(soundId.replace('minecraft:', ''))) {
+      return
+    }
     await playHardcodedSound(soundId, position, volume, pitch)
   })
 

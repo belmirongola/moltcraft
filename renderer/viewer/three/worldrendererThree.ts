@@ -23,6 +23,8 @@ import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
+import { WaypointsRenderer } from './waypoints'
+import { SkyboxRenderer } from './skyboxRenderer'
 
 type SectionKey = string
 
@@ -48,6 +50,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   cameraContainer: THREE.Object3D
   media: ThreeJsMedia
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
+  waypoints: WaypointsRenderer
   camera: THREE.PerspectiveCamera
   renderTimeAvg = 0
   sectionsOffsetsAnimations = {} as {
@@ -69,6 +72,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
   fountains: Fountain[] = []
   DEBUG_RAYCAST = false
+  skyboxRenderer: SkyboxRenderer
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
@@ -92,6 +96,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)
 
+    // Initialize skybox renderer
+    this.skyboxRenderer = new SkyboxRenderer(this.scene, null)
+    void this.skyboxRenderer.init()
+
     this.addDebugOverlay()
     this.resetScene()
     void this.init()
@@ -99,6 +107,8 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.soundSystem = new ThreeJsSound(this)
     this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
+    this.waypoints = new WaypointsRenderer(this)
+
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
     // })
@@ -119,6 +129,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.protocolCustomBlocks.clear()
       // Reset section animations
       this.sectionsOffsetsAnimations = {}
+      // Clear waypoints
+      this.waypoints.clear()
     })
   }
 
@@ -453,7 +465,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     return worldPos
   }
 
-  getWorldCameraPosition () {
+  getSectionCameraPosition () {
     const pos = this.getCameraPosition()
     return new Vec3(
       Math.floor(pos.x / 16),
@@ -463,7 +475,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateCameraSectionPos () {
-    const newSectionPos = this.getWorldCameraPosition()
+    const newSectionPos = this.getSectionCameraPosition()
     if (!this.cameraSectionPos.equals(newSectionPos)) {
       this.cameraSectionPos = newSectionPos
       this.cameraSectionPositionUpdate()
@@ -702,6 +714,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.cursorBlock.render()
     this.updateSectionOffsets()
 
+    // Update skybox position to follow camera
+    const cameraPos = this.getCameraPosition()
+    this.skyboxRenderer.update(cameraPos)
+
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
       const size = this.renderer.getSize(new THREE.Vector2())
@@ -736,6 +752,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
       fountain.render()
     }
+
+    this.waypoints.render()
 
     for (const onRender of this.onRender) {
       onRender()
@@ -939,6 +957,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   destroy (): void {
     super.destroy()
+    this.skyboxRenderer.dispose()
   }
 
   shouldObjectVisible (object: THREE.Object3D) {
@@ -1022,6 +1041,13 @@ class StarField {
   constructor (
     private readonly worldRenderer: WorldRendererThree
   ) {
+    const clock = new THREE.Clock()
+    const speed = 0.2
+    this.worldRenderer.onRender.push(() => {
+      if (!this.points) return
+      this.points.position.copy(this.worldRenderer.getCameraPosition());
+      (this.points.material as StarfieldMaterial).uniforms.time.value = clock.getElapsedTime() * speed
+    })
   }
 
   addToScene () {
@@ -1032,7 +1058,6 @@ class StarField {
     const count = 7000
     const factor = 7
     const saturation = 10
-    const speed = 0.2
 
     const geometry = new THREE.BufferGeometry()
 
@@ -1065,11 +1090,6 @@ class StarField {
     this.points = new THREE.Points(geometry, material)
     this.worldRenderer.scene.add(this.points)
 
-    const clock = new THREE.Clock()
-    this.points.onBeforeRender = (renderer, scene, camera) => {
-      this.points?.position.copy?.(this.worldRenderer.getCameraPosition())
-      material.uniforms.time.value = clock.getElapsedTime() * speed
-    }
     this.points.renderOrder = -1
   }
 

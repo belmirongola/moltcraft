@@ -77,13 +77,16 @@ export const defaultOptions = {
   frameLimit: false as number | false,
   alwaysBackupWorldBeforeLoading: undefined as boolean | undefined | null,
   alwaysShowMobileControls: false,
-  excludeCommunicationDebugEvents: [],
+  excludeCommunicationDebugEvents: [] as string[],
   preventDevReloadWhilePlaying: false,
   numWorkers: 4,
   localServerOptions: {
     gameMode: 1
   } as any,
   preferLoadReadonly: false,
+  experimentalClientSelfReload: false,
+  remoteSoundsSupport: false,
+  remoteSoundsLoadTimeout: 500,
   disableLoadPrompts: false,
   guestUsername: 'guest',
   askGuestName: true,

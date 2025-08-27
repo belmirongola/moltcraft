@@ -54,6 +54,17 @@ export const reconnectReload = () => {
   }
 }
 
+export const quickDevReconnect = () => {
+  if (!lastConnectOptions.value) {
+    return
+  }
+
+  resetAppStatusState()
+  window.dispatchEvent(new window.CustomEvent('connect', {
+    detail: lastConnectOptions.value
+  }))
+}
+
 export default () => {
   const lastState = useRef(JSON.parse(JSON.stringify(appStatusState)))
   const currentState = useSnapshot(appStatusState)
@@ -105,13 +116,6 @@ export default () => {
     }
   }, [isOpen])
 
-  const reconnect = () => {
-    resetAppStatusState()
-    window.dispatchEvent(new window.CustomEvent('connect', {
-      detail: lastConnectOptions.value
-    }))
-  }
-
   useEffect(() => {
     const controller = new AbortController()
     window.addEventListener('keyup', (e) => {
@@ -119,7 +123,7 @@ export default () => {
       if (activeModalStack.at(-1)?.reactType !== 'app-status') return
       // todo do only if reconnect is possible
       if (e.code !== 'KeyR' || !lastConnectOptions.value) return
-      reconnect()
+      quickDevReconnect()
     }, {
       signal: controller.signal
     })
@@ -140,7 +144,7 @@ export default () => {
     const account = await showOptionsModal('Choose account to connect with', [...accounts.map(account => account.username), 'Use other account'])
     if (!account) return
     lastConnectOptions.value!.authenticatedAccount = accounts.find(acc => acc.username === account) || true
-    reconnect()
+    quickDevReconnect()
   }
 
   const lastAutoCapturedPackets = getLastAutoCapturedPackets()
@@ -184,7 +188,7 @@ export default () => {
       actionsSlot={
         <>
           {displayAuthButton && <Button label='Authenticate' onClick={authReconnectAction} />}
-          {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={reconnect} />}
+          {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={quickDevReconnect} />}
           {replayActive && <Button label={`Download Packets Replay ${replayLogger?.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
           {wasDisconnected && lastAutoCapturedPackets && <Button label={`Inspect Last ${lastAutoCapturedPackets} Packets`} onClick={() => downloadAutoCapturedPackets()} />}
         </>

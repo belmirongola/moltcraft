@@ -73,6 +73,19 @@ index 63cc2bd9615100bd2fd63dfe14c094aa6b8cd1c9..36df57d1196af9761d920fa285ac48f8
        }
  
        function onJoinServerResponse (err) {
+diff --git a/src/client/pluginChannels.js b/src/client/pluginChannels.js
+index 671eb452f31e6b5fcd57d715f1009d010160c65f..7f69f511c8fb97d431ec5125c851b49be8e2ab76 100644
+--- a/src/client/pluginChannels.js
++++ b/src/client/pluginChannels.js
+@@ -57,7 +57,7 @@ module.exports = function (client, options) {
+         try {
+           packet.data = proto.parsePacketBuffer(channel, packet.data).data
+         } catch (error) {
+-          client.emit('error', error)
++          client.emit('error', error, { customPayload: packet })
+           return
+         }
+       }
 diff --git a/src/client.js b/src/client.js
 index e369e77d055ba919e8f9da7b8e8b5dc879c74cf4..54bb9e6644388e9b6bd42b3012951875989cdf0c 100644
 --- a/src/client.js

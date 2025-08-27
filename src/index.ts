@@ -62,7 +62,7 @@ import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
 import CustomChannelClient from './customClient'
 import { registerServiceWorker } from './serviceWorker'
-import { appStatusState, lastConnectOptions } from './react/AppStatusProvider'
+import { appStatusState, lastConnectOptions, quickDevReconnect } from './react/AppStatusProvider'
 
 import { fsState } from './loadSave'
 import { watchFov } from './rendererUtils'
@@ -215,8 +215,13 @@ export async function connect (connectOptions: ConnectOptions) {
   const destroyAll = (wasKicked = false) => {
     if (ended) return
     loadingTimerState.loading = false
-    if (!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadConnected) {
-      location.reload()
+    const { alwaysReconnect } = appQueryParams
+    if ((!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadConnected) || (alwaysReconnect)) {
+      if (alwaysReconnect === 'quick' || alwaysReconnect === 'fast') {
+        quickDevReconnect()
+      } else {
+        location.reload()
+      }
     }
     errorAbortController.abort()
     ended = true
@@ -957,7 +962,7 @@ const maybeEnterGame = () => {
     }
   }
 
-  if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
+  if (appQueryParams.reconnect && localStorage.lastConnectOptions && process.env.NODE_ENV === 'development') {
     const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
     return waitForConfigFsLoad(async () => {
       void connect({

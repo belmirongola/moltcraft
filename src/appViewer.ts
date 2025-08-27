@@ -17,6 +17,8 @@ import { options } from './optionsStorage'
 import { ResourcesManager, ResourcesManagerTransferred } from './resourcesManager'
 import { watchOptionsAfterWorldViewInit } from './watchOptions'
 import { loadMinecraftData } from './connect'
+import { reloadChunks } from './utils'
+import { displayClientChat } from './botUtils'
 
 export interface RendererReactiveState {
   world: {
@@ -197,6 +199,13 @@ export class AppViewer {
     this.currentDisplay = 'world'
     const startPosition = bot.entity?.position ?? new Vec3(0, 64, 0)
     this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
+    this.worldView.panicChunksReload = () => {
+      if (!options.experimentalClientSelfReload) return
+      if (process.env.NODE_ENV === 'development') {
+        displayClientChat(`[client] client panicked due to too long loading time. Soft reloading chunks...`)
+      }
+      void reloadChunks()
+    }
     window.worldView = this.worldView
     watchOptionsAfterWorldViewInit(this.worldView)
     this.appConfigUdpate()

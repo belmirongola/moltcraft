@@ -11,6 +11,36 @@ import { getWebsocketStream } from './websocket-core'
 
 let lastPacketTime = 0
 customEvents.on('mineflayerBotCreated', () => {
+  // const oldParsePacketBuffer = bot._client.deserializer.parsePacketBuffer
+  //   try {
+  //     const parsed = oldParsePacketBuffer(buffer)
+  //   } catch (err) {
+  //     debugger
+  //     reportError(new Error(`Error parsing packet ${buffer.subarray(0, 30).toString('hex')}`, { cause: err }))
+  //     throw err
+  //   }
+  // }
+  class MinecraftProtocolError extends Error {
+    constructor (message: string, cause?: Error, public data?: any) {
+      if (data?.customPayload) {
+        message += ` (Custom payload: ${data.customPayload.channel})`
+      }
+      super(message, { cause })
+      this.name = 'MinecraftProtocolError'
+    }
+  }
+
+  const onClientError = (err, data) => {
+    const error = new MinecraftProtocolError(`Minecraft protocol client error: ${err.message}`, err, data)
+    reportError(error)
+  }
+  if (typeof bot._client['_events'].error === 'function') {
+    // dont report to bot for more explicit error
+    bot._client['_events'].error = onClientError
+  } else {
+    bot._client.on('error' as any, onClientError)
+  }
+
   // todo move more code here
   if (!appQueryParams.noPacketsValidation) {
     (bot._client as unknown as Client).on('packet', (data, packetMeta, buffer, fullBuffer) => {

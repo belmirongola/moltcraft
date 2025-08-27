@@ -12,6 +12,7 @@ export type AppQsParams = {
   username?: string
   lockConnect?: string
   autoConnect?: string
+  alwaysReconnect?: string
   // googledrive.ts params
   state?: string
   // ServersListProvider.tsx params

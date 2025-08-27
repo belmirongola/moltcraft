@@ -486,17 +486,6 @@ const downloadAndUseResourcePack = async (url: string, progressReporter: Progres
   }
 }
 
-const waitForGameEvent = async () => {
-  if (miscUiState.gameLoaded) return
-  await new Promise<void>(resolve => {
-    const listener = () => resolve()
-    customEvents.once('gameLoaded', listener)
-    watchUnloadForCleanup(() => {
-      customEvents.removeListener('gameLoaded', listener)
-    })
-  })
-}
-
 export const onAppLoad = () => {
   customEvents.on('mineflayerBotCreated', () => {
     // todo also handle resourcePack

@@ -35,7 +35,15 @@ export class WorldDataEmitterWorker extends (EventEmitter as new () => TypedEmit
 }
 
 export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
+  spiralNumber = 0
+  gotPanicLastTime = false
+  panicChunksReload = () => {}
   loadedChunks: Record<ChunkPosKey, boolean>
+  private inLoading = false
+  private chunkReceiveTimes: number[] = []
+  private lastChunkReceiveTime = 0
+  public lastChunkReceiveTimeAvg = 0
+  private panicTimeout?: NodeJS.Timeout
   readonly lastPos: Vec3
   private eventListeners: Record<string, any> = {}
   private readonly emitter: WorldDataEmitter
@@ -133,12 +141,19 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         this.emitter.emit('entity', { id: e.id, delete: true })
       },
       chunkColumnLoad: (pos: Vec3) => {
+        const now = performance.now()
+        if (this.lastChunkReceiveTime) {
+          this.chunkReceiveTimes.push(now - this.lastChunkReceiveTime)
+        }
+        this.lastChunkReceiveTime = now
+
         if (this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`]) {
           this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`](true)
           delete this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`]
         } else if (this.loadedChunks[`${pos.x},${pos.z}`]) {
           void this.loadChunk(pos, false, 'Received another chunkColumnLoad event while already loaded')
         }
+        this.chunkProgress()
       },
       chunkColumnUnload: (pos: Vec3) => {
         this.unloadChunk(pos)
@@ -219,33 +234,59 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     const positions = generateSpiralMatrix(this.viewDistance).map(([x, z]) => new Vec3((botX + x) * 16, 0, (botZ + z) * 16))
 
     this.lastPos.update(pos)
-    await this._loadChunks(positions)
+    await this._loadChunks(positions, pos)
   }
 
-  async _loadChunks (positions: Vec3[], sliceSize = 5) {
+  chunkProgress () {
+    if (this.panicTimeout) clearTimeout(this.panicTimeout)
+    if (this.chunkReceiveTimes.length >= 5) {
+      const avgReceiveTime = this.chunkReceiveTimes.reduce((a, b) => a + b, 0) / this.chunkReceiveTimes.length
+      this.lastChunkReceiveTimeAvg = avgReceiveTime
+      const timeoutDelay = avgReceiveTime * 2 + 1000 // 2x average + 1 second
+
+      // Clear any existing timeout
+      if (this.panicTimeout) clearTimeout(this.panicTimeout)
+
+      // Set new timeout for panic reload
+      this.panicTimeout = setTimeout(() => {
+        if (!this.gotPanicLastTime && this.inLoading) {
+          console.warn('Chunk loading seems stuck, triggering panic reload')
+          this.gotPanicLastTime = true
+          this.panicChunksReload()
+        }
+      }, timeoutDelay)
+    }
+  }
+
+  async _loadChunks (positions: Vec3[], centerPos: Vec3) {
+    this.spiralNumber++
+    const { spiralNumber } = this
     // stop loading previous chunks
     for (const pos of Object.keys(this.waitingSpiralChunksLoad)) {
       this.waitingSpiralChunksLoad[pos](false)
       delete this.waitingSpiralChunksLoad[pos]
     }
 
-    const promises = [] as Array<Promise<void>>
     let continueLoading = true
+    this.inLoading = true
     await delayedIterator(positions, this.addWaitTime, async (pos) => {
-      const promise = (async () => {
-        if (!continueLoading || this.loadedChunks[`${pos.x},${pos.z}`]) return
+      if (!continueLoading || this.loadedChunks[`${pos.x},${pos.z}`]) return
 
-        if (!this.world.getColumnAt(pos)) {
-          continueLoading = await new Promise<boolean>(resolve => {
-            this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`] = resolve
-          })
-        }
-        if (!continueLoading) return
-        await this.loadChunk(pos)
-      })()
-      promises.push(promise)
+      // Wait for chunk to be available from server
+      if (!this.world.getColumnAt(pos)) {
+        continueLoading = await new Promise<boolean>(resolve => {
+          this.waitingSpiralChunksLoad[`${pos.x},${pos.z}`] = resolve
+        })
+      }
+      if (!continueLoading) return
+      await this.loadChunk(pos, undefined, `spiral ${spiralNumber} from ${centerPos.x},${centerPos.z}`)
+      this.chunkProgress()
     })
-    await Promise.all(promises)
+    if (this.panicTimeout) clearTimeout(this.panicTimeout)
+    this.inLoading = false
+    this.gotPanicLastTime = false
+    this.chunkReceiveTimes = []
+    this.lastChunkReceiveTime = 0
   }
 
   readdDebug () {
@@ -338,7 +379,6 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
           chunksToUnload.push(p)
         }
       }
-      console.log('unloading', chunksToUnload.length, 'total now', Object.keys(this.loadedChunks).length)
       for (const p of chunksToUnload) {
         this.unloadChunk(p)
       }
@@ -350,7 +390,7 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
         return undefined!
       }).filter(a => !!a)
       this.lastPos.update(pos)
-      void this._loadChunks(positions)
+      void this._loadChunks(positions, pos)
     } else {
       this.emitter.emit('chunkPosUpdate', { pos }) // todo-low
       this.lastPos.update(pos)

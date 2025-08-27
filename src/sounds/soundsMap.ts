@@ -35,6 +35,7 @@ interface ResourcePackSoundEntry {
   name: string
   stream?: boolean
   volume?: number
+  timeout?: number
 }
 
 interface ResourcePackSound {
@@ -140,7 +141,7 @@ export class SoundMap {
     await scan(soundsBasePath)
   }
 
-  async getSoundUrl (soundKey: string, volume = 1): Promise<{ url: string; volume: number } | undefined> {
+  async getSoundUrl (soundKey: string, volume = 1): Promise<{ url: string; volume: number, timeout?: number } | undefined> {
     // First check resource pack sounds.json
     if (this.activeResourcePackSoundsJson && soundKey in this.activeResourcePackSoundsJson) {
       const rpSound = this.activeResourcePackSoundsJson[soundKey]
@@ -151,6 +152,13 @@ export class SoundMap {
       if (this.activeResourcePackBasePath) {
         const tryFormat = async (format: string) => {
           try {
+            if (sound.name.startsWith('http://') || sound.name.startsWith('https://')) {
+              return {
+                url: sound.name,
+                volume: soundVolume * Math.max(Math.min(volume, 1), 0),
+                timeout: sound.timeout
+              }
+            }
             const resourcePackPath = path.join(this.activeResourcePackBasePath!, `/assets/minecraft/sounds/${sound.name}.${format}`)
             const fileData = await fs.promises.readFile(resourcePackPath)
             return {

@@ -21,6 +21,7 @@ import { loadSkinFromUsername, loadSkinImage, stevePngUrl } from '../lib/utils/s
 import { renderComponent } from '../sign-renderer'
 import { createCanvas } from '../lib/utils'
 import { getBlockMeshFromModel } from './holdingBlock'
+import { createItemMesh } from './itemMesh'
 import * as Entity from './entity/EntityMesh'
 import { getMesh } from './entity/EntityMesh'
 import { WalkingGeneralSwing } from './entity/animations'
@@ -741,71 +742,41 @@ export class Entities {
       return {
         mesh: outerGroup,
         isBlock: true,
-        itemsTexture: null,
-        itemsTextureFlipped: null,
         modelName: textureUv.modelName,
       }
     }
 
-    // TODO: Render proper model (especially for blocks) instead of flat texture
+    // Render proper 3D model for items
     if (textureUv) {
       const textureThree = textureUv.renderInfo?.texture === 'blocks' ? this.worldRenderer.material.map! : this.worldRenderer.itemsTexture
-      // todo use geometry buffer uv instead!
       const { u, v, su, sv } = textureUv
-      const size = undefined
-      const itemsTexture = textureThree.clone()
-      itemsTexture.flipY = true
-      const sizeY = (sv ?? size)!
-      const sizeX = (su ?? size)!
-      itemsTexture.offset.set(u, 1 - v - sizeY)
-      itemsTexture.repeat.set(sizeX, sizeY)
-      itemsTexture.needsUpdate = true
-      itemsTexture.magFilter = THREE.NearestFilter
-      itemsTexture.minFilter = THREE.NearestFilter
-      let mesh: THREE.Object3D
-      let itemsTextureFlipped: THREE.Texture | undefined
-      if (faceCamera) {
-        const spriteMat = new THREE.SpriteMaterial({
-          map: itemsTexture,
-          transparent: true,
-          alphaTest: 0.1,
-        })
-        mesh = new THREE.Sprite(spriteMat)
-      } else {
-        itemsTextureFlipped = itemsTexture.clone()
-        itemsTextureFlipped.repeat.x *= -1
-        itemsTextureFlipped.needsUpdate = true
-        itemsTextureFlipped.offset.set(u + (sizeX), 1 - v - sizeY)
-        const material = new THREE.MeshStandardMaterial({
-          map: itemsTexture,
-          transparent: true,
-          alphaTest: 0.1,
-        })
-        const materialFlipped = new THREE.MeshStandardMaterial({
-          map: itemsTextureFlipped,
-          transparent: true,
-          alphaTest: 0.1,
-        })
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0), [
-          // top left and right bottom are black box materials others are transparent
-          new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
-          new THREE.MeshBasicMaterial({ color: 0x00_00_00 }), new THREE.MeshBasicMaterial({ color: 0x00_00_00 }),
-          material, materialFlipped,
-        ])
-      }
+      const sizeX = su ?? 1 // su is actually width
+      const sizeY = sv ?? 1 // sv is actually height
+
+      // Use the new unified item mesh function
+      const result = createItemMesh(textureThree, {
+        u,
+        v,
+        sizeX,
+        sizeY
+      }, {
+        faceCamera,
+        use3D: !faceCamera, // Only use 3D for non-camera-facing items
+      })
+
       let SCALE = 1
       if (specificProps['minecraft:display_context'] === 'ground') {
         SCALE = 0.5
       } else if (specificProps['minecraft:display_context'] === 'thirdperson') {
         SCALE = 6
       }
-      mesh.scale.set(SCALE, SCALE, SCALE)
+      result.mesh.scale.set(SCALE, SCALE, SCALE)
+
       return {
-        mesh,
+        mesh: result.mesh,
         isBlock: false,
-        itemsTexture,
-        itemsTextureFlipped,
         modelName: textureUv.modelName,
+        cleanup: result.cleanup
       }
     }
   }
@@ -905,8 +876,9 @@ export class Entities {
 
             group.additionalCleanup = () => {
               // important: avoid texture memory leak and gpu slowdown
-              object.itemsTexture?.dispose()
-              object.itemsTextureFlipped?.dispose()
+              if (object.cleanup) {
+                object.cleanup()
+              }
             }
           }
         }
@@ -1295,8 +1267,9 @@ export class Entities {
           const group = new THREE.Object3D()
           group['additionalCleanup'] = () => {
             // important: avoid texture memory leak and gpu slowdown
-            itemObject.itemsTexture?.dispose()
-            itemObject.itemsTextureFlipped?.dispose()
+            if (itemObject.cleanup) {
+              itemObject.cleanup()
+            }
           }
           const itemMesh = itemObject.mesh
           group.rotation.z = -Math.PI / 16

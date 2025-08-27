@@ -240,6 +240,10 @@ const appConfig = defineConfig({
                         prep()
                     })
                     build.onAfterBuild(async () => {
+                        if (fs.readdirSync('./assets/customTextures').length > 0) {
+                            childProcess.execSync('tsx ./scripts/patchAssets.ts', { stdio: 'inherit' })
+                        }
+
                         if (SINGLE_FILE_BUILD) {
                             // check that only index.html is in the dist/single folder
                             const singleBuildFiles = fs.readdirSync('./dist/single')

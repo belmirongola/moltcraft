@@ -2,20 +2,20 @@ import PItem from 'prismarine-item'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options } from './optionsStorage'
 import { jeiCustomCategories } from './inventoryWindows'
+import { registerIdeChannels } from './core/ideChannels'
 
 export default () => {
   customEvents.on('mineflayerBotCreated', async () => {
     if (!options.customChannels) return
-    await new Promise(resolve => {
-      bot.once('login', () => {
-        resolve(true)
-      })
+    bot.once('login', () => {
+      registerBlockModelsChannel()
+      registerMediaChannels()
+      registerSectionAnimationChannels()
+      registeredJeiChannel()
+      registerBlockInteractionsCustomizationChannel()
+      registerWaypointChannels()
+      registerIdeChannels()
     })
-    registerBlockModelsChannel()
-    registerMediaChannels()
-    registerSectionAnimationChannels()
-    registeredJeiChannel()
-    registerBlockInteractionsCustomizationChannel()
   })
 }
 
@@ -61,6 +61,62 @@ const registerBlockInteractionsCustomizationChannel = () => {
       bot.mouse.settings.blockPlacePredictionDelay = config.blockPlacePredictionDelay
     }
   }, true)
+}
+
+const registerWaypointChannels = () => {
+  const packetStructure = [
+    'container',
+    [
+      {
+        name: 'id',
+        type: ['pstring', { countType: 'i16' }]
+      },
+      {
+        name: 'x',
+        type: 'f32'
+      },
+      {
+        name: 'y',
+        type: 'f32'
+      },
+      {
+        name: 'z',
+        type: 'f32'
+      },
+      {
+        name: 'minDistance',
+        type: 'i32'
+      },
+      {
+        name: 'label',
+        type: ['pstring', { countType: 'i16' }]
+      },
+      {
+        name: 'color',
+        type: 'i32'
+      }
+    ]
+  ]
+
+  registerChannel('minecraft-web-client:waypoint-add', packetStructure, (data) => {
+    getThreeJsRendererMethods()?.addWaypoint(data.id, data.x, data.y, data.z, {
+      minDistance: data.minDistance,
+      label: data.label || undefined,
+      color: data.color || undefined
+    })
+  })
+
+  registerChannel('minecraft-web-client:waypoint-delete', [
+    'container',
+    [
+      {
+        name: 'id',
+        type: ['pstring', { countType: 'i16' }]
+      }
+    ]
+  ], (data) => {
+    getThreeJsRendererMethods()?.removeWaypoint(data.id)
+  })
 }
 
 const registerBlockModelsChannel = () => {

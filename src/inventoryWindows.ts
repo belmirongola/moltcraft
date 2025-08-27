@@ -57,12 +57,23 @@ export const onGameLoad = () => {
     return type
   }
 
+  const maybeParseNbtJson = (data: any) => {
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data)
+      } catch (err) {
+        // ignore
+      }
+    }
+    return nbt.simplify(data) ?? data
+  }
+
   bot.on('windowOpen', (win) => {
     const implementedWindow = implementedContainersGuiMap[mapWindowType(win.type as string, win.inventoryStart)]
     if (implementedWindow) {
-      openWindow(implementedWindow, nbt.simplify(win.title as any))
+      openWindow(implementedWindow, maybeParseNbtJson(win.title))
     } else if (options.unimplementedContainers) {
-      openWindow('ChestWin', nbt.simplify(win.title as any))
+      openWindow('ChestWin', maybeParseNbtJson(win.title))
     } else {
       // todo format
       displayClientChat(`[client error] cannot open unimplemented window ${win.id} (${win.type}). Slots: ${win.slots.map(item => getItemName(item)).filter(Boolean).join(', ')}`)
