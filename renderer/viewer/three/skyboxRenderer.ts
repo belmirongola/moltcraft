@@ -76,11 +76,13 @@ export class SkyboxRenderer {
     }
   }
 
-  update (cameraPosition: THREE.Vector3, newViewDistance: number) {
+  update (cameraPosition: THREE.Vector3, newViewDistance: number, partialTicks = 0) {
     if (newViewDistance !== this.viewDistance) {
       this.viewDistance = newViewDistance
-      this.updateSkyColors()
     }
+
+    // Update partial ticks for interpolation
+    this.partialTicks = partialTicks
 
     if (this.mesh) {
       // Update skybox position
@@ -89,7 +91,7 @@ export class SkyboxRenderer {
       // Update gradient sky position
       this.skyMesh.position.copy(cameraPosition)
       this.voidMesh?.position.copy(cameraPosition)
-      this.updateSkyColors() // Update colors based on time of day
+      this.updateSkyColors()
     }
   }
 
@@ -156,8 +158,8 @@ export class SkyboxRenderer {
     this.updateSkyColors()
   }
 
-  private getFogColor (partialTicks = 0): THREE.Vector3 {
-    const angle = this.getCelestialAngle(partialTicks)
+  private getFogColor (): THREE.Vector3 {
+    const angle = this.getCelestialAngle()
     let rotation = Math.cos(angle * Math.PI * 2) * 2 + 0.5
     rotation = Math.max(0, Math.min(1, rotation))
 
@@ -172,8 +174,8 @@ export class SkyboxRenderer {
     return new THREE.Vector3(x, y, z)
   }
 
-  private getSkyColor (x = 0, z = 0, partialTicks = 0): THREE.Vector3 {
-    const angle = this.getCelestialAngle(partialTicks)
+  private getSkyColor (x = 0, z = 0): THREE.Vector3 {
+    const angle = this.getCelestialAngle()
     let brightness = Math.cos(angle * 3.141_593 * 2) * 2 + 0.5
 
     if (brightness < 0) brightness = 0
@@ -210,8 +212,8 @@ export class SkyboxRenderer {
     return angle
   }
 
-  private getCelestialAngle (partialTicks: number): number {
-    return this.calculateCelestialAngle(this.worldTime, partialTicks)
+  private getCelestialAngle (): number {
+    return this.calculateCelestialAngle(this.worldTime, this.partialTicks)
   }
 
   private getTemperature (x: number, z: number): number {
@@ -302,9 +304,9 @@ export class SkyboxRenderer {
     const viewDistance = this.viewDistance * 16
     const viewFactor = 1 - (0.25 + 0.75 * this.viewDistance / 32) ** 0.25
 
-    const angle = this.getCelestialAngle(this.partialTicks)
-    const skyColor = this.getSkyColor(0, 0, this.partialTicks)
-    const fogColor = this.getFogColor(this.partialTicks)
+    const angle = this.getCelestialAngle()
+    const skyColor = this.getSkyColor(0, 0)
+    const fogColor = this.getFogColor()
 
     const brightness = Math.cos(angle * Math.PI * 2) * 2 + 0.5
     const clampedBrightness = Math.max(0, Math.min(1, brightness))
@@ -317,7 +319,7 @@ export class SkyboxRenderer {
     const blue = (fogColor.z + (skyColor.z - fogColor.z) * viewFactor) * clampedBrightness * interpolatedBrightness
 
     this.scene.background = new THREE.Color(red, green, blue)
-    this.scene.fog = new THREE.Fog(new THREE.Color(red, green, blue), 0.0025, viewDistance * 2)
+    this.scene.fog = new THREE.Fog(new THREE.Color(red, green, blue), 0.0025, viewDistance * 2.5)
 
     ;(this.skyMesh.material as THREE.MeshBasicMaterial).color.set(new THREE.Color(skyColor.x, skyColor.y, skyColor.z))
     ;(this.voidMesh.material as THREE.MeshBasicMaterial).color.set(new THREE.Color(
