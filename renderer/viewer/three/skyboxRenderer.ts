@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { DebugGui } from '../lib/DebugGui'
 
 export const DEFAULT_TEMPERATURE = 0.75
 
@@ -17,11 +18,33 @@ export class SkyboxRenderer {
   private waterBreathing = false
   private fogBrightness = 0
   private prevFogBrightness = 0
+  private readonly fogOrangeness = 0 // Debug property to control sky color orangeness
+  private readonly distanceFactor = 2.7
+
+  private readonly brightnessAtPosition = 1
+  debugGui: DebugGui
 
   constructor (private readonly scene: THREE.Scene, public defaultSkybox: boolean, public initialImage: string | null) {
+    this.debugGui = new DebugGui('skybox_renderer', this, [
+      'temperature',
+      'worldTime',
+      'inWater',
+      'waterBreathing',
+      'fogOrangeness',
+      'brightnessAtPosition',
+      'distanceFactor'
+    ], {
+      brightnessAtPosition: { min: 0, max: 1, step: 0.01 },
+      temperature: { min: 0, max: 1, step: 0.01 },
+      worldTime: { min: 0, max: 24_000, step: 1 },
+      fogOrangeness: { min: -1, max: 1, step: 0.01 },
+      distanceFactor: { min: 0, max: 5, step: 0.01 },
+    })
+
     if (!initialImage) {
       this.createGradientSky()
     }
+    this.debugGui.activate()
   }
 
   async init () {
@@ -95,6 +118,7 @@ export class SkyboxRenderer {
 
   // Update world time
   updateTime (timeOfDay: number, partialTicks = 0) {
+    if (this.debugGui.visible) return
     this.worldTime = timeOfDay
     this.partialTicks = partialTicks
     this.updateSkyColors()
@@ -108,12 +132,14 @@ export class SkyboxRenderer {
 
   // Update temperature (for biome support)
   updateTemperature (temperature: number) {
+    if (this.debugGui.visible) return
     this.temperature = temperature
     this.updateSkyColors()
   }
 
   // Update water state
   updateWaterState (inWater: boolean, waterBreathing: boolean) {
+    if (this.debugGui.visible) return
     this.inWater = inWater
     this.waterBreathing = waterBreathing
     this.updateSkyColors()
@@ -121,6 +147,7 @@ export class SkyboxRenderer {
 
   // Update default skybox setting
   updateDefaultSkybox (defaultSkybox: boolean) {
+    if (this.debugGui.visible) return
     this.defaultSkybox = defaultSkybox
     this.updateSkyColors()
   }
@@ -229,8 +256,15 @@ export class SkyboxRenderer {
     if (temperature < -1) temperature = -1
     if (temperature > 1) temperature = 1
 
-    const hue = 0.622_222_2 - temperature * 0.05
-    const saturation = 0.5 + temperature * 0.1
+    // Apply debug fog orangeness to hue - positive values make it more orange, negative make it less orange
+    const baseHue = 0.622_222_2 - temperature * 0.05
+    // Orange is around hue 0.08-0.15, so we need to shift from blue-purple (0.62) toward orange
+    // Use a more dramatic shift and also increase saturation for more noticeable effect
+    const orangeHue = 0.12 // Orange hue value
+    const hue = this.fogOrangeness > 0
+      ? baseHue + (orangeHue - baseHue) * this.fogOrangeness * 0.8 // Blend toward orange
+      : baseHue + this.fogOrangeness * 0.1 // Subtle shift for negative values
+    const saturation = 0.5 + temperature * 0.1 + Math.abs(this.fogOrangeness) * 0.3 // Increase saturation with orangeness
     const brightness = 1
 
     return this.hsbToRgb(hue, saturation, brightness)
@@ -305,8 +339,7 @@ export class SkyboxRenderer {
     // Update fog brightness with smooth transition
     this.prevFogBrightness = this.fogBrightness
     const renderDistance = this.viewDistance / 32
-    const brightnessAtPosition = 1 // Could be affected by light level in future
-    const targetBrightness = brightnessAtPosition * (1 - renderDistance) + renderDistance
+    const targetBrightness = this.brightnessAtPosition * (1 - renderDistance) + renderDistance
     this.fogBrightness += (targetBrightness - this.fogBrightness) * 0.1
 
     // Handle water fog
@@ -340,7 +373,7 @@ export class SkyboxRenderer {
     const blue = (fogColor.z + (skyColor.z - fogColor.z) * viewFactor) * clampedBrightness * interpolatedBrightness
 
     this.scene.background = new THREE.Color(red, green, blue)
-    this.scene.fog = new THREE.Fog(new THREE.Color(red, green, blue), 0.0025, viewDistance * 2)
+    this.scene.fog = new THREE.Fog(new THREE.Color(red, green, blue), 0.0025, viewDistance * this.distanceFactor)
 
     ;(this.skyMesh.material as THREE.MeshBasicMaterial).color.set(new THREE.Color(skyColor.x, skyColor.y, skyColor.z))
     ;(this.voidMesh.material as THREE.MeshBasicMaterial).color.set(new THREE.Color(
