@@ -82,15 +82,30 @@ const registerWaypointChannels = () => {
       {
         name: 'color',
         type: 'i32'
+      },
+      {
+        name: 'metadataJson',
+        type: ['pstring', { countType: 'i16' }]
       }
     ]
   ]
 
   registerChannel('minecraft-web-client:waypoint-add', packetStructure, (data) => {
+    // Parse metadata if provided
+    let metadata: any = {}
+    if (data.metadataJson && data.metadataJson.trim() !== '') {
+      try {
+        metadata = JSON.parse(data.metadataJson)
+      } catch (error) {
+        console.warn('Failed to parse waypoint metadataJson:', error)
+      }
+    }
+
     getThreeJsRendererMethods()?.addWaypoint(data.id, data.x, data.y, data.z, {
       minDistance: data.minDistance,
       label: data.label || undefined,
-      color: data.color || undefined
+      color: data.color || undefined,
+      metadata
     })
   })
 

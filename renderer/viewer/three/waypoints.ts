@@ -17,6 +17,7 @@ interface WaypointOptions {
   color?: number
   label?: string
   minDistance?: number
+  metadata?: any
 }
 
 export class WaypointsRenderer {
@@ -71,13 +72,14 @@ export class WaypointsRenderer {
     this.removeWaypoint(id)
 
     const color = options.color ?? 0xFF_00_00
-    const { label } = options
+    const { label, metadata } = options
     const minDistance = options.minDistance ?? 0
 
     const sprite = createWaypointSprite({
       position: new THREE.Vector3(x, y, z),
       color,
       label: (label || id),
+      metadata,
     })
     sprite.enableOffscreenArrow(true)
     sprite.setArrowParent(this.waypointScene)
