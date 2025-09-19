@@ -65,6 +65,7 @@ export function createWaypointSprite (options: {
 
   // Offscreen arrow (detached by default)
   let arrowSprite: THREE.Sprite | undefined
+  let offscreenSprite: THREE.Sprite | undefined
   let arrowParent: THREE.Object3D | null = null
   let arrowEnabled = WAYPOINT_CONFIG.ARROW.enabledDefault
 
@@ -83,6 +84,15 @@ export function createWaypointSprite (options: {
     mat.map?.dispose()
     mat.map = texture
     mat.needsUpdate = true
+
+    // Update offscreen sprite if it exists
+    if (offscreenSprite) {
+      const offscreenTexture = new THREE.CanvasTexture(canvas.cloneNode(true) as HTMLCanvasElement)
+      const offscreenMat = offscreenSprite.material
+      offscreenMat.map?.dispose()
+      offscreenMat.map = offscreenTexture
+      offscreenMat.needsUpdate = true
+    }
   }
 
   function setLabel (newLabel?: string) {
@@ -93,6 +103,15 @@ export function createWaypointSprite (options: {
     mat.map?.dispose()
     mat.map = texture
     mat.needsUpdate = true
+
+    // Update offscreen sprite if it exists
+    if (offscreenSprite) {
+      const offscreenTexture = new THREE.CanvasTexture(canvas.cloneNode(true) as HTMLCanvasElement)
+      const offscreenMat = offscreenSprite.material
+      offscreenMat.map?.dispose()
+      offscreenMat.map = offscreenTexture
+      offscreenMat.needsUpdate = true
+    }
   }
 
   function updateDistanceText (label: string, distanceText: string) {
@@ -102,6 +121,15 @@ export function createWaypointSprite (options: {
     mat.map?.dispose()
     mat.map = texture
     mat.needsUpdate = true
+
+    // Update offscreen sprite if it exists
+    if (offscreenSprite) {
+      const offscreenTexture = new THREE.CanvasTexture(canvas.cloneNode(true) as HTMLCanvasElement)
+      const offscreenMat = offscreenSprite.material
+      offscreenMat.map?.dispose()
+      offscreenMat.map = offscreenTexture
+      offscreenMat.needsUpdate = true
+    }
   }
 
   function setVisible (visible: boolean) {
@@ -152,6 +180,23 @@ export function createWaypointSprite (options: {
     if (arrowParent) arrowParent.add(arrowSprite)
   }
 
+  function ensureOffscreenSprite () {
+    if (offscreenSprite) return
+    // Create a copy of the main sprite for offscreen display
+    const canvas = drawCombinedCanvas(color, currentLabel, '0m')
+    const texture = new THREE.CanvasTexture(canvas)
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    })
+    offscreenSprite = new THREE.Sprite(material)
+    offscreenSprite.renderOrder = 11 // Between main sprite and arrow
+    offscreenSprite.visible = false
+    if (arrowParent) arrowParent.add(offscreenSprite)
+  }
+
   function enableOffscreenArrow (enabled: boolean) {
     arrowEnabled = enabled
     if (!enabled && arrowSprite) arrowSprite.visible = false
@@ -159,8 +204,10 @@ export function createWaypointSprite (options: {
 
   function setArrowParent (parent: THREE.Object3D | null) {
     if (arrowSprite?.parent) arrowSprite.parent.remove(arrowSprite)
+    if (offscreenSprite?.parent) offscreenSprite.parent.remove(offscreenSprite)
     arrowParent = parent
     if (arrowSprite && parent) parent.add(arrowSprite)
+    if (offscreenSprite && parent) parent.add(offscreenSprite)
   }
 
   function updateOffscreenArrow (
@@ -170,7 +217,8 @@ export function createWaypointSprite (options: {
   ): boolean {
     if (!arrowEnabled) return true
     ensureArrow()
-    if (!arrowSprite) return true
+    ensureOffscreenSprite()
+    if (!arrowSprite || !offscreenSprite) return true
 
     // Build camera basis using camera.up to respect custom orientations
     const forward = new THREE.Vector3()
@@ -198,6 +246,7 @@ export function createWaypointSprite (options: {
     const inSight = z > 0 && Math.abs(thetaX) <= hFovRad / 2 && Math.abs(thetaY) <= vFovRad / 2
     if (inSight) {
       arrowSprite.visible = false
+      offscreenSprite.visible = false
       return true
     }
 
@@ -218,8 +267,8 @@ export function createWaypointSprite (options: {
 
     // Place on the rectangle border [-1,1]x[-1,1]
     const s = Math.max(Math.abs(rx), Math.abs(ry)) || 1
-    let ndcX = rx / s
-    let ndcY = ry / s
+    const ndcX = rx / s
+    const ndcY = ry / s
 
     // Apply padding in pixel space by clamping
     const padding = WAYPOINT_CONFIG.ARROW.paddingPx
@@ -227,21 +276,21 @@ export function createWaypointSprite (options: {
     const pxY = ((1 - ndcY) * 0.5) * viewportHeightPx
     const clampedPxX = Math.min(Math.max(pxX, padding), viewportWidthPx - padding)
     const clampedPxY = Math.min(Math.max(pxY, padding), viewportHeightPx - padding)
-    ndcX = (clampedPxX / viewportWidthPx) * 2 - 1
-    ndcY = -(clampedPxY / viewportHeightPx) * 2 + 1
+    const finalNdcX = (clampedPxX / viewportWidthPx) * 2 - 1
+    const finalNdcY = -(clampedPxY / viewportHeightPx) * 2 + 1
 
     // Compute world position at a fixed distance in front of the camera using camera basis
     const placeDist = Math.max(2, camera.near * 4)
     const halfPlaneHeight = Math.tan(vFovRad / 2) * placeDist
     const halfPlaneWidth = halfPlaneHeight * aspect
-    const pos = camPos.clone()
+    const basePos = camPos.clone()
       .add(forward.clone().multiplyScalar(placeDist))
-      .add(right.clone().multiplyScalar(ndcX * halfPlaneWidth))
-      .add(upCam.clone().multiplyScalar(ndcY * halfPlaneHeight))
+      .add(right.clone().multiplyScalar(finalNdcX * halfPlaneWidth))
+      .add(upCam.clone().multiplyScalar(finalNdcY * halfPlaneHeight))
 
     // Update arrow sprite
     arrowSprite.visible = true
-    arrowSprite.position.copy(pos)
+    arrowSprite.position.copy(basePos)
 
     // Angle for rotation relative to screen right/up (derived from camera up vector)
     const angle = Math.atan2(ry, rx)
@@ -249,8 +298,29 @@ export function createWaypointSprite (options: {
 
     // Use configured arrow pixel size for proper scale
     const worldUnitsPerScreenHeightAtDist = Math.tan(vFovRad / 2) * 2 * placeDist
-    const sPx = worldUnitsPerScreenHeightAtDist * (WAYPOINT_CONFIG.ARROW.pixelSize / viewportHeightPx)
-    arrowSprite.scale.set(sPx, sPx, 1)
+    const arrowPx = worldUnitsPerScreenHeightAtDist * (WAYPOINT_CONFIG.ARROW.pixelSize / viewportHeightPx)
+    arrowSprite.scale.set(arrowPx, arrowPx, 1)
+
+    // Position offscreen sprite offset from arrow toward center to avoid overlap
+    const offsetDistance = WAYPOINT_CONFIG.ARROW.pixelSize + 30 // Offset distance in pixels
+    const offsetWorldUnits = worldUnitsPerScreenHeightAtDist * (offsetDistance / viewportHeightPx)
+
+    // Calculate offset direction (opposite to arrow direction, toward screen center)
+    const offsetX = -finalNdcX * offsetWorldUnits * 0.5 // Move toward center
+    const offsetY = -finalNdcY * offsetWorldUnits * 0.5
+
+    const spritePos = basePos.clone()
+      .add(right.clone().multiplyScalar(offsetX))
+      .add(upCam.clone().multiplyScalar(offsetY))
+
+    offscreenSprite.visible = true
+    offscreenSprite.position.copy(spritePos)
+    offscreenSprite.material.rotation = 0 // No rotation for the sprite
+
+    // Scale offscreen sprite to match the main sprite size
+    const spritePx = worldUnitsPerScreenHeightAtDist * (WAYPOINT_CONFIG.TARGET_SCREEN_PX / viewportHeightPx)
+    offscreenSprite.scale.set(spritePx, spritePx, 1)
+
     return false
   }
 
@@ -292,6 +362,11 @@ export function createWaypointSprite (options: {
       const am = arrowSprite.material
       am.map?.dispose()
       am.dispose()
+    }
+    if (offscreenSprite) {
+      const om = offscreenSprite.material
+      om.map?.dispose()
+      om.dispose()
     }
   }
 
