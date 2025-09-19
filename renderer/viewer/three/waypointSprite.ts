@@ -132,14 +132,14 @@ export function createWaypointSprite (options: {
     canvas.height = size
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, size, size)
-    
+
     // Draw arrow shape
     ctx.beginPath()
     ctx.moveTo(size * 0.15, size * 0.5)
     ctx.lineTo(size * 0.85, size * 0.5)
     ctx.lineTo(size * 0.5, size * 0.15)
     ctx.closePath()
-    
+
     // Use waypoint color for arrow
     const colorHex = `#${color.toString(16).padStart(6, '0')}`
     ctx.lineWidth = 6
@@ -147,7 +147,7 @@ export function createWaypointSprite (options: {
     ctx.stroke()
     ctx.fillStyle = colorHex
     ctx.fill()
-    
+
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false })
     arrowSprite = new THREE.Sprite(material)
