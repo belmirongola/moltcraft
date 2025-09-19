@@ -44,7 +44,7 @@ export class SkyboxRenderer {
     if (!initialImage) {
       this.createGradientSky()
     }
-    this.debugGui.activate()
+    // this.debugGui.activate()
   }
 
   async init () {
