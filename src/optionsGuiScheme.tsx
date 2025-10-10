@@ -482,6 +482,24 @@ export const guiOptionsScheme: {
     { volume: {} },
     {
       custom () {
+        return <OptionSlider
+          valueOverride={options.enableMusic ? undefined : 0}
+          onChange={(value) => {
+            options.musicVolume = value
+          }}
+          item={{
+            type: 'slider',
+            id: 'musicVolume',
+            text: 'Music Volume',
+            min: 0,
+            max: 100,
+            unit: '%',
+          }}
+        />
+      },
+    },
+    {
+      custom () {
         return <Button label='Sound Muffler' onClick={() => showModal({ reactType: 'sound-muffler' })} inScreen />
       },
     }

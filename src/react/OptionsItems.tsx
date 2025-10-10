@@ -161,7 +161,15 @@ export const OptionButton = ({ item, onClick, valueText, cacheKey }: {
   />
 }
 
-export const OptionSlider = ({ item }: { item: Extract<OptionMeta, { type: 'slider' }> }) => {
+export const OptionSlider = ({
+  item,
+  onChange,
+  valueOverride
+}: {
+  item: Extract<OptionMeta, { type: 'slider' }>
+  onChange?: (value: number) => void
+  valueOverride?: number
+}) => {
   const { disabledBecauseOfSetting } = useCommonComponentsProps(item)
 
   const optionValue = useSnapshot(options)[item.id!]
@@ -174,7 +182,7 @@ export const OptionSlider = ({ item }: { item: Extract<OptionMeta, { type: 'slid
   return (
     <Slider
       label={item.text!}
-      value={options[item.id!]}
+      value={valueOverride ?? options[item.id!]}
       data-setting={item.id}
       disabledReason={isLocked(item) ? 'qs' : disabledBecauseOfSetting ? `Disabled because ${item.disableIf![0]} is ${item.disableIf![1]}` : item.disabledReason}
       min={item.min}
@@ -184,6 +192,7 @@ export const OptionSlider = ({ item }: { item: Extract<OptionMeta, { type: 'slid
       updateOnDragEnd={item.delayApply}
       updateValue={(value) => {
         options[item.id!] = value
+        onChange?.(value)
       }}
     />
   )
