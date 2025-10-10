@@ -78,6 +78,8 @@ There is a builtin proxy, but you can also host your one! Just clone the repo, r
 
 [![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?name=minecraft-web-client&type=git&repository=zardoy%2Fminecraft-web-client&branch=next&builder=dockerfile&env%5B%5D=&ports=8080%3Bhttp%3B%2F)
 
+> **Note**: If you want to make **your own** Minecraft server accessible to web clients (without our proxies), you can use [mwc-proxy](https://github.com/zardoy/mwc-proxy) - a lightweight JS WebSocket proxy that runs on the same server as your Minecraft server, allowing players to connect directly via `wss://play.example.com`. `?client_mcraft` is added to the URL, so the proxy will know that it's this client.
+
 Proxy servers are used to connect to Minecraft servers which use TCP protocol. When you connect connect to a server with a proxy, websocket connection is created between you (browser client) and the proxy server located in Europe, then the proxy connects to the Minecraft server and sends the data to the client (you) without any packet deserialization to avoid any additional delays. That said all the Minecraft protocol packets are processed by the client, right in your browser.
 
 ```mermaid
