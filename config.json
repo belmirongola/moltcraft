@@ -11,6 +11,10 @@
       "ip": "wss://play.mcraft.fun"
     },
     {
+      "ip": "wss://play.webmc.fun",
+      "name": "WebMC"
+    },
+    {
       "ip": "wss://ws.fuchsmc.net"
     },
     {

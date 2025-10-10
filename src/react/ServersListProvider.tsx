@@ -119,6 +119,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
     ...serversListProvided,
     ...(customServersList ? [] : (miscUiState.appConfig?.promoteServers ?? [])).map((server): StoreServerItem => ({
       ip: server.ip,
+      name: server.name,
       versionOverride: server.version,
       description: server.description,
       isRecommended: true
@@ -167,6 +168,7 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
                   console.log('pingResult.fullInfo.description', pingResult.fullInfo.description)
                   data = {
                     formattedText: pingResult.fullInfo.description,
+                    icon: pingResult.fullInfo.favicon,
                     textNameRight: `ws ${pingResult.latency}ms`,
                     textNameRightGrayed: `${pingResult.fullInfo.players?.online ?? '??'}/${pingResult.fullInfo.players?.max ?? '??'}`,
                     offline: false

@@ -35,7 +35,7 @@ export type AppConfig = {
   // defaultVersion?: string
   peerJsServer?: string
   peerJsServerFallback?: string
-  promoteServers?: Array<{ ip, description, version? }>
+  promoteServers?: Array<{ ip, description, name?, version?, }>
   mapsProvider?: string
 
   appParams?: Record<string, any> // query string params
