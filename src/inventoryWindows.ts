@@ -63,7 +63,12 @@ export const showInventoryPlayer = () => {
   }
   if (remotePlayerSkin === undefined && !appViewer.playerState.reactive.playerSkin) {
     remotePlayerSkin = loadSkinFromUsername(bot.username, 'skin').then(a => {
-      setTimeout(() => { showInventoryPlayer() }, 0) // todo patch instead and make reactive
+      setTimeout(() => {
+        // Check if player inventory is still open before updating
+        if (lastWindowType === null) {
+          showInventoryPlayer()
+        }
+      }, 0) // todo patch instead and make reactive
       remotePlayerSkin = a ?? ''
       return remotePlayerSkin
     })
@@ -417,7 +422,7 @@ const openWindow = (type: string | undefined, title: string | any = undefined) =
     if (type !== undefined && bot.currentWindow && !skipClosePacketSending) bot.currentWindow['close']()
     lastWindow.destroy()
     lastWindow = null as any
-    lastWindowType = null
+    lastWindowType = undefined
     window.inventory = null
     miscUiState.displaySearchInput = false
     destroyFn()
