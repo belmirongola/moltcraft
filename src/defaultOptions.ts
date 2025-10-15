@@ -17,7 +17,7 @@ export const defaultOptions = {
   messagesLimit: 200,
   volume: 50,
   enableMusic: true,
-  musicVolume: 50,
+  musicVolume: 25,
   // fov: 70,
   fov: 75,
   defaultPerspective: 'first_person' as 'first_person' | 'third_person_back' | 'third_person_front',
