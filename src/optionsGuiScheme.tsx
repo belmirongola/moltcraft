@@ -379,6 +379,12 @@ export const guiOptionsScheme: {
         return <UiToggleButton name='hotbar' />
       },
     },
+    {
+      custom () {
+        return <Category>Other</Category>
+      },
+      displayLoadingMessages: {}
+    }
   ],
   controls: [
     {
