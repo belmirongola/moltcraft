@@ -11,6 +11,10 @@
       "ip": "wss://play.mcraft.fun"
     },
     {
+      "ip": "wss://play.webmc.fun",
+      "name": "WebMC"
+    },
+    {
       "ip": "wss://ws.fuchsmc.net"
     },
     {
@@ -27,7 +31,7 @@
     }
   ],
   "rightSideText": "A Minecraft client clone in the browser!",
-  "splashText": "We are back!",
+  "splashText": "There is nothing we can do",
   "splashTextFallback": "Welcome!",
   "pauseLinks": [
     [
