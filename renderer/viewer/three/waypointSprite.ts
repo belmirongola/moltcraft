@@ -301,6 +301,10 @@ export function createWaypointSprite (options: {
     mat.map?.dispose()
     mat.dispose()
     if (arrowSprite) {
+      // Remove arrow from parent before disposing
+      if (arrowSprite.parent) {
+        arrowSprite.parent.remove(arrowSprite)
+      }
       const am = arrowSprite.material
       am.map?.dispose()
       am.dispose()
