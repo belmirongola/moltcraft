@@ -1,4 +1,5 @@
 import PItem from 'prismarine-item'
+import * as THREE from 'three'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options } from './optionsStorage'
 import { jeiCustomCategories } from './inventoryWindows'
@@ -14,6 +15,7 @@ export default () => {
       registeredJeiChannel()
       registerBlockInteractionsCustomizationChannel()
       registerWaypointChannels()
+      registerFireworksChannels()
       registerIdeChannels()
     })
   })
@@ -49,6 +51,47 @@ const registerBlockInteractionsCustomizationChannel = () => {
     const config = JSON.parse(data.newConfiguration)
     bot.mouse.setConfigFromPacket(config)
   }, true)
+}
+
+const registerFireworksChannels = () => {
+  const packetStructure = [
+    'container',
+    [
+      {
+        name: 'x',
+        type: 'f32'
+      },
+      {
+        name: 'y',
+        type: 'f32'
+      },
+      {
+        name: 'z',
+        type: 'f32'
+      },
+      {
+        name: 'optionsJson',
+        type: ['pstring', { countType: 'i16' }]
+      }
+    ]
+  ]
+
+  registerChannel('minecraft-web-client:firework-explode', packetStructure, (data) => {
+    // Parse options if provided
+    let options: any = {}
+    if (data.optionsJson && data.optionsJson.trim() !== '') {
+      try {
+        options = JSON.parse(data.optionsJson)
+      } catch (error) {
+        console.warn('Failed to parse firework optionsJson:', error)
+      }
+    }
+
+    // Set position from coords
+    options.position = new THREE.Vector3(data.x, data.y, data.z)
+
+    getThreeJsRendererMethods()?.launchFirework(options)
+  })
 }
 
 const registerWaypointChannels = () => {

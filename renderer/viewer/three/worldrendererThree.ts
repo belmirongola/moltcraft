@@ -26,6 +26,7 @@ import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
 import { WaypointsRenderer } from './waypoints'
 import { DEFAULT_TEMPERATURE, SkyboxRenderer } from './skyboxRenderer'
+import { FireworksManager } from './fireworks'
 
 type SectionKey = string
 
@@ -74,6 +75,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   fountains: Fountain[] = []
   DEBUG_RAYCAST = false
   skyboxRenderer: SkyboxRenderer
+  fireworks: FireworksManager
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
@@ -109,6 +111,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
     this.waypoints = new WaypointsRenderer(this)
+    this.fireworks = new FireworksManager(this.scene)
 
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
@@ -132,6 +135,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.sectionsOffsetsAnimations = {}
       // Clear waypoints
       this.waypoints.clear()
+      // Clear fireworks
+      this.fireworks.clear()
     })
   }
 
@@ -774,6 +779,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
 
     this.waypoints.render()
+    this.fireworks.update()
 
     for (const onRender of this.onRender) {
       onRender()
@@ -983,6 +989,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   destroy (): void {
     super.destroy()
     this.skyboxRenderer.dispose()
+    this.fireworks.dispose()
   }
 
   shouldObjectVisible (object: THREE.Object3D) {
