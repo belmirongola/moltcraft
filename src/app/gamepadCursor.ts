@@ -2,6 +2,8 @@ import { Command, contro } from '../controls'
 import { hideAllModals, hideCurrentModal, miscUiState } from '../globalState'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from '../react/GamepadUiCursor'
 
+let lastHoveredElement: HTMLElement | null = null
+
 contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   if (gamepadIndex !== undefined && gamepadUiCursorState.display) {
     const deadzone = 0.1 // TODO make deadzone configurable
@@ -11,6 +13,7 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
     moveGamepadCursorByPx(soleVector.x, true)
     moveGamepadCursorByPx(soleVector.z, false)
     emitMousemove()
+    trackHoveredElement()
   }
 })
 
@@ -26,7 +29,40 @@ const emitMousemove = () => {
   }))
 }
 
-// Setup right stick scrolling for UI mode
+const trackHoveredElement = () => {
+  const { x, y } = gamepadUiCursorState
+  const xAbs = x / 100 * window.innerWidth
+  const yAbs = y / 100 * window.innerHeight
+  const element = document.elementFromPoint(xAbs, yAbs) as HTMLElement | null
+
+  if (element !== lastHoveredElement) {
+    // Emit mouseout for previous element
+    if (lastHoveredElement) {
+      const mouseoutEvent = new MouseEvent('mouseout', {
+        bubbles: true,
+        clientX: xAbs,
+        clientY: yAbs
+      }) as any
+      mouseoutEvent.isGamepadCursor = true
+      lastHoveredElement.dispatchEvent(mouseoutEvent)
+    }
+
+    // Emit mouseover for new element
+    if (element) {
+      const mouseoverEvent = new MouseEvent('mouseover', {
+        bubbles: true,
+        clientX: xAbs,
+        clientY: yAbs
+      }) as any
+      mouseoverEvent.isGamepadCursor = true
+      element.dispatchEvent(mouseoverEvent)
+    }
+
+    lastHoveredElement = element
+  }
+}
+
+// Setup right stick scrolling and input value changing for UI mode
 contro.on('stickMovement', ({ stick, vector }) => {
   if (stick !== 'right') return
   if (!gamepadUiCursorState.display) return
@@ -35,12 +71,35 @@ contro.on('stickMovement', ({ stick, vector }) => {
   if (Math.abs(x) < 0.18) x = 0
   if (Math.abs(z) < 0.18) z = 0
 
-  if (z === 0) return // No vertical movement
+  // Handle horizontal movement (for inputs)
+  if (x !== 0) {
+    emitGamepadInputChange(x, true)
+  }
 
-  emulateGamepadScroll(z)
+  // Handle vertical movement (for scrolling)
+  if (z !== 0) {
+    emulateGamepadScroll(z)
+  }
 
   miscUiState.usingGamepadInput = true
 })
+
+// todo make also control with left/right
+
+const emitGamepadInputChange = (x: number, isStickMovement: boolean) => {
+  const cursorX = gamepadUiCursorState.x / 100 * window.innerWidth
+  const cursorY = gamepadUiCursorState.y / 100 * window.innerHeight
+  const element = document.elementFromPoint(cursorX, cursorY) as HTMLElement | null
+
+  if (element) {
+    // Emit custom event for input value change
+    const customEvent = new CustomEvent('gamepadInputChange', {
+      bubbles: true,
+      detail: { direction: x > 0 ? 1 : -1, value: x, isStickMovement },
+    })
+    element.dispatchEvent(customEvent)
+  }
+}
 
 const emulateGamepadScroll = (z: number) => {
   // Get element under cursor
