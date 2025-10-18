@@ -16,7 +16,7 @@ export const WAYPOINT_CONFIG = {
   CANVAS_SCALE: 2,
   ARROW: {
     enabledDefault: false,
-    pixelSize: 30,
+    pixelSize: 50,
     paddingPx: 50,
   },
 }
@@ -50,6 +50,7 @@ export function createWaypointSprite (options: {
   depthTest?: boolean,
   // Y offset in world units used by updateScaleWorld only (screen-pixel API ignores this)
   labelYOffset?: number,
+  metadata?: any,
 }): WaypointSprite {
   const color = options.color ?? 0xFF_00_00
   const depthTest = options.depthTest ?? false
@@ -131,16 +132,22 @@ export function createWaypointSprite (options: {
     canvas.height = size
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, size, size)
+
+    // Draw arrow shape
     ctx.beginPath()
-    ctx.moveTo(size * 0.2, size * 0.5)
-    ctx.lineTo(size * 0.8, size * 0.5)
-    ctx.lineTo(size * 0.5, size * 0.2)
+    ctx.moveTo(size * 0.15, size * 0.5)
+    ctx.lineTo(size * 0.85, size * 0.5)
+    ctx.lineTo(size * 0.5, size * 0.15)
     ctx.closePath()
-    ctx.lineWidth = 4
+
+    // Use waypoint color for arrow
+    const colorHex = `#${color.toString(16).padStart(6, '0')}`
+    ctx.lineWidth = 6
     ctx.strokeStyle = 'black'
     ctx.stroke()
-    ctx.fillStyle = 'white'
+    ctx.fillStyle = colorHex
     ctx.fill()
+
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false })
     arrowSprite = new THREE.Sprite(material)
@@ -168,6 +175,9 @@ export function createWaypointSprite (options: {
     if (!arrowEnabled) return true
     ensureArrow()
     if (!arrowSprite) return true
+
+    // Check if onlyLeftRight is enabled in metadata
+    const onlyLeftRight = options.metadata?.onlyLeftRight === true
 
     // Build camera basis using camera.up to respect custom orientations
     const forward = new THREE.Vector3()
@@ -210,6 +220,20 @@ export function createWaypointSprite (options: {
       } else {
         rx = 0
         ry = Math.sign(ry)
+      }
+    }
+
+    // Apply onlyLeftRight logic - restrict arrows to left/right edges only
+    if (onlyLeftRight) {
+      // Force the arrow to appear only on left or right edges
+      if (Math.abs(rx) > Math.abs(ry)) {
+        // Horizontal direction is dominant, keep it
+        ry = 0
+      } else {
+        // Vertical direction is dominant, but we want only left/right
+        // So choose left or right based on the sign of rx
+        rx = rx >= 0 ? 1 : -1
+        ry = 0
       }
     }
 
@@ -277,6 +301,10 @@ export function createWaypointSprite (options: {
     mat.map?.dispose()
     mat.dispose()
     if (arrowSprite) {
+      // Remove arrow from parent before disposing
+      if (arrowSprite.parent) {
+        arrowSprite.parent.remove(arrowSprite)
+      }
       const am = arrowSprite.material
       am.map?.dispose()
       am.dispose()

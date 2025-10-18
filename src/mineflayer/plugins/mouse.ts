@@ -110,7 +110,7 @@ const domListeners = (bot: Bot) => {
   }, { signal: abortController.signal })
 
   bot.mouse.beforeUpdateChecks = () => {
-    if (!document.hasFocus()) {
+    if (!document.hasFocus() || !isGameActive(true)) {
       // deactive all buttons
       bot.mouse.buttons.fill(false)
     }

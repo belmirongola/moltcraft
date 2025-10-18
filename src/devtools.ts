@@ -5,6 +5,17 @@ import { WorldRendererThree } from 'renderer/viewer/three/worldrendererThree'
 import { enable, disable, enabled } from 'debug'
 import { Vec3 } from 'vec3'
 
+customEvents.on('mineflayerBotCreated', () => {
+  window.debugServerPacketNames = Object.fromEntries(Object.keys(loadedData.protocol.play.toClient.types).map(name => {
+    name = name.replace('packet_', '')
+    return [name, name]
+  }))
+  window.debugClientPacketNames = Object.fromEntries(Object.keys(loadedData.protocol.play.toServer.types).map(name => {
+    name = name.replace('packet_', '')
+    return [name, name]
+  }))
+})
+
 window.Vec3 = Vec3
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
   const newPos = bot.blockAtCursor(5)?.position.offset(x, y, z)

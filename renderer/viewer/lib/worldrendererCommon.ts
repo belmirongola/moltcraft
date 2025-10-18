@@ -32,31 +32,45 @@ const toMajorVersion = version => {
 export const worldCleanup = buildCleanupDecorator('resetWorld')
 
 export const defaultWorldRendererConfig = {
+  // Debug settings
   showChunkBorders: false,
+  enableDebugOverlay: false,
+
+  // Performance settings
   mesherWorkers: 4,
-  isPlayground: false,
-  renderEars: true,
-  skinTexturesProxy: undefined as string | undefined,
-  // game renderer setting actually
-  showHand: false,
-  viewBobbing: false,
-  extraBlockRenderers: true,
-  clipWorldBelowY: undefined as number | undefined,
+  addChunksBatchWaitTime: 200,
+  _experimentalSmoothChunkLoading: true,
+  _renderByChunks: false,
+
+  // Rendering engine settings
+  dayCycle: true,
   smoothLighting: true,
   enableLighting: true,
   starfield: true,
-  addChunksBatchWaitTime: 200,
+  defaultSkybox: true,
+  renderEntities: true,
+  extraBlockRenderers: true,
+  foreground: true,
+  fov: 75,
+  volume: 1,
+
+  // Camera visual related settings
+  showHand: false,
+  viewBobbing: false,
+  renderEars: true,
+  highlightBlockColor: 'blue',
+
+  // Player models
+  fetchPlayerSkins: true,
+  skinTexturesProxy: undefined as string | undefined,
+
+  // VR settings
   vrSupport: true,
   vrPageGameRendering: true,
-  renderEntities: true,
-  fov: 75,
-  fetchPlayerSkins: true,
-  highlightBlockColor: 'blue',
-  foreground: true,
-  enableDebugOverlay: false,
-  _experimentalSmoothChunkLoading: true,
-  _renderByChunks: false,
-  volume: 1
+
+  // World settings
+  clipWorldBelowY: undefined as number | undefined,
+  isPlayground: false
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
@@ -496,6 +510,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   timeUpdated? (newTime: number): void
 
+  biomeUpdated? (biome: any): void
+
+  biomeReset? (): void
+
   updateViewerPosition (pos: Vec3) {
     this.viewerChunkPosition = pos
     for (const [key, value] of Object.entries(this.loadedChunks)) {
@@ -817,11 +835,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
 
     worldEmitter.on('time', (timeOfDay) => {
+      if (!this.worldRendererConfig.dayCycle) return
       this.timeUpdated?.(timeOfDay)
-
-      if (timeOfDay < 0 || timeOfDay > 24_000) {
-        throw new Error('Invalid time of day. It should be between 0 and 24000.')
-      }
 
       this.timeOfTheDay = timeOfDay
 
@@ -830,6 +845,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       // if (this instanceof WorldRendererThree) {
       //   (this).rerenderAllChunks?.()
       // }
+    })
+
+    worldEmitter.on('biomeUpdate', ({ biome }) => {
+      this.biomeUpdated?.(biome)
+    })
+
+    worldEmitter.on('biomeReset', () => {
+      this.biomeReset?.()
     })
   }
 

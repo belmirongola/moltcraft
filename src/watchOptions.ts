@@ -3,6 +3,7 @@
 import { subscribeKey } from 'valtio/utils'
 import { isMobile } from 'renderer/viewer/lib/simpleUtils'
 import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
+import { setSkinsConfig } from 'renderer/viewer/lib/utils/skins'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
@@ -97,6 +98,8 @@ export const watchOptionsAfterViewerInit = () => {
     appViewer.inWorldRenderingConfig.highlightBlockColor = o.highlightBlockColor
     appViewer.inWorldRenderingConfig._experimentalSmoothChunkLoading = o.rendererSharedOptions._experimentalSmoothChunkLoading
     appViewer.inWorldRenderingConfig._renderByChunks = o.rendererSharedOptions._renderByChunks
+
+    setSkinsConfig({ apiEnabled: o.loadPlayerSkins })
   })
 
   appViewer.inWorldRenderingConfig.smoothLighting = options.smoothLighting
@@ -117,6 +120,10 @@ export const watchOptionsAfterViewerInit = () => {
   })
 
   watchValue(options, o => {
+    appViewer.inWorldRenderingConfig.defaultSkybox = o.defaultSkybox
+  })
+
+  watchValue(options, o => {
     // appViewer.inWorldRenderingConfig.neighborChunkUpdates = o.neighborChunkUpdates
   })
 }
@@ -128,5 +135,6 @@ export const watchOptionsAfterWorldViewInit = (worldView: WorldDataEmitter) => {
     appViewer.inWorldRenderingConfig.renderEars = o.renderEars
     appViewer.inWorldRenderingConfig.showHand = o.showHand
     appViewer.inWorldRenderingConfig.viewBobbing = o.viewBobbing
+    appViewer.inWorldRenderingConfig.dayCycle = o.dayCycleAndLighting
   })
 }

@@ -379,6 +379,12 @@ export const guiOptionsScheme: {
         return <UiToggleButton name='hotbar' />
       },
     },
+    {
+      custom () {
+        return <Category>Other</Category>
+      },
+      displayLoadingMessages: {}
+    }
   ],
   controls: [
     {
@@ -482,6 +488,24 @@ export const guiOptionsScheme: {
     { volume: {} },
     {
       custom () {
+        return <OptionSlider
+          valueOverride={options.enableMusic ? undefined : 0}
+          onChange={(value) => {
+            options.musicVolume = value
+          }}
+          item={{
+            type: 'slider',
+            id: 'musicVolume',
+            text: 'Music Volume',
+            min: 0,
+            max: 100,
+            unit: '%',
+          }}
+        />
+      },
+    },
+    {
+      custom () {
         return <Button label='Sound Muffler' onClick={() => showModal({ reactType: 'sound-muffler' })} inScreen />
       },
     }
@@ -548,6 +572,16 @@ export const guiOptionsScheme: {
     {
       custom () {
         return <Category>Server Connection</Category>
+      },
+    },
+    {
+      saveLoginPassword: {
+        tooltip: 'Controls whether to save login passwords for servers in this browser memory.',
+        values: [
+          'prompt',
+          'always',
+          'never'
+        ]
       },
     },
     {

@@ -15,9 +15,10 @@ export const defaultOptions = {
   chatOpacity: 100,
   chatOpacityOpened: 100,
   messagesLimit: 200,
+  displayLoadingMessages: true,
   volume: 50,
-  enableMusic: false,
-  // fov: 70,
+  enableMusic: true,
+  musicVolume: 25,
   fov: 75,
   defaultPerspective: 'first_person' as 'first_person' | 'third_person_back' | 'third_person_front',
   guiScale: 3,
@@ -41,6 +42,7 @@ export const defaultOptions = {
   renderEars: true,
   lowMemoryMode: false,
   starfieldRendering: true,
+  defaultSkybox: true,
   enabledResourcepack: null as string | null,
   useVersionsTextures: 'latest',
   serverResourcePacks: 'prompt' as 'prompt' | 'always' | 'never',
@@ -83,6 +85,7 @@ export const defaultOptions = {
   localServerOptions: {
     gameMode: 1
   } as any,
+  saveLoginPassword: 'prompt' as 'prompt' | 'never' | 'always',
   preferLoadReadonly: false,
   experimentalClientSelfReload: false,
   remoteSoundsSupport: false,

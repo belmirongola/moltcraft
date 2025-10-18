@@ -3,6 +3,7 @@ import { Vec3 } from 'vec3'
 import nbt from 'prismarine-nbt'
 import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
+import { Biome } from 'minecraft-data'
 import { renderSign } from '../sign-renderer'
 import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from '../lib/simpleUtils'
@@ -24,7 +25,8 @@ import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
 import { WaypointsRenderer } from './waypoints'
-import { SkyboxRenderer } from './skyboxRenderer'
+import { DEFAULT_TEMPERATURE, SkyboxRenderer } from './skyboxRenderer'
+import { FireworksManager } from './fireworks'
 
 type SectionKey = string
 
@@ -73,6 +75,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   fountains: Fountain[] = []
   DEBUG_RAYCAST = false
   skyboxRenderer: SkyboxRenderer
+  fireworks: FireworksManager
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
@@ -97,7 +100,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.holdingBlockLeft = new HoldingBlock(this, true)
 
     // Initialize skybox renderer
-    this.skyboxRenderer = new SkyboxRenderer(this.scene, null)
+    this.skyboxRenderer = new SkyboxRenderer(this.scene, this.worldRendererConfig.defaultSkybox, null)
     void this.skyboxRenderer.init()
 
     this.addDebugOverlay()
@@ -108,6 +111,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
     this.waypoints = new WaypointsRenderer(this)
+    this.fireworks = new FireworksManager(this.scene)
 
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
@@ -131,6 +135,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.sectionsOffsetsAnimations = {}
       // Clear waypoints
       this.waypoints.clear()
+      // Clear fireworks
+      this.fireworks.clear()
     })
   }
 
@@ -173,7 +179,10 @@ export class WorldRendererThree extends WorldRendererCommon {
   override watchReactivePlayerState () {
     super.watchReactivePlayerState()
     this.onReactivePlayerStateUpdated('inWater', (value) => {
-      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.playerStateReactive.waterBreathing ? 100 : 20) : null
+      this.skyboxRenderer.updateWaterState(value, this.playerStateReactive.waterBreathing)
+    })
+    this.onReactivePlayerStateUpdated('waterBreathing', (value) => {
+      this.skyboxRenderer.updateWaterState(this.playerStateReactive.inWater, value)
     })
     this.onReactivePlayerStateUpdated('ambientLight', (value) => {
       if (!value) return
@@ -201,6 +210,9 @@ export class WorldRendererThree extends WorldRendererCommon {
     super.watchReactiveConfig()
     this.onReactiveConfigUpdated('showChunkBorders', (value) => {
       this.updateShowChunksBorder(value)
+    })
+    this.onReactiveConfigUpdated('defaultSkybox', (value) => {
+      this.skyboxRenderer.updateDefaultSkybox(value)
     })
   }
 
@@ -264,6 +276,19 @@ export class WorldRendererThree extends WorldRendererCommon {
     } else {
       this.starField.remove()
     }
+
+    this.skyboxRenderer.updateTime(newTime)
+  }
+
+  biomeUpdated (biome: Biome): void {
+    if (biome?.temperature !== undefined) {
+      this.skyboxRenderer.updateTemperature(biome.temperature)
+    }
+  }
+
+  biomeReset (): void {
+    // Reset to default temperature when biome is unknown
+    this.skyboxRenderer.updateTemperature(DEFAULT_TEMPERATURE)
   }
 
   getItemRenderData (item: Record<string, any>, specificProps: ItemSpecificContextProperties) {
@@ -716,7 +741,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     // Update skybox position to follow camera
     const cameraPos = this.getCameraPosition()
-    this.skyboxRenderer.update(cameraPos)
+    this.skyboxRenderer.update(cameraPos, this.viewDistance)
 
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
@@ -754,6 +779,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
 
     this.waypoints.render()
+    this.fireworks.update()
 
     for (const onRender of this.onRender) {
       onRender()
@@ -767,12 +793,17 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   renderHead (position: Vec3, rotation: number, isWall: boolean, blockEntity) {
-    const textures = blockEntity.SkullOwner?.Properties?.textures[0]
-    if (!textures) return
+    let textureData: string
+    if (blockEntity.SkullOwner) {
+      textureData = blockEntity.SkullOwner.Properties?.textures?.[0]?.Value
+    } else {
+      textureData = blockEntity.profile?.properties?.find(p => p.name === 'textures')?.value
+    }
+    if (!textureData) return
 
     try {
-      const textureData = JSON.parse(Buffer.from(textures.Value, 'base64').toString())
-      let skinUrl = textureData.textures?.SKIN?.url
+      const decodedData = JSON.parse(Buffer.from(textureData, 'base64').toString())
+      let skinUrl = decodedData.textures?.SKIN?.url
       const { skinTexturesProxy } = this.worldRendererConfig
       if (skinTexturesProxy) {
         skinUrl = skinUrl?.replace('http://textures.minecraft.net/', skinTexturesProxy)
@@ -958,6 +989,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   destroy (): void {
     super.destroy()
     this.skyboxRenderer.dispose()
+    this.fireworks.dispose()
   }
 
   shouldObjectVisible (object: THREE.Object3D) {

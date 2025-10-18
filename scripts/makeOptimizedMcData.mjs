@@ -371,6 +371,7 @@ console.log('size', fs.lstatSync(filePath).size / 1000 / 1000, gzipSizeFromFileS
 
 const { defaultVersion } = MCProtocol
 const data = MinecraftData(defaultVersion)
+console.log('defaultVersion', defaultVersion, !!data)
 const initialMcData = {
   [defaultVersion]: {
     version: data.version,

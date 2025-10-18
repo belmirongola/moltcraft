@@ -125,7 +125,9 @@ export default ({
   const chatInput = useRef<HTMLInputElement>(null!)
   const chatMessages = useRef<HTMLDivElement>(null)
   const chatHistoryPos = useRef(sendHistoryRef.current.length)
+  const commandHistoryPos = useRef(0)
   const inputCurrentlyEnteredValue = useRef('')
+  const commandHistoryRef = useRef(sendHistoryRef.current.filter((msg: string) => msg.startsWith('/')))
 
   const { scrollToBottom, isAtBottom, wasAtBottom, currentlyAtBottom } = useScrollBehavior(chatMessages, { messages, opened })
   const [rightNowAtBottom, setRightNowAtBottom] = useState(false)
@@ -142,6 +144,9 @@ export default ({
     sendHistoryRef.current = newHistory
     window.sessionStorage.chatHistory = JSON.stringify(newHistory)
     chatHistoryPos.current = newHistory.length
+    // Update command history (only messages starting with /)
+    commandHistoryRef.current = newHistory.filter((msg: string) => msg.startsWith('/'))
+    commandHistoryPos.current = commandHistoryRef.current.length
   }
 
   const acceptComplete = (item: string) => {
@@ -180,6 +185,21 @@ export default ({
     updateInputValue(sendHistoryRef.current[chatHistoryPos.current] || inputCurrentlyEnteredValue.current || '')
   }
 
+  const handleCommandArrowUp = () => {
+    if (commandHistoryPos.current === 0 || commandHistoryRef.current.length === 0) return
+    if (commandHistoryPos.current === commandHistoryRef.current.length) { // started navigating command history
+      inputCurrentlyEnteredValue.current = chatInput.current.value
+    }
+    commandHistoryPos.current--
+    updateInputValue(commandHistoryRef.current[commandHistoryPos.current] || '')
+  }
+
+  const handleCommandArrowDown = () => {
+    if (commandHistoryPos.current === commandHistoryRef.current.length) return
+    commandHistoryPos.current++
+    updateInputValue(commandHistoryRef.current[commandHistoryPos.current] || inputCurrentlyEnteredValue.current || '')
+  }
+
   const auxInputFocus = (direction: 'up' | 'down') => {
     chatInput.current.focus()
     if (direction === 'up') {
@@ -203,6 +223,7 @@ export default ({
       updateInputValue(chatInputValueGlobal.value)
       chatInputValueGlobal.value = ''
       chatHistoryPos.current = sendHistoryRef.current.length
+      commandHistoryPos.current = commandHistoryRef.current.length
       if (!usingTouch) {
         chatInput.current.focus()
       }
@@ -524,9 +545,19 @@ export default ({
               onBlur={() => setIsInputFocused(false)}
               onKeyDown={(e) => {
                 if (e.code === 'ArrowUp') {
-                  handleArrowUp()
+                  if (e.altKey) {
+                    handleCommandArrowUp()
+                    e.preventDefault()
+                  } else {
+                    handleArrowUp()
+                  }
                 } else if (e.code === 'ArrowDown') {
-                  handleArrowDown()
+                  if (e.altKey) {
+                    handleCommandArrowDown()
+                    e.preventDefault()
+                  } else {
+                    handleArrowDown()
+                  }
                 }
                 if (e.code === 'Tab') {
                   if (completionItemsSource.length) {

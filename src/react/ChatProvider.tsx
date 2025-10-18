@@ -73,16 +73,28 @@ export default () => {
       }
 
       const builtinHandled = tryHandleBuiltinCommand(message)
-      if (getServerIndex() !== undefined && (message.startsWith('/login') || message.startsWith('/register'))) {
-        showNotification('Click here to save your password in browser for auto-login', undefined, false, undefined, () => {
+      if (getServerIndex() !== undefined && (message.startsWith('/login') || message.startsWith('/register')) && options.saveLoginPassword !== 'never') {
+        const savePassword = () => {
+          let hadPassword = false
           updateLoadedServerData((server) => {
             server.autoLogin ??= {}
             const password = message.split(' ')[1]
+            hadPassword = !!server.autoLogin[bot.username]
             server.autoLogin[bot.username] = password
             return { ...server }
           })
-          hideNotification()
-        })
+          if (options.saveLoginPassword === 'always') {
+            const message = hadPassword ? 'Password updated in browser for auto-login' : 'Password saved in browser for auto-login'
+            showNotification(message, undefined, false, undefined)
+          } else {
+            hideNotification()
+          }
+        }
+        if (options.saveLoginPassword === 'prompt') {
+          showNotification('Click here to save your password in browser for auto-login', undefined, false, undefined, savePassword)
+        } else {
+          savePassword()
+        }
         notificationProxy.id = 'auto-login'
         const listener = () => {
           hideNotification()

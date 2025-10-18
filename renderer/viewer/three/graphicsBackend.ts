@@ -48,6 +48,8 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     addWaypoint: worldRenderer.waypoints.addWaypoint.bind(worldRenderer.waypoints),
     removeWaypoint: worldRenderer.waypoints.removeWaypoint.bind(worldRenderer.waypoints),
 
+    launchFirework: worldRenderer.fireworks.launchFirework.bind(worldRenderer.fireworks),
+
     // New method for updating skybox
     setSkyboxImage: worldRenderer.skyboxRenderer.setSkyboxImage.bind(worldRenderer.skyboxRenderer)
   }

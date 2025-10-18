@@ -15,6 +15,8 @@ import './external'
 import './appConfig'
 import './mineflayer/timers'
 import './mineflayer/plugins'
+import './app/progressControllers'
+import './app/gamepadCursor'
 import { getServerInfo } from './mineflayer/mc-protocol'
 import { onGameLoad } from './inventoryWindows'
 import initCollisionShapes from './getCollisionInteractionShapes'
@@ -56,7 +58,6 @@ import { isCypress } from './standaloneUtils'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
-import dayCycle from './dayCycle'
 
 import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
@@ -305,7 +306,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
   if (connectOptions.server && !connectOptions.viewerWsConnect && !parsedServer.isWebSocket) {
     console.log(`using proxy ${proxy.host}:${proxy.port || location.port}`)
-    net['setProxy']({ hostname: proxy.host, port: proxy.port, headers: { Authorization: `Bearer ${new URLSearchParams(location.search).get('token') ?? ''}` } })
+    net['setProxy']({ hostname: proxy.host, port: proxy.port, headers: { Authorization: `Bearer ${new URLSearchParams(location.search).get('token') ?? ''}` }, artificialDelay: appQueryParams.addPing ? Number(appQueryParams.addPing) : undefined })
   }
 
   const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
@@ -794,7 +795,6 @@ export async function connect (connectOptions: ConnectOptions) {
       }
 
       initMotionTracking()
-      dayCycle()
 
       // Bot position callback
       const botPosition = () => {

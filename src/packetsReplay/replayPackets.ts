@@ -59,6 +59,7 @@ export const startLocalReplayServer = (contents: string) => {
   const server = createServer({
     Server: LocalServer as any,
     version: header.minecraftVersion,
+    keepAlive: false,
     'online-mode': false
   })
 

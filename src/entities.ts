@@ -246,22 +246,29 @@ customEvents.on('gameLoaded', () => {
         }
       }
       // even if not found, still record to cache
-      void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, player.username, player.uuid, skinUrl ?? true, capeUrl)
+      void getThreeJsRendererMethods()!.updatePlayerSkin(entityId, player.username, player.uuid, skinUrl ?? true, capeUrl)
     } catch (err) {
-      console.error('Error decoding player texture:', err)
+      reportError(new Error('Error applying skin texture:', { cause: err }))
     }
   }
 
   bot.on('playerJoined', updateSkin)
   bot.on('playerUpdated', updateSkin)
+  for (const entity of Object.values(bot.players)) {
+    updateSkin(entity)
+  }
 
-  bot.on('teamUpdated', (team: Team) => {
+  const teamUpdated = (team: Team) => {
     for (const entity of Object.values(bot.entities)) {
       if (entity.type === 'player' && entity.username && team.members.includes(entity.username) || entity.uuid && team.members.includes(entity.uuid)) {
         bot.emit('entityUpdate', entity)
       }
     }
-  })
+  }
+  bot.on('teamUpdated', teamUpdated)
+  for (const team of Object.values(bot.teams)) {
+    teamUpdated(team)
+  }
 
   const updateEntityNameTags = (team: Team) => {
     for (const entity of Object.values(bot.entities)) {

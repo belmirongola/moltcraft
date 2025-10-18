@@ -20,6 +20,7 @@ import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { loadSkinFromUsername, loadSkinImage, stevePngUrl } from '../lib/utils/skins'
 import { renderComponent } from '../sign-renderer'
 import { createCanvas } from '../lib/utils'
+import { PlayerObjectType } from '../lib/createPlayerObject'
 import { getBlockMeshFromModel } from './holdingBlock'
 import { createItemMesh } from './itemMesh'
 import * as Entity from './entity/EntityMesh'
@@ -32,12 +33,6 @@ import { WorldRendererThree } from './worldrendererThree'
 export const steveTexture = loadThreeJsTextureFromUrl(stevePngUrl)
 
 export const TWEEN_DURATION = 120
-
-type PlayerObjectType = PlayerObject & {
-  animation?: PlayerAnimation
-  realPlayerUuid: string
-  realUsername: string
-}
 
 function convert2sComplementToHex (complement: number) {
   if (complement < 0) {

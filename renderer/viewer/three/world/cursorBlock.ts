@@ -28,7 +28,7 @@ export class CursorBlock {
   }
 
   cursorLineMaterial: LineMaterial
-  interactionLines: null | { blockPos: Vec3, mesh: THREE.Group } = null
+  interactionLines: null | { blockPos: Vec3, mesh: THREE.Group, shapePositions: BlocksShapes | undefined } = null
   prevColor: string | undefined
   blockBreakMesh: THREE.Mesh
   breakTextures: THREE.Texture[] = []
@@ -62,6 +62,13 @@ export class CursorBlock {
     this.worldRenderer.onReactivePlayerStateUpdated('gameMode', () => {
       this.updateLineMaterial()
     })
+    // todo figure out why otherwise fog from skybox breaks it
+    setTimeout(() => {
+      this.updateLineMaterial()
+      if (this.interactionLines) {
+        this.setHighlightCursorBlock(this.interactionLines.blockPos, this.interactionLines.shapePositions, true)
+      }
+    })
   }
 
   // Update functions
@@ -69,6 +76,9 @@ export class CursorBlock {
     const inCreative = this.worldRenderer.playerStateReactive.gameMode === 'creative'
     const pixelRatio = this.worldRenderer.renderer.getPixelRatio()
 
+    if (this.cursorLineMaterial) {
+      this.cursorLineMaterial.dispose()
+    }
     this.cursorLineMaterial = new LineMaterial({
       color: (() => {
         switch (this.worldRenderer.worldRendererConfig.highlightBlockColor) {
@@ -115,8 +125,8 @@ export class CursorBlock {
     }
   }
 
-  setHighlightCursorBlock (blockPos: Vec3 | null, shapePositions?: BlocksShapes): void {
-    if (blockPos && this.interactionLines && blockPos.equals(this.interactionLines.blockPos)) {
+  setHighlightCursorBlock (blockPos: Vec3 | null, shapePositions?: BlocksShapes, force = false): void {
+    if (blockPos && this.interactionLines && blockPos.equals(this.interactionLines.blockPos) && !force) {
       return
     }
     if (this.interactionLines !== null) {
@@ -140,7 +150,7 @@ export class CursorBlock {
     }
     this.worldRenderer.scene.add(group)
     group.visible = !this.cursorLinesHidden
-    this.interactionLines = { blockPos, mesh: group }
+    this.interactionLines = { blockPos, mesh: group, shapePositions }
   }
 
   render () {

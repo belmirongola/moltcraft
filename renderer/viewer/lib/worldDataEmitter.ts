@@ -7,6 +7,7 @@ import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
 import { proxy } from 'valtio'
 import TypedEmitter from 'typed-emitter'
+import { Biome } from 'minecraft-data'
 import { delayedIterator } from '../../playground/shared'
 import { chunkPos } from './simpleUtils'
 
@@ -28,6 +29,8 @@ export type WorldDataEmitterEvents = {
   updateLight: (data: { pos: Vec3 }) => void
   onWorldSwitch: () => void
   end: () => void
+  biomeUpdate: (data: { biome: Biome }) => void
+  biomeReset: () => void
 }
 
 export class WorldDataEmitterWorker extends (EventEmitter as new () => TypedEmitter<WorldDataEmitterEvents>) {
@@ -360,8 +363,37 @@ export class WorldDataEmitter extends (EventEmitter as new () => TypedEmitter<Wo
     delete this.debugChunksInfo[`${pos.x},${pos.z}`]
   }
 
+  lastBiomeId: number | null = null
+
+  udpateBiome (pos: Vec3) {
+    try {
+      const biomeId = this.world.getBiome(pos)
+      if (biomeId !== this.lastBiomeId) {
+        this.lastBiomeId = biomeId
+        const biomeData = loadedData.biomes[biomeId]
+        if (biomeData) {
+          this.emitter.emit('biomeUpdate', {
+            biome: biomeData
+          })
+        } else {
+          // unknown biome
+          this.emitter.emit('biomeReset')
+        }
+      }
+    } catch (e) {
+      console.error('error updating biome', e)
+    }
+  }
+
+  lastPosCheck: Vec3 | null = null
   async updatePosition (pos: Vec3, force = false) {
     if (!this.allowPositionUpdate) return
+    const posFloored = pos.floored()
+    if (!force && this.lastPosCheck && this.lastPosCheck.equals(posFloored)) return
+    this.lastPosCheck = posFloored
+
+    this.udpateBiome(pos)
+
     const [lastX, lastZ] = chunkPos(this.lastPos)
     const [botX, botZ] = chunkPos(pos)
     if (lastX !== botX || lastZ !== botZ || force) {

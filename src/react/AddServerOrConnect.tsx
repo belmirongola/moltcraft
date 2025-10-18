@@ -117,7 +117,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   }
 
   const displayConnectButton = qsParamIp
-  const serverExamples = ['example.com:25565', 'play.hypixel.net', 'ws://play.pcm.gg']
+  const serverExamples = ['example.com:25565', 'play.hypixel.net', 'ws://play.pcm.gg', 'wss://play.webmc.fun']
   // pick random example
   const example = serverExamples[Math.floor(Math.random() * serverExamples.length)]
 

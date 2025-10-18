@@ -130,7 +130,8 @@ export const setProxy = (proxyParams: ProxyParams) => {
   net['setProxy']({
     hostname: proxy.host,
     port: proxy.port,
-    headers: proxyParams.headers
+    headers: proxyParams.headers,
+    artificialDelay: appQueryParams.addPing ? Number(appQueryParams.addPing) : undefined
   })
   return {
     proxy

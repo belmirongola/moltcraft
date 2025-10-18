@@ -26,6 +26,10 @@
     display: flex;
     justify-content: center;
     z-index: 12;
+    /* Account for GUI scaling */
+    width: calc(100dvw / var(--guiScale, 1));
+    height: calc(100dvh / var(--guiScale, 1));
+    overflow: hidden;
 }
 
 .screen-content {
