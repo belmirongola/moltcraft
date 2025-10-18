@@ -37,25 +37,58 @@ contro.on('stickMovement', ({ stick, vector }) => {
 
   if (z === 0) return // No vertical movement
 
+  emulateGamepadScroll(z)
+
+  miscUiState.usingGamepadInput = true
+})
+
+const emulateGamepadScroll = (z: number) => {
   // Get element under cursor
   const cursorX = gamepadUiCursorState.x / 100 * window.innerWidth
   const cursorY = gamepadUiCursorState.y / 100 * window.innerHeight
   const element = document.elementFromPoint(cursorX, cursorY) as HTMLElement | null
 
-  if (element) {
-    // Dispatch wheel event for scrolling (negative z = scroll up, positive z = scroll down)
-    const wheelEvent = new WheelEvent('wheel', {
-      deltaY: z * 50, // Adjust multiplier for scroll speed
-      bubbles: true,
-      cancelable: true,
-      clientX: cursorX,
-      clientY: cursorY
-    })
-    element.dispatchEvent(wheelEvent)
+  if (!element) return
+
+  // Find the first scrollable parent
+  const scrollableParent = findScrollableParent(element)
+
+  if (scrollableParent) {
+    // Scroll the container directly
+    const scrollAmount = z * 30 // Adjust multiplier for scroll speed
+    scrollableParent.scrollTop += scrollAmount
+  }
+}
+
+const findScrollableParent = (element: HTMLElement | null): HTMLElement | null => {
+  if (!element) return null
+
+  // Check if current element is scrollable
+  const isScrollable = (el: HTMLElement) => {
+    const { overflowY } = window.getComputedStyle(el)
+    const hasVerticalScroll = el.scrollHeight > el.clientHeight
+    return hasVerticalScroll && (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
   }
 
-  miscUiState.usingGamepadInput = true
-})
+  let current: HTMLElement | null = element
+
+  // Traverse up the DOM tree to find scrollable parent
+  while (current && current !== document.body) {
+    if (isScrollable(current)) {
+      return current
+    }
+    current = current.parentElement
+  }
+
+  // If no scrollable parent found, try scrolling the body/documentElement
+  if (document.documentElement.scrollHeight > document.documentElement.clientHeight) {
+    return document.documentElement
+  }
+
+  return null
+}
+
+globalThis.emulateGamepadScroll = emulateGamepadScroll
 
 let lastClickedEl = null as HTMLElement | null
 let lastClickedElTimeout: ReturnType<typeof setTimeout> | undefined
