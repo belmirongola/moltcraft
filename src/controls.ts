@@ -79,7 +79,7 @@ export const contro = new ControMax({
       back: [null/* 'Escape' */, 'B'],
       toggleMap: ['KeyJ'],
       leftClick: [null, 'A'],
-      rightClick: [null, 'Y'],
+      rightClick: [null, 'X'],
       speedupCursor: [null, 'Left Stick'],
       pauseMenu: [null, 'Start']
     },
