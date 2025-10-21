@@ -9,8 +9,8 @@ body {
 }
 
 body.rotated {
-  width: 100vw !important;
-  height: 100vh !important;
+  width: 100vh !important;
+  height: 100vw !important;
   width: 100dvh !important;
   height: 100dvw !important;
   transform: rotate(90deg) translateY(-100%);
