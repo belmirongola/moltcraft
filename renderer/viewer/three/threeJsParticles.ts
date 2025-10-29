@@ -194,7 +194,7 @@ export class RainParticles {
     // Create geometry and material (smaller boxes)
     this.geometry = new THREE.BoxGeometry(0.03, 0.3, 0.03)
     this.material = new THREE.MeshBasicMaterial({
-      color: 0x88_cc_ff,
+      color: 0x44_66_99, // Darker blue to match Minecraft rain
       transparent: true,
       opacity: 0.6
     })
