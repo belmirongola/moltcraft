@@ -158,3 +158,154 @@ export class Fountain {
     }
   }
 }
+
+interface RainParticle extends THREE.Mesh {
+  velocity: THREE.Vector3;
+  age: number;
+}
+
+export interface RainOptions {
+  particleCount?: number;
+  range?: number;
+  height?: number;
+  fallSpeed?: { min: number; max: number };
+}
+
+export class RainParticles {
+  private readonly particles: RainParticle[] = []
+  private readonly container: THREE.Object3D
+  private cameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 0)
+  private particleCount: number
+  private range: number
+  private height: number
+  private fallSpeed: { min: number; max: number }
+  private enabled = false
+
+  constructor (scene: THREE.Scene, options: RainOptions = {}) {
+    this.container = new THREE.Object3D()
+    this.container.name = 'rain-particles'
+    scene.add(this.container)
+
+    // Minecraft-like rain settings
+    this.particleCount = options.particleCount ?? 1000
+    this.range = options.range ?? 32 // Horizontal range around player
+    this.height = options.height ?? 32 // Height above camera
+    this.fallSpeed = options.fallSpeed ?? { min: 0.2, max: 0.4 }
+
+    this.createParticles()
+  }
+
+  private createParticles (): void {
+    // Create shared geometry and material for better performance
+    const geometry = new THREE.BoxGeometry(0.05, 0.4, 0.05)
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x88_cc_ff,
+      transparent: true,
+      opacity: 0.6
+    })
+
+    for (let i = 0; i < this.particleCount; i++) {
+      const mesh = new THREE.Mesh(geometry, material)
+      const particle = mesh as unknown as RainParticle
+
+      // Randomly position particles in a cylinder around the camera
+      const angle = Math.random() * Math.PI * 2
+      const distance = Math.random() * this.range
+      const x = Math.cos(angle) * distance
+      const z = Math.sin(angle) * distance
+      const y = Math.random() * this.height
+
+      particle.position.set(x, y, z)
+
+      // Rain falls straight down with slight variation
+      const speed = this.fallSpeed.min + Math.random() * (this.fallSpeed.max - this.fallSpeed.min)
+      particle.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02, // Slight horizontal drift
+        -speed,
+        (Math.random() - 0.5) * 0.02
+      )
+
+      particle.age = Math.random() // Random starting age for variety
+
+      this.particles.push(particle)
+      this.container.add(particle)
+    }
+  }
+
+  updateCameraPosition (position: THREE.Vector3): void {
+    this.cameraPosition.copy(position)
+    // Update container position to follow camera
+    this.container.position.copy(position)
+  }
+
+  setEnabled (enabled: boolean): void {
+    this.enabled = enabled
+    this.container.visible = enabled
+  }
+
+  isEnabled (): boolean {
+    return this.enabled
+  }
+
+  render (): void {
+    if (!this.enabled) return
+
+    for (const particle of this.particles) {
+      // Update particle position
+      particle.position.add(particle.velocity)
+      particle.age += 0.016 // Approximate frame time
+
+      // Check if particle has fallen below the ground or is too far
+      const relativeY = particle.position.y
+      const relativeX = particle.position.x
+      const relativeZ = particle.position.z
+      const horizontalDistance = Math.sqrt(relativeX * relativeX + relativeZ * relativeZ)
+
+      // Reset particle if it's too low or too far from center
+      if (relativeY < -5 || horizontalDistance > this.range) {
+        // Respawn at top within range
+        const angle = Math.random() * Math.PI * 2
+        const distance = Math.random() * this.range
+        particle.position.set(
+          Math.cos(angle) * distance,
+          this.height,
+          Math.sin(angle) * distance
+        )
+
+        // Reset velocity
+        const speed = this.fallSpeed.min + Math.random() * (this.fallSpeed.max - this.fallSpeed.min)
+        particle.velocity.set(
+          (Math.random() - 0.5) * 0.02,
+          -speed,
+          (Math.random() - 0.5) * 0.02
+        )
+
+        particle.age = 0
+      }
+    }
+  }
+
+  public dispose (): void {
+    // Dispose geometry and material (shared by all particles)
+    if (this.particles.length > 0) {
+      const firstParticle = this.particles[0]
+      firstParticle.geometry.dispose()
+      if (Array.isArray(firstParticle.material)) {
+        for (const material of firstParticle.material) material.dispose()
+      } else {
+        firstParticle.material.dispose()
+      }
+    }
+
+    // Remove all particles
+    for (const particle of this.particles) {
+      this.container.remove(particle)
+    }
+    this.particles.length = 0
+
+    // Remove container from scene
+    if (this.container.parent) {
+      this.container.parent.remove(this.container)
+    }
+  }
+}

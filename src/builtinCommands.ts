@@ -138,6 +138,19 @@ export const commands: Array<{
     invoke () {
       getThreeJsRendererMethods()?.downloadMesherLog()
     }
+  },
+  {
+    command: ['/rain'],
+    alwaysAvailable: true,
+    invoke () {
+      const methods = getThreeJsRendererMethods()
+      if (!methods) {
+        writeText('Rain control is not available')
+        return
+      }
+      const enabled = methods.toggleRain()
+      writeText(enabled ? 'Rain enabled' : 'Rain disabled')
+    }
   }
 ]
 //@ts-format-ignore-endregion

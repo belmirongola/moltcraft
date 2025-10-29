@@ -51,7 +51,11 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     launchFirework: worldRenderer.fireworks.launchFirework.bind(worldRenderer.fireworks),
 
     // New method for updating skybox
-    setSkyboxImage: worldRenderer.skyboxRenderer.setSkyboxImage.bind(worldRenderer.skyboxRenderer)
+    setSkyboxImage: worldRenderer.skyboxRenderer.setSkyboxImage.bind(worldRenderer.skyboxRenderer),
+
+    // Rain control methods
+    toggleRain: worldRenderer.toggleRain.bind(worldRenderer),
+    setRain: worldRenderer.setRain.bind(worldRenderer)
   }
 }
 
