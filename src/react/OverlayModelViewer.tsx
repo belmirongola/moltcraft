@@ -280,29 +280,14 @@ export default () => {
     controls.enableDamping = true
     controls.dampingFactor = 0.05
 
-    // Add ambient light for overall illumination
-    const ambientLight = new THREE.AmbientLight(0xff_ff_ff, 0.4) // Reduced intensity to allow shadows
-    scene.add(ambientLight)
+    // Global light (matches skinview3d's globalLight behavior)
+    const globalLight = new THREE.AmbientLight(0xffffff, 0.35)
+    scene.add(globalLight)
 
-    // Add directional light for shadows and depth (similar to Minecraft inventory lighting)
-    const directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.6)
-    directionalLight.position.set(2, 2, 2) // Position light from top-right-front
-    directionalLight.target.position.set(0, 0, 0) // Point towards center of scene
-
-    // Configure shadow properties for optimal quality
-    directionalLight.castShadow = true
-    directionalLight.shadow.mapSize.width = 2048 // High resolution shadow map
-    directionalLight.shadow.mapSize.height = 2048
-    directionalLight.shadow.camera.near = 0.1
-    directionalLight.shadow.camera.far = 10
-    directionalLight.shadow.camera.left = -3
-    directionalLight.shadow.camera.right = 3
-    directionalLight.shadow.camera.top = 3
-    directionalLight.shadow.camera.bottom = -3
-    directionalLight.shadow.bias = -0.0001 // Reduce shadow acne
-
-    scene.add(directionalLight)
-    scene.add(directionalLight.target)
+    // Camera light (matches skinview3d's cameraLight behavior)
+    const cameraLight = new THREE.PointLight(0xffffff, 0.6)
+    cameraLight.castShadow = false
+    camera.add(cameraLight)
 
     // Cursor following function
     const updatePlayerLookAt = () => {
