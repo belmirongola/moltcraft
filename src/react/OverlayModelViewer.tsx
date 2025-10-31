@@ -8,7 +8,6 @@ import { applySkinToPlayerObject, createPlayerObject, PlayerObjectType } from '.
 import { currentScaling } from '../scaleInterface'
 import { activeModalStack } from '../globalState'
 
-THREE.ColorManagement.enabled = false
 
 export const modelViewerState = proxy({
   model: undefined as undefined | {
@@ -27,10 +26,13 @@ export const modelViewerState = proxy({
       onlyInitialScale?: boolean
       followCursor?: boolean
     }
-    modelCustomization?: { [modelUrl: string]: { color?: string, opacity?: number, metalness?: number, roughness?: number } }
+    modelCustomization?: { [modelUrl: string]: { color?: string, opacity?: number, metalness?: number, roughness?: number, rotation?: { x?: number, y?: number, z?: number } } }
     resetRotationOnReleae?: boolean
     continiousRender?: boolean
     alwaysRender?: boolean
+    playModelAnimation?: string
+    playModelAnimationSpeed?: number
+    playModelAnimationLoop?: boolean
   }
 })
 globalThis.modelViewerState = modelViewerState
@@ -109,6 +111,79 @@ export default () => {
   // Model management state
   const loadedModels = useRef<Map<string, THREE.Object3D>>(new Map())
   const modelLoaders = useRef<Map<string, GLTFLoader | OBJLoader>>(new Map())
+  const animationMixers = useRef<Map<string, THREE.AnimationMixer>>(new Map())
+  const gltfClips = useRef<Map<string, THREE.AnimationClip[]>>(new Map())
+  const activeActions = useRef<Map<string, THREE.AnimationAction>>(new Map())
+  const clockRef = useRef(new THREE.Clock())
+  const mixersAnimatingRef = useRef(false)
+  const rafIdRef = useRef<number | undefined>(undefined)
+
+  const updateAllMixers = (delta: number) => {
+    for (const mixer of animationMixers.current.values()) {
+      mixer.update(delta)
+    }
+  }
+
+  const anyActionActive = () => {
+    // Consider actions active as soon as they're enabled, even before first mixer.update
+    for (const action of activeActions.current.values()) {
+      if (action.enabled) return true
+    }
+    return false
+  }
+
+  const ensureMixerLoop = (render: () => void) => {
+    if (mixersAnimatingRef.current) return
+    mixersAnimatingRef.current = true
+    const tick = () => {
+      const delta = clockRef.current.getDelta()
+      updateAllMixers(delta)
+      render()
+      if (anyActionActive()) {
+        rafIdRef.current = requestAnimationFrame(tick)
+      } else {
+        mixersAnimatingRef.current = false
+        rafIdRef.current = undefined
+      }
+    }
+    rafIdRef.current = requestAnimationFrame(tick)
+  }
+
+  const playAnimationForModel = (modelUrl: string, animName: string | undefined, render: () => void) => {
+    const clips = gltfClips.current.get(modelUrl)
+    const mixer = animationMixers.current.get(modelUrl)
+    if (!clips || !mixer) {
+      return
+    }
+    // stop previous
+    const prev = activeActions.current.get(modelUrl)
+    if (prev) {
+      prev.stop()
+      activeActions.current.delete(modelUrl)
+    }
+    if (!animName) {
+      return
+    }
+    const clip = clips.find(c => c.name === animName)
+    if (!clip) return
+    const action = mixer.clipAction(clip)
+    const loop = modelViewerState.model?.playModelAnimationLoop ?? true
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+    const speed = modelViewerState.model?.playModelAnimationSpeed ?? 1
+    action.timeScale = speed
+    action.reset().fadeIn(0.1).play()
+    activeActions.current.set(modelUrl, action)
+    ensureMixerLoop(render)
+  }
+
+  const applyAnimationParamsToAll = () => {
+    const loop = modelViewerState.model?.playModelAnimationLoop ?? true
+    const speed = modelViewerState.model?.playModelAnimationSpeed ?? 1
+    for (const [modelUrl, action] of activeActions.current) {
+      action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+      action.timeScale = speed
+    }
+  }
 
   // Model management functions
   const loadModel = (modelUrl: string) => {
@@ -118,15 +193,14 @@ export default () => {
     const loader = isGLTF ? new GLTFLoader() : new OBJLoader()
     modelLoaders.current.set(modelUrl, loader)
 
-    const onLoad = (object: THREE.Object3D) => {
-      // Apply customization if available and enable shadows
+    const onLoad = (object: THREE.Object3D, animations?: THREE.AnimationClip[]) => {
+      // Apply customization if available
       const customization = model?.modelCustomization?.[modelUrl]
+      if (customization?.rotation) {
+        object.rotation.set(customization.rotation.x ?? 0, customization.rotation.y ?? 0, customization.rotation.z ?? 0)
+      }
       object.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          // Enable shadow casting and receiving for all meshes
-          child.castShadow = true
-          child.receiveShadow = true
-
           if (child.material && customization) {
             const material = child.material as THREE.MeshStandardMaterial
             if (customization.color) {
@@ -159,6 +233,16 @@ export default () => {
       loadedModels.current.set(modelUrl, object)
       sceneRef.current?.scene.add(object)
 
+      // Setup animations for GLTF
+      if (animations && animations.length > 0) {
+        const mixer = new THREE.AnimationMixer(object)
+        animationMixers.current.set(modelUrl, mixer)
+        gltfClips.current.set(modelUrl, animations)
+        // Auto-play current requested animation if set
+        const render = () => sceneRef.current?.renderer.render(sceneRef.current.scene, sceneRef.current.camera)
+        playAnimationForModel(modelUrl, modelViewerState.model?.playModelAnimation, render)
+      }
+
       // Trigger render
       if (sceneRef.current) {
         setTimeout(() => {
@@ -170,7 +254,7 @@ export default () => {
 
     if (isGLTF) {
       (loader as GLTFLoader).load(modelUrl, (gltf) => {
-        onLoad(gltf.scene)
+        onLoad(gltf.scene, gltf.animations)
       })
     } else {
       (loader as OBJLoader).load(modelUrl, onLoad)
@@ -200,6 +284,12 @@ export default () => {
       loadedModels.current.delete(modelUrl)
     }
     modelLoaders.current.delete(modelUrl)
+    // Clear animations
+    const action = activeActions.current.get(modelUrl)
+    action?.stop()
+    activeActions.current.delete(modelUrl)
+    animationMixers.current.delete(modelUrl)
+    gltfClips.current.delete(modelUrl)
   }
 
   // Subscribe to model changes
@@ -257,17 +347,14 @@ export default () => {
 
     // Setup renderer with pixel density awareness
     const renderer = new THREE.WebGLRenderer({ alpha: true })
+    renderer.useLegacyLights = false
+    renderer.outputColorSpace = THREE.LinearSRGBColorSpace
     let scale = window.devicePixelRatio || 1
     if (modelViewerState.model?.positioning.scaled) {
       scale *= currentScaling.scale
     }
     renderer.setPixelRatio(scale)
     renderer.setSize(model.positioning.width, model.positioning.height)
-
-    // Enable shadow rendering for depth and realism
-    renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap // Soft shadows for better quality
-    renderer.shadowMap.autoUpdate = true
 
     containerRef.current.appendChild(renderer.domElement)
 
@@ -281,28 +368,13 @@ export default () => {
     controls.dampingFactor = 0.05
 
     // Add ambient light for overall illumination
-    const ambientLight = new THREE.AmbientLight(0xff_ff_ff, 0.4) // Reduced intensity to allow shadows
+    const ambientLight = new THREE.AmbientLight(0xff_ff_ff, 3)
     scene.add(ambientLight)
 
-    // Add directional light for shadows and depth (similar to Minecraft inventory lighting)
-    const directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.6)
-    directionalLight.position.set(2, 2, 2) // Position light from top-right-front
-    directionalLight.target.position.set(0, 0, 0) // Point towards center of scene
-
-    // Configure shadow properties for optimal quality
-    directionalLight.castShadow = true
-    directionalLight.shadow.mapSize.width = 2048 // High resolution shadow map
-    directionalLight.shadow.mapSize.height = 2048
-    directionalLight.shadow.camera.near = 0.1
-    directionalLight.shadow.camera.far = 10
-    directionalLight.shadow.camera.left = -3
-    directionalLight.shadow.camera.right = 3
-    directionalLight.shadow.camera.top = 3
-    directionalLight.shadow.camera.bottom = -3
-    directionalLight.shadow.bias = -0.0001 // Reduce shadow acne
-
-    scene.add(directionalLight)
-    scene.add(directionalLight.target)
+    // Add camera light (matching skinview3d cameraLight)
+    const cameraLight = new THREE.PointLight(0xff_ff_ff, 0.6) // Intensity, no distance limit, no decay
+    camera.add(cameraLight)
+    scene.add(camera)
 
     // Cursor following function
     const updatePlayerLookAt = () => {
@@ -357,6 +429,8 @@ export default () => {
       // Continuous animation loop
       const animate = () => {
         requestAnimationFrame(animate)
+        const delta = clockRef.current.getDelta()
+        updateAllMixers(delta)
         render()
       }
       animate()
@@ -451,6 +525,8 @@ export default () => {
       isFollowingCursor.current = true
     }
 
+    // Note: animation state subscriptions moved to useEffect hooks below to satisfy TS types
+
     // Store refs for cleanup
     sceneRef.current = {
       ...sceneRef.current!,
@@ -465,6 +541,7 @@ export default () => {
         if (model.positioning.followCursor) {
           window.removeEventListener('pointermove', handleWindowPointerMove)
         }
+        if (rafIdRef.current !== undefined) cancelAnimationFrame(rafIdRef.current)
 
         // Clean up loaded models
         for (const [modelUrl, model] of loadedModels.current) {
@@ -488,6 +565,9 @@ export default () => {
         }
         loadedModels.current.clear()
         modelLoaders.current.clear()
+        activeActions.current.clear()
+        animationMixers.current.clear()
+        gltfClips.current.clear()
 
         const playerObject = sceneRef.current?.playerObject
         if (playerObject?.skin.map) {
@@ -502,6 +582,27 @@ export default () => {
       sceneRef.current?.dispose()
     }
   }, [model])
+
+  // React to animation name changes
+  useEffect(() => {
+    if (!model) return
+    const render = () => {
+      const s = sceneRef.current
+      if (!s) return
+      s.renderer.render(s.scene, s.camera)
+    }
+    const animName = model.playModelAnimation
+    if (animName === undefined) return
+    for (const modelUrl of loadedModels.current.keys()) {
+      playAnimationForModel(modelUrl, animName, render)
+    }
+  }, [model?.playModelAnimation])
+
+  // React to animation params (speed/loop) changes
+  useEffect(() => {
+    if (!model) return
+    applyAnimationParamsToAll()
+  }, [model?.playModelAnimationSpeed, model?.playModelAnimationLoop])
 
   if (!model) return null
 
