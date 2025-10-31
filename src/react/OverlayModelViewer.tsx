@@ -24,7 +24,11 @@ export const modelViewerState = proxy({
       height: number
       scaled?: boolean
       onlyInitialScale?: boolean
-      followCursor?: boolean
+    }
+    followCursor?: boolean
+    followCursorCenter?: {
+      x: number
+      y: number
     }
     modelCustomization?: { [modelUrl: string]: { color?: string, opacity?: number, metalness?: number, roughness?: number, rotation?: { x?: number, y?: number, z?: number } } }
     resetRotationOnReleae?: boolean
@@ -33,6 +37,7 @@ export const modelViewerState = proxy({
     playModelAnimation?: string
     playModelAnimationSpeed?: number
     playModelAnimationLoop?: boolean
+    followCursorCenterDebug?: boolean
   }
 })
 globalThis.modelViewerState = modelViewerState
@@ -105,8 +110,32 @@ export default () => {
   globalThis.sceneRef = sceneRef
 
   // Cursor following state
-  const cursorPosition = useRef({ x: 0, y: 0 })
+  const cursorPosition = useRef<{ x: number, y: number }>({ x: 0, y: 0 }) // window clientX/clientY in px
   const isFollowingCursor = useRef(false)
+  const getUiScaleFactor = (scaled?: boolean, onlyInitialScale?: boolean) => {
+    return scaled ? (onlyInitialScale ? initialScale : currentScaling.scale) : 1
+  }
+  const windowRef = useRef<HTMLDivElement>(null)
+  // Shared helper to compute normalized cursor from window clientX/Y taking scale & center into account
+  const computeNormalizedFromClient = (clientX: number, clientY: number) => {
+    const { positioning, followCursorCenter } = modelViewerState.model!
+    const { windowWidth, windowHeight } = positioning
+    const rect = windowRef.current?.getBoundingClientRect()
+    const effectiveScale = rect ? (rect.width / windowWidth) : getUiScaleFactor(positioning.scaled, positioning.onlyInitialScale)
+
+    const centerPxX = (followCursorCenter?.x ?? (windowWidth / 2)) * effectiveScale
+    const centerPxY = (followCursorCenter?.y ?? (windowHeight / 2)) * effectiveScale
+
+    const localX = rect ? (clientX - rect.left) : clientX
+    const localY = rect ? (clientY - rect.top) : clientY
+
+    const denomX = rect ? (rect.width / 2) : (window.innerWidth / 2)
+    const denomY = rect ? (rect.height / 2) : (window.innerHeight / 2)
+    const normalizedX = (localX - centerPxX) / denomX
+    const normalizedY = (localY - centerPxY) / denomY
+    return { normalizedX, normalizedY }
+  }
+
 
   // Model management state
   const loadedModels = useRef<Map<string, THREE.Object3D>>(new Map())
@@ -383,17 +412,19 @@ export default () => {
       const { playerObject } = sceneRef.current
       const { x, y } = cursorPosition.current
 
-      // Convert 0-1 cursor position to normalized coordinates (-1 to 1)
-      const normalizedX = x * 2 - 1
-      const normalizedY = y * 2 - 1 // Inverted: top of screen = negative pitch, bottom = positive pitch
+      // Convert clientX/clientY to normalized coordinates centered by followCursorCenter
+      const { normalizedX, normalizedY } = computeNormalizedFromClient(x, y)
 
       // Calculate head rotation based on cursor position
-      // Limit head movement to realistic angles
-      const maxHeadYaw = Math.PI / 3 // 60 degrees
-      const maxHeadPitch = Math.PI / 4 // 45 degrees
+      // Limit head movement to ±60 degrees
+      const maxHeadYaw = Math.PI * (60 / 180)
+      const maxHeadPitch = Math.PI * (60 / 180)
 
-      const headYaw = normalizedX * maxHeadYaw
-      const headPitch = normalizedY * maxHeadPitch
+      const clampedX = THREE.MathUtils.clamp(normalizedX, -1, 1)
+      const clampedY = THREE.MathUtils.clamp(normalizedY, -1, 1)
+
+      const headYaw = clampedX * maxHeadYaw
+      const headPitch = clampedY * maxHeadPitch
 
       // Apply head rotation with smooth interpolation
       const lerpFactor = 0.1 // Smooth interpolation factor
@@ -445,6 +476,8 @@ export default () => {
         const { playerObject, wrapper } = createPlayerObject({
           scale: 1 // Start with base scale, will adjust below
         })
+        playerObject.ears.visible = false
+        playerObject.cape.visible = false
 
         // Enable shadows for player object
         wrapper.traverse((child) => {
@@ -489,7 +522,7 @@ export default () => {
         })
 
         // Set up cursor following if enabled
-        if (model.positioning.followCursor) {
+        if (model.followCursor) {
           isFollowingCursor.current = true
         }
       }
@@ -499,12 +532,12 @@ export default () => {
     let lastCursorUpdate = 0
     let waitingRender = false
     const handleWindowPointerMove = (event: PointerEvent) => {
-      if (!model.positioning.followCursor) return
+      if (!model.followCursor) return
 
-      // Track cursor position as 0-1 across the entire window
+      // Track cursor position as window clientX/clientY in px
       const newPosition = {
-        x: event.clientX / window.innerWidth,
-        y: event.clientY / window.innerHeight
+        x: event.clientX,
+        y: event.clientY
       }
       cursorPosition.current = newPosition
       globalThis.cursorPosition = newPosition // Expose for debug
@@ -520,7 +553,7 @@ export default () => {
     }
 
     // Add window event listeners
-    if (model.positioning.followCursor) {
+    if (model.followCursor) {
       window.addEventListener('pointermove', handleWindowPointerMove)
       isFollowingCursor.current = true
     }
@@ -538,7 +571,7 @@ export default () => {
         if (!model.continiousRender) {
           controls.removeEventListener('change', render)
         }
-        if (model.positioning.followCursor) {
+        if (model.followCursor) {
           window.removeEventListener('pointermove', handleWindowPointerMove)
         }
         if (rafIdRef.current !== undefined) cancelAnimationFrame(rafIdRef.current)
@@ -628,6 +661,7 @@ export default () => {
       }}
     >
       <div
+        ref={windowRef}
         className='overlay-model-viewer-window'
         style={{
           width: windowWidth,
@@ -636,6 +670,29 @@ export default () => {
           pointerEvents: 'none',
         }}
       >
+        {model.followCursor && model.followCursorCenterDebug ? (
+          (() => {
+            const { followCursorCenter } = model
+            const cx = (followCursorCenter?.x ?? (windowWidth / 2))
+            const cy = (followCursorCenter?.y ?? (windowHeight / 2))
+            const size = 6
+            return (
+              <div
+                className='overlay-model-viewer-follow-cursor-center-debug'
+                style={{
+                  position: 'absolute',
+                  left: cx - (size / 2),
+                  top: cy - (size / 2),
+                  width: size,
+                  height: size,
+                  backgroundColor: 'red',
+                  pointerEvents: 'none',
+                  zIndex: 1000,
+                }}
+              />
+            )
+          })()
+        ) : null}
         <div
           ref={containerRef}
           className='overlay-model-viewer'
