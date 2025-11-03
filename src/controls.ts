@@ -751,7 +751,7 @@ document.addEventListener('keydown', (e) => {
   capture: true,
 })
 
-const isFlying = () => (bot.entity as any).flying
+const isFlying = () => (bot as any).physicsEngineCtx?.state?.flying ?? false
 
 const startFlying = (sendAbilities = true) => {
   if (sendAbilities) {
@@ -783,8 +783,15 @@ const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
   } else {
     endFlying(sendAbilities)
   }
-  gameAdditionalState.isFlying = isFlying()
 }
+
+const physicsFlyingCheck = () => {
+  bot.on('physicsTick', () => {
+    gameAdditionalState.isFlying = isFlying()
+  })
+}
+
+customEvents.on('gameLoaded', physicsFlyingCheck)
 
 const selectItem = async () => {
   const block = bot.blockAtCursor(5)
