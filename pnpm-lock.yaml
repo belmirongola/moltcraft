@@ -121,8 +121,8 @@ importers:
         specifier: ^10.0.12
         version: 10.1.6
       flying-squid:
-        specifier: npm:@zardoy/flying-squid@^0.0.104
-        version: '@zardoy/flying-squid@0.0.104(encoding@0.1.13)'
+        specifier: npm:@zardoy/flying-squid@^0.0.118
+        version: '@zardoy/flying-squid@0.0.118(encoding@0.1.13)'
       framer-motion:
         specifier: ^12.9.2
         version: 12.9.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -155,7 +155,7 @@ importers:
         version: 2.0.4
       net-browserify:
         specifier: github:zardoy/prismarinejs-net-browserify
-        version: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/e754999ffdea67853bc9b10553b5e9908b40f618
+        version: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/18e867b7befe124a227dde33eeb197718f01222c
       node-gzip:
         specifier: ^1.1.2
         version: 1.1.2
@@ -3387,8 +3387,8 @@ packages:
     resolution: {integrity: sha512-6xm38yGVIa6mKm/DUCF2zFFJhERh/QWp1ufm4cNUvxsONBmfPg8uZ9pZBdOmF6qFGr/HlT6ABBkCSx/dlEtvWg==}
     engines: {node: '>=12 <14 || 14.2 - 14.9 || >14.10.0'}
 
-  '@zardoy/flying-squid@0.0.104':
-    resolution: {integrity: sha512-jGhQ7fn7o8UN+mUwZbt9674D37YLuBi+Au4TwKcopCA6huIQdHTFNl2e+0ZSTI5mnhN+NpyVoR3vmtH6L58vHQ==}
+  '@zardoy/flying-squid@0.0.118':
+    resolution: {integrity: sha512-FbpZfzuWaA8sUco5DNK7LfTVWk0KCHv4hb5G/7dmfzKTY93wM2M4iARBoyA2lAhLWt45bDEsHiEatODxNYykXw==}
     engines: {node: '>=8'}
     hasBin: true
 
@@ -6855,8 +6855,8 @@ packages:
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
 
-  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/e754999ffdea67853bc9b10553b5e9908b40f618:
-    resolution: {tarball: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/e754999ffdea67853bc9b10553b5e9908b40f618}
+  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/18e867b7befe124a227dde33eeb197718f01222c:
+    resolution: {tarball: https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/18e867b7befe124a227dde33eeb197718f01222c}
     version: 0.2.4
 
   nice-try@1.0.5:
@@ -13094,13 +13094,12 @@ snapshots:
       '@types/emscripten': 1.40.0
       tslib: 1.14.1
 
-  '@zardoy/flying-squid@0.0.104(encoding@0.1.13)':
+  '@zardoy/flying-squid@0.0.118(encoding@0.1.13)':
     dependencies:
       '@tootallnate/once': 2.0.0
       chalk: 5.4.1
       change-case: 4.1.2
       diamond-square: https://codeload.github.com/zardoy/diamond-square/tar.gz/cfaad2d1d5909fdfa63c8cc7bc05fb5e87782d71
-      emit-then: 2.0.0
       exit-hook: 2.2.1
       flatmap: 0.0.3
       long: 5.3.1
@@ -17586,7 +17585,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/e754999ffdea67853bc9b10553b5e9908b40f618:
+  net-browserify@https://codeload.github.com/zardoy/prismarinejs-net-browserify/tar.gz/18e867b7befe124a227dde33eeb197718f01222c:
     dependencies:
       body-parser: 1.20.3
       express: 4.21.2
