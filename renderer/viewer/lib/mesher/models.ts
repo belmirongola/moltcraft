@@ -647,7 +647,7 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
             // #endregion
 
             for (const element of model.elements ?? []) {
-              const ao = model.ao ?? true
+              const ao = model.ao ?? block.boundingBox !== 'empty'
               if (block.transparent) {
                 const pos = cursor.clone()
                 delayedRender.push(() => {
