@@ -6,7 +6,7 @@ export default () => {
   const { fullscreen } = useSnapshot(miscUiState)
   const { topRightTimeDisplay } = useSnapshot(options)
   const useBottom = (
-    // (process.env.NODE_ENV === 'development' && document.exitPointerLock) ||
+    (process.env.NODE_ENV === 'development' && document.exitPointerLock) ||
     (
       topRightTimeDisplay === 'always' ||
       (topRightTimeDisplay === 'only-fullscreen' && fullscreen)
