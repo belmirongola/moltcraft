@@ -311,7 +311,7 @@ export default () => {
                 ]
                 const action = await showOptionsModal('Report client issue', options)
                 if (!action) return
-                
+
                 switch (action) {
                   case 'GitHub (please use it if you can)':
                     openGithub(`/issues/new?body=${encodeURIComponent(body)}&title=${encodeURIComponent('[Bug Report] <describe your issue here>')}&labels=bug`)
