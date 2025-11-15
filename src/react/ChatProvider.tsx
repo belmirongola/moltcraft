@@ -17,7 +17,10 @@ export default () => {
   const isChatActive = useIsModalActive('chat')
   const lastMessageId = useRef(0)
   const lastPingTime = useRef(0)
-  const usingTouch = useSnapshot(miscUiState).currentTouch
+  const {
+    currentTouch: usingTouch,
+    disconnectedCleanup
+  } = useSnapshot(miscUiState)
   const {
     chatSelect,
     messagesLimit,
@@ -61,6 +64,8 @@ export default () => {
     })
   }, [])
 
+  const disabledReason = disconnectedCleanup ? 'You have been disconnected from the server on ' + new Date(disconnectedCleanup.date).toLocaleString() : undefined
+
   return <Chat
     chatVanillaRestrictions={chatVanillaRestrictions}
     debugChatScroll={debugChatScroll}
@@ -70,6 +75,7 @@ export default () => {
     messages={messages}
     opened={isChatActive}
     placeholder={forwardChat || !viewerConnection ? undefined : 'Chat forwarding is not enabled in the plugin settings'}
+    inputDisabled={disabledReason}
     currentPlayerName={chatPingExtension ? bot.username : undefined}
     spellCheckEnabled={chatSpellCheckEnabled}
     onSpellCheckEnabledChange={(enabled) => {

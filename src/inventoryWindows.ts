@@ -408,7 +408,7 @@ const upWindowItemsLocal = () => {
 let skipClosePacketSending = false
 const openWindow = (type: string | undefined, title: string | any = undefined) => {
   // if (activeModalStack.some(x => x.reactType?.includes?.('player_win:'))) {
-  if (activeModalStack.length) { // game is not in foreground, don't close current modal
+  if (activeModalStack.length && !miscUiState.disconnectedCleanup) { // game is not in foreground, don't close current modal
     if (type) {
       skipClosePacketSending = true
       hideCurrentModal()

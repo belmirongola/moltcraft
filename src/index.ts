@@ -50,6 +50,7 @@ import {
   miscUiState,
   showModal,
   gameAdditionalState,
+  maybeCleanupAfterDisconnect,
 } from './globalState'
 
 import { parseServerAddress } from './parseServerAddress'
@@ -168,6 +169,8 @@ export async function connect (connectOptions: ConnectOptions) {
     })
   }
 
+  maybeCleanupAfterDisconnect()
+
   appStatusState.showReconnect = false
   loadingTimerState.loading = true
   loadingTimerState.start = Date.now()
@@ -212,12 +215,13 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let ended = false
   let bot!: typeof __type_bot
+  let hadWorldLoaded = false
   let hadConnected = false
-  const destroyAll = (wasKicked = false) => {
+  const handleSessionEnd = (wasKicked = false) => {
     if (ended) return
     loadingTimerState.loading = false
     const { alwaysReconnect } = appQueryParams
-    if ((!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadConnected) || (alwaysReconnect)) {
+    if ((!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadWorldLoaded) || (alwaysReconnect)) {
       if (alwaysReconnect === 'quick' || alwaysReconnect === 'fast') {
         quickDevReconnect()
       } else {
@@ -227,26 +231,33 @@ export async function connect (connectOptions: ConnectOptions) {
     errorAbortController.abort()
     ended = true
     progress.end()
-    // dont reset viewer so we can still do debugging
-    localServer = window.localServer = window.server = undefined
-    gameAdditionalState.viewerConnection = false
+    bot.end()
+    // ensure mineflayer plugins receive this event for cleanup
+    bot.emit('end', '')
 
-    if (bot) {
-      bot.end()
-      // ensure mineflayer plugins receive this event for cleanup
-      bot.emit('end', '')
-      bot.removeAllListeners()
-      bot._client.removeAllListeners()
-      bot._client = {
-        //@ts-expect-error
-        write (packetName) {
-          console.warn('Tried to write packet', packetName, 'after bot was destroyed')
+    miscUiState.disconnectedCleanup = {
+      callback () {
+        appViewer.resetBackend(true)
+        localServer = window.localServer = window.server = undefined
+        gameAdditionalState.viewerConnection = false
+
+        if (bot) {
+          bot.removeAllListeners()
+          bot._client.removeAllListeners()
+          bot._client = {
+            //@ts-expect-error
+            write (packetName) {
+              console.warn('Tried to write packet', packetName, 'after bot was destroyed')
+            }
+          }
+          //@ts-expect-error
+          window.bot = bot = undefined
         }
-      }
-      //@ts-expect-error
-      window.bot = bot = undefined
+        cleanFs()
+      },
+      date: Date.now(),
+      wasConnected: hadConnected
     }
-    cleanFs()
   }
   const cleanFs = () => {
     if (singleplayer && !fsState.inMemorySave) {
@@ -277,7 +288,7 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus(`Error encountered. ${err}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
-    destroyAll()
+    handleSessionEnd()
   }
 
   // todo(hard): remove it!
@@ -678,7 +689,7 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     setLoadingScreenStatus(`The Minecraft server kicked you. Kick reason: ${kickReasonString}`, true, undefined, undefined, kickReasonFormatted)
     appStatusState.showReconnect = true
-    destroyAll(true)
+    handleSessionEnd(true)
   })
 
   const packetBeforePlay = (_, __, ___, fullBuffer) => {
@@ -705,13 +716,14 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus(`You have been disconnected from the server. End reason:\n${endReason}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
-    destroyAll()
+    handleSessionEnd()
     if (isCypress()) throw new Error(`disconnected: ${endReason}`)
   })
 
   onBotCreate()
 
   bot.once('login', () => {
+    hadConnected = true
     errorAbortController.abort()
     loadingTimerState.networkOnlyStart = 0
     progress.setMessage('Loading world')
@@ -871,7 +883,7 @@ export async function connect (connectOptions: ConnectOptions) {
     } catch (err) {
       handleError(err)
     }
-    hadConnected = true
+    hadWorldLoaded = true
   }
   // don't use spawn event, player can be dead
   bot.once(spawnEarlier ? 'forcedMove' : 'health', displayWorld)

@@ -141,7 +141,7 @@ const InGameComponent = ({ children }) => {
 let adapter: DrawerAdapterImpl
 
 const InGameUi = () => {
-  const { gameLoaded, showUI: showUIRaw } = useSnapshot(miscUiState)
+  const { gameLoaded, showUI: showUIRaw, disconnectedCleanup } = useSnapshot(miscUiState)
   const { disabledUiParts, displayBossBars, showMinimap } = useSnapshot(options)
   const modalsSnapshot = useSnapshot(activeModalStack)
   const hasModals = modalsSnapshot.length > 0
@@ -149,7 +149,9 @@ const InGameUi = () => {
   const displayFullmap = modalsSnapshot.some(modal => modal.reactType === 'full-map') || true
   // bot can't be used here
 
-  if (!gameLoaded || !bot || disabledUiParts.includes('*')) return
+  const gameWasLoaded = gameLoaded || disconnectedCleanup?.wasConnected
+
+  if (!gameWasLoaded || !bot || disabledUiParts.includes('*')) return
 
   if (!adapter) adapter = new DrawerAdapterImpl(bot.entity.position)
 

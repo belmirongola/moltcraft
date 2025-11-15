@@ -463,12 +463,17 @@ const customCommandsHandler = ({ command }) => {
 }
 contro.on('trigger', customCommandsHandler)
 
+const isCommandAvailableAfterDisconnect = (command: Command) => {
+  if (!miscUiState.disconnectedCleanup?.wasConnected) return false
+  return command === 'general.chat' || command === 'general.inventory'
+}
+
 contro.on('trigger', ({ command }) => {
   if (isCommandDisabled(command)) return
 
   const willContinue = !isGameActive(true)
   alwaysPressedHandledCommand(command)
-  if (willContinue) return
+  if (willContinue && !isCommandAvailableAfterDisconnect(command)) return
 
   const secondActionCommand = secondActionCommands[command]
   if (secondActionCommand) {
