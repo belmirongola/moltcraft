@@ -70,6 +70,7 @@ import FireRenderer from './react/FireRenderer'
 import MonacoEditor from './react/MonacoEditor'
 import OverlayModelViewer from './react/OverlayModelViewer'
 import CornerIndicatorStats from './react/CornerIndicatorStats'
+import AllSettingsEditor from './react/AllSettingsEditor'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -255,6 +256,7 @@ const App = () => {
             <ModsPage />
             <SelectOption />
             <CreditsAboutModal />
+            <AllSettingsEditor />
             <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>

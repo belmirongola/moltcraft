@@ -11,6 +11,7 @@ import Screen from './Screen'
 import { showOptionsModal } from './SelectOption'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import { reconnectReload } from './AppStatusProvider'
+import { showAllSettingsEditor } from './AllSettingsEditor'
 
 type GeneralItem<T extends string | number | boolean> = {
   id?: string
@@ -239,6 +240,7 @@ export default ({ items, title, backButtonAction }: Props) => {
       <div style={{ position: 'fixed', marginLeft: '-30px', display: 'flex', flexDirection: 'column', gap: 1, }}>
         <Button icon={pixelartIcons['close']} onClick={hideAllModals} style={{ color: '#ff5d5d', }} />
         <Button icon={pixelartIcons['chevron-left']} onClick={backButtonAction} style={{ color: 'yellow', }} />
+        <Button icon={pixelartIcons['search']} onClick={showAllSettingsEditor} style={{ color: '#4caf50', }} title="Search all settings" />
       </div>
 
       {items.map((element, i) => {
