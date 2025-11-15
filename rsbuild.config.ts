@@ -181,6 +181,29 @@ const appConfig = defineConfig({
             '/api': 'http://localhost:8080',
         },
     },
+    tools: {
+        rspack(config, { rspack }) {
+            // Configure chunk splitting for Three.js in main app
+            if (!config.optimization) {
+                config.optimization = {}
+            }
+            if (!config.optimization.splitChunks) {
+                config.optimization.splitChunks = {}
+            }
+            if (!config.optimization.splitChunks.cacheGroups) {
+                config.optimization.splitChunks.cacheGroups = {}
+            }
+
+            // Split Three.js into its own chunk
+            config.optimization.splitChunks.cacheGroups.threejs = {
+                test: /[\\/]node_modules[\\/]three[\\/]/,
+                name: 'threejs',
+                chunks: 'all',
+                priority: 20,
+                enforce: true
+            }
+        }
+    },
     plugins: [
         pluginTypedCSSModules(),
         {

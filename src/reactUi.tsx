@@ -70,6 +70,7 @@ import FireRenderer from './react/FireRenderer'
 import MonacoEditor from './react/MonacoEditor'
 import OverlayModelViewer from './react/OverlayModelViewer'
 import CornerIndicatorStats from './react/CornerIndicatorStats'
+import { ErrorCardTester } from './react/ErrorCard'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -254,6 +255,7 @@ const App = () => {
             <NotificationProvider />
             <ModsPage />
             <SelectOption />
+            <ErrorCardTester />
             <CreditsAboutModal />
             <NoModalFoundProvider />
           </RobustPortal>
