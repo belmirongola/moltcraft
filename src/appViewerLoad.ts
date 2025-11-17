@@ -18,17 +18,31 @@ const loadBackend = async () => {
   await appViewer.loadBackend(backend)
 }
 window.loadBackend = loadBackend
-if (process.env.SINGLE_FILE_BUILD_MODE) {
-  const unsub = subscribeKey(miscUiState, 'fsReady', () => {
-    if (miscUiState.fsReady) {
-      // don't do it earlier to load fs and display menu faster
+
+export const appLoadBackend = async () => {
+  if (process.env.SINGLE_FILE_BUILD_MODE) {
+    const unsub = subscribeKey(miscUiState, 'fsReady', () => {
+      if (miscUiState.fsReady) {
+        // don't do it earlier to load fs and display menu faster
+        void loadBackend()
+        unsub()
+      }
+    })
+  } else {
+    setTimeout(() => {
       void loadBackend()
-      unsub()
+    })
+  }
+
+  watchOptionsAfterViewerInit()
+
+  // reset backend when renderer changes
+  subscribeKey(options, 'activeRenderer', async () => {
+    if (appViewer.currentDisplay === 'world' && bot) {
+      appViewer.resetBackend(true)
+      await loadBackend()
+      void appViewer.startWithBot()
     }
-  })
-} else {
-  setTimeout(() => {
-    void loadBackend()
   })
 }
 
@@ -37,15 +51,3 @@ const animLoop = () => {
   requestAnimationFrame(animLoop)
 }
 requestAnimationFrame(animLoop)
-
-watchOptionsAfterViewerInit()
-
-// reset backend when renderer changes
-
-subscribeKey(options, 'activeRenderer', async () => {
-  if (appViewer.currentDisplay === 'world' && bot) {
-    appViewer.resetBackend(true)
-    await loadBackend()
-    void appViewer.startWithBot()
-  }
-})

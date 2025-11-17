@@ -35,6 +35,7 @@ export const defaultWorldRendererConfig = {
   // Debug settings
   showChunkBorders: false,
   enableDebugOverlay: false,
+  debugModelVariant: undefined as undefined | number[],
 
   // Performance settings
   mesherWorkers: 4,
@@ -582,7 +583,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       smoothLighting: this.worldRendererConfig.smoothLighting,
       outputFormat: this.outputFormat,
       // textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
-      debugModelVariant: undefined,
+      debugModelVariant: this.worldRendererConfig.debugModelVariant,
       clipWorldBelowY: this.worldRendererConfig.clipWorldBelowY,
       disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers,
       worldMinY: this.worldMinYRender,

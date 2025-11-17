@@ -35,6 +35,7 @@ export type AppQsParams = {
   // UI params
   modal?: string
   viewerConnect?: string
+  playground?: string
   // Map version param
   mapVersion?: string
   // Command params

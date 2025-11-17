@@ -93,18 +93,25 @@ import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { createFullScreenProgressReporter, createWrappedProgressReporter, ProgressReporter } from './core/progressReporter'
-import { appViewer } from './appViewer'
-import './appViewerLoad'
 import { registerOpenBenchmarkListener } from './benchmark'
 import { tryHandleBuiltinCommand } from './builtinCommands'
 import { loadingTimerState } from './react/LoadingTimer'
 import { loadPluginsIntoWorld } from './react/CreateWorldProvider'
 import { getCurrentProxy, getCurrentUsername } from './react/ServersList'
+import { isPlayground } from './playgroundIntegration'
+import { appLoadBackend } from './appViewerLoad'
 
 window.debug = debug
 window.beforeRenderFrame = []
 
 // ACTUAL CODE
+
+if (!isPlayground) {
+  void appLoadBackend()
+}
+if (isPlayground) {
+  void import('renderer/playground/playground')
+}
 
 void registerServiceWorker().then(() => {
   mainMenuState.serviceWorkerLoaded = true
@@ -1080,11 +1087,14 @@ const maybeEnterGame = () => {
   void possiblyHandleStateVariable()
 }
 
-try {
-  maybeEnterGame()
-} catch (err) {
-  console.error(err)
-  alert(`Something went wrong: ${err}`)
+// Skip game connection logic in playground mode
+if (!isPlayground) {
+  try {
+    maybeEnterGame()
+  } catch (err) {
+    console.error(err)
+    alert(`Something went wrong: ${err}`)
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -1095,5 +1105,7 @@ if (initialLoader) {
 }
 window.pageLoaded = true
 
-appViewer.waitBackendLoadPromises.push(appStartup())
+if (!isPlayground) {
+  appViewer.waitBackendLoadPromises.push(appStartup())
+}
 registerOpenBenchmarkListener()

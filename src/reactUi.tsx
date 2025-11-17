@@ -71,6 +71,7 @@ import MonacoEditor from './react/MonacoEditor'
 import OverlayModelViewer from './react/OverlayModelViewer'
 import CornerIndicatorStats from './react/CornerIndicatorStats'
 import AllSettingsEditor from './react/AllSettingsEditor'
+import { isPlayground, urlParams } from './playgroundIntegration'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -289,7 +290,9 @@ const PerComponentErrorBoundary = ({ children }) => {
   </ErrorBoundary>)
 }
 
-if (!new URLSearchParams(window.location.search).get('no-ui')) {
+const noUi = urlParams.get('no-ui') === 'true' || isPlayground
+
+if (!noUi) {
   renderToDom(<App />, {
     strictMode: false,
     selector: '#react-root',
