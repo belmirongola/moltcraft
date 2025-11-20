@@ -98,6 +98,7 @@ import { tryHandleBuiltinCommand } from './builtinCommands'
 import { loadingTimerState } from './react/LoadingTimer'
 import { loadPluginsIntoWorld } from './react/CreateWorldProvider'
 import { getCurrentProxy, getCurrentUsername } from './react/ServersList'
+import { versionToNumber } from 'mc-assets/dist/utils'
 import { isPlayground } from './playgroundIntegration'
 import { appLoadBackend } from './appViewerLoad'
 
@@ -395,6 +396,19 @@ export async function connect (connectOptions: ConnectOptions) {
 
     let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
 
+    // Check for forbidden versions (>= 1.21.7) due to critical world display issues
+    const checkForbiddenVersion = (version: string | undefined) => {
+      if (!version) return
+      const FORBIDDEN_VERSION_THRESHOLD = '1.21.7'
+      const versionNum = versionToNumber(version)
+      const thresholdNum = versionToNumber(FORBIDDEN_VERSION_THRESHOLD)
+      if (versionNum >= thresholdNum) {
+        throw new UserError(`Version ${version} is not supported due to critical world display issues. Please use version 1.21.6 or earlier.`)
+      }
+    }
+
+    checkForbiddenVersion(finalVersion)
+
     if (connectOptions.worldStateFileContents) {
       try {
         localReplaySession = startLocalReplayServer(connectOptions.worldStateFileContents)
@@ -403,6 +417,7 @@ export async function connect (connectOptions: ConnectOptions) {
         throw new UserError(`Failed to start local replay server: ${err}`)
       }
       finalVersion = localReplaySession.version
+      checkForbiddenVersion(finalVersion)
     }
 
     if (singleplayer) {
@@ -465,6 +480,7 @@ export async function connect (connectOptions: ConnectOptions) {
         const autoVersionSelect = await getServerInfo(server.host, server.port ? Number(server.port) : undefined, versionAutoSelect)
         wrapped.end()
         finalVersion = autoVersionSelect.version
+        checkForbiddenVersion(finalVersion)
       }
       initialLoadingText = `Connecting to server ${server.host}:${server.port ?? 25_565} with version ${finalVersion}`
     } else if (connectOptions.viewerWsConnect) {
@@ -513,6 +529,7 @@ export async function connect (connectOptions: ConnectOptions) {
       console.log('Latency:', Date.now() - time, 'ms')
       // const version = '1.21.1'
       finalVersion = version
+      checkForbiddenVersion(finalVersion)
       await downloadMcData(version)
       setLoadingScreenStatus(`Connecting to WebSocket server ${connectOptions.viewerWsConnect}`)
       clientDataStream = (await getWsProtocolStream(connectOptions.viewerWsConnect)).clientDuplex
