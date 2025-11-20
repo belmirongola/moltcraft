@@ -323,8 +323,6 @@ export default () => {
                   case 'Try Beta Version': {
                     if (currentHost === 'mcraft.fun') {
                       window.location.href = 'https://s.mcraft.fun'
-                    } else if (currentHost === 'ru.mcraft.fun') {
-                      window.location.href = 'https://s.pcm.gg'
                     }
                     break
                   }

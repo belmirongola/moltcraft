@@ -14,7 +14,10 @@ export const playgroundGlobalUiState = proxy({
   actions: {} as Record<string, () => void>,
 })
 
-renderToDom(<Playground />)
+renderToDom(<Playground />, {
+  strictMode: false,
+  selector: '#react-root',
+})
 
 function Playground () {
   useEffect(() => {

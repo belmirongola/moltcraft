@@ -1,6 +1,6 @@
 import { proxy, useSnapshot } from 'valtio'
 import { useEffect, useRef, useState } from 'react'
-import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, miscUiState } from '../globalState'
+import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, maybeCleanupAfterDisconnect, miscUiState } from '../globalState'
 import { guessProblem } from '../errorLoadingScreenHelpers'
 import type { ConnectOptions } from '../connect'
 import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
@@ -153,6 +153,8 @@ export default () => {
   let backAction = undefined as (() => void) | undefined
   if (maybeRecoverable && (!lockConnect || !wasDisconnected)) {
     backAction = () => {
+      maybeCleanupAfterDisconnect()
+
       if (!wasDisconnected) {
         hideModal(undefined, undefined, { force: true })
         return

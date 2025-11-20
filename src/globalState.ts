@@ -133,8 +133,16 @@ export const miscUiState = proxy({
   appConfig: null as AppConfig | null,
   displaySearchInput: false,
   displayFullmap: false,
-  fullscreen: false
+  fullscreen: false,
+  disconnectedCleanup: null as { callback: () => void, date: number, wasConnected: boolean } | null
 })
+
+export const maybeCleanupAfterDisconnect = () => {
+  if (miscUiState.disconnectedCleanup) {
+    miscUiState.disconnectedCleanup.callback()
+    miscUiState.disconnectedCleanup = null
+  }
+}
 
 window.miscUiState = miscUiState
 

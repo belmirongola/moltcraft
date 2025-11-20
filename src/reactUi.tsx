@@ -70,6 +70,8 @@ import FireRenderer from './react/FireRenderer'
 import MonacoEditor from './react/MonacoEditor'
 import OverlayModelViewer from './react/OverlayModelViewer'
 import CornerIndicatorStats from './react/CornerIndicatorStats'
+import AllSettingsEditor from './react/AllSettingsEditor'
+import { isPlayground, urlParams } from './playgroundIntegration'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -141,7 +143,7 @@ const InGameComponent = ({ children }) => {
 let adapter: DrawerAdapterImpl
 
 const InGameUi = () => {
-  const { gameLoaded, showUI: showUIRaw } = useSnapshot(miscUiState)
+  const { gameLoaded, showUI: showUIRaw, disconnectedCleanup } = useSnapshot(miscUiState)
   const { disabledUiParts, displayBossBars, showMinimap } = useSnapshot(options)
   const modalsSnapshot = useSnapshot(activeModalStack)
   const hasModals = modalsSnapshot.length > 0
@@ -149,7 +151,9 @@ const InGameUi = () => {
   const displayFullmap = modalsSnapshot.some(modal => modal.reactType === 'full-map') || true
   // bot can't be used here
 
-  if (!gameLoaded || !bot || disabledUiParts.includes('*')) return
+  const gameWasLoaded = gameLoaded || disconnectedCleanup?.wasConnected
+
+  if (!gameWasLoaded || !bot || disabledUiParts.includes('*')) return
 
   if (!adapter) adapter = new DrawerAdapterImpl(bot.entity.position)
 
@@ -253,6 +257,7 @@ const App = () => {
             <ModsPage />
             <SelectOption />
             <CreditsAboutModal />
+            <AllSettingsEditor />
             <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
@@ -285,7 +290,9 @@ const PerComponentErrorBoundary = ({ children }) => {
   </ErrorBoundary>)
 }
 
-if (!new URLSearchParams(window.location.search).get('no-ui')) {
+const noUi = urlParams.get('no-ui') === 'true' || isPlayground
+
+if (!noUi) {
   renderToDom(<App />, {
     strictMode: false,
     selector: '#react-root',

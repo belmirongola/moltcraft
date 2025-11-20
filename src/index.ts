@@ -50,6 +50,7 @@ import {
   miscUiState,
   showModal,
   gameAdditionalState,
+  maybeCleanupAfterDisconnect,
 } from './globalState'
 
 import { parseServerAddress } from './parseServerAddress'
@@ -92,18 +93,26 @@ import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { createFullScreenProgressReporter, createWrappedProgressReporter, ProgressReporter } from './core/progressReporter'
-import { appViewer } from './appViewer'
-import './appViewerLoad'
 import { registerOpenBenchmarkListener } from './benchmark'
 import { tryHandleBuiltinCommand } from './builtinCommands'
 import { loadingTimerState } from './react/LoadingTimer'
 import { loadPluginsIntoWorld } from './react/CreateWorldProvider'
 import { getCurrentProxy, getCurrentUsername } from './react/ServersList'
+import { versionToNumber } from 'mc-assets/dist/utils'
+import { isPlayground } from './playgroundIntegration'
+import { appLoadBackend } from './appViewerLoad'
 
 window.debug = debug
 window.beforeRenderFrame = []
 
 // ACTUAL CODE
+
+if (!isPlayground) {
+  void appLoadBackend()
+}
+if (isPlayground) {
+  void import('renderer/playground/playground')
+}
 
 void registerServiceWorker().then(() => {
   mainMenuState.serviceWorkerLoaded = true
@@ -168,6 +177,8 @@ export async function connect (connectOptions: ConnectOptions) {
     })
   }
 
+  maybeCleanupAfterDisconnect()
+
   appStatusState.showReconnect = false
   loadingTimerState.loading = true
   loadingTimerState.start = Date.now()
@@ -212,12 +223,13 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let ended = false
   let bot!: typeof __type_bot
+  let hadWorldLoaded = false
   let hadConnected = false
-  const destroyAll = (wasKicked = false) => {
+  const handleSessionEnd = (wasKicked = false) => {
     if (ended) return
     loadingTimerState.loading = false
     const { alwaysReconnect } = appQueryParams
-    if ((!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadConnected) || (alwaysReconnect)) {
+    if ((!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadWorldLoaded) || (alwaysReconnect)) {
       if (alwaysReconnect === 'quick' || alwaysReconnect === 'fast') {
         quickDevReconnect()
       } else {
@@ -227,26 +239,33 @@ export async function connect (connectOptions: ConnectOptions) {
     errorAbortController.abort()
     ended = true
     progress.end()
-    // dont reset viewer so we can still do debugging
-    localServer = window.localServer = window.server = undefined
-    gameAdditionalState.viewerConnection = false
+    bot.end()
+    // ensure mineflayer plugins receive this event for cleanup
+    bot.emit('end', '')
 
-    if (bot) {
-      bot.end()
-      // ensure mineflayer plugins receive this event for cleanup
-      bot.emit('end', '')
-      bot.removeAllListeners()
-      bot._client.removeAllListeners()
-      bot._client = {
-        //@ts-expect-error
-        write (packetName) {
-          console.warn('Tried to write packet', packetName, 'after bot was destroyed')
+    miscUiState.disconnectedCleanup = {
+      callback () {
+        appViewer.resetBackend(true)
+        localServer = window.localServer = window.server = undefined
+        gameAdditionalState.viewerConnection = false
+
+        if (bot) {
+          bot.removeAllListeners()
+          bot._client.removeAllListeners()
+          bot._client = {
+            //@ts-expect-error
+            write (packetName) {
+              console.warn('Tried to write packet', packetName, 'after bot was destroyed')
+            }
+          }
+          //@ts-expect-error
+          window.bot = bot = undefined
         }
-      }
-      //@ts-expect-error
-      window.bot = bot = undefined
+        cleanFs()
+      },
+      date: Date.now(),
+      wasConnected: hadConnected
     }
-    cleanFs()
   }
   const cleanFs = () => {
     if (singleplayer && !fsState.inMemorySave) {
@@ -277,7 +296,7 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus(`Error encountered. ${err}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
-    destroyAll()
+    handleSessionEnd()
   }
 
   // todo(hard): remove it!
@@ -377,6 +396,19 @@ export async function connect (connectOptions: ConnectOptions) {
 
     let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
 
+    // Check for forbidden versions (>= 1.21.7) due to critical world display issues
+    const checkForbiddenVersion = (version: string | undefined) => {
+      if (!version) return
+      const FORBIDDEN_VERSION_THRESHOLD = '1.21.7'
+      const versionNum = versionToNumber(version)
+      const thresholdNum = versionToNumber(FORBIDDEN_VERSION_THRESHOLD)
+      if (versionNum >= thresholdNum) {
+        throw new UserError(`Version ${version} is not supported due to critical world display issues. Please use version 1.21.6 or earlier.`)
+      }
+    }
+
+    checkForbiddenVersion(finalVersion)
+
     if (connectOptions.worldStateFileContents) {
       try {
         localReplaySession = startLocalReplayServer(connectOptions.worldStateFileContents)
@@ -385,6 +417,7 @@ export async function connect (connectOptions: ConnectOptions) {
         throw new UserError(`Failed to start local replay server: ${err}`)
       }
       finalVersion = localReplaySession.version
+      checkForbiddenVersion(finalVersion)
     }
 
     if (singleplayer) {
@@ -447,6 +480,7 @@ export async function connect (connectOptions: ConnectOptions) {
         const autoVersionSelect = await getServerInfo(server.host, server.port ? Number(server.port) : undefined, versionAutoSelect)
         wrapped.end()
         finalVersion = autoVersionSelect.version
+        checkForbiddenVersion(finalVersion)
       }
       initialLoadingText = `Connecting to server ${server.host}:${server.port ?? 25_565} with version ${finalVersion}`
     } else if (connectOptions.viewerWsConnect) {
@@ -495,6 +529,7 @@ export async function connect (connectOptions: ConnectOptions) {
       console.log('Latency:', Date.now() - time, 'ms')
       // const version = '1.21.1'
       finalVersion = version
+      checkForbiddenVersion(finalVersion)
       await downloadMcData(version)
       setLoadingScreenStatus(`Connecting to WebSocket server ${connectOptions.viewerWsConnect}`)
       clientDataStream = (await getWsProtocolStream(connectOptions.viewerWsConnect)).clientDuplex
@@ -678,7 +713,7 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     setLoadingScreenStatus(`The Minecraft server kicked you. Kick reason: ${kickReasonString}`, true, undefined, undefined, kickReasonFormatted)
     appStatusState.showReconnect = true
-    destroyAll(true)
+    handleSessionEnd(true)
   })
 
   const packetBeforePlay = (_, __, ___, fullBuffer) => {
@@ -705,13 +740,14 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus(`You have been disconnected from the server. End reason:\n${endReason}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
-    destroyAll()
+    handleSessionEnd()
     if (isCypress()) throw new Error(`disconnected: ${endReason}`)
   })
 
   onBotCreate()
 
   bot.once('login', () => {
+    hadConnected = true
     errorAbortController.abort()
     loadingTimerState.networkOnlyStart = 0
     progress.setMessage('Loading world')
@@ -871,7 +907,7 @@ export async function connect (connectOptions: ConnectOptions) {
     } catch (err) {
       handleError(err)
     }
-    hadConnected = true
+    hadWorldLoaded = true
   }
   // don't use spawn event, player can be dead
   bot.once(spawnEarlier ? 'forcedMove' : 'health', displayWorld)
@@ -1068,11 +1104,14 @@ const maybeEnterGame = () => {
   void possiblyHandleStateVariable()
 }
 
-try {
-  maybeEnterGame()
-} catch (err) {
-  console.error(err)
-  alert(`Something went wrong: ${err}`)
+// Skip game connection logic in playground mode
+if (!isPlayground) {
+  try {
+    maybeEnterGame()
+  } catch (err) {
+    console.error(err)
+    alert(`Something went wrong: ${err}`)
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -1083,5 +1122,7 @@ if (initialLoader) {
 }
 window.pageLoaded = true
 
-appViewer.waitBackendLoadPromises.push(appStartup())
+if (!isPlayground) {
+  appViewer.waitBackendLoadPromises.push(appStartup())
+}
 registerOpenBenchmarkListener()
