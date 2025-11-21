@@ -337,9 +337,10 @@ const implementedContainersGuiMap = {
   'minecraft:generic_3x3': 'DropDispenseWin',
   'minecraft:furnace': 'FurnaceWin',
   'minecraft:smoker': 'FurnaceWin',
-  'minecraft:shulker_box': 'ChestWin',
   'minecraft:blast_furnace': 'FurnaceWin',
+  'minecraft:shulker_box': 'ChestWin',
   'minecraft:crafting': 'CraftingWin',
+  'minecraft:smithing': 'will_be_patched_in_openWindow',
   'minecraft:crafting3x3': 'CraftingWin', // todo different result slot
   'minecraft:anvil': 'AnvilWin',
   // enchant
@@ -408,6 +409,9 @@ const upWindowItemsLocal = () => {
 
 let skipClosePacketSending = false
 const openWindow = (type: string | undefined, title: string | any = undefined) => {
+  // patch implementedContainersGuiMap
+  implementedContainersGuiMap['minecraft:smithing'] = versionToNumber(bot.version) < versionToNumber('1.20') ? 'SmithingTableLegacyWin' : 'SmithingTableWin'
+
   // if (activeModalStack.some(x => x.reactType?.includes?.('player_win:'))) {
   if (activeModalStack.length && !miscUiState.disconnectedCleanup) { // game is not in foreground, don't close current modal
     if (type) {
@@ -421,19 +425,6 @@ const openWindow = (type: string | undefined, title: string | any = undefined) =
   lastWindowType = type ?? null
   showModal({
     reactType: `player_win:${type}`,
-  })
-  onModalClose(() => {
-    // might be already closed (event fired)
-    if (type !== undefined && bot.currentWindow && !skipClosePacketSending) bot.currentWindow['close']()
-    lastWindow.destroy()
-    lastWindow = null as any
-    lastWindowType = undefined
-    window.inventory = null
-    miscUiState.displaySearchInput = false
-    destroyFn()
-    skipClosePacketSending = false
-
-    modelViewerState.model = undefined
   })
   if (type === undefined) {
     showInventoryPlayer()
@@ -470,6 +461,20 @@ const openWindow = (type: string | undefined, title: string | any = undefined) =
   }
 
   lastWindow = inv
+
+  onModalClose(() => {
+    // might be already closed (event fired)
+    if (type !== undefined && bot.currentWindow && !skipClosePacketSending) bot.currentWindow['close']()
+    lastWindow.destroy()
+    lastWindow = null as any
+    lastWindowType = undefined
+    window.inventory = null
+    miscUiState.displaySearchInput = false
+    destroyFn()
+    skipClosePacketSending = false
+
+    modelViewerState.model = undefined
+  })
 
   upWindowItemsLocal()
 
