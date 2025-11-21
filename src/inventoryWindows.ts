@@ -331,6 +331,7 @@ const implementedContainersGuiMap = {
   'minecraft:generic_9x4': 'Generic95Win',
   'minecraft:generic_9x5': 'Generic95Win',
   // hopper
+  'minecraft:hopper': 'HopperWin',
   'minecraft:generic_5x1': 'HopperWin',
   'minecraft:generic_9x6': 'LargeChestWin',
   'minecraft:generic_3x3': 'DropDispenseWin',

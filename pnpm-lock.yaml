@@ -347,8 +347,8 @@ importers:
         specifier: github:zardoy/mineflayer#gen-the-master
         version: https://codeload.github.com/zardoy/mineflayer/tar.gz/dd3b1ff38506d6f72d90e8444186e4e75fe82659(encoding@0.1.13)
       mineflayer-mouse:
-        specifier: ^0.1.21
-        version: 0.1.21
+        specifier: ^0.1.23
+        version: 0.1.23
       npm-run-all:
         specifier: ^4.1.5
         version: 4.1.5
@@ -6684,8 +6684,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
 
-  mineflayer-mouse@0.1.21:
-    resolution: {integrity: sha512-1XTVuw3twIrEcqQ1QRSB8NcStIUEZ+tbxiAG6rOrN/9M4thhtlS5PTJzFdmdrcYgWEBLvuOdJszaKE5zFfiXhg==}
+  mineflayer-mouse@0.1.23:
+    resolution: {integrity: sha512-zUvqvxgEmENiP54PRJOs0yl0ljssLMsZG7W3qMLTmROJ3MwDsk+omVAZFrvrvDdz/0vS2hxrPvSSFXkYZ04bdQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/dd3b1ff38506d6f72d90e8444186e4e75fe82659:
@@ -14961,7 +14961,7 @@ snapshots:
 
   esbuild-register@3.6.0(esbuild@0.18.20):
     dependencies:
-      debug: 4.4.0(supports-color@8.1.1)
+      debug: 4.4.1
       esbuild: 0.18.20
     transitivePeerDependencies:
       - supports-color
@@ -17370,7 +17370,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-mouse@0.1.21:
+  mineflayer-mouse@0.1.23:
     dependencies:
       change-case: 5.4.4
       debug: 4.4.1
