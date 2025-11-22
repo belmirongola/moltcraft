@@ -342,13 +342,13 @@ importers:
         version: 0.2.62
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
-        version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/89c33d396f3fde4804c71f4be3c203ade1833b41(@types/react@18.3.18)(react@18.3.1)
+        version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/94b6ce6ef2a09aba0f954324bd041df8386a0df7(@types/react@18.3.18)(react@18.3.1)
       mineflayer:
         specifier: github:zardoy/mineflayer#gen-the-master
         version: https://codeload.github.com/zardoy/mineflayer/tar.gz/dd3b1ff38506d6f72d90e8444186e4e75fe82659(encoding@0.1.13)
       mineflayer-mouse:
-        specifier: ^0.1.21
-        version: 0.1.21
+        specifier: ^0.1.23
+        version: 0.1.23
       npm-run-all:
         specifier: ^4.1.5
         version: 4.1.5
@@ -6664,8 +6664,8 @@ packages:
   minecraft-folder-path@1.2.0:
     resolution: {integrity: sha512-qaUSbKWoOsH9brn0JQuBhxNAzTDMwrOXorwuRxdJKKKDYvZhtml+6GVCUrY5HRiEsieBEjCUnhVpDuQiKsiFaw==}
 
-  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/89c33d396f3fde4804c71f4be3c203ade1833b41:
-    resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/89c33d396f3fde4804c71f4be3c203ade1833b41}
+  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/94b6ce6ef2a09aba0f954324bd041df8386a0df7:
+    resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/94b6ce6ef2a09aba0f954324bd041df8386a0df7}
     version: 1.0.1
 
   minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/bf89f7e86526c54d8c43f555d8f6dfa4948fd2d9:
@@ -6684,8 +6684,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824}
     version: 1.2.0
 
-  mineflayer-mouse@0.1.21:
-    resolution: {integrity: sha512-1XTVuw3twIrEcqQ1QRSB8NcStIUEZ+tbxiAG6rOrN/9M4thhtlS5PTJzFdmdrcYgWEBLvuOdJszaKE5zFfiXhg==}
+  mineflayer-mouse@0.1.23:
+    resolution: {integrity: sha512-zUvqvxgEmENiP54PRJOs0yl0ljssLMsZG7W3qMLTmROJ3MwDsk+omVAZFrvrvDdz/0vS2hxrPvSSFXkYZ04bdQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/dd3b1ff38506d6f72d90e8444186e4e75fe82659:
@@ -14961,7 +14961,7 @@ snapshots:
 
   esbuild-register@3.6.0(esbuild@0.18.20):
     dependencies:
-      debug: 4.4.0(supports-color@8.1.1)
+      debug: 4.4.1
       esbuild: 0.18.20
     transitivePeerDependencies:
       - supports-color
@@ -17305,7 +17305,7 @@ snapshots:
 
   minecraft-folder-path@1.2.0: {}
 
-  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/89c33d396f3fde4804c71f4be3c203ade1833b41(@types/react@18.3.18)(react@18.3.1):
+  minecraft-inventory-gui@https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/94b6ce6ef2a09aba0f954324bd041df8386a0df7(@types/react@18.3.18)(react@18.3.1):
     dependencies:
       valtio: 1.13.2(@types/react@18.3.18)(react@18.3.1)
     transitivePeerDependencies:
@@ -17370,7 +17370,7 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-mouse@0.1.21:
+  mineflayer-mouse@0.1.23:
     dependencies:
       change-case: 5.4.4
       debug: 4.4.1
