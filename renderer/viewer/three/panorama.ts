@@ -16,12 +16,12 @@ import { DocumentRenderer } from './documentRenderer'
 import { PANORAMA_VERSION } from './panoramaShared'
 
 const panoramaFiles = [
-  'panorama_3.png', // right (+x)
-  'panorama_1.png', // left (-x)
-  'panorama_4.png', // top (+y)
-  'panorama_5.png', // bottom (-y)
-  'panorama_0.png', // front (+z)
-  'panorama_2.png', // back (-z)
+  'panorama_3.webp', // right (+x)
+  'panorama_1.webp', // left (-x)
+  'panorama_4.webp', // top (+y)
+  'panorama_5.webp', // bottom (-y)
+  'panorama_0.webp', // front (+z)
+  'panorama_2.webp', // back (-z)
 ]
 
 export class PanoramaRenderer {
@@ -74,7 +74,7 @@ export class PanoramaRenderer {
   }
 
   async debugImageInFrontOfCamera () {
-    const image = await loadThreeJsTextureFromUrl(join('background', 'panorama_0.png'))
+    const image = await loadThreeJsTextureFromUrl(join('background', 'panorama_0.webp'))
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshBasicMaterial({ map: image }))
     mesh.position.set(0, 0, -500)
     mesh.rotation.set(0, 0, 0)

@@ -190,7 +190,7 @@ const getImageSrc = (path): string | HTMLImageElement | ImageBitmap => {
     case 'items': return appViewer.resourcesManager.itemsAtlasParser.latestImage
     case 'gui': return appViewer.resourcesManager.currentResources!.guiAtlas!.image
     case 'gui/container/dispenser': return appReplacableResources.latest_gui_container_dispenser.content
-    case 'gui/container/furnace': return appReplacableResources.latest_gui_container_furnace.content
+    case 'gui/container/furnace': return appReplacableResources.furnace_gui_texture.content
     case 'gui/container/crafting_table': return appReplacableResources.latest_gui_container_crafting_table.content
     case 'gui/container/shulker_box': return appReplacableResources.latest_gui_container_shulker_box.content
     case 'gui/container/generic_54': return appReplacableResources.latest_gui_container_generic_54.content
@@ -201,6 +201,10 @@ const getImageSrc = (path): string | HTMLImageElement | ImageBitmap => {
     case 'gui/container/enchanting_table': return appReplacableResources.latest_gui_container_enchanting_table.content
     case 'gui/container/anvil': return appReplacableResources.latest_gui_container_anvil.content
     case 'gui/container/beacon': return appReplacableResources.latest_gui_container_beacon.content
+    case 'gui/container/smithing':
+      return versionToNumber(bot.version) < versionToNumber('1.20')
+        ? appReplacableResources._1_19_4_gui_container_smithing.content
+        : appReplacableResources.latest_gui_container_smithing.content
     case 'gui/widgets': return appReplacableResources.other_textures_latest_gui_widgets.content
   }
   // empty texture
