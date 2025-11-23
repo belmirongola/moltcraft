@@ -158,3 +158,46 @@ function getTouchControlsSize () {
     sneak: 36,
   }
 }
+
+/**
+ * Map of settings that are safe to change from the server.
+ * These are rendering/display/input preferences that don't affect critical client functionality.
+ * Settings like modsSupport, customChannels, or security-related options are excluded.
+ */
+export const serverSafeSettings: Partial<Record<keyof typeof defaultOptions, true>> = {
+  renderEars: true,
+  viewBobbing: true,
+  mouseRawInput: true,
+  preciseMouseInput: true,
+  showHand: true,
+  fov: true,
+  defaultPerspective: true,
+  volume: true,
+  musicVolume: true,
+  enableMusic: true,
+  smoothLighting: true,
+  starfieldRendering: true,
+  defaultSkybox: true,
+  dayCycleAndLighting: true,
+  showChunkBorders: true,
+  renderDebug: true,
+  highlightBlockColor: true,
+  displayBossBars: true,
+  showMinimap: true,
+  autoJump: true,
+  chatVanillaRestrictions: true,
+  chatPingExtension: true,
+  chatSpellCheckEnabled: true,
+  renderEntities: true,
+  displayRecordButton: true,
+  topRightTimeDisplay: true,
+  guiScale: true,
+  chatWidth: true,
+  chatHeight: true,
+  chatScale: true,
+  loadPlayerSkins: true,
+  disableBlockEntityTextures: true,
+  neighborChunkUpdates: true,
+  newVersionsLighting: true,
+  showCursorBlockInSpectator: true,
+}
