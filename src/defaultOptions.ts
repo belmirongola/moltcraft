@@ -74,7 +74,7 @@ export const defaultOptions = {
   topRightTimeDisplay: 'only-fullscreen' as 'only-fullscreen' | 'always' | 'never',
 
   clipWorldBelowY: undefined as undefined | number, // will be removed
-  disableSignsMapsSupport: false,
+  disableBlockEntityTextures: false,
   singleplayerAutoSave: false,
   showChunkBorders: false, // todo rename option
   frameLimit: false as number | false,
