@@ -112,6 +112,9 @@ export const guiOptionsScheme: {
       },
       rendererPerfDebugOverlay: {
         text: 'Performance Debug',
+      },
+      disableBlockEntityTextures: {
+        tooltip: 'Disables rendering of textures for block entities like signs, banners, heads, and maps',
       }
     },
     {

@@ -585,7 +585,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       // textureSize: this.resourcesManager.currentResources!.blocksAtlasParser.atlas.latest.width,
       debugModelVariant: this.worldRendererConfig.debugModelVariant,
       clipWorldBelowY: this.worldRendererConfig.clipWorldBelowY,
-      disableSignsMapsSupport: !this.worldRendererConfig.extraBlockRenderers,
+      disableBlockEntityTextures: !this.worldRendererConfig.extraBlockRenderers,
       worldMinY: this.worldMinYRender,
       worldMaxY: this.worldMinYRender + this.worldSizeParams.worldHeight,
     }

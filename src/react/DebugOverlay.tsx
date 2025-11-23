@@ -224,6 +224,18 @@ export default () => {
       {cursorBlock ? (
         <p>Looking at: {cursorBlock.position.x} {cursorBlock.position.y} {cursorBlock.position.z}</p>
       ) : ''}
+      {cursorBlock?.blockEntity && <p>Block Entity Data:</p>}
+      {cursorBlock?.blockEntity && (<>
+        <div className={styles.empty} />
+        {Object.entries(cursorBlock.blockEntity).map(([key, value]: [string, any]) => {
+          const stringified = JSON.stringify(value)
+          return (
+            <p key={key}>
+              {key}: {stringified.length}
+            </p>
+          )
+        })}
+      </>)}
       {cursorEntity ? (<>
         <div className={styles.empty} />
         <p>E: {cursorEntity.name}</p>

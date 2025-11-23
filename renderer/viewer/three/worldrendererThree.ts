@@ -12,6 +12,7 @@ import { addNewStat } from '../lib/ui/newStats'
 import { MesherGeometryOutput } from '../lib/mesher/shared'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { setBlockPosition } from '../lib/mesher/standaloneRenderer'
+import { getBannerTexture, createBannerMesh, releaseBannerTexture } from './bannerRenderer'
 import { getMyHand } from './hand'
 import HoldingBlock from './holdingBlock'
 import { getMesh } from './entity/EntityMesh'
@@ -384,6 +385,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (data.type !== 'geometry') return
     let object: THREE.Object3D = this.sectionObjects[data.key]
     if (object) {
+      // Cleanup banner textures before disposing
+      object.traverse((child) => {
+        if ((child as any).bannerTexture) {
+          releaseBannerTexture((child as any).bannerTexture)
+        }
+      })
       this.scene.remove(object)
       disposeObject(object)
       delete this.sectionObjects[data.key]
@@ -439,6 +446,17 @@ export class WorldRendererThree extends WorldRendererCommon {
         const head = this.renderHead(new Vec3(+x, +y, +z), rotation, isWall, nbt.simplify(headBlockEntity))
         if (!head) continue
         object.add(head)
+      }
+    }
+    if (Object.keys(data.geometry.banners).length) {
+      for (const [posKey, { isWall, rotation, blockName }] of Object.entries(data.geometry.banners)) {
+        const bannerBlockEntity = this.blockEntities[posKey]
+        if (!bannerBlockEntity) continue
+        const [x, y, z] = posKey.split(',')
+        const bannerTexture = getBannerTexture(this, blockName, nbt.simplify(bannerBlockEntity))
+        if (!bannerTexture) continue
+        const banner = createBannerMesh(new Vec3(+x, +y, +z), rotation, isWall, bannerTexture)
+        object.add(banner)
       }
     }
     this.sectionObjects[data.key] = object
@@ -960,6 +978,12 @@ export class WorldRendererThree extends WorldRendererCommon {
       const key = `${x},${y},${z}`
       const mesh = this.sectionObjects[key]
       if (mesh) {
+        // Cleanup banner textures before disposing
+        mesh.traverse((child) => {
+          if ((child as any).bannerTexture) {
+            releaseBannerTexture((child as any).bannerTexture)
+          }
+        })
         this.scene.remove(mesh)
         disposeObject(mesh)
       }
