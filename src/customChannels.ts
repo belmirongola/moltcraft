@@ -4,6 +4,7 @@ import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options } from './optionsStorage'
 import { jeiCustomCategories } from './inventoryWindows'
 import { registerIdeChannels } from './core/ideChannels'
+import { serverSafeSettings } from './defaultOptions'
 
 export default () => {
   customEvents.on('mineflayerBotCreated', async () => {
@@ -17,6 +18,7 @@ export default () => {
       registerWaypointChannels()
       registerFireworksChannels()
       registerIdeChannels()
+      registerServerSettingsChannel()
     })
   })
 }
@@ -524,6 +526,67 @@ const addTestVideo = (rotation = 0 as 0 | 1 | 2 | 3, scale = 1, isImage = false)
   })
 }
 window.addTestVideo = addTestVideo
+
+const registerServerSettingsChannel = () => {
+  const CHANNEL_NAME = 'minecraft-web-client:server-settings'
+  const packetStructure = [
+    'container',
+    [
+      {
+        name: 'settingsJson',
+        type: ['pstring', { countType: 'i16' }]
+      },
+    ]
+  ]
+
+  registerChannel(CHANNEL_NAME, packetStructure, (data) => {
+    try {
+      const settings = JSON.parse(data.settingsJson)
+
+      if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
+        console.warn('Invalid settings format: expected an object')
+        return
+      }
+
+      let appliedCount = 0
+      let skippedCount = 0
+
+      for (const [key, value] of Object.entries(settings)) {
+        // Only apply settings that are in the safe list
+        if (!(key in serverSafeSettings)) {
+          console.warn(`Skipping unsafe setting: ${key}`)
+          skippedCount++
+          continue
+        }
+
+        // Validate that the setting exists in options
+        if (!(key in options)) {
+          console.warn(`Setting does not exist: ${key}`)
+          skippedCount++
+          continue
+        }
+
+        // Validate type matches
+        const currentValue = options[key]
+
+        // For union types, check if value is valid
+        if (Array.isArray(currentValue) && !Array.isArray(value)) {
+          console.warn(`Type mismatch for setting ${key}: expected array`)
+          skippedCount++
+          continue
+        }
+
+        // Apply the setting
+        options[key] = value
+        appliedCount++
+      }
+
+      console.debug(`Applied ${appliedCount} server settings${skippedCount > 0 ? `, skipped ${skippedCount} unsafe/invalid settings` : ''}`)
+    } catch (error) {
+      console.error('Failed to parse or apply server settings:', error)
+    }
+  }, false) // Don't wait for world, settings can be applied before world loads
+}
 
 function getCurrentTopDomain (): string {
   const { hostname } = location
