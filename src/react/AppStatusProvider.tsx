@@ -36,7 +36,8 @@ export const resetAppStatusState = () => {
 }
 
 export const lastConnectOptions = {
-  value: null as ConnectOptions | null
+  value: null as ConnectOptions | null,
+  hadWorldLoaded: false
 }
 globalThis.lastConnectOptions = lastConnectOptions
 

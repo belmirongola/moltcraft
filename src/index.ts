@@ -184,6 +184,7 @@ export async function connect (connectOptions: ConnectOptions) {
   loadingTimerState.start = Date.now()
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
+  lastConnectOptions.hadWorldLoaded = false
 
   const { singleplayer } = connectOptions
   const p2pMultiplayer = !!connectOptions.peerId
@@ -223,13 +224,12 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let ended = false
   let bot!: typeof __type_bot
-  let hadWorldLoaded = false
   let hadConnected = false
   const handleSessionEnd = (wasKicked = false) => {
     if (ended) return
     loadingTimerState.loading = false
     const { alwaysReconnect } = appQueryParams
-    if ((!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && hadWorldLoaded) || (alwaysReconnect)) {
+    if ((!wasKicked && miscUiState.appConfig?.allowAutoConnect && appQueryParams.autoConnect && lastConnectOptions.hadWorldLoaded) || (alwaysReconnect)) {
       if (alwaysReconnect === 'quick' || alwaysReconnect === 'fast') {
         quickDevReconnect()
       } else {
@@ -907,7 +907,7 @@ export async function connect (connectOptions: ConnectOptions) {
     } catch (err) {
       handleError(err)
     }
-    hadWorldLoaded = true
+    lastConnectOptions.hadWorldLoaded = true
   }
   // don't use spawn event, player can be dead
   bot.once(spawnEarlier ? 'forcedMove' : 'health', displayWorld)
