@@ -172,7 +172,11 @@ export class AppViewer {
         const { method, args } = this.currentState
         this.backend[method](...args)
         if (method === 'startWorld') {
-          void this.worldView!.init(bot.entity.position)
+          // Only auto-init if bot exists (main app mode)
+          // Playground mode will call init explicitly with its position
+          if (bot?.entity?.position) {
+            void this.worldView!.init(bot.entity.position)
+          }
           // void this.worldView!.init(args[0].playerState.getPosition())
         }
       }
@@ -194,11 +198,11 @@ export class AppViewer {
     }
   }
 
-  async startWorld (world, renderDistance: number, playerStateSend: PlayerStateRenderer = this.playerState.reactive) {
+  async startWorld (world, renderDistance: number, playerStateSend: PlayerStateRenderer = this.playerState.reactive, startPosition?: Vec3) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
-    const startPosition = bot.entity?.position ?? new Vec3(0, 64, 0)
-    this.worldView = new WorldDataEmitter(world, renderDistance, startPosition)
+    const finalStartPosition = startPosition ?? bot?.entity?.position ?? new Vec3(0, 64, 0)
+    this.worldView = new WorldDataEmitter(world, renderDistance, finalStartPosition)
     this.worldView.panicChunksReload = () => {
       if (!options.experimentalClientSelfReload) return
       if (process.env.NODE_ENV === 'development') {

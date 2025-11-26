@@ -12,8 +12,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 // eslint-disable-next-line import/no-named-as-default
 import GUI from 'lil-gui'
 import _ from 'lodash'
-import { GraphicsBackendConfig } from '../../src/appViewer'
-import { ResourcesManager } from '../../src/resourcesManager'
 import supportedVersions from '../../src/supportedVersions.mjs'
 import { toMajorVersion } from '../../src/utils'
 import { BlockNames } from '../../src/mcDataTypes'
@@ -74,22 +72,17 @@ export class BasePlaygroundScene {
   enableCameraOrbitControl = true
   controls: OrbitControls | undefined
 
-  // Renderer infrastructure (modern architecture)
-  resourcesManager: ResourcesManager
-  graphicsBackend: ReturnType<typeof createGraphicsBackend> | undefined
+  // Renderer infrastructure - use appViewer instead of duplicating
   worldRenderer: WorldRendererThree | undefined
   worldView: WorldDataEmitter | undefined
 
-  // World config - must be a valtio proxy for reactive updates
-  _worldConfig = proxy({ ...defaultWorldRendererConfig })
+  // World config - syncs with appViewer.inWorldRenderingConfig
   get worldConfig () {
-    return this._worldConfig
+    return appViewer.inWorldRenderingConfig
   }
   set worldConfig (value) {
-    // Merge the new values into the existing proxy to maintain reactivity
-    Object.assign(this._worldConfig, value)
-    // World config is passed via DisplayWorldOptions, not directly on worldRenderer
-    // We'll update it when recreating the world if needed
+    // Merge the new values into appViewer's config to maintain reactivity
+    Object.assign(appViewer.inWorldRenderingConfig, value)
   }
 
   constructor (config: PlaygroundSceneConfig = {}) {
@@ -106,13 +99,11 @@ export class BasePlaygroundScene {
     if (config.enableCameraControls !== undefined) this.enableCameraControls = config.enableCameraControls
     if (config.enableCameraOrbitControl !== undefined) this.enableCameraOrbitControl = config.enableCameraOrbitControl
     if (config.worldConfig) {
-      // Merge config into the proxy to maintain reactivity
-      Object.assign(this._worldConfig, config.worldConfig)
+      appViewer.inWorldRenderingConfig.showHand = false
+      // Merge config into appViewer's config to maintain reactivity
+      Object.assign(appViewer.inWorldRenderingConfig, config.worldConfig)
     }
     if (config.continuousRender !== undefined) this.continuousRender = config.continuousRender
-
-    // Initialize resources manager
-    this.resourcesManager = new ResourcesManager()
 
     void this.initData().then(() => {
       this.addKeyboardShortcuts()
@@ -220,41 +211,18 @@ export class BasePlaygroundScene {
 
     this.initGui()
 
-    // Create world view
-    const worldView = new WorldDataEmitter(world, this.viewDistance, this.targetPos)
-    worldView.addWaitTime = 0
-    this.worldView = worldView
-    window.worldView = worldView
+    // Use appViewer for resource management and world rendering
+    // worldConfig is already synced with appViewer.inWorldRenderingConfig via getter/setter
 
-    // Initialize resources manager
-    this.resourcesManager.currentConfig = { version: this.version, noInventoryGui: true }
-    await this.resourcesManager.loadSourceData(this.version)
-    await this.resourcesManager.updateAssetsData({})
+    // Initialize resources manager via appViewer
+    appViewer.resourcesManager.currentConfig = { version: this.version, noInventoryGui: true }
+    await appViewer.resourcesManager.loadSourceData(this.version)
+    await appViewer.resourcesManager.updateAssetsData({})
 
-    // Create graphics backend using modern architecture
-    const graphicsConfig: GraphicsBackendConfig = {
-      sceneBackground: 'lightblue',
-      powerPreference: undefined,
-      fpsLimit: undefined,
-      statsVisible: 0,
-      timeoutRendering: false
+    // Load backend if not already loaded
+    if (!appViewer.backend) {
+      await appViewer.loadBackend(createGraphicsBackend)
     }
-
-    const initOptions = {
-      resourcesManager: this.resourcesManager as any, // Type assertion needed for playground mode
-      config: graphicsConfig,
-      rendererSpecificSettings: {},
-      callbacks: {
-        displayCriticalError (error: Error) {
-          console.error('Graphics error:', error)
-        },
-        setRendererSpecificSettings () {},
-        fireCustomEvent () {}
-      }
-    }
-
-    // Create graphics backend (it creates DocumentRenderer internally and sets up render loop)
-    this.graphicsBackend = await createGraphicsBackend(initOptions)
 
     // Canvas is created by DocumentRenderer inside graphicsBackend
     // Ensure it has the right ID
@@ -263,41 +231,13 @@ export class BasePlaygroundScene {
       rendererCanvas.id = 'viewer-canvas'
     }
 
-    // Create display options for world
-    const playerStateReactive = proxy(getInitialPlayerState())
-    const rendererState = proxy({
-      world: {
-        chunksLoaded: new Set<string>(),
-        heightmaps: new Map<string, Uint8Array>(),
-        allChunksLoaded: false,
-        mesherWork: false,
-        intersectMedia: null
-      },
-      renderer: 'threejs',
-      preventEscapeMenu: false
-    })
-    const nonReactiveState = {
-      world: {
-        chunksLoaded: new Set<string>(),
-        chunksTotalNumber: 0
-      }
-    }
+    // Start world using appViewer
+    // This creates WorldDataEmitter, GraphicsBackend, and WorldRendererThree internally
+    await appViewer.startWorld(world, this.viewDistance, proxy(getInitialPlayerState()), this.targetPos)
 
-    const displayOptions = {
-      version: this.version,
-      worldView: worldView as any,
-      inWorldRenderingConfig: this.worldConfig,
-      playerStateReactive,
-      rendererState,
-      nonReactiveState
-    }
-
-    // Start world using graphics backend
-    // This creates WorldRendererThree internally and sets window.world
-    await this.graphicsBackend.startWorld(displayOptions)
-
-    // Get world renderer from window.world (set by graphicsBackend.startWorld)
+    // Get world renderer and world view from appViewer
     this.worldRenderer = window.world as WorldRendererThree
+    this.worldView = appViewer.worldView
     window.viewer = this.worldRenderer // For backward compatibility with old scenes
 
     if (!this.worldRenderer) {
@@ -313,11 +253,14 @@ export class BasePlaygroundScene {
       this.render()
     }
 
-    // Setup world
+    // Setup world (adds blocks, etc.)
     this.setupWorld()
 
-    // Initialize world view
-    await worldView.init(this.targetPos)
+    // Initialize world view with target position (loads chunks after setup)
+    if (this.worldView) {
+      this.worldView.addWaitTime = 0
+      await this.worldView.init(this.targetPos)
+    }
 
     // Setup camera controls
     if (this.enableCameraControls) {
