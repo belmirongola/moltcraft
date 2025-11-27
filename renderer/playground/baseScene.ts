@@ -18,7 +18,7 @@ import { BlockNames } from '../../src/mcDataTypes'
 import { defaultWorldRendererConfig, WorldRendererConfig } from '../viewer/lib/worldrendererCommon'
 import { WorldDataEmitter } from '../viewer/lib/worldDataEmitter'
 import { getInitialPlayerState } from '../viewer/lib/basePlayerState'
-import createGraphicsBackend from '../viewer/three/graphicsBackend'
+import { appGraphicBackends } from '../../src/appViewerLoad'
 import { getSyncWorld } from './shared'
 
 window.THREE = THREE
@@ -116,7 +116,8 @@ export class BasePlaygroundScene {
       Object.assign(appViewer.inWorldRenderingConfig, config.worldConfig)
     }
     appViewer.inWorldRenderingConfig.showHand = false
-    appViewer.inWorldRenderingConfig.isPlayground = this.enableCameraControls
+    appViewer.inWorldRenderingConfig.isPlayground = true
+    appViewer.inWorldRenderingConfig.instantCameraUpdate = this.enableCameraOrbitControl
     appViewer.config.statsVisible = 2
     if (config.continuousRender !== undefined) this.continuousRender = config.continuousRender
 
@@ -200,7 +201,7 @@ export class BasePlaygroundScene {
 
   // Sync our camera state to the graphics backend
   // Extract rotation from OrbitControls spherical coordinates to avoid flip issues
-  private syncCameraToBackend (onlyRotation = false) {
+  protected syncCameraToBackend (onlyRotation = false) {
     if (!appViewer.backend || !this.camera) return
 
     // Extract rotation from camera's quaternion to avoid gimbal lock issues
@@ -260,7 +261,7 @@ export class BasePlaygroundScene {
 
     // Load backend if not already loaded
     if (!appViewer.backend) {
-      await appViewer.loadBackend(createGraphicsBackend)
+      await appViewer.loadBackend(appGraphicBackends[0])
     }
 
     // Start world using appViewer
@@ -388,6 +389,12 @@ export class BasePlaygroundScene {
     //   this.loop()
     // }
     this.renderFinish()
+    this.mainDebugLoop()
+  }
+
+  mainDebugLoop () {
+    requestAnimationFrame(() => this.mainDebugLoop())
+    this.trackFrame()
   }
 
   loop () {
@@ -401,8 +408,6 @@ export class BasePlaygroundScene {
   // The DocumentRenderer loop handles actual rendering continuously
   // Camera sync happens via syncCameraToBackend() which updates the internal camera
   requestRender () {
-    // Track frame timing for debug GUI
-    this.trackFrame()
     // No-op: rendering is handled by DocumentRenderer's continuous loop
     // This method exists for API compatibility
   }
@@ -459,7 +464,7 @@ export class BasePlaygroundScene {
 
     this.currentFps = fps
 
-    const isSeriousDelay = this.maxFrameDelay > 200
+    const isSeriousDelay = this.maxFrameDelay > 150
     const delayText = isSeriousDelay
       ? `<span style="color: #ff4444;">${this.maxFrameDelay.toFixed(0)}ms</span>`
       : `${this.maxFrameDelay.toFixed(0)}ms`
