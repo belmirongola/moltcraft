@@ -658,7 +658,11 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
 
       this.currentPosTween?.stop()
-      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, this.playerStateUtils.isSpectatingEntity() ? 150 : 50).start()
+      // Use instant camera updates (0 delay) in playground mode when camera controls are enabled
+      const tweenDelay = this.displayOptions.inWorldRenderingConfig.isPlayground
+        ? 0
+        : (this.playerStateUtils.isSpectatingEntity() ? 150 : 50)
+      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, tweenDelay).start()
       // this.freeFlyState.position = pos
     }
 

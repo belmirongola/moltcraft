@@ -19,6 +19,7 @@ import { watchOptionsAfterWorldViewInit } from './watchOptions'
 import { loadMinecraftData } from './connect'
 import { reloadChunks } from './utils'
 import { displayClientChat } from './botUtils'
+import { isPlayground } from './playgroundIntegration'
 
 export interface RendererReactiveState {
   world: {
@@ -211,7 +212,9 @@ export class AppViewer {
       void reloadChunks()
     }
     window.worldView = this.worldView
-    watchOptionsAfterWorldViewInit(this.worldView)
+    if (!isPlayground) {
+      watchOptionsAfterWorldViewInit(this.worldView)
+    }
     this.appConfigUdpate()
 
     const displayWorldOptions: DisplayWorldOptions = {
