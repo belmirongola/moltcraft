@@ -403,12 +403,14 @@ export const openItemsCanvas = (type, _bot = bot as typeof bot | null) => {
 }
 
 const upWindowItemsLocal = () => {
-  if (!lastWindow && bot.currentWindow) {
-    // edge case: might happen due to high ping, inventory should be closed soon!
-    // openWindow(implementedContainersGuiMap[bot.currentWindow.type])
-    return
-  }
-  void Promise.resolve().then(() => upInventoryItems(lastWindowType === null))
+  void Promise.resolve().then(() => {
+    if (!lastWindow && bot.currentWindow) {
+      // edge case: might happen due to high ping, inventory should be closed soon!
+      // openWindow(implementedContainersGuiMap[bot.currentWindow.type])
+      return
+    }
+    upInventoryItems(lastWindowType === null)
+  })
 }
 
 let skipClosePacketSending = false

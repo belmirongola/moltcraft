@@ -42,6 +42,9 @@ export default ({
 
   const lockConnect = appQueryParams.lockConnect === 'true'
   const connectOptions = lastConnectOptions.value
+  const connectionProxy =
+    connectOptions?.server && !connectOptions.server.startsWith('ws://') && !connectOptions.server.startsWith('wss://')
+      ? connectOptions.proxy : undefined
 
   return (
     <div className=''>
@@ -73,9 +76,9 @@ export default ({
             <p className={styles['last-status']}>{lastStatus ? `Last status: ${lastStatus}` : lastStatus}</p>
             {isError && <p className={`app-status-title-context-info ${styles.appStatusTitleContextInfo}`}>
               S: {connectOptions?.server ?? 'N/A'} {' '}
-              P: {connectOptions?.proxy ?? 'N/A'} {' '}
+              P: {connectionProxy ?? 'N/A'} {' '}
               V: {connectOptions?.botVersion ?? 'auto'} {' '}
-              U: {connectOptions?.username ?? 'N/A'}
+              U: {connectOptions?.username ?? 'N/A'}{' '}
               cV: {process.env.RELEASE_TAG ?? 'N/A'}
             </p>}
           </>

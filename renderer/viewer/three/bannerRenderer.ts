@@ -143,10 +143,11 @@ export const renderBanner = (
 
   ctx.imageSmoothingEnabled = false
 
-  // Always render base color first (even if no patterns)
-  const baseColorHex = BANNER_COLORS[baseColor] || BANNER_COLORS[15]
-  ctx.fillStyle = baseColorHex
-  ctx.fillRect(0, 0, BANNER_WIDTH * scale, BANNER_HEIGHT * scale)
+  // Base color rendering disabled
+  // // Always render base color first (even if no patterns)
+  // const baseColorHex = BANNER_COLORS[baseColor] || BANNER_COLORS[15]
+  // ctx.fillStyle = baseColorHex
+  // ctx.fillRect(0, 0, BANNER_WIDTH * scale, BANNER_HEIGHT * scale)
 
   // Render patterns on top of base color (if any)
   if (blockEntity?.Patterns && blockEntity.Patterns.length > 0) {
