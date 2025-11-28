@@ -4,11 +4,14 @@ import { titleCase } from 'title-case'
 import { useMemo } from 'react'
 import { disabledSettings, options, qsOptions } from '../optionsStorage'
 import { hideAllModals, miscUiState } from '../globalState'
+import { reloadChunksAction } from '../controls'
 import Button from './Button'
 import Slider from './Slider'
 import Screen from './Screen'
 import { showOptionsModal } from './SelectOption'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
+import { reconnectReload } from './AppStatusProvider'
+import { showAllSettingsEditor } from './AllSettingsEditor'
 
 type GeneralItem<T extends string | number | boolean> = {
   id?: string
@@ -18,7 +21,8 @@ type GeneralItem<T extends string | number | boolean> = {
   tooltip?: string
   // description?: string
   enableWarning?: string
-  willHaveNoEffect?: boolean
+  requiresRestart?: boolean
+  requiresChunksReload?: boolean
   values?: Array<T | [T, string]>
   disableIf?: [option: keyof typeof options, value: any]
 }
@@ -56,7 +60,14 @@ const useCommonComponentsProps = (item: OptionMeta) => {
   }
 }
 
-export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'toggle' }> }) => {
+const ignoreReloadWarningsCache = new Set<string>()
+
+export const OptionButton = ({ item, onClick, valueText, cacheKey }: {
+  item: Extract<OptionMeta, { type: 'toggle' }>,
+  onClick?: () => void,
+  valueText?: string,
+  cacheKey?: string,
+}) => {
   const { disabledBecauseOfSetting } = useCommonComponentsProps(item)
 
   const optionValue = useSnapshot(options)[item.id!]
@@ -84,40 +95,63 @@ export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'togg
 
   return <Button
     data-setting={item.id}
-    label={`${item.text}: ${valuesTitlesMap[optionValue]}`}
-    // label={`${item.text}:`}
-    // postLabel={valuesTitlesMap[optionValue]}
+    label={`${translate(item.text)}: ${translate(valueText ?? valuesTitlesMap[optionValue])}`}
     onClick={async (event) => {
       if (disabledReason) {
-        await showOptionsModal(`The option is unavailable. ${disabledReason}`, [])
+        await showOptionsModal(`${translate('The option is not available')}: ${disabledReason}`, [])
         return
       }
       if (item.enableWarning && !options[item.id!]) {
         const result = await showOptionsModal(item.enableWarning, ['Enable'])
         if (!result) return
       }
-      const { values } = item
-      if (values) {
-        const getOptionValue = (arrItem) => {
-          if (typeof arrItem === 'string') {
-            return arrItem
+      onClick?.()
+      if (item.id) {
+        const { values } = item
+        if (values) {
+          const getOptionValue = (arrItem) => {
+            if (typeof arrItem === 'string') {
+              return arrItem
+            } else {
+              return arrItem[0]
+            }
+          }
+          const currentIndex = values.findIndex((value) => {
+            return getOptionValue(value) === optionValue
+          })
+          if (currentIndex === -1) {
+            options[item.id] = getOptionValue(values[0])
           } else {
-            return arrItem[0]
+            const nextIndex = event.shiftKey
+              ? (currentIndex - 1 + values.length) % values.length
+              : (currentIndex + 1) % values.length
+            options[item.id] = getOptionValue(values[nextIndex])
+          }
+        } else {
+          options[item.id] = !options[item.id]
+        }
+      }
+
+      const toCacheKey = cacheKey ?? item.id ?? ''
+      if (toCacheKey && !ignoreReloadWarningsCache.has(toCacheKey)) {
+        ignoreReloadWarningsCache.add(toCacheKey)
+
+        if (item.requiresRestart) {
+          const result = await showOptionsModal(translate('The option requires a restart to take effect'), ['Restart', 'I will do it later'], {
+            cancel: false,
+          })
+          if (result) {
+            reconnectReload()
           }
         }
-        const currentIndex = values.findIndex((value) => {
-          return getOptionValue(value) === optionValue
-        })
-        if (currentIndex === -1) {
-          options[item.id!] = getOptionValue(values[0])
-        } else {
-          const nextIndex = event.shiftKey
-            ? (currentIndex - 1 + values.length) % values.length
-            : (currentIndex + 1) % values.length
-          options[item.id!] = getOptionValue(values[nextIndex])
+        if (item.requiresChunksReload) {
+          const result = await showOptionsModal(translate('The option requires a chunks reload to take effect'), ['Reload', 'I will do it later'], {
+            cancel: false,
+          })
+          if (result) {
+            reloadChunksAction()
+          }
         }
-      } else {
-        options[item.id!] = !options[item.id!]
       }
     }}
     title={disabledReason ? `${disabledReason} | ${item.tooltip}` : item.tooltip}
@@ -128,7 +162,15 @@ export const OptionButton = ({ item }: { item: Extract<OptionMeta, { type: 'togg
   />
 }
 
-export const OptionSlider = ({ item }: { item: Extract<OptionMeta, { type: 'slider' }> }) => {
+export const OptionSlider = ({
+  item,
+  onChange,
+  valueOverride
+}: {
+  item: Extract<OptionMeta, { type: 'slider' }>
+  onChange?: (value: number) => void
+  valueOverride?: number
+}) => {
   const { disabledBecauseOfSetting } = useCommonComponentsProps(item)
 
   const optionValue = useSnapshot(options)[item.id!]
@@ -141,7 +183,7 @@ export const OptionSlider = ({ item }: { item: Extract<OptionMeta, { type: 'slid
   return (
     <Slider
       label={item.text!}
-      value={options[item.id!]}
+      value={valueOverride ?? options[item.id!]}
       data-setting={item.id}
       disabledReason={isLocked(item) ? 'qs' : disabledBecauseOfSetting ? `Disabled because ${item.disableIf![0]} is ${item.disableIf![1]}` : item.disabledReason}
       min={item.min}
@@ -151,6 +193,7 @@ export const OptionSlider = ({ item }: { item: Extract<OptionMeta, { type: 'slid
       updateOnDragEnd={item.delayApply}
       updateValue={(value) => {
         options[item.id!] = value
+        onChange?.(value)
       }}
     />
   )
@@ -189,18 +232,17 @@ interface Props {
 }
 
 export default ({ items, title, backButtonAction }: Props) => {
-  const { currentTouch } = useSnapshot(miscUiState)
 
   return <Screen
     title={title}
   >
     <div className='screen-items'>
-      {currentTouch && (
-        <div style={{ position: 'fixed', marginLeft: '-30px', display: 'flex', flexDirection: 'column', gap: 1, }}>
-          <Button icon={pixelartIcons['close']} onClick={hideAllModals} style={{ color: '#ff5d5d', }} />
-          <Button icon={pixelartIcons['chevron-left']} onClick={backButtonAction} style={{ color: 'yellow', }} />
-        </div>
-      )}
+      <div style={{ position: 'fixed', marginLeft: '-30px', display: 'flex', flexDirection: 'column', gap: 1, }}>
+        <Button icon={pixelartIcons['close']} onClick={hideAllModals} style={{ color: '#ff5d5d', }} />
+        <Button icon={pixelartIcons['chevron-left']} onClick={backButtonAction} style={{ color: 'yellow', }} />
+        <Button icon={pixelartIcons['search']} onClick={showAllSettingsEditor} style={{ color: '#4caf50', }} title="Search all settings" />
+      </div>
+
       {items.map((element, i) => {
         // make sure its unique!
         return <RenderOption key={element.id ?? `${title}-${i}`} item={element} />

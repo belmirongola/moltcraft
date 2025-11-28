@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { WorldRendererCommon } from 'renderer/viewer/lib/worldrendererCommon'
 import { WorldRendererThree } from 'renderer/viewer/three/worldrendererThree'
+import { Vec3 } from 'vec3'
+import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import Screen from './Screen'
 import ChunksDebug, { ChunkDebug } from './ChunksDebug'
 import { useIsModalActive } from './utilsApp'
@@ -12,6 +14,10 @@ const Inner = () => {
   const [update, setUpdate] = useState(0)
 
   useUtilsEffect(({ interval }) => {
+    const up = () => {
+      // setUpdate(u => u + 1)
+    }
+    bot.on('chunkColumnLoad', up)
     interval(
       500,
       () => {
@@ -20,17 +26,48 @@ const Inner = () => {
         setUpdate(u => u + 1)
       }
     )
+    return () => {
+      bot.removeListener('chunkColumnLoad', up)
+    }
   }, [])
 
+  // Track first load time for all chunks
+  const allLoadTimes = Object.values(worldView!.debugChunksInfo)
+    .map(chunk => chunk?.loads[0]?.time ?? Infinity)
+    .filter(time => time !== Infinity)
+    .sort((a, b) => a - b)
+
+  const allSpiralChunks = Object.fromEntries(generateSpiralMatrix(worldView!.viewDistance).map(pos => [`${pos[0]},${pos[1]}`, pos]))
+
   const mapChunk = (key: string, state: ChunkDebug['state']): ChunkDebug => {
+    const x = Number(key.split(',')[0])
+    const z = Number(key.split(',')[1])
+    const chunkX = Math.floor(x / 16)
+    const chunkZ = Math.floor(z / 16)
+
+    delete allSpiralChunks[`${chunkX},${chunkZ}`]
     const chunk = worldView!.debugChunksInfo[key]
+    const firstLoadTime = chunk?.loads[0]?.time
+    const loadIndex = firstLoadTime ? allLoadTimes.indexOf(firstLoadTime) + 1 : 0
+    // const timeSinceFirstLoad = firstLoadTime ? firstLoadTime - allLoadTimes[0] : 0
+    const timeSinceFirstLoad = firstLoadTime ? firstLoadTime - allLoadTimes[0] : 0
+    let line = ''
+    let line2 = ''
+    if (loadIndex) {
+      line = `${loadIndex}`
+      line2 = `${timeSinceFirstLoad}ms`
+    }
+    if (chunk?.loads.length > 1) {
+      line += ` - ${chunk.loads.length}`
+    }
+
     return {
-      x: Number(key.split(',')[0]),
-      z: Number(key.split(',')[1]),
+      x,
+      z,
       state,
-      lines: [String(chunk?.loads.length ?? 0)],
+      lines: [line, line2],
       sidebarLines: [
-        `loads: ${chunk.loads.map(l => `${l.reason} ${l.dataLength} ${l.time}`).join('\n')}`,
+        `loads: ${chunk?.loads?.map(l => `${l.reason} ${l.dataLength} ${l.time}`).join('\n')}`,
         // `blockUpdates: ${chunk.blockUpdates}`,
       ],
     }
@@ -55,14 +92,22 @@ const Inner = () => {
 
   const chunksDone = Object.keys(world.finishedChunks).map(key => mapChunk(key, 'done'))
 
+
+  const chunksWaitingOrder = Object.values(allSpiralChunks).map(([x, z]) => {
+    const pos = new Vec3(x * 16, 0, z * 16)
+    if (bot.world.getColumnAt(pos) === null) return null
+    return mapChunk(`${pos.x},${pos.z}`, 'order-queued')
+  }).filter(a => !!a)
+
   const allChunks = [
     ...chunksWaitingServer,
     ...chunksWaitingClient,
     ...clientProcessingChunks,
     ...chunksDone,
     ...chunksDoneEmpty,
+    ...chunksWaitingOrder,
   ]
-  return <Screen title="Chunks Debug">
+  return <Screen title={`Chunks Debug (avg: ${worldView!.lastChunkReceiveTimeAvg.toFixed(1)}ms)`}>
     <ChunksDebug
       chunks={allChunks}
       playerChunk={{

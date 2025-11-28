@@ -3,29 +3,32 @@ import { Vec3 } from 'vec3'
 import nbt from 'prismarine-nbt'
 import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
-import { subscribeKey } from 'valtio/utils'
+import { Biome } from 'minecraft-data'
 import { renderSign } from '../sign-renderer'
-import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
+import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from '../lib/simpleUtils'
 import { WorldRendererCommon } from '../lib/worldrendererCommon'
-import { addNewStat, removeAllStats } from '../lib/ui/newStats'
+import { addNewStat } from '../lib/ui/newStats'
 import { MesherGeometryOutput } from '../lib/mesher/shared'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
-import { getMyHand } from '../lib/hand'
 import { setBlockPosition } from '../lib/mesher/standaloneRenderer'
-import { sendVideoPlay, sendVideoStop } from '../../../src/customChannels'
+import { getBannerTexture, createBannerMesh, releaseBannerTexture } from './bannerRenderer'
+import { getMyHand } from './hand'
 import HoldingBlock from './holdingBlock'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
-import { disposeObject } from './threeJsUtils'
+import { disposeObject, loadThreeJsTextureFromBitmap } from './threeJsUtils'
 import { CursorBlock } from './world/cursorBlock'
 import { getItemUv } from './appShared'
-import { initVR } from './world/vr'
 import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
+import { WaypointsRenderer } from './waypoints'
+import { DEFAULT_TEMPERATURE, SkyboxRenderer } from './skyboxRenderer'
+import { FireworksManager } from './fireworks'
+import { downloadWorldGeometry } from './worldGeometryExport'
 
 type SectionKey = string
 
@@ -42,14 +45,16 @@ export class WorldRendererThree extends WorldRendererCommon {
   ambientLight = new THREE.AmbientLight(0xcc_cc_cc)
   directionalLight = new THREE.DirectionalLight(0xff_ff_ff, 0.5)
   entities = new Entities(this)
-  cameraObjectOverride?: THREE.Object3D // for xr
+  cameraGroupVr?: THREE.Object3D
   material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
   itemsTexture: THREE.Texture
-  cursorBlock = new CursorBlock(this)
+  cursorBlock: CursorBlock
   onRender: Array<() => void> = []
   cameraShake: CameraShake
+  cameraContainer: THREE.Object3D
   media: ThreeJsMedia
   waitingChunksToDisplay = {} as { [chunkKey: string]: SectionKey[] }
+  waypoints: WaypointsRenderer
   camera: THREE.PerspectiveCamera
   renderTimeAvg = 0
   sectionsOffsetsAnimations = {} as {
@@ -70,6 +75,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
   fountains: Fountain[] = []
+  DEBUG_RAYCAST = false
+  skyboxRenderer: SkyboxRenderer
+  fireworks: FireworksManager
+
+  private currentPosTween?: tweenJs.Tween<THREE.Vector3>
+  private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -83,19 +94,27 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (!initOptions.resourcesManager) throw new Error('resourcesManager is required')
     super(initOptions.resourcesManager, displayOptions, initOptions)
 
+    this.renderer = renderer
     displayOptions.rendererState.renderer = WorldRendererThree.getRendererInfo(renderer) ?? '...'
-    this.starField = new StarField(this.scene)
+    this.starField = new StarField(this)
+    this.cursorBlock = new CursorBlock(this)
     this.holdingBlock = new HoldingBlock(this)
     this.holdingBlockLeft = new HoldingBlock(this, true)
+
+    // Initialize skybox renderer
+    this.skyboxRenderer = new SkyboxRenderer(this.scene, this.worldRendererConfig.defaultSkybox, null)
+    void this.skyboxRenderer.init()
 
     this.addDebugOverlay()
     this.resetScene()
     void this.init()
-    void initVR(this)
 
     this.soundSystem = new ThreeJsSound(this)
-    this.cameraShake = new CameraShake(this.camera, this.onRender)
+    this.cameraShake = new CameraShake(this, this.onRender)
     this.media = new ThreeJsMedia(this)
+    this.waypoints = new WaypointsRenderer(this)
+    this.fireworks = new FireworksManager(this.scene)
+
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
     // })
@@ -106,13 +125,25 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.worldSwitchActions()
   }
 
+  get cameraObject () {
+    return this.cameraGroupVr ?? this.cameraContainer
+  }
+
   worldSwitchActions () {
     this.onWorldSwitched.push(() => {
       // clear custom blocks
       this.protocolCustomBlocks.clear()
       // Reset section animations
       this.sectionsOffsetsAnimations = {}
+      // Clear waypoints
+      this.waypoints.clear()
+      // Clear fireworks
+      this.fireworks.clear()
     })
+  }
+
+  downloadWorldGeometry () {
+    downloadWorldGeometry(this, this.cameraObject.position, this.cameraShake.getBaseRotation(), 'world-geometry.json')
   }
 
   updateEntity (e, isPosUpdate = false) {
@@ -132,6 +163,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
+  updatePlayerEntity (e: any) {
+    this.entities.handlePlayerEntity(e)
+  }
+
   resetScene () {
     this.scene.matrixAutoUpdate = false // for perf
     this.scene.background = new THREE.Color(this.initOptions.config.sceneBackground)
@@ -142,26 +177,38 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     const size = this.renderer.getSize(new THREE.Vector2())
     this.camera = new THREE.PerspectiveCamera(75, size.x / size.y, 0.1, 1000)
+    this.cameraContainer = new THREE.Object3D()
+    this.cameraContainer.add(this.camera)
+    this.scene.add(this.cameraContainer)
   }
 
   override watchReactivePlayerState () {
     super.watchReactivePlayerState()
-    this.onReactiveValueUpdated('inWater', (value) => {
-      this.scene.fog = value ? new THREE.Fog(0x00_00_ff, 0.1, this.displayOptions.playerState.reactive.waterBreathing ? 100 : 20) : null
+    this.onReactivePlayerStateUpdated('inWater', (value) => {
+      this.skyboxRenderer.updateWaterState(value, this.playerStateReactive.waterBreathing)
     })
-    this.onReactiveValueUpdated('ambientLight', (value) => {
+    this.onReactivePlayerStateUpdated('waterBreathing', (value) => {
+      this.skyboxRenderer.updateWaterState(this.playerStateReactive.inWater, value)
+    })
+    this.onReactivePlayerStateUpdated('ambientLight', (value) => {
       if (!value) return
       this.ambientLight.intensity = value
     })
-    this.onReactiveValueUpdated('directionalLight', (value) => {
+    this.onReactivePlayerStateUpdated('directionalLight', (value) => {
       if (!value) return
       this.directionalLight.intensity = value
     })
-    this.onReactiveValueUpdated('lookingAtBlock', (value) => {
+    this.onReactivePlayerStateUpdated('lookingAtBlock', (value) => {
       this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
     })
-    this.onReactiveValueUpdated('diggingBlock', (value) => {
+    this.onReactivePlayerStateUpdated('diggingBlock', (value) => {
       this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
+    })
+    this.onReactivePlayerStateUpdated('perspective', (value) => {
+      // Update camera perspective when it changes
+      const vecPos = new Vec3(this.cameraObject.position.x, this.cameraObject.position.y, this.cameraObject.position.z)
+      this.updateCamera(vecPos, this.cameraShake.getBaseRotation().yaw, this.cameraShake.getBaseRotation().pitch)
+      // todo also update camera when block within camera was changed
     })
   }
 
@@ -169,6 +216,9 @@ export class WorldRendererThree extends WorldRendererCommon {
     super.watchReactiveConfig()
     this.onReactiveConfigUpdated('showChunkBorders', (value) => {
       this.updateShowChunksBorder(value)
+    })
+    this.onReactiveConfigUpdated('defaultSkybox', (value) => {
+      this.skyboxRenderer.updateDefaultSkybox(value)
     })
   }
 
@@ -182,20 +232,18 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   async updateAssetsData (): Promise<void> {
-    const resources = this.resourcesManager.currentResources!
+    const resources = this.resourcesManager.currentResources
 
     const oldTexture = this.material.map
     const oldItemsTexture = this.itemsTexture
 
-    const texture = await new THREE.TextureLoader().loadAsync(resources.blocksAtlasParser.latestImage)
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
+    const texture = loadThreeJsTextureFromBitmap(resources.blocksAtlasImage)
+    texture.needsUpdate = true
     texture.flipY = false
     this.material.map = texture
 
-    const itemsTexture = await new THREE.TextureLoader().loadAsync(resources.itemsAtlasParser.latestImage)
-    itemsTexture.magFilter = THREE.NearestFilter
-    itemsTexture.minFilter = THREE.NearestFilter
+    const itemsTexture = loadThreeJsTextureFromBitmap(resources.itemsAtlasImage)
+    itemsTexture.needsUpdate = true
     itemsTexture.flipY = false
     this.itemsTexture = itemsTexture
 
@@ -234,10 +282,23 @@ export class WorldRendererThree extends WorldRendererCommon {
     } else {
       this.starField.remove()
     }
+
+    this.skyboxRenderer.updateTime(newTime)
+  }
+
+  biomeUpdated (biome: Biome): void {
+    if (biome?.temperature !== undefined) {
+      this.skyboxRenderer.updateTemperature(biome.temperature)
+    }
+  }
+
+  biomeReset (): void {
+    // Reset to default temperature when biome is unknown
+    this.skyboxRenderer.updateTemperature(DEFAULT_TEMPERATURE)
   }
 
   getItemRenderData (item: Record<string, any>, specificProps: ItemSpecificContextProperties) {
-    return getItemUv(item, specificProps, this.resourcesManager)
+    return getItemUv(item, specificProps, this.resourcesManager, this.playerStateReactive)
   }
 
   async demoModel () {
@@ -299,10 +360,11 @@ export class WorldRendererThree extends WorldRendererCommon {
     section.renderOrder = 500 - chunkDistance
   }
 
-  updateViewerPosition (pos: Vec3): void {
-    this.viewerPosition = pos
-    const cameraPos = this.camera.position.toArray().map(x => Math.floor(x / 16)) as [number, number, number]
-    this.cameraSectionPos = new Vec3(...cameraPos)
+  override updateViewerPosition (pos: Vec3): void {
+    this.viewerChunkPosition = pos
+  }
+
+  cameraSectionPositionUpdate () {
     // eslint-disable-next-line guard-for-in
     for (const key in this.sectionObjects) {
       const value = this.sectionObjects[key]
@@ -328,6 +390,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (data.type !== 'geometry') return
     let object: THREE.Object3D = this.sectionObjects[data.key]
     if (object) {
+      // Cleanup banner textures before disposing
+      object.traverse((child) => {
+        if ((child as any).bannerTexture) {
+          releaseBannerTexture((child as any).bannerTexture)
+        }
+      })
       this.scene.remove(object)
       disposeObject(object)
       delete this.sectionObjects[data.key]
@@ -385,6 +453,17 @@ export class WorldRendererThree extends WorldRendererCommon {
         object.add(head)
       }
     }
+    if (Object.keys(data.geometry.banners).length) {
+      for (const [posKey, { isWall, rotation, blockName }] of Object.entries(data.geometry.banners)) {
+        const bannerBlockEntity = this.blockEntities[posKey]
+        if (!bannerBlockEntity) continue
+        const [x, y, z] = posKey.split(',')
+        const bannerTexture = getBannerTexture(this, blockName, nbt.simplify(bannerBlockEntity))
+        if (!bannerTexture) continue
+        const banner = createBannerMesh(new Vec3(+x, +y, +z), rotation, isWall, bannerTexture)
+        object.add(banner)
+      }
+    }
     this.sectionObjects[data.key] = object
     if (this.displayOptions.inWorldRenderingConfig._renderByChunks) {
       object.visible = false
@@ -406,7 +485,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.scene.add(object)
   }
 
-  getSignTexture (position: Vec3, blockEntity, backSide = false) {
+  getSignTexture (position: Vec3, blockEntity, isHanging, backSide = false) {
     const chunk = chunkPos(position)
     let textures = this.chunkTextures.get(`${chunk[0]},${chunk[1]}`)
     if (!textures) {
@@ -418,7 +497,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     if (textures[texturekey]) return textures[texturekey]
 
     const PrismarineChat = PrismarineChatLoader(this.version)
-    const canvas = renderSign(blockEntity, PrismarineChat)
+    const canvas = renderSign(blockEntity, isHanging, PrismarineChat)
     if (!canvas) return
     const tex = new THREE.Texture(canvas)
     tex.magFilter = THREE.NearestFilter
@@ -428,14 +507,148 @@ export class WorldRendererThree extends WorldRendererCommon {
     return tex
   }
 
-  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
-    const cam = this.cameraObjectOverride || this.camera
-    const yOffset = this.displayOptions.playerState.getEyeHeight()
+  getCameraPosition () {
+    const worldPos = new THREE.Vector3()
+    this.camera.getWorldPosition(worldPos)
+    return worldPos
+  }
 
-    this.camera = cam as THREE.PerspectiveCamera
+  getSectionCameraPosition () {
+    const pos = this.getCameraPosition()
+    return new Vec3(
+      Math.floor(pos.x / 16),
+      Math.floor(pos.y / 16),
+      Math.floor(pos.z / 16)
+    )
+  }
+
+  updateCameraSectionPos () {
+    const newSectionPos = this.getSectionCameraPosition()
+    if (!this.cameraSectionPos.equals(newSectionPos)) {
+      this.cameraSectionPos = newSectionPos
+      this.cameraSectionPositionUpdate()
+    }
+  }
+
+  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
+    const yOffset = this.playerStateReactive.eyeHeight
+
     this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
     this.media.tryIntersectMedia()
+    this.updateCameraSectionPos()
   }
+
+  getThirdPersonCamera (pos: THREE.Vector3 | null, yaw: number, pitch: number) {
+    pos ??= this.cameraObject.position
+
+    // Calculate camera offset based on perspective
+    const isBack = this.playerStateReactive.perspective === 'third_person_back'
+    const distance = 4 // Default third person distance
+
+    // Calculate direction vector using proper world orientation
+    // We need to get the camera's current look direction and use that for positioning
+
+    // Create a direction vector that represents where the camera is looking
+    // This matches the Three.js camera coordinate system
+    const direction = new THREE.Vector3(0, 0, -1) // Forward direction in camera space
+
+    // Apply the same rotation that's applied to the camera container
+    const pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch)
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+    const finalQuat = new THREE.Quaternion().multiplyQuaternions(yawQuat, pitchQuat)
+
+    // Transform the direction vector by the camera's rotation
+    direction.applyQuaternion(finalQuat)
+
+    // For back view, we want the camera behind the player (opposite to view direction)
+    // For front view, we want the camera in front of the player (same as view direction)
+    if (isBack) {
+      direction.multiplyScalar(-1)
+    }
+
+    // Create debug visualization if advanced stats are enabled
+    if (this.DEBUG_RAYCAST) {
+      this.debugRaycast(pos, direction, distance)
+    }
+
+    // Perform raycast to avoid camera going through blocks
+    const raycaster = new THREE.Raycaster()
+    raycaster.set(pos, direction)
+    raycaster.far = distance // Limit raycast distance
+
+    // Filter to only nearby chunks for performance
+    const nearbyChunks = Object.values(this.sectionObjects)
+      .filter(obj => obj.name === 'chunk' && obj.visible)
+      .filter(obj => {
+        // Get the mesh child which has the actual geometry
+        const mesh = obj.children.find(child => child.name === 'mesh')
+        if (!mesh) return false
+
+        // Check distance from player position to chunk
+        const chunkWorldPos = new THREE.Vector3()
+        mesh.getWorldPosition(chunkWorldPos)
+        const distance = pos.distanceTo(chunkWorldPos)
+        return distance < 80 // Only check chunks within 80 blocks
+      })
+
+    // Get all mesh children for raycasting
+    const meshes: THREE.Object3D[] = []
+    for (const chunk of nearbyChunks) {
+      const mesh = chunk.children.find(child => child.name === 'mesh')
+      if (mesh) meshes.push(mesh)
+    }
+
+    const intersects = raycaster.intersectObjects(meshes, false)
+
+    let finalDistance = distance
+    if (intersects.length > 0) {
+      // Use intersection distance minus a small offset to prevent clipping
+      finalDistance = Math.max(0.5, intersects[0].distance - 0.2)
+    }
+
+    const finalPos = new Vec3(
+      pos.x + direction.x * finalDistance,
+      pos.y + direction.y * finalDistance,
+      pos.z + direction.z * finalDistance
+    )
+
+    return finalPos
+  }
+
+  private debugRaycastHelper?: THREE.ArrowHelper
+  private debugHitPoint?: THREE.Mesh
+
+  private debugRaycast (pos: THREE.Vector3, direction: THREE.Vector3, distance: number) {
+    // Remove existing debug objects
+    if (this.debugRaycastHelper) {
+      this.scene.remove(this.debugRaycastHelper)
+      this.debugRaycastHelper = undefined
+    }
+    if (this.debugHitPoint) {
+      this.scene.remove(this.debugHitPoint)
+      this.debugHitPoint = undefined
+    }
+
+    // Create raycast arrow
+    this.debugRaycastHelper = new THREE.ArrowHelper(
+      direction.clone().normalize(),
+      pos,
+      distance,
+      0xff_00_00, // Red color
+      distance * 0.1,
+      distance * 0.05
+    )
+    this.scene.add(this.debugRaycastHelper)
+
+    // Create hit point indicator
+    const hitGeometry = new THREE.SphereGeometry(0.2, 8, 8)
+    const hitMaterial = new THREE.MeshBasicMaterial({ color: 0x00_ff_00 })
+    this.debugHitPoint = new THREE.Mesh(hitGeometry, hitMaterial)
+    this.debugHitPoint.position.copy(pos).add(direction.clone().multiplyScalar(distance))
+    this.scene.add(this.debugHitPoint)
+  }
+
+  prevFramePerspective = null as string | null
 
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
     // if (this.freeFlyMode) {
@@ -445,32 +658,141 @@ export class WorldRendererThree extends WorldRendererCommon {
     // }
 
     if (pos) {
-      new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
+      if (this.renderer.xr.isPresenting) {
+        pos.y -= this.camera.position.y // Fix Y position of camera in world
+      }
+
+      this.currentPosTween?.stop()
+      // Use instant camera updates (0 delay) in playground mode when camera controls are enabled
+      const tweenDelay = this.displayOptions.inWorldRenderingConfig.instantCameraUpdate
+        ? 0
+        : (this.playerStateUtils.isSpectatingEntity() ? 150 : 50)
+      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, tweenDelay).start()
       // this.freeFlyState.position = pos
     }
-    this.cameraShake.setBaseRotation(pitch, yaw)
+
+    if (this.playerStateUtils.isSpectatingEntity()) {
+      const rotation = this.cameraShake.getBaseRotation()
+      // wrap in the correct direction
+      let yawOffset = 0
+      const halfPi = Math.PI / 2
+      if (rotation.yaw < halfPi && yaw > Math.PI + halfPi) {
+        yawOffset = -Math.PI * 2
+      } else if (yaw < halfPi && rotation.yaw > Math.PI + halfPi) {
+        yawOffset = Math.PI * 2
+      }
+      this.currentRotTween?.stop()
+      this.currentRotTween = new tweenJs.Tween(rotation).to({ pitch, yaw: yaw + yawOffset }, 100)
+        .onUpdate(params => this.cameraShake.setBaseRotation(params.pitch, params.yaw - yawOffset)).start()
+    } else {
+      this.currentRotTween?.stop()
+      this.cameraShake.setBaseRotation(pitch, yaw)
+
+      const { perspective } = this.playerStateReactive
+      if (perspective === 'third_person_back' || perspective === 'third_person_front') {
+        // Use getThirdPersonCamera for proper raycasting with max distance of 4
+        const currentCameraPos = this.cameraObject.position
+        const thirdPersonPos = this.getThirdPersonCamera(
+          new THREE.Vector3(currentCameraPos.x, currentCameraPos.y, currentCameraPos.z),
+          yaw,
+          pitch
+        )
+
+        const distance = currentCameraPos.distanceTo(new THREE.Vector3(thirdPersonPos.x, thirdPersonPos.y, thirdPersonPos.z))
+        // Apply Z offset based on perspective and calculated distance
+        const zOffset = perspective === 'third_person_back' ? distance : -distance
+        this.camera.position.set(0, 0, zOffset)
+
+        if (perspective === 'third_person_front') {
+          // Flip camera view 180 degrees around Y axis for front view
+          this.camera.rotation.set(0, Math.PI, 0)
+        } else {
+          this.camera.rotation.set(0, 0, 0)
+        }
+      } else {
+        this.camera.position.set(0, 0, 0)
+        this.camera.rotation.set(0, 0, 0)
+
+        // remove any debug raycasting
+        if (this.debugRaycastHelper) {
+          this.scene.remove(this.debugRaycastHelper)
+          this.debugRaycastHelper = undefined
+        }
+        if (this.debugHitPoint) {
+          this.scene.remove(this.debugHitPoint)
+          this.debugHitPoint = undefined
+        }
+      }
+    }
+
+    this.updateCameraSectionPos()
+  }
+
+  debugChunksVisibilityOverride () {
+    const { chunksRenderAboveOverride, chunksRenderBelowOverride, chunksRenderDistanceOverride, chunksRenderAboveEnabled, chunksRenderBelowEnabled, chunksRenderDistanceEnabled } = this.reactiveDebugParams
+
+    const baseY = this.cameraSectionPos.y * 16
+
+    if (
+      this.displayOptions.inWorldRenderingConfig.enableDebugOverlay &&
+      chunksRenderAboveOverride !== undefined ||
+      chunksRenderBelowOverride !== undefined ||
+      chunksRenderDistanceOverride !== undefined
+    ) {
+      for (const [key, object] of Object.entries(this.sectionObjects)) {
+        const [x, y, z] = key.split(',').map(Number)
+        const isVisible =
+          // eslint-disable-next-line no-constant-binary-expression, sonarjs/no-redundant-boolean
+          (chunksRenderAboveEnabled && chunksRenderAboveOverride !== undefined) ? y <= (baseY + chunksRenderAboveOverride) : true &&
+          // eslint-disable-next-line @stylistic/indent-binary-ops, no-constant-binary-expression, sonarjs/no-redundant-boolean
+          (chunksRenderBelowEnabled && chunksRenderBelowOverride !== undefined) ? y >= (baseY - chunksRenderBelowOverride) : true &&
+          // eslint-disable-next-line @stylistic/indent-binary-ops
+          (chunksRenderDistanceEnabled && chunksRenderDistanceOverride !== undefined) ? Math.abs(y - baseY) <= chunksRenderDistanceOverride : true
+
+        object.visible = isVisible
+      }
+    } else {
+      for (const object of Object.values(this.sectionObjects)) {
+        object.visible = true
+      }
+    }
   }
 
   render (sizeChanged = false) {
+    if (this.reactiveDebugParams.stopRendering) return
+    this.debugChunksVisibilityOverride()
     const start = performance.now()
     this.lastRendered = performance.now()
     this.cursorBlock.render()
     this.updateSectionOffsets()
 
+    // Update skybox position to follow camera
+    const cameraPos = this.getCameraPosition()
+    this.skyboxRenderer.update(cameraPos, this.viewDistance)
+
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
-      this.camera.aspect = window.innerWidth / window.innerHeight
+      const size = this.renderer.getSize(new THREE.Vector2())
+      this.camera.aspect = size.width / size.height
       this.camera.fov = this.displayOptions.inWorldRenderingConfig.fov
       this.camera.updateProjectionMatrix()
     }
 
-    this.entities.render()
+    if (!this.reactiveDebugParams.disableEntities) {
+      this.entities.render()
+    }
 
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
-    const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
+    const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    if (this.displayOptions.inWorldRenderingConfig.showHand/*  && !this.freeFlyMode */) {
+    if (
+      this.displayOptions.inWorldRenderingConfig.showHand &&
+      this.playerStateReactive.gameMode !== 'spectator' &&
+      this.playerStateReactive.perspective === 'first_person' &&
+      // !this.freeFlyMode &&
+      !this.renderer.xr.isPresenting
+    ) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
     }
@@ -482,6 +804,9 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
       fountain.render()
     }
+
+    this.waypoints.render()
+    this.fireworks.update()
 
     for (const onRender of this.onRender) {
       onRender()
@@ -495,12 +820,22 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   renderHead (position: Vec3, rotation: number, isWall: boolean, blockEntity) {
-    const textures = blockEntity.SkullOwner?.Properties?.textures[0]
-    if (!textures) return
+    let textureData: string
+    if (blockEntity.SkullOwner) {
+      textureData = blockEntity.SkullOwner.Properties?.textures?.[0]?.Value
+    } else {
+      textureData = blockEntity.profile?.properties?.find(p => p.name === 'textures')?.value
+    }
+    if (!textureData) return
 
     try {
-      const textureData = JSON.parse(Buffer.from(textures.Value, 'base64').toString())
-      const skinUrl = textureData.textures?.SKIN?.url
+      const decodedData = JSON.parse(Buffer.from(textureData, 'base64').toString())
+      let skinUrl = decodedData.textures?.SKIN?.url
+      const { skinTexturesProxy } = this.worldRendererConfig
+      if (skinTexturesProxy) {
+        skinUrl = skinUrl?.replace('http://textures.minecraft.net/', skinTexturesProxy)
+          .replace('https://textures.minecraft.net/', skinTexturesProxy)
+      }
 
       const mesh = getMesh(this, skinUrl, armorModel.head)
       const group = new THREE.Group()
@@ -524,7 +859,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   renderSign (position: Vec3, rotation: number, isWall: boolean, isHanging: boolean, blockEntity) {
-    const tex = this.getSignTexture(position, blockEntity)
+    const tex = this.getSignTexture(position, blockEntity, isHanging)
 
     if (!tex) return
 
@@ -595,6 +930,16 @@ export class WorldRendererThree extends WorldRendererCommon {
     for (const mesh of Object.values(this.sectionObjects)) {
       this.scene.remove(mesh)
     }
+
+    // Clean up debug objects
+    if (this.debugRaycastHelper) {
+      this.scene.remove(this.debugRaycastHelper)
+      this.debugRaycastHelper = undefined
+    }
+    if (this.debugHitPoint) {
+      this.scene.remove(this.debugHitPoint)
+      this.debugHitPoint = undefined
+    }
   }
 
   getLoadedChunksRelative (pos: Vec3, includeY = false) {
@@ -642,6 +987,12 @@ export class WorldRendererThree extends WorldRendererCommon {
       const key = `${x},${y},${z}`
       const mesh = this.sectionObjects[key]
       if (mesh) {
+        // Cleanup banner textures before disposing
+        mesh.traverse((child) => {
+          if ((child as any).bannerTexture) {
+            releaseBannerTexture((child as any).bannerTexture)
+          }
+        })
         this.scene.remove(mesh)
         disposeObject(mesh)
       }
@@ -670,6 +1021,20 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   destroy (): void {
     super.destroy()
+    this.skyboxRenderer.dispose()
+    this.fireworks.dispose()
+  }
+
+  shouldObjectVisible (object: THREE.Object3D) {
+    // Get chunk coordinates
+    const chunkX = Math.floor(object.position.x / 16) * 16
+    const chunkZ = Math.floor(object.position.z / 16) * 16
+    const sectionY = Math.floor(object.position.y / 16) * 16
+
+    const chunkKey = `${chunkX},${chunkZ}`
+    const sectionKey = `${chunkX},${sectionY},${chunkZ}`
+
+    return !!this.finishedChunks[chunkKey] || !!this.sectionObjects[sectionKey]
   }
 
   updateSectionOffsets () {
@@ -718,6 +1083,10 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
     }
   }
+
+  reloadWorld () {
+    this.entities.reloadEntities()
+  }
 }
 
 class StarField {
@@ -734,7 +1103,16 @@ class StarField {
     }
   }
 
-  constructor (private readonly scene: THREE.Scene) {
+  constructor (
+    private readonly worldRenderer: WorldRendererThree
+  ) {
+    const clock = new THREE.Clock()
+    const speed = 0.2
+    this.worldRenderer.onRender.push(() => {
+      if (!this.points) return
+      this.points.position.copy(this.worldRenderer.getCameraPosition());
+      (this.points.material as StarfieldMaterial).uniforms.time.value = clock.getElapsedTime() * speed
+    })
   }
 
   addToScene () {
@@ -745,7 +1123,6 @@ class StarField {
     const count = 7000
     const factor = 7
     const saturation = 10
-    const speed = 0.2
 
     const geometry = new THREE.BufferGeometry()
 
@@ -776,13 +1153,8 @@ class StarField {
 
     // Create points and add them to the scene
     this.points = new THREE.Points(geometry, material)
-    this.scene.add(this.points)
+    this.worldRenderer.scene.add(this.points)
 
-    const clock = new THREE.Clock()
-    this.points.onBeforeRender = (renderer, scene, camera) => {
-      this.points?.position.copy?.(camera.position)
-      material.uniforms.time.value = clock.getElapsedTime() * speed
-    }
     this.points.renderOrder = -1
   }
 
@@ -790,7 +1162,7 @@ class StarField {
     if (this.points) {
       this.points.geometry.dispose();
       (this.points.material as THREE.Material).dispose()
-      this.scene.remove(this.points)
+      this.worldRenderer.scene.remove(this.points)
 
       this.points = undefined
     }

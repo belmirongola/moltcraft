@@ -15,12 +15,17 @@ class CustomDuplex extends Duplex {
 }
 
 export const getWebsocketStream = async (host: string) => {
-  const baseProtocol = location.protocol === 'https:' ? 'wss' : host.startsWith('ws://') ? 'ws' : 'wss'
+  const baseProtocol = host.startsWith('ws://') ? 'ws' : 'wss'
   const hostClean = host.replace('ws://', '').replace('wss://', '')
-  const ws = new WebSocket(`${baseProtocol}://${hostClean}`)
+  const hostURL = new URL(`${baseProtocol}://${hostClean}`)
+  const hostParams = hostURL.searchParams
+  hostParams.append('client_mcraft', '')
+  const ws = new WebSocket(`${baseProtocol}://${hostURL.host}${hostURL.pathname}?${hostParams.toString()}`)
   const clientDuplex = new CustomDuplex(undefined, data => {
     ws.send(data)
   })
+
+  clientDuplex.on('error', () => {})
 
   ws.addEventListener('message', async message => {
     let { data } = message
@@ -33,10 +38,14 @@ export const getWebsocketStream = async (host: string) => {
   ws.addEventListener('close', () => {
     console.log('ws closed')
     clientDuplex.end()
+    setTimeout(() => {
+      clientDuplex.emit('end', 'Connection lost')
+    }, 500)
   })
 
   ws.addEventListener('error', err => {
     console.log('ws error', err)
+    clientDuplex.emit('error', err)
   })
 
   await new Promise((resolve, reject) => {

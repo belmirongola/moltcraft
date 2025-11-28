@@ -73,12 +73,12 @@ export const appAndRendererSharedConfig = () => defineConfig({
 })
 
 export const rspackViewerConfig = (config, { appendPlugins, addRules, rspack }: ModifyRspackConfigUtils) => {
-    appendPlugins(new rspack.NormalModuleReplacementPlugin(/data/, (resource) => {
+    appendPlugins(new rspack.NormalModuleReplacementPlugin(/data|prismarine-physics/, (resource) => {
         let absolute: string
         const request = resource.request.replaceAll('\\', '/')
         absolute = path.join(resource.context, request).replaceAll('\\', '/')
-        if (request.includes('minecraft-data/data/pc/1.')) {
-            console.log('Error: incompatible resource', request, resource.contextInfo.issuer)
+        if (request.includes('minecraft-data/data/pc/1.') || request.includes('prismarine-physics')) {
+            console.log('Error: incompatible resource', request, 'from', resource.contextInfo.issuer)
             process.exit(1)
             // throw new Error(`${resource.request} was requested by ${resource.contextInfo.issuer}`)
         }
@@ -112,6 +112,10 @@ export const rspackViewerConfig = (config, { appendPlugins, addRules, rspack }: 
         {
             test: /\.log$/,
             type: 'asset/source',
+        },
+        {
+            test: /\.gltf$/,
+            type: 'asset/resource',
         }
     ])
     config.ignoreWarnings = [

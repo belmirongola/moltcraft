@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import type { Entity } from 'prismarine-entity'
+import { useSnapshot } from 'valtio'
 import type { Block } from 'prismarine-block'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { miscUiState } from '../globalState'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
 import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
@@ -28,7 +31,7 @@ export default () => {
   window.packetsCountByName = packetsCountByName
   const ignoredPackets = useRef(new Set([] as any[]))
   const [packetsString, setPacketsString] = useState('')
-  const [showDebug, setShowDebug] = useState(false)
+  const { showDebugHud } = useSnapshot(miscUiState)
   const [pos, setPos] = useState<{ x: number, y: number, z: number }>({ x: 0, y: 0, z: 0 })
   const [skyL, setSkyL] = useState(0)
   const [blockL, setBlockL] = useState(0)
@@ -37,6 +40,7 @@ export default () => {
   const [timeOfDay, setTimeOfDay] = useState(0)
   const [dimension, setDimension] = useState('')
   const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
+  const [cursorEntity, setCursorEntity] = useState<Entity | null>(null)
   const [blockInfo, setBlockInfo] = useState<{ customBlockName?: string, modelInfo?: BlockStateModelInfo } | null>(null)
   const [clientTps, setClientTps] = useState(0)
   const [serverTps, setServerTps] = useState(null as null | { value: number, frozen: boolean })
@@ -53,11 +57,12 @@ export default () => {
 
   const viewDegToMinecraft = (yaw) => yaw % 360 - 180 * (yaw < 0 ? -1 : 1)
 
-  const handleF3 = (e) => {
-    if (e.code === 'F3') {
-      setShowDebug(prev => !prev)
-      e.preventDefault()
-    }
+  const shortenUuid = (uuid: string | undefined): string | undefined => {
+    if (!uuid) return undefined
+    // Format: 2383-*-3243 (first 4 chars, *, last 4 chars)
+    const cleaned = uuid.replaceAll('-', '')
+    if (cleaned.length < 8) return uuid
+    return `${cleaned.slice(0, 4)}-*-${cleaned.slice(-4)}`
   }
 
   const readPacket = (data, { name }, _buf, fullBuffer) => {
@@ -105,7 +110,6 @@ export default () => {
       }
     }
 
-    document.addEventListener('keydown', handleF3)
     let update = 0
     const packetsUpdateInterval = setInterval(() => {
       setPacketsString(`↓ ${received.current.count} (${(received.current.size / 1024).toFixed(2)} KB/s, ${getFixedFilesize(receivedTotal.current)}) ↑ ${sent.current.count}`)
@@ -135,7 +139,9 @@ export default () => {
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
       setTimeOfDay(bot.time.timeOfDay)
-      setCursorBlock(bot.mouse.getCursorState().cursorBlock)
+      const cursorState = bot.mouse.getCursorState()
+      setCursorBlock(cursorState.cursorBlock)
+      setCursorEntity(cursorState.entity)
     }, 100)
 
     const notFrequentUpdateInterval = setInterval(async () => {
@@ -161,7 +167,6 @@ export default () => {
     })
 
     return () => {
-      document.removeEventListener('keydown', handleF3)
       clearInterval(packetsUpdateInterval)
       clearInterval(freqUpdateInterval)
       clearInterval(notFrequentUpdateInterval)
@@ -174,7 +179,7 @@ export default () => {
     minecraftQuad.current = Math.floor(((minecraftYaw.current + 180) / 90 + 0.5) % 4)
   }, [bot.entity.yaw])
 
-  if (!showDebug) return null
+  if (!showDebugHud) return null
 
   return <>
     <div className={`debug-left-side ${styles['debug-left-side']}`}>
@@ -219,6 +224,34 @@ export default () => {
       {cursorBlock ? (
         <p>Looking at: {cursorBlock.position.x} {cursorBlock.position.y} {cursorBlock.position.z}</p>
       ) : ''}
+      {cursorBlock?.blockEntity && <p>Block Entity Data:</p>}
+      {cursorBlock?.blockEntity && (<>
+        <div className={styles.empty} />
+        {Object.entries(cursorBlock.blockEntity).map(([key, value]: [string, any]) => {
+          const stringified = JSON.stringify(value)
+          return (
+            <p key={key}>
+              {key}: {stringified.length}
+            </p>
+          )
+        })}
+      </>)}
+      {cursorEntity ? (<>
+        <div className={styles.empty} />
+        <p>E: {cursorEntity.name}</p>
+        {cursorEntity.displayName && <p>{cursorEntity.displayName}</p>}
+        {cursorEntity.id !== undefined && <p>ID: {cursorEntity.id}</p>}
+        {shortenUuid(cursorEntity.uuid) && <p>UUID: {shortenUuid(cursorEntity.uuid)}</p>}
+        {cursorEntity.username && <p>Username: {cursorEntity.username}</p>}
+        {cursorEntity.position && (
+          <p>{cursorEntity.position.x.toFixed(2)} {cursorEntity.position.y.toFixed(2)} {cursorEntity.position.z.toFixed(2)}</p>
+        )}
+        {cursorEntity.yaw !== undefined && <p>Yaw: {cursorEntity.yaw.toFixed(1)}</p>}
+        {cursorEntity.pitch !== undefined && <p>Pitch: {cursorEntity.pitch.toFixed(1)}</p>}
+        {cursorEntity.type && <p>Type: {cursorEntity.type}</p>}
+        {cursorEntity.health !== undefined && <p>Health: {cursorEntity.health.toFixed(1)}</p>}
+      </>)
+        : ''}
       <div className={styles.empty} />
       {blockInfo && (() => {
         const { customBlockName, modelInfo } = blockInfo

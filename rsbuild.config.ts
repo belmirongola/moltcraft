@@ -1,3 +1,4 @@
+/// <reference types="./src/env" />
 import { defineConfig, mergeRsbuildConfig, RsbuildPluginAPI } from '@rsbuild/core'
 import { pluginReact } from '@rsbuild/plugin-react'
 import { pluginTypedCSSModules } from '@rsbuild/plugin-typed-css-modules'
@@ -14,6 +15,7 @@ import { appAndRendererSharedConfig } from './renderer/rsbuildSharedConfig'
 import { genLargeDataAliases } from './scripts/genLargeDataAliases'
 import sharp from 'sharp'
 import supportedVersions from './src/supportedVersions.mjs'
+import { startWsServer } from './scripts/wsServer'
 
 const SINGLE_FILE_BUILD = process.env.SINGLE_FILE_BUILD === 'true'
 
@@ -48,7 +50,7 @@ if (fs.existsSync('./assets/release.json')) {
 
 const configJson = JSON.parse(fs.readFileSync('./config.json', 'utf8'))
 try {
-    Object.assign(configJson, JSON.parse(fs.readFileSync('./config.local.json', 'utf8')))
+    Object.assign(configJson, JSON.parse(fs.readFileSync(process.env.LOCAL_CONFIG_FILE || './config.local.json', 'utf8')))
 } catch (err) {}
 if (dev) {
     configJson.defaultProxy = ':8080'
@@ -57,6 +59,8 @@ if (dev) {
 const configSource = (SINGLE_FILE_BUILD ? 'BUNDLED' : (process.env.CONFIG_JSON_SOURCE || 'REMOTE')) as 'BUNDLED' | 'REMOTE'
 
 const faviconPath = 'favicon.png'
+
+const enableMetrics = process.env.ENABLE_METRICS === 'true'
 
 // base options are in ./renderer/rsbuildSharedConfig.ts
 const appConfig = defineConfig({
@@ -111,6 +115,22 @@ const appConfig = defineConfig({
             js: 'source-map',
             css: true,
         },
+        minify: {
+            // js: false,
+            jsOptions: {
+                minimizerOptions: {
+                    mangle: {
+                        safari10: true,
+                        keep_classnames: true,
+                        keep_fnames: true,
+                        keep_private_props: true,
+                    },
+                    compress: {
+                        unused: true,
+                    },
+                },
+            },
+        },
         distPath: SINGLE_FILE_BUILD ? {
             html: './single',
         } : undefined,
@@ -118,6 +138,13 @@ const appConfig = defineConfig({
         inlineStyles: SINGLE_FILE_BUILD,
         // 50kb limit for data uri
         dataUriLimit: SINGLE_FILE_BUILD ? 1 * 1024 * 1024 * 1024 : 50 * 1024
+    },
+    performance: {
+        // prefetch: {
+        //     include(filename) {
+        //         return filename.includes('mc-data') || filename.includes('mc-assets')
+        //     },
+        // },
     },
     source: {
         entry: {
@@ -134,12 +161,15 @@ const appConfig = defineConfig({
             'process.platform': '"browser"',
             'process.env.GITHUB_URL':
                 JSON.stringify(`https://github.com/${process.env.GITHUB_REPOSITORY || `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` || githubRepositoryFallback}`),
-            'process.env.DEPS_VERSIONS': JSON.stringify({}),
+            'process.env.ALWAYS_MINIMAL_SERVER_UI': JSON.stringify(process.env.ALWAYS_MINIMAL_SERVER_UI),
             'process.env.RELEASE_TAG': JSON.stringify(releaseTag),
             'process.env.RELEASE_LINK': JSON.stringify(releaseLink),
             'process.env.RELEASE_CHANGELOG': JSON.stringify(releaseChangelog),
             'process.env.DISABLE_SERVICE_WORKER': JSON.stringify(disableServiceWorker),
             'process.env.INLINED_APP_CONFIG': JSON.stringify(configSource === 'BUNDLED' ? configJson : null),
+            'process.env.ENABLE_COOKIE_STORAGE': JSON.stringify(process.env.ENABLE_COOKIE_STORAGE || true),
+            'process.env.COOKIE_STORAGE_PREFIX': JSON.stringify(process.env.COOKIE_STORAGE_PREFIX || ''),
+            'process.env.WS_PORT': JSON.stringify(enableMetrics ? 8081 : false),
         },
     },
     server: {
@@ -167,20 +197,21 @@ const appConfig = defineConfig({
                         childProcess.execSync('tsx ./scripts/optimizeBlockCollisions.ts', { stdio: 'inherit' })
                     }
                     // childProcess.execSync(['tsx', './scripts/genLargeDataAliases.ts', ...(SINGLE_FILE_BUILD ? ['--compressed'] : [])].join(' '), { stdio: 'inherit' })
-                    genLargeDataAliases(SINGLE_FILE_BUILD)
+                    genLargeDataAliases(SINGLE_FILE_BUILD || process.env.ALWAYS_COMPRESS_LARGE_DATA === 'true')
                     fsExtra.copySync('./node_modules/mc-assets/dist/other-textures/latest/entity', './dist/textures/entity')
                     fsExtra.copySync('./assets/background', './dist/background')
                     fs.copyFileSync('./assets/favicon.png', './dist/favicon.png')
                     fs.copyFileSync('./assets/playground.html', './dist/playground.html')
                     fs.copyFileSync('./assets/manifest.json', './dist/manifest.json')
                     fs.copyFileSync('./assets/config.html', './dist/config.html')
+                    fs.copyFileSync('./assets/debug-inputs.html', './dist/debug-inputs.html')
                     fs.copyFileSync('./assets/loading-bg.jpg', './dist/loading-bg.jpg')
                     if (fs.existsSync('./assets/release.json')) {
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
                     }
 
                     if (configSource === 'REMOTE') {
-                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
+                        fs.writeFileSync('./dist/config.json', JSON.stringify(configJson, undefined, 2), 'utf8')
                     }
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
@@ -196,6 +227,12 @@ const appConfig = defineConfig({
                         await execAsync('pnpm run build-mesher')
                     }
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
+
+                    // Start WebSocket server in development
+                    if (dev && enableMetrics) {
+                        await startWsServer(8081, false)
+                    }
+
                     console.timeEnd('total-prep')
                 }
                 if (!dev) {
@@ -203,6 +240,10 @@ const appConfig = defineConfig({
                         prep()
                     })
                     build.onAfterBuild(async () => {
+                        if (fs.readdirSync('./assets/customTextures').length > 0) {
+                            childProcess.execSync('tsx ./scripts/patchAssets.ts', { stdio: 'inherit' })
+                        }
+
                         if (SINGLE_FILE_BUILD) {
                             // check that only index.html is in the dist/single folder
                             const singleBuildFiles = fs.readdirSync('./dist/single')

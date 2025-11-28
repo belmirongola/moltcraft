@@ -35,6 +35,10 @@ const buildOptions = {
   define: {
     'process.env.BROWSER': '"true"',
   },
+  loader: {
+    '.png': 'dataurl',
+    '.obj': 'text'
+  },
   plugins: [
     ...mesherSharedPlugins,
     {

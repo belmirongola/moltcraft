@@ -85,7 +85,6 @@ export const loadSave = async (root = '/world', connectOptions?: Partial<Connect
   }
 
   let version: string | undefined | null
-  let isFlat = false
   if (levelDat) {
     version = appQueryParams.mapVersion ?? levelDat.Version?.Name
     if (!version) {
@@ -102,21 +101,6 @@ export const loadSave = async (root = '/world', connectOptions?: Partial<Connect
     if (lowerBound || upperBound) {
       version = prompt(`Version ${version} is not supported, supported versions are ${supportedVersions.join(', ')}, what try to use instead?`, lowerBound ? firstSupportedVersion : lastSupportedVersion)
       if (!version) return
-    }
-    if (levelDat.WorldGenSettings) {
-      for (const [key, value] of Object.entries(levelDat.WorldGenSettings.dimensions)) {
-        if (key.slice(10) === 'overworld') {
-          if (value.generator.type === 'flat') isFlat = true
-          break
-        }
-      }
-    }
-
-    if (levelDat.generatorName) {
-      isFlat = levelDat.generatorName === 'flat'
-    }
-    if (!isFlat && levelDat.generatorName !== 'default' && levelDat.generatorName !== 'customized') {
-      // warnings.push(`Generator ${levelDat.generatorName} may not be supported yet, be careful of new chunks writes`)
     }
 
     const playerUuid = nameToMcOfflineUUID(options.localUsername)
@@ -188,11 +172,6 @@ export const loadSave = async (root = '/world', connectOptions?: Partial<Connect
     // todo check gamemode level.dat data etc
     detail: {
       version,
-      ...isFlat ? {
-        generation: {
-          name: 'superflat'
-        }
-      } : {},
       ...root === '/world' ? {} : {
         'worldFolder': root
       },

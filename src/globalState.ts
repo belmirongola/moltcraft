@@ -46,6 +46,8 @@ export const showModal = (elem: /* (HTMLElement & Record<string, any>) |  */{ re
   activeModalStack.push(resolved)
 }
 
+window.showModal = showModal
+
 /**
  *
  * @returns true if previous modal was restored
@@ -121,6 +123,7 @@ export const miscUiState = proxy({
   /** wether game hud is shown (in playing state) */
   gameLoaded: false,
   showUI: true,
+  showDebugHud: false,
   loadedServerIndex: '',
   /** currently trying to load or loaded mc version, after all data is loaded */
   loadedDataVersion: null as string | null,
@@ -129,15 +132,32 @@ export const miscUiState = proxy({
   usingGamepadInput: false,
   appConfig: null as AppConfig | null,
   displaySearchInput: false,
-  displayFullmap: false
+  displayFullmap: false,
+  fullscreen: false,
+  disconnectedCleanup: null as { callback: () => void, date: number, wasConnected: boolean } | null
 })
+
+export const maybeCleanupAfterDisconnect = () => {
+  if (miscUiState.disconnectedCleanup) {
+    miscUiState.disconnectedCleanup.callback()
+    miscUiState.disconnectedCleanup = null
+  }
+}
+
+window.miscUiState = miscUiState
 
 export const isGameActive = (foregroundCheck: boolean) => {
   if (foregroundCheck && activeModalStack.length) return false
   return miscUiState.gameLoaded
 }
 
-window.miscUiState = miscUiState
+const updateFullscreen = () => {
+  miscUiState.fullscreen = !!document.fullscreenElement
+}
+document.documentElement.addEventListener('fullscreenchange', () => {
+  updateFullscreen()
+})
+updateFullscreen()
 
 // state that is not possible to get via bot and in-game specific
 export const gameAdditionalState = proxy({

@@ -71,7 +71,7 @@ export default async ({ tokenCaches, proxyBaseUrl, setProgressText = (text) => {
                 onMsaCodeCallback(json)
                 // this.codeCallback(json)
               }
-              if (json.error) throw new Error(json.error)
+              if (json.error) throw new Error(`Auth server error: ${json.error}`)
               if (json.token) result = json
               if (json.newCache) setCacheResult(json.newCache)
             }

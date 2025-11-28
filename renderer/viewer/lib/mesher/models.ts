@@ -103,8 +103,8 @@ function tintToGl (tint) {
   return [r / 255, g / 255, b / 255]
 }
 
-function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isRealWater: boolean) {
-  if (!isRealWater || (block && isBlockWaterlogged(block))) return 8 / 9
+function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isWater: boolean, isRealWater: boolean) {
+  if ((isWater && !isRealWater) || (block && isBlockWaterlogged(block))) return 8 / 9
   if (!block || block.type !== type) return 1 / 9
   if (block.metadata === 0) { // source block
     const blockAbove = world.getBlock(pos.offset(0, 1, 0))
@@ -125,12 +125,19 @@ const isCube = (block: Block) => {
   }))
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>, isRealWater: boolean) {
+const getVec = (v: Vec3, dir: Vec3) => {
+  for (const coord of ['x', 'y', 'z']) {
+    if (Math.abs(dir[coord]) > 0) v[coord] = 0
+  }
+  return v.plus(dir)
+}
+
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: MesherGeometryOutput, isRealWater: boolean) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
       const pos = cursor.offset(x, 0, z)
-      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, isRealWater))
+      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, water, isRealWater))
     }
   }
   const cornerHeights = [
@@ -142,7 +149,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
 
   // eslint-disable-next-line guard-for-in
   for (const face in elemFaces) {
-    const { dir, corners } = elemFaces[face]
+    const { dir, corners, mask1, mask2 } = elemFaces[face]
     const isUp = dir[1] === 1
 
     const neighborPos = cursor.offset(...dir as [number, number, number])
@@ -180,16 +187,44 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
     const { su } = texture
     const { sv } = texture
 
+    // Get base light value for the face
+    const baseLight = world.getLight(neighborPos, undefined, undefined, water ? 'water' : 'lava') / 15
+
     for (const pos of corners) {
       const height = cornerHeights[pos[2] * 2 + pos[0]]
-      attr.t_positions.push(
-        (pos[0] ? 0.999 : 0.001) + (cursor.x & 15) - 8,
-        (pos[1] ? height - 0.001 : 0.001) + (cursor.y & 15) - 8,
-        (pos[2] ? 0.999 : 0.001) + (cursor.z & 15) - 8
+      const OFFSET = 0.0001
+      attr.t_positions!.push(
+        (pos[0] ? 1 - OFFSET : OFFSET) + (cursor.x & 15) - 8,
+        (pos[1] ? height - OFFSET : OFFSET) + (cursor.y & 15) - 8,
+        (pos[2] ? 1 - OFFSET : OFFSET) + (cursor.z & 15) - 8
       )
-      attr.t_normals.push(...dir)
-      attr.t_uvs.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
-      attr.t_colors.push(tint[0], tint[1], tint[2])
+      attr.t_normals!.push(...dir)
+      attr.t_uvs!.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
+
+      let cornerLightResult = baseLight
+      if (world.config.smoothLighting) {
+        const dx = pos[0] * 2 - 1
+        const dy = pos[1] * 2 - 1
+        const dz = pos[2] * 2 - 1
+        const cornerDir: [number, number, number] = [dx, dy, dz]
+        const side1Dir: [number, number, number] = [dx * mask1[0], dy * mask1[1], dz * mask1[2]]
+        const side2Dir: [number, number, number] = [dx * mask2[0], dy * mask2[1], dz * mask2[2]]
+
+        const dirVec = new Vec3(...dir as [number, number, number])
+
+        const side1LightDir = getVec(new Vec3(...side1Dir), dirVec)
+        const side1Light = world.getLight(cursor.plus(side1LightDir)) / 15
+        const side2DirLight = getVec(new Vec3(...side2Dir), dirVec)
+        const side2Light = world.getLight(cursor.plus(side2DirLight)) / 15
+        const cornerLightDir = getVec(new Vec3(...cornerDir), dirVec)
+        const cornerLight = world.getLight(cursor.plus(cornerLightDir)) / 15
+        // interpolate
+        const lights = [side1Light, side2Light, cornerLight, baseLight]
+        cornerLightResult = lights.reduce((acc, cur) => acc + cur, 0) / lights.length
+      }
+
+      // Apply light value to tint
+      attr.t_colors!.push(tint[0] * cornerLightResult, tint[1] * cornerLightResult, tint[2] * cornerLightResult)
     }
   }
 }
@@ -301,7 +336,7 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
     let localShift = null as any
 
     if (element.rotation && !needTiles) {
-      // todo do we support rescale?
+      // Rescale support for block model rotations
       localMatrix = buildRotationMatrix(
         element.rotation.axis,
         element.rotation.angle
@@ -314,6 +349,37 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
           element.rotation.origin
         )
       )
+
+      // Apply rescale if specified
+      if (element.rotation.rescale) {
+        const FIT_TO_BLOCK_SCALE_MULTIPLIER = 2 - Math.sqrt(2)
+        const angleRad = element.rotation.angle * Math.PI / 180
+        const scale = Math.abs(Math.sin(angleRad)) * FIT_TO_BLOCK_SCALE_MULTIPLIER
+
+        // Get axis vector components (1 for the rotation axis, 0 for others)
+        const axisX = element.rotation.axis === 'x' ? 1 : 0
+        const axisY = element.rotation.axis === 'y' ? 1 : 0
+        const axisZ = element.rotation.axis === 'z' ? 1 : 0
+
+        // Create scale matrix: scale = (1 - axisComponent) * scaleFactor + 1
+        const scaleMatrix = [
+          [(1 - axisX) * scale + 1, 0, 0],
+          [0, (1 - axisY) * scale + 1, 0],
+          [0, 0, (1 - axisZ) * scale + 1]
+        ]
+
+        // Apply scaling to the transformation matrix
+        localMatrix = matmulmat3(localMatrix, scaleMatrix)
+
+        // Recalculate shift with the new matrix
+        localShift = vecsub3(
+          element.rotation.origin,
+          matmul3(
+            localMatrix,
+            element.rotation.origin
+          )
+        )
+      }
     }
 
     const aos: number[] = []
@@ -453,7 +519,7 @@ const isBlockWaterlogged = (block: Block) => {
 }
 
 let unknownBlockModel: BlockModelPartsResolved
-export function getSectionGeometry (sx, sy, sz, world: World) {
+export function getSectionGeometry (sx: number, sy: number, sz: number, world: World) {
   let delayedRender = [] as Array<() => void>
 
   const attr: MesherGeometryOutput = {
@@ -475,8 +541,8 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     // todo this can be removed here
     heads: {},
     signs: {},
+    banners: {},
     // isFull: true,
-    highestBlocks: {},
     hadErrors: false,
     blocksCount: 0
   }
@@ -486,14 +552,8 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
     for (cursor.z = sz; cursor.z < sz + 16; cursor.z++) {
       for (cursor.x = sx; cursor.x < sx + 16; cursor.x++) {
         let block = world.getBlock(cursor, blockProvider, attr)!
-        if (!INVISIBLE_BLOCKS.has(block.name)) {
-          const highest = attr.highestBlocks[`${cursor.x},${cursor.z}`]
-          if (!highest || highest.y < cursor.y) {
-            attr.highestBlocks[`${cursor.x},${cursor.z}`] = { y: cursor.y, stateId: block.stateId, biomeId: block.biome.id }
-          }
-        }
         if (INVISIBLE_BLOCKS.has(block.name)) continue
-        if ((block.name.includes('_sign') || block.name === 'sign') && !world.config.disableSignsMapsSupport) {
+        if ((block.name.includes('_sign') || block.name === 'sign') && !world.config.disableBlockEntityTextures) {
           const key = `${cursor.x},${cursor.y},${cursor.z}`
           const props: any = block.getProperties()
           const facingRotationMap = {
@@ -522,6 +582,21 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
           attr.heads[key] = {
             isWall,
             rotation: isWall ? facingRotationMap[props.facing] : +props.rotation
+          }
+        } else if (block.name.includes('_banner') && !world.config.disableBlockEntityTextures) {
+          const key = `${cursor.x},${cursor.y},${cursor.z}`
+          const props: any = block.getProperties()
+          const facingRotationMap = {
+            'north': 2,
+            'south': 0,
+            'west': 1,
+            'east': 3
+          }
+          const isWall = block.name.endsWith('_wall_banner')
+          attr.banners[key] = {
+            isWall,
+            blockName: block.name, // Pass block name for base color extraction
+            rotation: isWall ? facingRotationMap[props.facing] : (props.rotation === undefined ? 0 : +props.rotation)
           }
         }
         const biome = block.biome.name
@@ -588,7 +663,7 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
             // #endregion
 
             for (const element of model.elements ?? []) {
-              const ao = model.ao ?? true
+              const ao = model.ao ?? block.boundingBox !== 'empty'
               if (block.transparent) {
                 const pos = cursor.clone()
                 delayedRender.push(() => {

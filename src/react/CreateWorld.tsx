@@ -11,7 +11,7 @@ import styles from './createWorld.module.css'
 import { InputOption, showInputsModal, showOptionsModal } from './SelectOption'
 
 // const worldTypes = ['default', 'flat', 'largeBiomes', 'amplified', 'customized', 'buffet', 'debug_all_block_states']
-const worldTypes = ['default', 'flat'/* , 'void' */]
+const worldTypes = ['default', 'flat', 'empty', 'nether', 'all_the_blocks']
 const gameModes = ['survival', 'creative'/* , 'adventure', 'spectator' */]
 
 export const creatingWorldState = proxy({

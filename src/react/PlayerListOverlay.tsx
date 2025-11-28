@@ -2,7 +2,7 @@ import MessageFormattedString from './MessageFormattedString'
 import './PlayerListOverlay.css'
 
 
-type PlayersLists = Array<Array<Pick<import('mineflayer').Player, 'uuid' | 'username' | 'ping'>>>
+type PlayersLists = Array<Array<Pick<import('mineflayer').Player, 'uuid' | 'displayName' | 'username' | 'ping'>>>
 
 type PlayerListOverlayProps = {
   playersLists: PlayersLists,
@@ -25,7 +25,7 @@ export default ({ playersLists, clientId, tablistHeader, tablistFooter, serverIP
         <div key={index} className="player-list">
           {list.map(player => (
             <div key={player.uuid ?? player.username} className={`playerlist-entry${clientId === player.uuid ? ' active-player' : ''}`} id={`plist-player-${player.uuid}`}>
-              <MessageFormattedString message={player.username} />
+              <MessageFormattedString message={player.displayName ?? player.username} />
               <div className="playerlist-ping">
                 <p className="playerlist-ping-value">{player.ping}</p>
                 <p className="playerlist-ping-label">ms</p>

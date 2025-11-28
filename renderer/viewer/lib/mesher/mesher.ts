@@ -2,6 +2,7 @@ import { Vec3 } from 'vec3'
 import { World } from './world'
 import { getSectionGeometry, setBlockStatesData as setMesherData } from './models'
 import { BlockStateModelInfo } from './shared'
+import { INVISIBLE_BLOCKS } from './worldConstants'
 
 globalThis.structuredClone ??= (value) => JSON.parse(JSON.stringify(value))
 
@@ -76,6 +77,7 @@ const handleMessage = data => {
 
   if (data.type === 'mcData') {
     globalVar.mcData = data.mcData
+    globalVar.loadedData = data.mcData
   }
 
   if (data.config) {
@@ -137,6 +139,7 @@ const handleMessage = data => {
       dirtySections = new Map()
       // todo also remove cached
       globalVar.mcData = null
+      globalVar.loadedData = null
       allDataReady = false
 
       break
@@ -146,6 +149,30 @@ const handleMessage = data => {
       const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
       const customBlockModel = world.customBlockModels.get(chunkKey)?.[`${pos.x},${pos.y},${pos.z}`]
       global.postMessage({ type: 'customBlockModel', chunkKey, customBlockModel })
+      break
+    }
+    case 'getHeightmap': {
+      const heightmap = new Uint8Array(256)
+
+      const blockPos = new Vec3(0, 0, 0)
+      for (let z = 0; z < 16; z++) {
+        for (let x = 0; x < 16; x++) {
+          const blockX = x + data.x
+          const blockZ = z + data.z
+          blockPos.x = blockX
+          blockPos.z = blockZ
+          blockPos.y = world.config.worldMaxY
+          let block = world.getBlock(blockPos)
+          while (block && INVISIBLE_BLOCKS.has(block.name) && blockPos.y > world.config.worldMinY) {
+            blockPos.y -= 1
+            block = world.getBlock(blockPos)
+          }
+          const index = z * 16 + x
+          heightmap[index] = block ? blockPos.y : 0
+        }
+      }
+      postMessage({ type: 'heightmap', key: `${Math.floor(data.x / 16)},${Math.floor(data.z / 16)}`, heightmap })
+
       break
     }
   // No default

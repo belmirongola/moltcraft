@@ -122,6 +122,7 @@ const createProgressReporter = (implementation: ReporterDisplayImplementation): 
     },
 
     setMessage (message: string): void {
+      if (ended) return
       implementation.setMessage(message)
     },
 
@@ -130,6 +131,7 @@ const createProgressReporter = (implementation: ReporterDisplayImplementation): 
     },
 
     error (message: string): void {
+      if (ended) return
       implementation.error(message)
     }
   }

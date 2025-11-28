@@ -4,6 +4,12 @@ div.chat-wrapper {
   /* z-index: 10; */
   padding-left: calc(env(safe-area-inset-left) / 2);
   padding-right: calc(env(safe-area-inset-right, 4px) / 2);
+  box-sizing: content-box;
+}
+
+/* Only apply overflow hidden when not in mobile mode */
+div.chat-wrapper:not(.display-mobile):not(.input-mobile) {
+  /* overflow: hidden; */
 }
 
 .chat-messages-wrapper {
@@ -11,10 +17,15 @@ div.chat-wrapper {
   padding: 4px;
   padding-left: 0;
   max-height: var(--chatHeight);
-  width: var(--chatWidth);
+  width: calc(var(--chatWidth) - 5px); /* Custom scrollbar width */
   transform-origin: bottom left;
   transform: scale(var(--chatScale));
   pointer-events: none;
+}
+
+/* Restore full width when chat is opened */
+.chat-messages-wrapper.chat-opened {
+  width: var(--chatWidth);
 }
 
 .chat-input-wrapper {
@@ -62,7 +73,7 @@ div.chat-wrapper {
   top: 100%;
   padding-left: calc(env(safe-area-inset-left) / 2);
   margin-top: 14px;
-  margin-left: 20px;
+  margin-left: 40px;
   /* input height */
 }
 
@@ -107,6 +118,11 @@ div.chat-wrapper {
 
 .input-mobile .chat-completions-items {
   justify-content: flex-start;
+}
+
+.input-mobile .chat-completions-items > div {
+  padding: 4px 0;
+  font-size: 10px;
 }
 
 .input-mobile {
@@ -188,24 +204,23 @@ input[type=text],
   padding-left: 4px;
   background-color: rgba(0, 0, 0, 0.5);
   list-style: none;
-  word-break: break-all;
-}
-
-.chat-message-fadeout {
+  overflow-wrap: break-word;
   opacity: 1;
-  transition: all 3s;
 }
 
-.chat-message-fade {
+.chat-message-fading {
   opacity: 0;
+  transition: opacity 3s ease-in-out;
 }
 
 .chat-message-faded {
-  transition: none !important;
+  display: none;
 }
 
+/* Ensure messages are always visible when chat is open */
 .chat.opened .chat-message {
   opacity: 1 !important;
+  display: block !important;
   transition: none !important;
 }
 

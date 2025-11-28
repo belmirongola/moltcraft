@@ -80,7 +80,7 @@ const World = ({ name, isFocused, title, lastPlayed, size, detail = '', onFocus,
     }}
     onDoubleClick={() => onInteraction?.('enter')}
   >
-    <img className={`${styles.world_image} ${iconSrc ? '' : styles.image_missing}`} src={iconSrc ?? missingWorldPreview} alt='world preview' />
+    <img className={`${styles.world_image} ${iconSrc ? '' : styles.image_missing}`} src={iconSrc ?? missingWorldPreview} alt='' />
     <div className={styles.world_info}>
       <div className={styles.world_title}>
         <div>{title}</div>
@@ -139,6 +139,7 @@ interface Props {
   setListHovered?: (hovered: boolean) => void
   secondRowStyles?: React.CSSProperties
   lockedEditing?: boolean
+  retriggerFocusCounter?: number
 }
 
 export default ({
@@ -163,7 +164,8 @@ export default ({
   listStyle,
   setListHovered,
   secondRowStyles,
-  lockedEditing
+  lockedEditing,
+  retriggerFocusCounter
 }: Props) => {
   const containerRef = useRef<any>()
   const firstButton = useRef<HTMLButtonElement>(null)
@@ -173,7 +175,7 @@ export default ({
     if ((e.code === 'ArrowDown' || e.code === 'ArrowUp')) {
       e.preventDefault()
       const dir = e.code === 'ArrowDown' ? 1 : -1
-      const elements = focusable(containerRef.current)
+      const elements = focusable(containerRef.current).filter(e => e.getAttribute('tabindex') !== '-1')
       const focusedElemIndex = elements.indexOf(document.activeElement as HTMLElement)
       if (focusedElemIndex === -1) return
       const nextElem = elements[focusedElemIndex + dir]
@@ -196,7 +198,7 @@ export default ({
     if (worldName) {
       worldRefs.current[worldName]?.focus()
     }
-  }, [selectedRow, worldData?.[selectedRow as any]?.name])
+  }, [selectedRow, worldData?.[selectedRow as any]?.name, retriggerFocusCounter])
 
   const onRowSelectHandler = (name: string, index: number) => {
     onRowSelect?.(name, index)
@@ -263,22 +265,26 @@ export default ({
                       expanded={expandedGroups[groupName] ?? true}
                       onToggle={() => toggleGroup(groupName)}
                     />
-                    {(expandedGroups[groupName] ?? true) && worlds.map(({ name, size, detail, ...rest }, index) => (
-                      <World
-                        {...rest}
-                        size={size}
-                        name={name}
-                        elemRef={el => { worldRefs.current[name] = el }}
-                        onFocus={row => onRowSelectHandler(row, index)}
-                        isFocused={focusedWorld === name}
-                        key={name}
-                        onInteraction={(interaction) => {
-                          if (interaction === 'enter') onWorldAction('load', name)
-                          else if (interaction === 'space') firstButton.current?.focus()
-                        }}
-                        detail={detail}
-                      />
-                    ))}
+                    {(expandedGroups[groupName] ?? true) && worlds.map(({ name, size, detail, ...rest }, index) => {
+                      const key = name
+                      return (
+                        <World
+                          data-key={key}
+                          key={key}
+                          {...rest}
+                          size={size}
+                          name={name}
+                          elemRef={el => { worldRefs.current[name] = el }}
+                          onFocus={row => onRowSelectHandler(row, index)}
+                          isFocused={focusedWorld === name}
+                          onInteraction={(interaction) => {
+                            if (interaction === 'enter') onWorldAction('load', name)
+                            else if (interaction === 'space') firstButton.current?.focus()
+                          }}
+                          detail={detail}
+                        />
+                      )
+                    })}
                   </React.Fragment>
                 ))
               })()

@@ -1,4 +1,5 @@
 .root {
+  min-height: 0; 
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -31,7 +32,8 @@
 }
 
 .content {
-  display: flex;
+  display: grid;
+  grid-template-columns: 60% 40%;
   flex: 1;
   gap: 10px;
   overflow: hidden;
@@ -39,21 +41,24 @@
 }
 
 .verticalContent {
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: none;
+  grid-template-rows: 60% 40%;
+  overflow: hidden;
 }
 
 .verticalContent .modList {
-  height: 50%;
-  min-height: 200px;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .verticalContent .sidebar {
-  height: 50%;
+  max-height: 100%;
   width: 100%;
+  overflow-y: auto;
 }
 
 .modList {
-  flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -63,18 +68,19 @@
   padding: 5px;
   min-height: 0; /* Important for Firefox */
   height: 100%;
+  width: 100%;
 }
 
 .sidebar {
-  width: 200px;
+  overflow-y: auto;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 10px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
-  flex-shrink: 0;
-  height: 100%;
 }
 
 .modInfo {

@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { Transition } from 'react-transition-group'
+import { motion, AnimatePresence } from 'framer-motion'
 import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useState } from 'react'
 import { activeModalStack, miscUiState, openOptionsMenu, showModal } from '../globalState'
@@ -117,37 +117,48 @@ export default () => {
     mapsProviderUrl.searchParams.set('to', location.href)
   }
 
-  // todo clean, use custom csstransition
-  return <Transition in={!noDisplay} timeout={disableAnimation ? 0 : 100} mountOnEnter unmountOnExit>
-    {(state) => <div style={{ transition: state === 'exiting' || disableAnimation ? '' : '100ms opacity ease-in', ...state === 'entered' ? { opacity: 1 } : { opacity: 0 } }}>
-      <MainMenu
-        singleplayerAvailable={singleplayerAvailable}
-        connectToServerAction={() => showModal({ reactType: 'serversList' })}
-        singleplayerAction={async () => {
-          showModal({ reactType: 'singleplayer' })
-        }}
-        githubAction={() => openGithub()}
-        optionsAction={() => openOptionsMenu('main')}
-        bottomRightLinks={process.env.MAIN_MENU_LINKS}
-        openFileAction={e => {
-          if (!!window.showDirectoryPicker && !e.shiftKey) {
-            void openWorldDirectory()
-          } else {
-            openFilePicker()
-          }
-        }}
-        mapsProvider={mapsProviderUrl?.toString()}
-        versionStatus={versionStatus}
-        versionTitle={versionTitle}
-        onVersionStatusClick={async () => {
-          setVersionStatus('(reloading)')
-          await refreshApp()
-        }}
-        onVersionTextClick={async () => {
-          openGithub(process.env.RELEASE_LINK)
-        }}
-        versionText={process.env.RELEASE_TAG}
-      />
-    </div>}
-  </Transition>
+  return (
+    <AnimatePresence>
+      {!noDisplay && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{
+            duration: disableAnimation ? 0 : 0.1,
+            ease: 'easeInOut'
+          }}
+        >
+          <MainMenu
+            singleplayerAvailable={singleplayerAvailable}
+            connectToServerAction={() => showModal({ reactType: 'serversList' })}
+            singleplayerAction={async () => {
+              showModal({ reactType: 'singleplayer' })
+            }}
+            githubAction={() => openGithub()}
+            optionsAction={() => openOptionsMenu('main')}
+            bottomRightLinks={process.env.MAIN_MENU_LINKS}
+            openFileAction={e => {
+              if (!!window.showDirectoryPicker && !e.shiftKey) {
+                void openWorldDirectory()
+              } else {
+                openFilePicker()
+              }
+            }}
+            mapsProvider={mapsProviderUrl?.toString()}
+            versionStatus={versionStatus}
+            versionTitle={versionTitle}
+            onVersionStatusClick={async () => {
+              setVersionStatus('(reloading)')
+              await refreshApp()
+            }}
+            onVersionTextClick={async () => {
+              openGithub(process.env.RELEASE_LINK)
+            }}
+            versionText={process.env.RELEASE_TAG}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 }

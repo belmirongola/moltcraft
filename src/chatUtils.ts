@@ -4,6 +4,10 @@ import { fromFormattedString, TextComponent } from '@xmcl/text-component'
 import type { IndexedData } from 'minecraft-data'
 import { versionToNumber } from 'renderer/viewer/common/utils'
 
+export interface MessageFormatOptions {
+  doShadow?: boolean
+}
+
 export type MessageFormatPart = Pick<TextComponent, 'hoverEvent' | 'clickEvent'> & {
   text: string
   color?: string
@@ -112,6 +116,14 @@ export const formatMessage = (message: MessageInput, mcData: IndexedData = globa
   }).flat(Infinity)
 
   return msglist
+}
+
+export const messageToString = (message: MessageInput | string) => {
+  if (typeof message === 'string') {
+    return message
+  }
+  const msglist = formatMessage(message)
+  return msglist.map(msg => msg.text).join('')
 }
 
 const blockToItemRemaps = {

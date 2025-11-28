@@ -1,24 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { Transition } from 'react-transition-group'
+import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { openItemsCanvas, upInventoryItems } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
 import { getItemNameRaw } from '../mineflayer/items'
 import { isInRealGameSession } from '../utils'
+import { triggerCommand } from '../controls'
 import MessageFormattedString from './MessageFormattedString'
 import SharedHudVars from './SharedHudVars'
-import { packetsReplayState } from './state/packetsReplayState'
 
 
 const ItemName = ({ itemKey }: { itemKey: string }) => {
-  const nodeRef = useRef(null)
   const [show, setShow] = useState(false)
   const [itemName, setItemName] = useState<Record<string, any> | string>('')
 
-  const duration = 300
+  const duration = 0.3
 
   const defaultStyle: React.CSSProperties = {
     position: 'fixed',
@@ -27,16 +26,7 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
     right: 0,
     fontSize: 10,
     textAlign: 'center',
-    transition: `opacity ${duration}ms ease-in-out`,
-    opacity: 0,
     pointerEvents: 'none',
-  }
-
-  const transitionStyles = {
-    entering: { opacity: 1 },
-    entered: { opacity: 1 },
-    exiting: { opacity: 0 },
-    exited: { opacity: 0 },
   }
 
   useEffect(() => {
@@ -61,26 +51,40 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
     }
   }, [itemKey])
 
-  return <Transition nodeRef={nodeRef} in={show} timeout={duration} >
-    {state => (
-      <SharedHudVars>
-        <div ref={nodeRef} style={{ ...defaultStyle, ...transitionStyles[state] }} className='item-display-name'>
-          <MessageFormattedString message={itemName} />
-        </div>
-      </SharedHudVars>
-    )}
-  </Transition>
+  return (
+    <AnimatePresence>
+      {show && (
+        <SharedHudVars>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration }}
+            style={defaultStyle}
+            className='item-display-name'
+          >
+            <MessageFormattedString message={itemName} />
+          </motion.div>
+        </SharedHudVars>
+      )}
+    </AnimatePresence>
+  )
 }
 
 const HotbarInner = () => {
   const container = useRef<HTMLDivElement>(null!)
   const [itemKey, setItemKey] = useState('')
   const hasModals = useSnapshot(activeModalStack).length
+  const { currentTouch, appConfig } = useSnapshot(miscUiState)
+  const mobileOpenInventory = currentTouch && !appConfig?.disabledCommands?.includes('general.inventory')
 
   useEffect(() => {
     const controller = new AbortController()
 
     const inv = openItemsCanvas('HotbarWin', {
+      _client: {
+        write () {}
+      },
       clickWindow (slot, mouseButton, mode) {
         if (mouseButton === 1) {
           console.log('right click')
@@ -103,25 +107,27 @@ const HotbarInner = () => {
       canvasManager.setScale(currentScaling.scale)
 
       canvasManager.windowHeight = 25 * canvasManager.scale
-      canvasManager.windowWidth = (210 - (inv.inventory.supportsOffhand ? 0 : 25) + (miscUiState.currentTouch ? 28 : 0)) * canvasManager.scale
+      canvasManager.windowWidth = (210 - (inv.inventory.supportsOffhand ? 0 : 25) + (mobileOpenInventory ? 28 : 0)) * canvasManager.scale
     }
     setSize()
     watchUnloadForCleanup(subscribe(currentScaling, setSize))
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser) return
-      upInventoryItems(true, inv)
+      if (!appViewer.resourcesManager?.itemsAtlasParser) return
+      globalThis.debugHotbarItems = upInventoryItems(true, inv)
     }
 
     canvasManager.canvas.onclick = (e) => {
       if (!isGameActive(true)) return
       const pos = inv.canvasManager.getMousePos(inv.canvas, e)
-      if (canvasManager.canvas.width - pos.x < 35 * inv.canvasManager.scale) {
-        openPlayerInventory()
+      if (canvasManager.canvas.width - pos.x < 35 * inv.canvasManager.scale && mobileOpenInventory) {
+        triggerCommand('general.inventory', true)
+        triggerCommand('general.inventory', false)
       }
     }
 
+    globalThis.debugUpHotbarItems = upHotbarItems
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
     appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
@@ -178,17 +184,8 @@ const HotbarInner = () => {
     })
     document.addEventListener('touchend', (e) => {
       if (touchStart && (e.target as HTMLElement).closest('.hotbar') && Date.now() - touchStart > 700) {
-        // drop item
-        bot._client.write('block_dig', {
-          'status': 4,
-          'location': {
-            'x': 0,
-            'z': 0,
-            'y': 0
-          },
-          'face': 0,
-          sequence: 0
-        })
+        triggerCommand('general.dropStack', true)
+        triggerCommand('general.dropStack', false)
       }
       touchStart = 0
     })
@@ -204,17 +201,28 @@ const HotbarInner = () => {
     <ItemName itemKey={itemKey} />
     <Portal>
       <div
-        className='hotbar' ref={container} style={{
+        className='hotbar-fullscreen-container'
+        style={{
           position: 'fixed',
+          top: 0,
           left: 0,
-          right: 0,
+          width: '100dvw',
+          height: '100dvh',
+          zIndex: hasModals ? 1 : 8,
           display: 'flex',
           justifyContent: 'center',
-          zIndex: hasModals ? 1 : 8,
           pointerEvents: 'none',
-          bottom: 'var(--hud-bottom-raw)'
-        }}
-      />
+        }}>
+        <div
+          className='hotbar'
+          ref={container}
+          style={{
+            position: 'absolute',
+            pointerEvents: 'none',
+            bottom: 'var(--hud-bottom-raw)'
+          }}
+        />
+      </div>
     </Portal>
   </SharedHudVars>
 }

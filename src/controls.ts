@@ -19,7 +19,7 @@ import type { CustomCommand } from './react/KeybindingsCustom'
 import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
 import { getItemFromBlock } from './chatUtils'
-import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
+import { gamepadUiCursorState } from './react/GamepadUiCursor'
 import { completeResourcepackPackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
 import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
@@ -27,7 +27,10 @@ import { onCameraMove, onControInit } from './cameraRotationControls'
 import { createNotificationProgressReporter } from './core/progressReporter'
 import { appStorage } from './react/appStorageProvider'
 import { switchGameMode } from './packetsReplay/replayPackets'
-
+import { tabListState } from './react/PlayerListOverlayProvider'
+import { type ActionType, type ActionHoldConfig, type CustomAction } from './appConfig'
+import { playerState } from './mineflayer/playerState'
+import { emulateMouseClick } from './app/gamepadCursor'
 
 export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
@@ -40,43 +43,53 @@ const controlOptions = {
 
 export const contro = new ControMax({
   commands: {
-    general: {
-      // movement
+    movement: {
+      forward: ['KeyW'],
+      back: ['KeyS'],
+      left: ['KeyA'],
+      right: ['KeyD'],
       jump: ['Space', 'A'],
-      inventory: ['KeyE', 'X'],
-      drop: ['KeyQ', 'B'],
-      sneak: ['ShiftLeft'],
+      sneak: ['ShiftLeft', 'Down'],
       toggleSneakOrDown: [null, 'Right Stick'],
       sprint: ['ControlLeft', 'Left Stick'],
+    },
+    general: {
+      inventory: ['KeyE', 'X'],
+      drop: ['KeyQ', 'B'],
+      dropStack: [null],
       // game interactions
       nextHotbarSlot: [null, 'Right Bumper'],
       prevHotbarSlot: [null, 'Left Bumper'],
       attackDestroy: [null, 'Right Trigger'],
       interactPlace: [null, 'Left Trigger'],
       swapHands: ['KeyF'],
-      selectItem: ['KeyH'], // default will be removed
+      selectItem: ['KeyH'],
       rotateCameraLeft: [null],
       rotateCameraRight: [null],
       rotateCameraUp: [null],
       rotateCameraDown: [null],
       // ui?
-      chat: [['KeyT', 'Enter']],
+      chat: [['KeyT', 'Enter'], 'Right'],
       command: ['Slash'],
+      playersList: ['Tab', 'Left'],
+      debugOverlay: ['F3'],
+      debugOverlayHelpMenu: [null],
       // client side
       zoom: ['KeyC'],
       viewerConsole: ['Backquote'],
+      togglePerspective: ['F5', 'Up'],
     },
     ui: {
       toggleFullscreen: ['F11'],
       back: [null/* 'Escape' */, 'B'],
       toggleMap: ['KeyJ'],
       leftClick: [null, 'A'],
-      rightClick: [null, 'Y'],
+      rightClick: [null, 'X'],
       speedupCursor: [null, 'Left Stick'],
       pauseMenu: [null, 'Start']
     },
     communication: {
-      toggleMicrophone: ['KeyK'],
+      toggleMicrophone: ['KeyM'],
     },
     advanced: {
       lockUrl: ['KeyY'],
@@ -87,7 +100,6 @@ export const contro = new ControMax({
     //   showLookingBlockUsages: ['Numpad4']
     // }
   } satisfies Record<string, Record<string, SchemaCommandInput>>,
-  movementKeymap: 'WASD',
   movementVector: '2d',
   groupedCommands: {
     general: {
@@ -109,6 +121,10 @@ export const contro = new ControMax({
 window.controMax = contro
 export type Command = CommandEventArgument<typeof contro['_commandsRaw']>['command']
 
+export const isCommandDisabled = (command: Command) => {
+  return miscUiState.appConfig?.disabledCommands?.includes(command)
+}
+
 onControInit()
 
 updateBinds(customKeymaps)
@@ -126,18 +142,13 @@ const setSprinting = (state: boolean) => {
   gameAdditionalState.isSprinting = state
 }
 
+const isSpectatingEntity = () => {
+  return appViewer.playerState.utils.isSpectatingEntity()
+}
+
 contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
-  if (gamepadIndex !== undefined && gamepadUiCursorState.display) {
-    const deadzone = 0.1 // TODO make deadzone configurable
-    if (Math.abs(soleVector.x) < deadzone && Math.abs(soleVector.z) < deadzone) {
-      return
-    }
-    moveGamepadCursorByPx(soleVector.x, true)
-    moveGamepadCursorByPx(soleVector.z, false)
-    emitMousemove()
-  }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
-  if (!bot || !isGameActive(false)) return
+  if (!bot || !isGameActive(false) || isSpectatingEntity()) return
 
   // if (viewer.world.freeFlyMode) {
   //   // Create movement vector from input
@@ -174,17 +185,14 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   }
 
   for (const key of ['forward', 'back', 'left', 'right'] as const) {
-    if (newState[key] === bot.controlState[key]) continue
+    if (!!(newState[key]) === !!(bot.controlState[key])) continue
     const action = !!newState[key]
     if (action && !isGameActive(true)) continue
     bot.setControlState(key, action)
 
     if (key === 'forward') {
       // todo workaround: need to refactor
-      if (action) {
-        void contro.emit('trigger', { command: 'general.forward' } as any)
-      } else {
-        void contro.emit('release', { command: 'general.forward' } as any)
+      if (!action) {
         setSprinting(false)
       }
     }
@@ -194,12 +202,12 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
 let lastCommandTrigger = null as { command: string, time: number } | null
 
 const secondActionActivationTimeout = 300
-const secondActionCommands = {
-  'general.jump' () {
+const secondActionCommands: Partial<Record<Command, () => void>> = {
+  'movement.jump' () {
     // if (bot.game.gameMode === 'spectator') return
     toggleFly()
   },
-  'general.forward' () {
+  'movement.forward' () {
     setSprinting(true)
   }
 }
@@ -213,74 +221,6 @@ subscribe(activeModalStack, () => {
     }
   }
 })
-
-const emitMousemove = () => {
-  const { x, y } = gamepadUiCursorState
-  const xAbs = x / 100 * window.innerWidth
-  const yAbs = y / 100 * window.innerHeight
-  const element = document.elementFromPoint(xAbs, yAbs) as HTMLElement | null
-  if (!element) return
-  element.dispatchEvent(new MouseEvent('mousemove', {
-    clientX: xAbs,
-    clientY: yAbs
-  }))
-}
-
-let lastClickedEl = null as HTMLElement | null
-let lastClickedElTimeout: ReturnType<typeof setTimeout> | undefined
-const inModalCommand = (command: Command, pressed: boolean) => {
-  if (pressed && !gamepadUiCursorState.display) return
-
-  if (pressed) {
-    if (command === 'ui.back') {
-      hideCurrentModal()
-    }
-    if (command === 'ui.leftClick' || command === 'ui.rightClick') {
-      // in percent
-      const { x, y } = gamepadUiCursorState
-      const xAbs = x / 100 * window.innerWidth
-      const yAbs = y / 100 * window.innerHeight
-      const el = document.elementFromPoint(xAbs, yAbs) as HTMLElement
-      if (el) {
-        if (el === lastClickedEl && command === 'ui.leftClick') {
-          el.dispatchEvent(new MouseEvent('dblclick', {
-            bubbles: true,
-            clientX: xAbs,
-            clientY: yAbs
-          }))
-          return
-        }
-        el.dispatchEvent(new MouseEvent('mousedown', {
-          button: command === 'ui.leftClick' ? 0 : 2,
-          bubbles: true,
-          clientX: xAbs,
-          clientY: yAbs
-        }))
-        el.dispatchEvent(new MouseEvent(command === 'ui.leftClick' ? 'click' : 'contextmenu', {
-          bubbles: true,
-          clientX: xAbs,
-          clientY: yAbs
-        }))
-        el.dispatchEvent(new MouseEvent('mouseup', {
-          button: command === 'ui.leftClick' ? 0 : 2,
-          bubbles: true,
-          clientX: xAbs,
-          clientY: yAbs
-        }))
-        el.focus()
-        lastClickedEl = el
-        if (lastClickedElTimeout) clearTimeout(lastClickedElTimeout)
-        lastClickedElTimeout = setTimeout(() => {
-          lastClickedEl = null
-        }, 500)
-      }
-    }
-  }
-
-  if (command === 'ui.speedupCursor') {
-    gamepadUiCursorState.multiply = pressed ? 2 : 1
-  }
-}
 
 // Camera rotation controls
 const cameraRotationControls = {
@@ -331,6 +271,9 @@ const cameraRotationControls = {
     cameraRotationControls.updateMovement()
   },
   handleCommand (command: string, pressed: boolean) {
+    // Don't allow movement while spectating an entity
+    if (isSpectatingEntity()) return
+
     const directionMap = {
       'general.rotateCameraLeft': 'left',
       'general.rotateCameraRight': 'right',
@@ -352,16 +295,17 @@ window.cameraRotationControls = cameraRotationControls
 const setSneaking = (state: boolean) => {
   gameAdditionalState.isSneaking = state
   bot.setControlState('sneak', state)
+
 }
 
 const onTriggerOrReleased = (command: Command, pressed: boolean) => {
   // always allow release!
   if (!bot || !isGameActive(false)) return
-  if (stringStartsWith(command, 'general')) {
-    // handle general commands
-    // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
+
+  if (stringStartsWith(command, 'movement')) {
     switch (command) {
-      case 'general.jump':
+      case 'movement.jump':
+        if (isSpectatingEntity()) break
         // if (viewer.world.freeFlyMode) {
         //   const moveSpeed = 0.5
         //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
@@ -369,7 +313,7 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
         bot.setControlState('jump', pressed)
         // }
         break
-      case 'general.sneak':
+      case 'movement.sneak':
         // if (viewer.world.freeFlyMode) {
         //   const moveSpeed = 0.5
         //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
@@ -377,19 +321,37 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
         setSneaking(pressed)
         // }
         break
-      case 'general.sprint':
+      case 'movement.sprint':
         // todo add setting to change behavior
         if (pressed) {
           setSprinting(pressed)
         }
         break
-      case 'general.toggleSneakOrDown':
+      case 'movement.toggleSneakOrDown':
         if (gameAdditionalState.isFlying) {
           setSneaking(pressed)
         } else if (pressed) {
           setSneaking(!gameAdditionalState.isSneaking)
         }
         break
+      case 'movement.forward':
+        contro.setMovement('forward', pressed)
+        break
+      case 'movement.back':
+        contro.setMovement('backward', pressed)
+        break
+      case 'movement.left':
+        contro.setMovement('left', pressed)
+        break
+      case 'movement.right':
+        contro.setMovement('right', pressed)
+        break
+    }
+  }
+  if (stringStartsWith(command, 'general')) {
+    // handle general commands
+    // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
+    switch (command) {
       case 'general.attackDestroy':
         document.dispatchEvent(new MouseEvent(pressed ? 'mousedown' : 'mouseup', { button: 0 }))
         break
@@ -399,11 +361,66 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
       case 'general.zoom':
         gameAdditionalState.isZooming = pressed
         break
+      case 'general.debugOverlay':
+        if (pressed) {
+          miscUiState.showDebugHud = !miscUiState.showDebugHud
+        }
+        break
+      case 'general.debugOverlayHelpMenu':
+        if (pressed) {
+          void onF3LongPress()
+        }
+        break
       case 'general.rotateCameraLeft':
       case 'general.rotateCameraRight':
       case 'general.rotateCameraUp':
       case 'general.rotateCameraDown':
         cameraRotationControls.handleCommand(command, pressed)
+        break
+      case 'general.playersList':
+        tabListState.isOpen = pressed
+        break
+      case 'general.viewerConsole':
+        if (lastConnectOptions.value?.viewerWsConnect) {
+          showModal({ reactType: 'console' })
+        }
+        break
+      case 'general.togglePerspective':
+        if (pressed) {
+          const currentPerspective = playerState.reactive.perspective
+          // eslint-disable-next-line sonarjs/no-nested-switch
+          switch (currentPerspective) {
+            case 'first_person':
+              playerState.reactive.perspective = 'third_person_back'
+              break
+            case 'third_person_back':
+              playerState.reactive.perspective = 'third_person_front'
+              break
+            case 'third_person_front':
+              playerState.reactive.perspective = 'first_person'
+              break
+          }
+        }
+        break
+    }
+  } else if (stringStartsWith(command, 'ui')) {
+    switch (command) {
+      case 'ui.pauseMenu':
+        if (pressed) {
+          if (activeModalStack.length) {
+            hideCurrentModal()
+          } else {
+            showModal({ reactType: 'pause-screen' })
+          }
+        }
+        break
+      case 'ui.back':
+      case 'ui.toggleFullscreen':
+      case 'ui.toggleMap':
+      case 'ui.leftClick':
+      case 'ui.rightClick':
+      case 'ui.speedupCursor':
+        // These are handled elsewhere
         break
     }
   }
@@ -411,7 +428,6 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
 
 // im still not sure, maybe need to refactor to handle in inventory instead
 const alwaysPressedHandledCommand = (command: Command) => {
-  inModalCommand(command, true)
   // triggered even outside of the game
   if (command === 'general.inventory') {
     if (activeModalStack.at(-1)?.reactType?.startsWith?.('player_win:')) { // todo?
@@ -420,6 +436,9 @@ const alwaysPressedHandledCommand = (command: Command) => {
   }
   if (command === 'advanced.lockUrl') {
     lockUrl()
+  }
+  if (command === 'communication.toggleMicrophone') {
+    toggleMicrophoneMuted?.()
   }
 }
 
@@ -462,16 +481,23 @@ const customCommandsHandler = ({ command }) => {
 }
 contro.on('trigger', customCommandsHandler)
 
+const isCommandAvailableAfterDisconnect = (command: Command) => {
+  if (!miscUiState.disconnectedCleanup?.wasConnected) return false
+  return command === 'general.chat' || command === 'general.inventory'
+}
+
 contro.on('trigger', ({ command }) => {
+  if (isCommandDisabled(command)) return
+
   const willContinue = !isGameActive(true)
   alwaysPressedHandledCommand(command)
-  if (willContinue) return
+  if (willContinue && !isCommandAvailableAfterDisconnect(command)) return
 
   const secondActionCommand = secondActionCommands[command]
   if (secondActionCommand) {
     if (command === lastCommandTrigger?.command && Date.now() - lastCommandTrigger.time < secondActionActivationTimeout) {
       const commandToTrigger = secondActionCommands[lastCommandTrigger.command]
-      commandToTrigger()
+      commandToTrigger?.()
       lastCommandTrigger = null
     } else {
       lastCommandTrigger = {
@@ -485,22 +511,27 @@ contro.on('trigger', ({ command }) => {
 
   if (stringStartsWith(command, 'general')) {
     switch (command) {
-      case 'general.jump':
-      case 'general.sneak':
-      case 'general.toggleSneakOrDown':
-      case 'general.sprint':
       case 'general.attackDestroy':
       case 'general.rotateCameraLeft':
       case 'general.rotateCameraRight':
       case 'general.rotateCameraUp':
       case 'general.rotateCameraDown':
+      case 'general.debugOverlay':
+      case 'general.debugOverlayHelpMenu':
+      case 'general.playersList':
+      case 'general.togglePerspective':
         // no-op
         break
       case 'general.swapHands': {
-        bot._client.write('entity_action', {
-          entityId: bot.entity.id,
-          actionId: 6,
-          jumpBoost: 0
+        if (isSpectatingEntity()) break
+        bot._client.write('block_dig', {
+          'status': 6,
+          'location': {
+            'x': 0,
+            'z': 0,
+            'y': 0
+          },
+          'face': 0,
         })
         break
       }
@@ -508,11 +539,13 @@ contro.on('trigger', ({ command }) => {
         // handled in onTriggerOrReleased
         break
       case 'general.inventory':
+        if (isSpectatingEntity()) break
         document.exitPointerLock?.()
         openPlayerInventory()
         break
       case 'general.drop': {
-        // if (bot.heldItem/* && ctrl */) bot.tossStack(bot.heldItem)
+        if (isSpectatingEntity()) break
+        // protocol 1.9+
         bot._client.write('block_dig', {
           'status': 4,
           'location': {
@@ -531,6 +564,12 @@ contro.on('trigger', ({ command }) => {
         }
         break
       }
+      case 'general.dropStack': {
+        if (bot.heldItem) {
+          void bot.tossStack(bot.heldItem)
+        }
+        break
+      }
       case 'general.chat':
         showModal({ reactType: 'chat' })
         break
@@ -539,12 +578,15 @@ contro.on('trigger', ({ command }) => {
         showModal({ reactType: 'chat' })
         break
       case 'general.selectItem':
+        if (isSpectatingEntity()) break
         void selectItem()
         break
       case 'general.nextHotbarSlot':
+        if (isSpectatingEntity()) break
         cycleHotbarSlot(1)
         break
       case 'general.prevHotbarSlot':
+        if (isSpectatingEntity()) break
         cycleHotbarSlot(-1)
         break
       case 'general.zoom':
@@ -555,14 +597,6 @@ contro.on('trigger', ({ command }) => {
         }
         break
     }
-  }
-
-  if (command === 'communication.toggleMicrophone') {
-    // toggleMicrophoneMuted()
-  }
-
-  if (command === 'ui.pauseMenu') {
-    showModal({ reactType: 'pause-screen' })
   }
 
   if (command === 'ui.toggleFullscreen') {
@@ -584,7 +618,8 @@ contro.on('trigger', ({ command }) => {
 })
 
 contro.on('release', ({ command }) => {
-  inModalCommand(command, false)
+  if (isCommandDisabled(command)) return
+
   onTriggerOrReleased(command, false)
 })
 
@@ -615,6 +650,9 @@ export const f3Keybinds: Array<{
         localServer.players[0].world.columns = {}
       }
       void reloadChunks()
+      if (appViewer.backend?.backendMethods && typeof appViewer.backend.backendMethods.reloadWorld === 'function') {
+        appViewer.backend.backendMethods.reloadWorld()
+      }
     },
     mobileTitle: 'Reload chunks',
   },
@@ -631,6 +669,12 @@ export const f3Keybinds: Array<{
       showModal({ reactType: 'chunks-debug' })
     },
     mobileTitle: 'Show Chunks Debug',
+  },
+  {
+    action () {
+      showModal({ reactType: 'renderer-debug' })
+    },
+    mobileTitle: 'Renderer Debug Menu',
   },
   {
     key: 'KeyY',
@@ -708,32 +752,25 @@ export const f3Keybinds: Array<{
   }
 ]
 
-const hardcodedPressedKeys = new Set<string>()
+export const reloadChunksAction = () => {
+  const action = f3Keybinds.find(f3Keybind => f3Keybind.key === 'KeyA')
+  void action!.action()
+}
+
 document.addEventListener('keydown', (e) => {
   if (!isGameActive(false)) return
-  if (hardcodedPressedKeys.has('F3')) {
+  if (contro.pressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
     if (keybind && (keybind.enabled?.() ?? true)) {
       void keybind.action()
       e.stopPropagation()
     }
-    return
   }
-
-  hardcodedPressedKeys.add(e.code)
 }, {
   capture: true,
 })
-document.addEventListener('keyup', (e) => {
-  hardcodedPressedKeys.delete(e.code)
-})
-document.addEventListener('visibilitychange', (e) => {
-  if (document.visibilityState === 'hidden') {
-    hardcodedPressedKeys.clear()
-  }
-})
 
-const isFlying = () => (bot.entity as any).flying
+const isFlying = () => (bot as any).physicsEngineCtx?.state?.flying ?? false
 
 const startFlying = (sendAbilities = true) => {
   if (sendAbilities) {
@@ -765,8 +802,15 @@ const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
   } else {
     endFlying(sendAbilities)
   }
-  gameAdditionalState.isFlying = isFlying()
 }
+
+const physicsFlyingCheck = () => {
+  bot.on('physicsTick', () => {
+    gameAdditionalState.isFlying = isFlying()
+  })
+}
+
+customEvents.on('gameLoaded', physicsFlyingCheck)
 
 const selectItem = async () => {
   const block = bot.blockAtCursor(5)
@@ -885,5 +929,60 @@ export function updateBinds (commands: any) {
 
       return [key, newValue]
     }))
+  }
+}
+
+export const onF3LongPress = async () => {
+  const actions = f3Keybinds.filter(f3Keybind => {
+    return f3Keybind.mobileTitle && (f3Keybind.enabled?.() ?? true)
+  })
+  const actionNames = actions.map(f3Keybind => {
+    return `${f3Keybind.mobileTitle}${f3Keybind.key ? ` (F3+${f3Keybind.key})` : ''}`
+  })
+  const select = await showOptionsModal('', actionNames)
+  if (!select) return
+  const actionIndex = actionNames.indexOf(select)
+  const f3Keybind = actions[actionIndex]!
+  void f3Keybind.action()
+}
+
+export const handleMobileButtonCustomAction = (action: CustomAction) => {
+  const handler = customCommandsConfig[action.type]?.handler
+  if (handler) {
+    handler([...action.input])
+  }
+}
+
+export const triggerCommand = (command: Command, isDown: boolean) => {
+  handleMobileButtonActionCommand(command, isDown)
+}
+
+export const handleMobileButtonActionCommand = (command: ActionType | ActionHoldConfig, isDown: boolean) => {
+  const commandValue = typeof command === 'string' ? command : 'command' in command ? command.command : command
+
+  // Check if command is disabled before proceeding
+  if (typeof commandValue === 'string' && isCommandDisabled(commandValue as Command)) return
+
+  if (typeof commandValue === 'string' && !stringStartsWith(commandValue, 'custom')) {
+    const event: CommandEventArgument<typeof contro['_commandsRaw']> = {
+      command: commandValue as Command,
+    }
+    if (isDown) {
+      contro.emit('trigger', event)
+    } else {
+      contro.emit('release', event)
+    }
+  } else if (typeof commandValue === 'object') {
+    if (isDown) {
+      handleMobileButtonCustomAction(commandValue)
+    }
+  }
+}
+
+export const handleMobileButtonLongPress = (actionHold: ActionHoldConfig) => {
+  if (typeof actionHold.longPressAction === 'string' && actionHold.longPressAction === 'general.debugOverlayHelpMenu') {
+    void onF3LongPress()
+  } else if (actionHold.longPressAction) {
+    handleMobileButtonActionCommand(actionHold.longPressAction, true)
   }
 }

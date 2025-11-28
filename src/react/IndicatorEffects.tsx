@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import './IndicatorEffects.css'
 
@@ -9,35 +9,55 @@ function formatTime (seconds: number): string {
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = Math.floor(seconds % 60)
   const formattedMinutes = String(minutes).padStart(2, '0')
-  const formattedSeconds = String(remainingSeconds)
+  const formattedSeconds = String(remainingSeconds).padStart(2, '0')
   return `${formattedMinutes}:${formattedSeconds}`
 }
 
 export type EffectType = {
+  id: number,
   image: string,
-  time: number,
   level: number,
-  removeEffect: (image: string) => void,
-  reduceTime: (image: string) => void
+  initialTime: number,
+  duration: number,
+  name: string,
 }
 
-const EffectBox = ({ image, time, level }: Pick<EffectType, 'image' | 'time' | 'level'>) => {
+const EffectBox = ({ image, level, name, initialTime, duration }: Pick<EffectType, 'image' | 'level' | 'initialTime' | 'name' | 'duration'>) => {
+  const [currentTime, setCurrentTime] = useState(Date.now())
 
-  const formattedTime = useMemo(() => formatTime(time), [time])
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now())
+    }, 100)
+    return () => clearInterval(interval)
+  }, [])
 
-  return <div className='effect-box'>
-    <img className='effect-box__image' src={image} alt='' />
-    <div>
-      {formattedTime ? (
-        // if time is negative then effect is shown without time.
-        // Component should be removed manually with time = 0
-        <div className='effect-box__time'>{formattedTime}</div>
-      ) : null}
-      {level > 0 && level < 256 ? (
-        <div className='effect-box__level'>{level + 1}</div>
-      ) : null}
+  const timeElapsed = (currentTime - initialTime) / 1000
+  const timeRemaining = Math.max(0, duration - timeElapsed)
+  const progress = duration > 0 ? Math.max(0, Math.min(1, timeRemaining / duration)) : 0
+  const formattedTime = useMemo(() => formatTime(timeRemaining), [timeRemaining])
+
+  // Convert level to Roman numerals
+  const toRomanNumeral = (num: number): string => {
+    if (num <= 0) return ''
+    const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+    return romanNumerals[num - 1] || `${num}`
+  }
+
+  const levelText = level > 0 && level < 256 ? ` ${toRomanNumeral(level + 1)}` : ''
+
+  return (
+    <div className='effect-box'>
+      <div className='effect-box__progress-bg' style={{ width: `${progress * 100}%` }} />
+      <img className='effect-box__image' src={image} alt='' />
+      <div className='effect-box__content'>
+        <div className='effect-box__title'>{name}{levelText}</div>
+        {formattedTime && (
+          <div className='effect-box__time'>{formattedTime}</div>
+        )}
+      </div>
     </div>
-  </div>
+  )
 }
 
 export const defaultIndicatorsState = {
@@ -68,29 +88,17 @@ const colorOverrides = {
   }
 }
 
-export default ({ indicators, effects }: { indicators: typeof defaultIndicatorsState, effects: readonly EffectType[] }) => {
-  const effectsRef = useRef(effects)
-  useEffect(() => {
-    effectsRef.current = effects
-  }, [effects])
-
-  useEffect(() => {
-    // todo use more precise timer for each effect
-    const interval = setInterval(() => {
-      for (const [index, effect] of effectsRef.current.entries()) {
-        if (effect.time === 0) {
-          // effect.removeEffect(effect.image)
-          return
-        }
-        effect.reduceTime(effect.image)
-      }
-    }, 1000)
-
-    return () => {
-      clearInterval(interval)
-    }
-  }, [])
-
+export default ({
+  indicators,
+  effects,
+  displayIndicators,
+  displayEffects
+}: {
+  indicators: typeof defaultIndicatorsState,
+  effects: readonly EffectType[]
+  displayIndicators: boolean
+  displayEffects: boolean
+}) => {
   const indicatorsMapped = Object.entries(defaultIndicatorsState).map(([key]) => {
     const state = indicators[key]
     return {
@@ -100,10 +108,10 @@ export default ({ indicators, effects }: { indicators: typeof defaultIndicatorsS
       key
     }
   })
-  return <div className='effectsScreen-container'>
+  return <div className='indicators-container-outer'>
     <div className='indicators-container'>
       {
-        indicatorsMapped.map((indicator) => <div
+        displayIndicators && indicatorsMapped.map((indicator) => <div
           key={indicator.icon}
           style={{
             opacity: indicator.state ? 1 : 0,
@@ -115,15 +123,17 @@ export default ({ indicators, effects }: { indicators: typeof defaultIndicatorsS
         </div>)
       }
     </div>
-    <div className='effects-container'>
-      {
-        effects.map((effect) => <EffectBox
-          key={`effectBox-${effect.image}`}
-          image={effect.image}
-          time={effect.time}
-          level={effect.level}
-        />)
-      }
-    </div>
+    {displayEffects && <EffectsInner effects={effects} />}
+  </div>
+}
+
+const EffectsInner = ({ effects }: { effects: readonly EffectType[] }) => {
+  return <div className='effects-container'>
+    {effects.map((effect) => (
+      <EffectBox
+        key={`effectBox-${effect.id}`}
+        {...effect}
+      />
+    ))}
   </div>
 }

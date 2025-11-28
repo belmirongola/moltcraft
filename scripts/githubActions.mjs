@@ -15,6 +15,17 @@ const fns = {
       // set github output
       setOutput('alias', alias[1])
     }
+  },
+  getReleasingAlias() {
+    const final = (ver) => `${ver}.mcraft.fun`
+    const releaseJson = JSON.parse(fs.readFileSync('./assets/release.json', 'utf8'))
+    const tag = releaseJson.latestTag
+    const [major, minor, patch] = tag.replace('v', '').split('.')
+    if (major === '0' && minor === '1') {
+      setOutput('alias', final(`v${patch}`))
+    } else {
+      setOutput('alias', final(tag))
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import { appQueryParams } from '../appParams'
 import { miscUiState } from '../globalState'
 import { BaseServerInfo } from './AddServerOrConnect'
+import { lastConnectOptions } from './AppStatusProvider'
 import { appStorage, StoreServerItem } from './appStorageProvider'
 
 const serversListQs = appQueryParams.serversList
@@ -43,9 +44,34 @@ export function updateServerConnectionHistory (ip: string, version?: string) {
   }
 }
 
-export const updateLoadedServerData = (callback: (data: StoreServerItem) => StoreServerItem, index = miscUiState.loadedServerIndex) => {
-  if (index === undefined) index = miscUiState.loadedServerIndex
+export const getServerIndex = () => {
+  const lastConnectedIp = lastConnectOptions.value?.server
+  const index = miscUiState.loadedServerIndex
+  if (index !== undefined) return index
+  if (lastConnectedIp) {
+    const idx = appStorage.serversList?.findIndex(s => s.ip === lastConnectedIp).toString()
+    if (idx === '-1') return undefined
+    return idx
+  }
+  return undefined
+}
+
+export const findServerPassword = () => {
+  const { username } = bot
+  const index = getServerIndex()
   if (index === undefined) return
+  const pswd = appStorage.serversList?.[index]?.autoLogin?.[username]
+  if (pswd) return pswd
+  // try other servers with same host
+  return appStorage.serversList?.find(s => s.ip === lastConnectOptions.value?.server && s.autoLogin?.[username])?.autoLogin?.[username]
+}
+
+export const updateLoadedServerData = (callback: (data: StoreServerItem) => StoreServerItem, index = miscUiState.loadedServerIndex) => {
+  if (index === undefined) {
+    const idx = getServerIndex()
+    if (idx === undefined) return
+    index = idx
+  }
 
   const servers = [...(appStorage.serversList ?? [])]
   const server = servers[index]
@@ -57,26 +83,6 @@ export const updateLoadedServerData = (callback: (data: StoreServerItem) => Stor
 export const setNewServersList = (serversList: StoreServerItem[], force = false) => {
   if (serversListQs && !force) return
   appStorage.serversList = serversList
-}
-
-export const getInitialServersList = () => {
-  // If we already have servers in appStorage, use those
-  if (appStorage.serversList) return appStorage.serversList
-
-  const servers = [] as StoreServerItem[]
-
-  if (servers.length === 0) {
-    // server list is empty, let's suggest some
-    for (const server of miscUiState.appConfig?.promoteServers ?? []) {
-      servers.push({
-        ip: server.ip,
-        description: server.description,
-        versionOverride: server.version,
-      })
-    }
-  }
-
-  return servers
 }
 
 export const updateAuthenticatedAccountData = (callback: (data: AuthenticatedAccount[]) => AuthenticatedAccount[]) => {

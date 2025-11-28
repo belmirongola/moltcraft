@@ -9,11 +9,6 @@ import { makeTextureAtlas } from 'mc-assets/dist/atlasCreator'
 import { proxy, ref } from 'valtio'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 
-export const activeGuiAtlas = proxy({
-  atlas: null as null | { json, image },
-  version: 0
-})
-
 export const getNonFullBlocksModels = () => {
   let version = appViewer.resourcesManager.currentResources!.version ?? 'latest'
   if (versionToNumber(version) < versionToNumber('1.13')) version = '1.13'
@@ -122,18 +117,18 @@ const RENDER_SIZE = 64
 
 const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isItems = false) => {
   const { currentResources } = appViewer.resourcesManager
-  const img = await getLoadedImage(isItems ? currentResources!.itemsAtlasParser.latestImage : currentResources!.blocksAtlasParser.latestImage)
+  const imgBitmap = isItems ? currentResources!.itemsAtlasImage : currentResources!.blocksAtlasImage
   const canvasTemp = document.createElement('canvas')
-  canvasTemp.width = img.width
-  canvasTemp.height = img.height
+  canvasTemp.width = imgBitmap.width
+  canvasTemp.height = imgBitmap.height
   canvasTemp.style.imageRendering = 'pixelated'
   const ctx = canvasTemp.getContext('2d')!
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(img, 0, 0)
+  ctx.drawImage(imgBitmap, 0, 0)
 
-  const atlasParser = isItems ? currentResources!.itemsAtlasParser : currentResources!.blocksAtlasParser
+  const atlasParser = isItems ? appViewer.resourcesManager.itemsAtlasParser : appViewer.resourcesManager.blocksAtlasParser
   const textureAtlas = new TextureAtlas(
-    ctx.getImageData(0, 0, img.width, img.height),
+    ctx.getImageData(0, 0, imgBitmap.width, imgBitmap.height),
     Object.fromEntries(Object.entries(atlasParser.atlas.latest.textures).map(([key, value]) => {
       return [key, [
         value.u,
@@ -243,6 +238,9 @@ const generateItemsGui = async (models: Record<string, BlockModelMcAssets>, isIt
   return images
 }
 
+/**
+ * @mainThread
+ */
 const generateAtlas = async (images: Record<string, HTMLImageElement>) => {
   const atlas = makeTextureAtlas({
     input: Object.keys(images),
@@ -260,9 +258,9 @@ const generateAtlas = async (images: Record<string, HTMLImageElement>) => {
   // a.download = 'blocks_atlas.png'
   // a.click()
 
-  activeGuiAtlas.atlas = {
+  appViewer.resourcesManager.currentResources!.guiAtlas = {
     json: atlas.json,
-    image: ref(await getLoadedImage(atlas.canvas.toDataURL())),
+    image: await createImageBitmap(atlas.canvas),
   }
 
   return atlas
@@ -279,6 +277,6 @@ export const generateGuiAtlas = async () => {
   const itemImages = await generateItemsGui(itemsModelsResolved, true)
   console.timeEnd('generate items gui atlas')
   await generateAtlas({ ...blockImages, ...itemImages })
-  activeGuiAtlas.version++
+  appViewer.resourcesManager.currentResources!.guiAtlasVersion++
   // await generateAtlas(blockImages)
 }

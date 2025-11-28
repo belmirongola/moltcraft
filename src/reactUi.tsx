@@ -60,7 +60,18 @@ import ConnectOnlyServerUi from './react/ConnectOnlyServerUi'
 import ControDebug from './react/ControDebug'
 import ChunksDebug from './react/ChunksDebug'
 import ChunksDebugScreen from './react/ChunksDebugScreen'
-import { ArwesPlayground } from './arwes'
+import DebugResponseTimeIndicator from './react/debugs/DebugResponseTimeIndicator'
+import RendererDebugMenu from './react/RendererDebugMenu'
+import CreditsAboutModal from './react/CreditsAboutModal'
+import GlobalOverlayHints from './react/GlobalOverlayHints'
+import FullscreenTime from './react/FullscreenTime'
+import StorageConflictModal from './react/StorageConflictModal'
+import FireRenderer from './react/FireRenderer'
+import MonacoEditor from './react/MonacoEditor'
+import OverlayModelViewer from './react/OverlayModelViewer'
+import CornerIndicatorStats from './react/CornerIndicatorStats'
+import AllSettingsEditor from './react/AllSettingsEditor'
+import { isPlayground, urlParams } from './playgroundIntegration'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -132,7 +143,7 @@ const InGameComponent = ({ children }) => {
 let adapter: DrawerAdapterImpl
 
 const InGameUi = () => {
-  const { gameLoaded, showUI: showUIRaw } = useSnapshot(miscUiState)
+  const { gameLoaded, showUI: showUIRaw, disconnectedCleanup } = useSnapshot(miscUiState)
   const { disabledUiParts, displayBossBars, showMinimap } = useSnapshot(options)
   const modalsSnapshot = useSnapshot(activeModalStack)
   const hasModals = modalsSnapshot.length > 0
@@ -140,7 +151,9 @@ const InGameUi = () => {
   const displayFullmap = modalsSnapshot.some(modal => modal.reactType === 'full-map') || true
   // bot can't be used here
 
-  if (!gameLoaded || !bot || disabledUiParts.includes('*')) return
+  const gameWasLoaded = gameLoaded || disconnectedCleanup?.wasConnected
+
+  if (!gameWasLoaded || !bot || disabledUiParts.includes('*')) return
 
   if (!adapter) adapter = new DrawerAdapterImpl(bot.entity.position)
 
@@ -159,20 +172,24 @@ const InGameUi = () => {
           {showMinimap !== 'never' && <MinimapProvider adapter={adapter} displayMode='minimapOnly' />}
           {!disabledUiParts.includes('title') && <TitleProvider />}
           {!disabledUiParts.includes('scoreboard') && <ScoreboardProvider />}
-          {!disabledUiParts.includes('effects-indicators') && <IndicatorEffectsProvider />}
+          <IndicatorEffectsProvider displayEffects={!disabledUiParts.includes('effects')} displayIndicators={!disabledUiParts.includes('indicators')} />
           {!disabledUiParts.includes('crosshair') && <Crosshair />}
           {!disabledUiParts.includes('books') && <BookProvider />}
           {!disabledUiParts.includes('bossbars') && displayBossBars && <BossBarOverlayProvider />}
           <VoiceMicrophone />
           <ChunksDebugScreen />
+          <RendererDebugMenu />
+          {!disabledUiParts.includes('fire') && <FireRenderer />}
         </PerComponentErrorBoundary>
       </div>
 
       <PerComponentErrorBoundary>
         <PauseScreen />
+        <FullscreenTime />
         <MineflayerPluginHud />
         <MineflayerPluginConsole />
         {showUI && <TouchInteractionHint />}
+        <GlobalOverlayHints />
         <div style={{ display: showUI ? 'block' : 'none' }}>
           {!disabledUiParts.includes('xp-bar') && <XPBarProvider />}
           {!disabledUiParts.includes('hud-bars') && <HudBarsProvider />}
@@ -221,6 +238,7 @@ const App = () => {
             <div />
           </RobustPortal>
           <EnterFullscreenButton />
+          <StorageConflictModal />
           <InGameUi />
           <RobustPortal to={document.querySelector('#ui-root')}>
             <AllWidgets />
@@ -237,9 +255,9 @@ const App = () => {
             <PacketsReplayProvider />
             <NotificationProvider />
             <ModsPage />
-
             <SelectOption />
-
+            <CreditsAboutModal />
+            <AllSettingsEditor />
             <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
@@ -248,6 +266,10 @@ const App = () => {
             </div>
             <div />
             <DebugEdges />
+            <OverlayModelViewer />
+            <MonacoEditor />
+            <DebugResponseTimeIndicator />
+            <CornerIndicatorStats />
           </RobustPortal>
         </ButtonAppProvider>
       </div>
@@ -268,14 +290,19 @@ const PerComponentErrorBoundary = ({ children }) => {
   </ErrorBoundary>)
 }
 
+const noUi = urlParams.get('no-ui') === 'true' || isPlayground
 
-renderToDom(<ArwesPlayground />, {
-  strictMode: false,
-  selector: '#react-root',
-})
+if (!noUi) {
+  renderToDom(<App />, {
+    strictMode: false,
+    selector: '#react-root',
+  })
+}
 
 disableReactProfiling()
 function disableReactProfiling () {
+  if (window.reactPerfPatchApplied) return
+  window.reactPerfPatchApplied = true
   //@ts-expect-error
   window.performance.markOrig = window.performance.mark
   //@ts-expect-error

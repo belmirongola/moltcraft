@@ -1,34 +1,26 @@
-import { useSnapshot } from 'valtio'
+import { proxy, useSnapshot } from 'valtio'
 import { useState, useEffect, useMemo } from 'react'
 import { isGameActive } from '../globalState'
 import PlayerListOverlay from './PlayerListOverlay'
 import './PlayerListOverlay.css'
 import { lastConnectOptions } from './AppStatusProvider'
 
+const MAX_COLUMNS = 4
 const MAX_ROWS_PER_COL = 10
 
 type Players = typeof bot.players
 
+export const tabListState = proxy({
+  isOpen: false,
+})
+
 export default () => {
+  const { isOpen } = useSnapshot(tabListState)
+
   const serverIp = lastConnectOptions.value?.server
   const [clientId, setClientId] = useState(bot._client.uuid)
   const [players, setPlayers] = useState<Players>({})
-  const [isOpen, setIsOpen] = useState(false)
-
-  const handleKeyDown = (e) => {
-    if (!isGameActive(true)) return
-    if (e.key === 'Tab') {
-      setIsOpen(prev => true)
-      e.preventDefault()
-    }
-  }
-
-  const handleKeyUp = (e) => {
-    if (e.key === 'Tab') {
-      setIsOpen(prev => false)
-      e.preventDefault()
-    }
-  }
+  const [counter, setCounter] = useState(0)
 
   useEffect(() => {
     function requestUpdate () {
@@ -57,30 +49,32 @@ export default () => {
       })
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('keyup', handleKeyUp)
+    const playerlistHeader = () => setCounter(prev => prev + 1)
+    bot._client.on('playerlist_header', playerlistHeader)
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('keyup', handleKeyUp)
+      bot?._client.removeListener('playerlist_header', playerlistHeader)
     }
   }, [serverIp])
-
 
   const playersArray = Object.values(players).sort((a, b) => {
     if (a.username > b.username) return 1
     if (a.username < b.username) return -1
     return 0
   })
+
+  // Calculate optimal column distribution
+  const totalPlayers = playersArray.length
+  const numColumns = Math.min(MAX_COLUMNS, Math.ceil(totalPlayers / MAX_ROWS_PER_COL))
+  const playersPerColumn = Math.ceil(totalPlayers / numColumns)
+
   const lists = [] as Array<typeof playersArray>
 
-  let tempList = [] as typeof playersArray
-  for (let i = 0; i < playersArray.length; i++) {
-    tempList.push(playersArray[i])
-
-    if ((i + 1) % MAX_ROWS_PER_COL === 0 || i + 1 === playersArray.length) {
-      lists.push([...tempList])
-      tempList = []
+  for (let i = 0; i < numColumns; i++) {
+    const startIdx = i * playersPerColumn
+    const endIdx = Math.min(startIdx + playersPerColumn, totalPlayers)
+    if (startIdx < totalPlayers) {
+      lists.push(playersArray.slice(startIdx, endIdx))
     }
   }
 

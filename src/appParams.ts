@@ -12,6 +12,7 @@ export type AppQsParams = {
   username?: string
   lockConnect?: string
   autoConnect?: string
+  alwaysReconnect?: string
   // googledrive.ts params
   state?: string
   // ServersListProvider.tsx params
@@ -34,6 +35,7 @@ export type AppQsParams = {
   // UI params
   modal?: string
   viewerConnect?: string
+  playground?: string
   // Map version param
   mapVersion?: string
   // Command params
@@ -45,6 +47,8 @@ export type AppQsParams = {
   onlyConnect?: string
   connectText?: string
   freezeSettings?: string
+  testIosCrash?: string
+  addPing?: string
 
   // Replay params
   replayFilter?: string

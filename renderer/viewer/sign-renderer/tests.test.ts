@@ -22,7 +22,7 @@ global.document = {
 
 const render = (entity) => {
   ctxTexts = []
-  renderSign(entity, PrismarineChat)
+  renderSign(entity, true, PrismarineChat)
   return ctxTexts.map(({ text, y }) => [y / 64, text])
 }
 
@@ -37,10 +37,6 @@ test('sign renderer', () => {
   } as any
   expect(render(blockEntity)).toMatchInlineSnapshot(`
     [
-      [
-        1,
-        "",
-      ],
       [
         1,
         "Minecraft ",

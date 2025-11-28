@@ -1,6 +1,6 @@
 import { proxy, useSnapshot } from 'valtio'
 import { useEffect, useRef, useState } from 'react'
-import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, miscUiState } from '../globalState'
+import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, maybeCleanupAfterDisconnect, miscUiState } from '../globalState'
 import { guessProblem } from '../errorLoadingScreenHelpers'
 import type { ConnectOptions } from '../connect'
 import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../packetsReplay/packetsReplayLegacy'
@@ -36,7 +36,8 @@ export const resetAppStatusState = () => {
 }
 
 export const lastConnectOptions = {
-  value: null as ConnectOptions | null
+  value: null as ConnectOptions | null,
+  hadWorldLoaded: false
 }
 globalThis.lastConnectOptions = lastConnectOptions
 
@@ -52,6 +53,17 @@ export const reconnectReload = () => {
     saveReconnectOptions(lastConnectOptions.value)
     window.location.reload()
   }
+}
+
+export const quickDevReconnect = () => {
+  if (!lastConnectOptions.value) {
+    return
+  }
+
+  resetAppStatusState()
+  window.dispatchEvent(new window.CustomEvent('connect', {
+    detail: lastConnectOptions.value
+  }))
 }
 
 export default () => {
@@ -105,13 +117,6 @@ export default () => {
     }
   }, [isOpen])
 
-  const reconnect = () => {
-    resetAppStatusState()
-    window.dispatchEvent(new window.CustomEvent('connect', {
-      detail: lastConnectOptions.value
-    }))
-  }
-
   useEffect(() => {
     const controller = new AbortController()
     window.addEventListener('keyup', (e) => {
@@ -119,7 +124,7 @@ export default () => {
       if (activeModalStack.at(-1)?.reactType !== 'app-status') return
       // todo do only if reconnect is possible
       if (e.code !== 'KeyR' || !lastConnectOptions.value) return
-      reconnect()
+      quickDevReconnect()
     }, {
       signal: controller.signal
     })
@@ -127,6 +132,7 @@ export default () => {
   }, [])
 
   const displayAuthButton = status.includes('This server appears to be an online server and you are providing no authentication.')
+    || JSON.stringify(minecraftJsonMessage ?? {}).toLowerCase().includes('authenticate')
   const hasVpnText = (text: string) => text.includes('VPN') || text.includes('Proxy')
   const displayVpnButton = hasVpnText(status) || (minecraftJsonMessage && hasVpnText(JSON.stringify(minecraftJsonMessage)))
   const authReconnectAction = async () => {
@@ -139,7 +145,7 @@ export default () => {
     const account = await showOptionsModal('Choose account to connect with', [...accounts.map(account => account.username), 'Use other account'])
     if (!account) return
     lastConnectOptions.value!.authenticatedAccount = accounts.find(acc => acc.username === account) || true
-    reconnect()
+    quickDevReconnect()
   }
 
   const lastAutoCapturedPackets = getLastAutoCapturedPackets()
@@ -148,6 +154,8 @@ export default () => {
   let backAction = undefined as (() => void) | undefined
   if (maybeRecoverable && (!lockConnect || !wasDisconnected)) {
     backAction = () => {
+      maybeCleanupAfterDisconnect()
+
       if (!wasDisconnected) {
         hideModal(undefined, undefined, { force: true })
         return
@@ -166,10 +174,10 @@ export default () => {
       }
     }
   }
-  return <DiveTransition open={isOpen}>
+  return <DiveTransition open={isOpen} isError={isError}>
     <AppStatus
       status={status}
-      isError={isError || status === ''} // display back button if status is empty as probably our app is errored // display back button if status is empty as probably our app is errored
+      isError={isError || status === ''} // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
       showReconnect={showReconnect}
@@ -183,7 +191,7 @@ export default () => {
       actionsSlot={
         <>
           {displayAuthButton && <Button label='Authenticate' onClick={authReconnectAction} />}
-          {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={reconnect} />}
+          {displayVpnButton && <PossiblyVpnBypassProxyButton reconnect={quickDevReconnect} />}
           {replayActive && <Button label={`Download Packets Replay ${replayLogger?.contents.split('\n').length}L`} onClick={downloadPacketsReplay} />}
           {wasDisconnected && lastAutoCapturedPackets && <Button label={`Inspect Last ${lastAutoCapturedPackets} Packets`} onClick={() => downloadAutoCapturedPackets()} />}
         </>

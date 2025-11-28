@@ -9,6 +9,8 @@ interface CssExports {
   mobileTopBtns: string;
   'pause-btn': string;
   pauseBtn: string;
+  'tab-btn': string;
+  tabBtn: string;
 }
 declare const cssExports: CssExports;
 export default cssExports;
