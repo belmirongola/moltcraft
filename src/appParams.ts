@@ -49,6 +49,7 @@ export type AppQsParams = {
   freezeSettings?: string
   testIosCrash?: string
   addPing?: string
+  parentFrameMods?: string
 
   // Replay params
   replayFilter?: string
