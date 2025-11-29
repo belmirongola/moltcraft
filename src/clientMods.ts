@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import { openDB } from 'idb'
 import * as React from 'react'
+import * as ReactDOM from 'react-dom'
 import * as valtio from 'valtio'
 import * as valtioUtils from 'valtio/utils'
 import { gt } from 'semver'
@@ -242,12 +243,13 @@ window.mcraft = {
   build: process.env.BUILD_VERSION,
   ui: {
     registeredReactWrappers: {},
-    registerReactWrapper (place: InjectUiPlace, component: React.FC) {
-      window.mcraft.ui.registeredReactWrappers[place] ??= []
-      window.mcraft.ui.registeredReactWrappers[place].push(component)
+    registerReactWrapper (place: InjectUiPlace, id: string, component: React.FC) {
+      window.mcraft.ui.registeredReactWrappers[place] ??= {}
+      window.mcraft.ui.registeredReactWrappers[place][id] = component
     },
   },
   React,
+  ReactDOM,
   valtio: {
     ...valtio,
     ...valtioUtils,
@@ -361,23 +363,27 @@ const requestModsFromParentFrame = async (): Promise<ClientMod[]> => {
   })
 }
 
-const loadParentFrameModsIfRequested = async () => {
+const loadParentFrameModsIfRequested = async (): Promise<Set<string>> => {
+  const activatedModNames = new Set<string>()
   try {
     const params = new URLSearchParams(window.location.search)
-    if (appQueryParams.parentFrameMods !== '1' && appQueryParams.parentFrameMods !== 'true') return
+    if (appQueryParams.parentFrameMods !== '1' && appQueryParams.parentFrameMods !== 'true') return activatedModNames
     if (window.parent === window) {
       console.warn('mods=parent query param detected but no parent frame is available')
-      return
+      return activatedModNames
     }
 
     const modsFromParent = await requestModsFromParentFrame()
-    if (!modsFromParent.length) return
+    if (!modsFromParent.length) return activatedModNames
 
     for (const rawMod of modsFromParent) {
       try {
         const normalizedMod = normalizeParentMod(rawMod)
         await saveClientModData(normalizedMod)
-        await activateMod(normalizedMod, 'parent-frame')
+        const activated = await activateMod(normalizedMod, 'parent-frame')
+        if (activated) {
+          activatedModNames.add(normalizedMod.name)
+        }
       } catch (err) {
         const modName = rawMod?.name ?? 'parent-frame-mod'
         modsErrors[modName] ??= []
@@ -388,29 +394,35 @@ const loadParentFrameModsIfRequested = async () => {
   } catch (err) {
     console.error('Error loading mods from parent frame', err)
   }
+  return activatedModNames
 }
 
 export const appStartup = async () => {
   void checkModsUpdates()
-  await loadParentFrameModsIfRequested()
+  const parentFrameActivatedMods = await loadParentFrameModsIfRequested()
 
   const mods = await getAllMods()
   const oldRegisteredReactWrappers = Object.entries(window.mcraft?.ui?.registeredReactWrappers).reduce((acc, [place, components]) => acc + components.length, 0)
   for (const mod of mods) {
+    // Skip mods that were already activated from parent frame
+    if (parentFrameActivatedMods.has(mod.name)) {
+      continue
+    }
     await activateMod(mod, 'autostart').catch(e => {
       modsErrors[mod.name] ??= []
       modsErrors[mod.name].push(`startup: ${String(e)}`)
       console.error(`Error activating mod on startup ${mod.name}:`, e)
     })
   }
-  const newRegisteredReactWrappers = Object.entries(window.mcraft?.ui?.registeredReactWrappers).reduce((acc, [place, components]) => acc + components.length, 0)
-  hadReactUiRegistered.state = oldRegisteredReactWrappers !== newRegisteredReactWrappers
+  hadReactUiRegistered.state = Object.keys(window.mcraft?.ui?.registeredReactWrappers).length > 0
+  hadModsActivated.state = true
 }
 
 export const modsUpdateStatus = proxy({} as Record<string, [string, string]>)
 export const modsWaitingReloadStatus = proxy({} as Record<string, boolean>)
 export const modsErrors = proxy({} as Record<string, string[]>)
 export const hadReactUiRegistered = proxy({ state: false })
+export const hadModsActivated = proxy({ state: false })
 
 const normalizeRepoUrl = (url: string) => {
   if (url.startsWith('https://')) return url
