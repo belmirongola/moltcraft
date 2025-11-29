@@ -1,6 +1,7 @@
 import './Scoreboard.css'
 import MessageFormattedString from './MessageFormattedString'
 import { reactKeyForMessage } from './utils'
+import { withInjectableUi } from './extendableSystem'
 
 
 export type ScoreboardItems = Array<{ name: string, value: number, displayName?: any }>
@@ -12,7 +13,7 @@ type ScoreboardProps = {
   style?: React.CSSProperties
 }
 
-export default function Scoreboard ({ title, items, open, style }: ScoreboardProps) {
+const ScoreboardBase = function Scoreboard ({ title, items, open, style }: ScoreboardProps) {
 
   if (!open) return null
   return (
@@ -36,3 +37,5 @@ export default function Scoreboard ({ title, items, open, style }: ScoreboardPro
     </div>
   )
 }
+
+export default withInjectableUi(ScoreboardBase, 'scoreboard')

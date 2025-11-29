@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useFloating, arrow, FloatingArrow, offset as offsetMiddleware } from '@floating-ui/react'
 import styles from './slider.module.css'
 import SharedHudVars from './SharedHudVars'
+import { withInjectableUi } from './extendableSystem'
 
 interface Props extends React.ComponentProps<'div'> {
   label: string;
@@ -22,7 +23,7 @@ interface Props extends React.ComponentProps<'div'> {
 const ARROW_HEIGHT = 7
 const GAP = 0
 
-const Slider: React.FC<Props> = ({
+const SliderBase: React.FC<Props> = ({
   label,
   unit = '%',
   width,
@@ -225,4 +226,4 @@ const Slider: React.FC<Props> = ({
   )
 }
 
-export default Slider
+export default withInjectableUi(SliderBase, 'slider')

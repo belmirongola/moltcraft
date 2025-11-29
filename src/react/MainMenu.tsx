@@ -19,6 +19,7 @@ import { pixelartIcons } from './PixelartIcon'
 import useLongPress from './useLongPress'
 import PauseLinkButtons from './PauseLinkButtons'
 import CreditsBookButton from './CreditsBookButton'
+import { withInjectableUi } from './extendableSystem'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -40,7 +41,7 @@ interface Props {
 
 const httpsRegex = /^https?:\/\//
 
-export default ({
+const MainMenuBase = ({
   connectToServerAction,
   mapsProvider,
   singleplayerAction,
@@ -235,3 +236,5 @@ export default ({
     </div>
   )
 }
+
+export default withInjectableUi(MainMenuBase, 'mainMenu')

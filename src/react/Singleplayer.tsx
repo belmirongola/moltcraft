@@ -13,6 +13,7 @@ import Tabs from './Tabs'
 import MessageFormattedString from './MessageFormattedString'
 import { useIsSmallWidth } from './simpleHooks'
 import PixelartIcon from './PixelartIcon'
+import { withInjectableUi } from './extendableSystem'
 
 export interface WorldProps {
   name: string
@@ -142,7 +143,7 @@ interface Props {
   retriggerFocusCounter?: number
 }
 
-export default ({
+const SingleplayerBase = ({
   worldData,
   onGeneralAction,
   onWorldAction,
@@ -327,3 +328,5 @@ export default ({
     </div>
   </div>
 }
+
+export default withInjectableUi(SingleplayerBase, 'singleplayer')

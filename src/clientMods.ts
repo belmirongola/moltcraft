@@ -10,6 +10,7 @@ import { appStorage } from './react/appStorageProvider'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
 import { ProgressReporter } from './core/progressReporter'
 import { showNotification } from './react/NotificationProvider'
+import { InjectUiPlace } from './react/extendableSystem'
 
 let sillyProtection = false
 const protectRuntime = () => {
@@ -229,10 +230,21 @@ async function deleteRepository (url) {
 
 // #endregion
 
+export interface ClientModUiApi {
+  registeredReactWrappers: Record<InjectUiPlace, React.FC[]>
+  registerReactWrapper(place: 'root', component: React.FC)
+}
+
 window.mcraft = {
   version: process.env.RELEASE_TAG,
   build: process.env.BUILD_VERSION,
-  ui: {},
+  ui: {
+    registeredReactWrappers: {},
+    registerReactWrapper (place: InjectUiPlace, component: React.FC) {
+      window.mcraft.ui.registeredReactWrappers[place] ??= []
+      window.mcraft.ui.registeredReactWrappers[place].push(component)
+    },
+  },
   React,
   valtio: {
     ...valtio,
@@ -300,11 +312,14 @@ export const appStartup = async () => {
       console.error(`Error activating mod on startup ${mod.name}:`, e)
     })
   }
+  await import('./arwesMod/index')
+  hadReactUiRegistered.state = Object.keys(window.mcraft?.ui?.registeredReactWrappers).length > 0
 }
 
 export const modsUpdateStatus = proxy({} as Record<string, [string, string]>)
 export const modsWaitingReloadStatus = proxy({} as Record<string, boolean>)
 export const modsErrors = proxy({} as Record<string, string[]>)
+export const hadReactUiRegistered = proxy({ state: false })
 
 const normalizeRepoUrl = (url: string) => {
   if (url.startsWith('https://')) return url

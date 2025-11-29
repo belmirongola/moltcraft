@@ -72,6 +72,8 @@ import OverlayModelViewer from './react/OverlayModelViewer'
 import CornerIndicatorStats from './react/CornerIndicatorStats'
 import AllSettingsEditor from './react/AllSettingsEditor'
 import { isPlayground, urlParams } from './playgroundIntegration'
+import { withInjectableUi } from './react/extendableSystem'
+import { hadReactUiRegistered } from './clientMods'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -222,7 +224,7 @@ const WidgetDisplay = ({ name, Component }) => {
   return <Component />
 }
 
-const App = () => {
+const AppBase = () => {
   const scale = useAppScale()
   return (
     <UIProvider scale={scale}>
@@ -293,7 +295,13 @@ const PerComponentErrorBoundary = ({ children }) => {
 const noUi = urlParams.get('no-ui') === 'true' || isPlayground
 
 if (!noUi) {
-  renderToDom(<App />, {
+  const App = withInjectableUi(AppBase, 'root')
+  const AppRender = () => {
+    const { state: hadReactUiRegisteredState } = useSnapshot(hadReactUiRegistered)
+
+    return <App key={hadReactUiRegisteredState ? '0' : '1'} />
+  }
+  renderToDom(<AppRender />, {
     strictMode: false,
     selector: '#react-root',
   })

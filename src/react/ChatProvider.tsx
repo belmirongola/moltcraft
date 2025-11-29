@@ -11,8 +11,9 @@ import { hideNotification, notificationProxy, showNotification } from './Notific
 import { getServerIndex, updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
 import { showOptionsModal } from './SelectOption'
+import { withInjectableUi } from './extendableSystem'
 
-export default () => {
+const ChatProviderBase = () => {
   const [messages, setMessages] = useState([] as Message[])
   const isChatActive = useIsModalActive('chat')
   const lastMessageId = useRef(0)
@@ -167,3 +168,5 @@ export default () => {
     }}
   />
 }
+
+export default withInjectableUi(ChatProviderBase, 'chatProvider')

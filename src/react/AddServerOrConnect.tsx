@@ -7,6 +7,7 @@ import Input, { INPUT_LABEL_WIDTH, InputWithLabel } from './Input'
 import Button from './Button'
 import SelectGameVersion from './SelectGameVersion'
 import { usePassesScaledDimensions } from './UIProvider'
+import { withInjectableUi } from './extendableSystem'
 
 export interface BaseServerInfo {
   ip: string
@@ -31,7 +32,7 @@ interface Props {
   versions?: string[]
 }
 
-export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, placeholders, accounts, versions }: Props) => {
+const AddServerOrConnectBase = ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQs, onQsConnect, placeholders, accounts, versions }: Props) => {
   const isSmallHeight = !usePassesScaledDimensions(null, 350)
   const qsParamName = parseQs ? appQueryParams.name : undefined
   const qsParamIp = parseQs ? appQueryParams.ip : undefined
@@ -254,3 +255,5 @@ const ButtonWrapper = ({ ...props }: React.ComponentProps<typeof Button>) => {
 }
 
 const fallbackIfNotFound = (index: number) => (index === -1 ? undefined : index)
+
+export default withInjectableUi(AddServerOrConnectBase, 'addServerOrConnect')

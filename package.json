@@ -52,6 +52,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@arwes/react": "1.0.0-next.25020502",
     "@arwes/react-bgs": "1.0.0-next.25020502",
     "@arwes/react-frames": "1.0.0-next.25020502",
     "@dimaka/interface": "0.0.3-alpha.0",

@@ -1,4 +1,4 @@
-// import { createTheme, ThemeProvider as ArwesThemeProvider, Button, Arwes as ArwesRoot, Loading as ArwesLoading, Grid, Words as ArwesWords, Row, Col, Blockquote, Frame, Line } from 'arwes'
+import { createTheme, ThemeProvider as ArwesThemeProvider, Button, Arwes as ArwesRoot, Loading as ArwesLoading, Grid, Words as ArwesWords, Row, Col, Blockquote, Frame, Line } from 'arwes'
 import { Puffs, Dots, MovingLines } from '@arwes/react-bgs'
 import { Animator } from '@arwes/react-animator'
 // import { Illuminator } from '@arwes/react-frames'
@@ -39,27 +39,7 @@ distance={30}
   )
 }
 
-export const ArwesPlayground = () => {
-  return <div>
-    {/* <ArwesRoot style={{ fontFamily: 'inherit' }}>
-      <Button animate>Hello</Button>
-      <ArwesLoading />
-      <ArwesWords animate>Hello</ArwesWords>
-      <Frame
-        show={true}
-        animate={true}
-        level={3}
-        corners={4}
-        layer='primary'
-      >
-        <div style={{ padding: '20px 40px', fontSize: '32px' }}>
-          Cyberpunk
-        </div>
-      </Frame>
-    </ArwesRoot> */}
-    <Background />
-  </div>
-}
+
 
 const Parallax = ({ children }) => {
   const ref = useRef<HTMLDivElement>(null)
