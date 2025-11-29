@@ -169,7 +169,7 @@ const SliderBase: React.FC<Props> = ({
           containerRef.current = node!
           refs.setReference(node)
         }}
-        className={`${styles['slider-container']} settings-text-container ${labelText.length > 17 ? 'settings-text-container-long' : ''}`}
+        className={`${styles['slider-container']} slider settings-text-container ${labelText.length > 17 ? 'settings-text-container-long' : ''}`}
         style={{ width }}
         {...divProps}
       >
@@ -197,7 +197,7 @@ const SliderBase: React.FC<Props> = ({
           }}
         />
         <div className={styles.disabled} title={disabledReason} />
-        <div className={styles['slider-thumb']} style={{ left: `calc((100% * ${ratio}) - (8px * ${ratio}))` }} />
+        <div className={`${styles['slider-thumb']} slider-thumb`} style={{ left: `calc((100% * ${ratio}) - (8px * ${ratio}))` }} />
         <label className={styles.label}>
           {labelText}
         </label>

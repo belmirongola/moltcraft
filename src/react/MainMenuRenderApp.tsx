@@ -7,6 +7,7 @@ import { openGithub } from '../utils'
 import { setLoadingScreenStatus } from '../appStatus'
 import { openFilePicker, copyFilesAsync, mkdirRecursive, openWorldDirectory, removeFileRecursiveAsync } from '../browserfs'
 
+import { hadModsActivated } from '../clientMods'
 import MainMenu from './MainMenu'
 import { withInjectableUi } from './extendableSystem'
 
@@ -76,8 +77,9 @@ let disableAnimation = false
 const MainMenuRenderAppBase = () => {
   const haveModals = useSnapshot(activeModalStack).length
   const { gameLoaded, fsReady, appConfig, singleplayerAvailable } = useSnapshot(miscUiState)
+  const { state: hadModsActivatedState } = useSnapshot(hadModsActivated)
 
-  const noDisplay = haveModals || gameLoaded || !fsReady
+  const noDisplay = haveModals || gameLoaded || !fsReady || !hadModsActivatedState
 
   useEffect(() => {
     if (noDisplay && fsReady) disableAnimation = true

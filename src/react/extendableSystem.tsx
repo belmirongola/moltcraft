@@ -1,35 +1,45 @@
 import * as React from 'react'
 import { ErrorBoundary } from '@zardoy/react-util'
 import { showNotification } from '../react/NotificationProvider'
+import { ClientModUiApi } from '../clientMods'
 
-export type InjectUiPlace =
-  | 'root'
-  | 'button'
-  | 'mainMenu'
-  | 'mainMenuProvider'
-  | 'chat'
-  | 'chatProvider'
-  | 'addServerOrConnect'
-  | 'armorBar'
-  | 'bossBarOverlay'
-  | 'createWorld'
-  | 'singleplayer'
-  | 'deathScreen'
-  | 'debugOverlay'
-  | 'fullmap'
-  | 'input'
-  | 'notification'
-  | 'optionsItems'
-  | 'title'
-  | 'slider'
-  | 'serversList'
-  | 'scoreboard'
-  | 'select'
+const injectUiPlaces = [
+  'root',
+  'button',
+  'mainMenu',
+  'mainMenuProvider',
+  'chat',
+  'chatProvider',
+  'addServerOrConnect',
+  'armorBar',
+  'bossBarOverlay',
+  'createWorld',
+  'singleplayer',
+  'deathScreen',
+  'debugOverlay',
+  'fullmap',
+  'input',
+  'notification',
+  'optionsItems',
+  'title',
+  'slider',
+  'serversList',
+  'scoreboard',
+  'select',
+  'screen',
+  'screenDirtBg',
+  'appStatus',
+  'appStatusProvider',
+  'diveTransition',
+] as const
+
+export type InjectUiPlace = (typeof injectUiPlaces)[number]
 
 const wrapWithErrorBoundary = (
   Component: React.FC<any>,
-  children: React.ReactNode,
-  index: number
+  props: any,
+  index: number,
+  place: InjectUiPlace
 ): React.ReactElement => {
   return (
     <ErrorBoundary
@@ -37,15 +47,15 @@ const wrapWithErrorBoundary = (
       renderError={(error) => {
         const componentName = Component.name || Component.displayName || 'Unknown'
         showNotification(
-          `Registered component ${componentName} crashed!`,
-          'Please report this. Use console for more.',
+          `Registered component ${place} crashed: ${componentName}`,
+          `Use console for more. ${error.message}`,
           true,
           undefined
         )
         return null
       }}
     >
-      <Component>{children}</Component>
+      <Component {...props} />
     </ErrorBoundary>
   )
 }
@@ -54,8 +64,11 @@ export const withInjectableUi = <P extends object>(
   Component: React.ComponentType<P>,
   place: InjectUiPlace
 ) => {
+  const placeUppercaseFirst = place.charAt(0).toUpperCase() + place.slice(1)
+  window.builtinComponents ??= {}
+  window.builtinComponents[placeUppercaseFirst] = Component
   const WrappedComponent = (props: P) => {
-    const components = window.mcraft?.ui?.registeredReactWrappers?.[place] || []
+    const components = Object.values((window.mcraft?.ui as ClientModUiApi)?.registeredReactWrappers?.[place] || {})
 
     // Start with the original component as the innermost
     let wrapped: React.ReactNode = <Component {...props} />
@@ -65,7 +78,7 @@ export const withInjectableUi = <P extends object>(
     // e.g., if [A, B] are registered: A wraps B, B wraps Component
     for (let i = components.length - 1; i >= 0; i--) {
       const WrapperComponent = components[i]
-      wrapped = wrapWithErrorBoundary(WrapperComponent, wrapped, i)
+      wrapped = wrapWithErrorBoundary(WrapperComponent, { ...props, children: wrapped }, i, place)
     }
 
     return <>{wrapped}</>

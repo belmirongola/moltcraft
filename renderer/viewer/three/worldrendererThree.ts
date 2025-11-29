@@ -29,6 +29,7 @@ import { WaypointsRenderer } from './waypoints'
 import { DEFAULT_TEMPERATURE, SkyboxRenderer } from './skyboxRenderer'
 import { FireworksManager } from './fireworks'
 import { downloadWorldGeometry } from './worldGeometryExport'
+import { SciFiWorldReveal } from './sciFiWorldReveal'
 
 type SectionKey = string
 
@@ -78,6 +79,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   DEBUG_RAYCAST = false
   skyboxRenderer: SkyboxRenderer
   fireworks: FireworksManager
+  sciFiReveal: SciFiWorldReveal
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
@@ -114,6 +116,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.media = new ThreeJsMedia(this)
     this.waypoints = new WaypointsRenderer(this)
     this.fireworks = new FireworksManager(this.scene)
+    this.sciFiReveal = new SciFiWorldReveal(this)
 
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
@@ -404,6 +407,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     const chunkCoords = data.key.split(',')
     if (!this.loadedChunks[chunkCoords[0] + ',' + chunkCoords[2]] || !data.geometry.positions.length || !this.active) return
 
+    // Register with sci-fi reveal system if effect should be used
+    const useRevealEffect = this.sciFiReveal.shouldUseRevealEffect(data.key)
+    if (useRevealEffect) {
+      this.sciFiReveal.registerSection(data.key, data.geometry)
+    }
+
     // if (object) {
     //   this.debugRecomputedDeletedObjects++
     // }
@@ -418,6 +427,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     const mesh = new THREE.Mesh(geometry, this.material)
     mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
     mesh.name = 'mesh'
+
     object = new THREE.Group()
     object.add(mesh)
     // mesh with static dimensions: 16x16x16
@@ -465,6 +475,8 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
     }
     this.sectionObjects[data.key] = object
+    // Store section key on object for easier lookup
+    ;(object as any).sectionKey = data.key
     if (this.displayOptions.inWorldRenderingConfig._renderByChunks) {
       object.visible = false
       const chunkKey = `${chunkCoords[0]},${chunkCoords[2]}`

@@ -231,8 +231,8 @@ async function deleteRepository (url) {
 // #endregion
 
 export interface ClientModUiApi {
-  registeredReactWrappers: Record<InjectUiPlace, React.FC[]>
-  registerReactWrapper(place: 'root', component: React.FC)
+  registeredReactWrappers: Record<InjectUiPlace, Record<string, React.FC>>
+  registerReactWrapper(place: 'root', id: string, component: React.FC)
 }
 
 window.mcraft = {
@@ -240,9 +240,9 @@ window.mcraft = {
   build: process.env.BUILD_VERSION,
   ui: {
     registeredReactWrappers: {},
-    registerReactWrapper (place: InjectUiPlace, component: React.FC) {
-      window.mcraft.ui.registeredReactWrappers[place] ??= []
-      window.mcraft.ui.registeredReactWrappers[place].push(component)
+    registerReactWrapper (place: InjectUiPlace, id: string, component: React.FC) {
+      window.mcraft.ui.registeredReactWrappers[place] ??= {}
+      window.mcraft.ui.registeredReactWrappers[place][id] = component
     },
   },
   React,
@@ -314,12 +314,14 @@ export const appStartup = async () => {
   }
   await import('./arwesMod/index')
   hadReactUiRegistered.state = Object.keys(window.mcraft?.ui?.registeredReactWrappers).length > 0
+  hadModsActivated.state = true
 }
 
 export const modsUpdateStatus = proxy({} as Record<string, [string, string]>)
 export const modsWaitingReloadStatus = proxy({} as Record<string, boolean>)
 export const modsErrors = proxy({} as Record<string, string[]>)
 export const hadReactUiRegistered = proxy({ state: false })
+export const hadModsActivated = proxy({ state: false })
 
 const normalizeRepoUrl = (url: string) => {
   if (url.startsWith('https://')) return url

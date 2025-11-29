@@ -14,6 +14,7 @@ import MessageFormattedString from './MessageFormattedString'
 import { useIsSmallWidth } from './simpleHooks'
 import PixelartIcon from './PixelartIcon'
 import { withInjectableUi } from './extendableSystem'
+import { ScreenDirtBg } from './Screen'
 
 export interface WorldProps {
   name: string
@@ -215,7 +216,7 @@ const SingleplayerBase = ({
   }
 
   return <div ref={containerRef} hidden={hidden}>
-    <div className="dirt-bg" />
+    <ScreenDirtBg />
     <div className={classNames('fullscreen', styles.root)}>
       <span className={classNames('screen-title', styles.title)}>{serversLayout ? 'Join Java Servers' : 'Select Saved World'}</span>
       {searchRowChildrenOverride || <div style={{ display: 'flex', flexDirection: 'column' }}>

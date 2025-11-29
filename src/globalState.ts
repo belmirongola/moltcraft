@@ -120,6 +120,7 @@ export const miscUiState = proxy({
   flyingSquid: false,
   wanOpened: false,
   wanOpening: false,
+  hadConnected: false,
   /** wether game hud is shown (in playing state) */
   gameLoaded: false,
   showUI: true,

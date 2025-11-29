@@ -183,6 +183,7 @@ export async function connect (connectOptions: ConnectOptions) {
   loadingTimerState.loading = true
   loadingTimerState.start = Date.now()
   miscUiState.hasErrors = false
+  miscUiState.hadConnected = false
   lastConnectOptions.value = connectOptions
   lastConnectOptions.hadWorldLoaded = false
 
@@ -224,7 +225,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
   let ended = false
   let bot!: typeof __type_bot
-  let hadConnected = false
   const handleSessionEnd = (wasKicked = false) => {
     if (ended) return
     loadingTimerState.loading = false
@@ -264,7 +264,7 @@ export async function connect (connectOptions: ConnectOptions) {
         cleanFs()
       },
       date: Date.now(),
-      wasConnected: hadConnected
+      wasConnected: miscUiState.hadConnected
     }
   }
   const cleanFs = () => {
@@ -747,7 +747,7 @@ export async function connect (connectOptions: ConnectOptions) {
   onBotCreate()
 
   bot.once('login', () => {
-    hadConnected = true
+    miscUiState.hadConnected = true
     errorAbortController.abort()
     loadingTimerState.networkOnlyStart = 0
     progress.setMessage('Loading world')
