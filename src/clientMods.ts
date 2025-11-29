@@ -312,7 +312,6 @@ export const appStartup = async () => {
       console.error(`Error activating mod on startup ${mod.name}:`, e)
     })
   }
-  await import('./arwesMod/index')
   hadReactUiRegistered.state = Object.keys(window.mcraft?.ui?.registeredReactWrappers).length > 0
   hadModsActivated.state = true
 }

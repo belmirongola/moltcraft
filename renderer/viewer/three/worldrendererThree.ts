@@ -29,7 +29,6 @@ import { WaypointsRenderer } from './waypoints'
 import { DEFAULT_TEMPERATURE, SkyboxRenderer } from './skyboxRenderer'
 import { FireworksManager } from './fireworks'
 import { downloadWorldGeometry } from './worldGeometryExport'
-import { SciFiWorldReveal } from './sciFiWorldReveal'
 
 type SectionKey = string
 
@@ -79,7 +78,6 @@ export class WorldRendererThree extends WorldRendererCommon {
   DEBUG_RAYCAST = false
   skyboxRenderer: SkyboxRenderer
   fireworks: FireworksManager
-  sciFiReveal: SciFiWorldReveal
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
@@ -116,7 +114,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.media = new ThreeJsMedia(this)
     this.waypoints = new WaypointsRenderer(this)
     this.fireworks = new FireworksManager(this.scene)
-    this.sciFiReveal = new SciFiWorldReveal(this)
 
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
@@ -406,12 +403,6 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     const chunkCoords = data.key.split(',')
     if (!this.loadedChunks[chunkCoords[0] + ',' + chunkCoords[2]] || !data.geometry.positions.length || !this.active) return
-
-    // Register with sci-fi reveal system if effect should be used
-    const useRevealEffect = this.sciFiReveal.shouldUseRevealEffect(data.key)
-    if (useRevealEffect) {
-      this.sciFiReveal.registerSection(data.key, data.geometry)
-    }
 
     // if (object) {
     //   this.debugRecomputedDeletedObjects++
