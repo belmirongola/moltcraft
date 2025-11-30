@@ -11,6 +11,7 @@ import { appStorage } from './react/appStorageProvider'
 import { showInputsModal, showOptionsModal } from './react/SelectOption'
 import { ProgressReporter } from './core/progressReporter'
 import { showNotification } from './react/NotificationProvider'
+import { InjectUiPlace } from './react/extendableSystem'
 import { appQueryParams } from './appParams'
 
 let sillyProtection = false
@@ -231,11 +232,9 @@ async function deleteRepository (url) {
 
 // #endregion
 
-type InjectUiPlace = string
-
 export interface ClientModUiApi {
-  registeredReactWrappers: Record<InjectUiPlace, React.FC[]>
-  registerReactWrapper(place: 'root', component: React.FC)
+  registeredReactWrappers: Record<InjectUiPlace, Record<string, React.FC>>
+  registerReactWrapper(place: 'root', id: string, component: React.FC)
 }
 
 window.mcraft = {

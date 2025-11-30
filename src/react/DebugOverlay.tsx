@@ -8,8 +8,9 @@ import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
 import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
 import styles from './DebugOverlay.module.css'
+import { withInjectableUi } from './extendableSystem'
 
-export default () => {
+const DebugOverlayBase = () => {
   const received = useRef({ ...defaultPacketsCount })
   const sent = useRef({ ...defaultPacketsCount })
   const customEntries = useRef({} as any)
@@ -273,6 +274,8 @@ export default () => {
     </div>
   </>
 }
+
+export default withInjectableUi(DebugOverlayBase, 'debugOverlay')
 
 const hardcodedListOfDebugPacketsToIgnore = {
   received: [

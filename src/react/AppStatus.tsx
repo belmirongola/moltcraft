@@ -6,8 +6,9 @@ import Screen from './Screen'
 import LoadingChunks from './LoadingChunks'
 import LoadingTimer from './LoadingTimer'
 import { lastConnectOptions } from './AppStatusProvider'
+import { withInjectableUi } from './extendableSystem'
 
-export default ({
+const AppStatusBase = ({
   status,
   isError,
   hideDots = false,
@@ -111,3 +112,5 @@ export default ({
     </div>
   )
 }
+
+export default withInjectableUi(AppStatusBase, 'appStatus')
