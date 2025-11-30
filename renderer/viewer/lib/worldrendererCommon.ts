@@ -71,7 +71,8 @@ export const defaultWorldRendererConfig = {
 
   // World settings
   clipWorldBelowY: undefined as number | undefined,
-  isPlayground: false
+  isPlayground: false,
+  instantCameraUpdate: false
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig

@@ -6,14 +6,14 @@ import { miscUiState } from './globalState'
 import { watchOptionsAfterViewerInit } from './watchOptions'
 import { showNotification } from './react/NotificationProvider'
 
-const backends = [
+export const appGraphicBackends = [
   createGraphicsBackend,
 ]
 const loadBackend = async () => {
-  let backend = backends.find(backend => backend.id === options.activeRenderer)
+  let backend = appGraphicBackends.find(backend => backend.id === options.activeRenderer)
   if (!backend) {
-    showNotification(`No backend found for renderer ${options.activeRenderer}`, `Falling back to ${backends[0].id}`, true)
-    backend = backends[0]
+    showNotification(`No backend found for renderer ${options.activeRenderer}`, `Falling back to ${appGraphicBackends[0].id}`, true)
+    backend = appGraphicBackends[0]
   }
   await appViewer.loadBackend(backend)
 }

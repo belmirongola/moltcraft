@@ -16,6 +16,7 @@ import { updateAuthenticatedAccountData, updateLoadedServerData, AuthenticatedAc
 import { showOptionsModal } from './SelectOption'
 import LoadingChunks from './LoadingChunks'
 import MessageFormattedString from './MessageFormattedString'
+import { withInjectableUi } from './extendableSystem'
 
 const initialState = {
   status: '',
@@ -66,7 +67,7 @@ export const quickDevReconnect = () => {
   }))
 }
 
-export default () => {
+const AppStatusProviderBase = () => {
   const lastState = useRef(JSON.parse(JSON.stringify(appStatusState)))
   const currentState = useSnapshot(appStatusState)
   const { active: replayActive } = useSnapshot(packetsRecordingState)
@@ -202,6 +203,8 @@ export default () => {
     </AppStatus>
   </DiveTransition>
 }
+
+export default withInjectableUi(AppStatusProviderBase, 'appStatusProvider')
 
 const DisplayingIndicator = () => {
   useEffect(() => {

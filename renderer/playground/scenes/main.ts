@@ -114,8 +114,8 @@ class MainScene extends BasePlaygroundScene {
       this.entityUpdateShared()
       if (!this.params.entity) return
       if (this.params.entity === 'player') {
-        this.worldRenderer!.entities.updatePlayerSkin('id', this.worldRenderer!.entities.entities.id.username, undefined, true, true)
-        this.worldRenderer!.entities.playAnimation('id', 'running')
+        this.worldRenderer.entities.updatePlayerSkin('id', this.worldRenderer.entities.entities.id.username, undefined, true, true)
+        this.worldRenderer.entities.playAnimation('id', 'running')
       }
       // let prev = false
       // setInterval(() => {
@@ -133,12 +133,12 @@ class MainScene extends BasePlaygroundScene {
       this.worldView!.setBlockStateId(this.targetPos.offset(0, -1, 0), this.params.supportBlock ? 1 : 0)
     },
     modelVariant: () => {
-      this.worldRenderer!.worldRendererConfig.debugModelVariant = this.params.modelVariant === 0 ? undefined : [this.params.modelVariant]
+      this.worldRenderer.worldRendererConfig.debugModelVariant = this.params.modelVariant === 0 ? undefined : [this.params.modelVariant]
     }
   }
 
   entityUpdateShared () {
-    this.worldRenderer!.entities.clear()
+    this.worldRenderer.entities.clear()
     if (!this.params.entity) return
     this.worldView!.emit('entity', {
       id: 'id', name: this.params.entity, pos: this.targetPos.offset(0.5, 1, 0.5), width: 1, height: 1, username: localStorage.testUsername, yaw: Math.PI, pitch: 0
@@ -154,120 +154,10 @@ class MainScene extends BasePlaygroundScene {
         if (typeof child === 'object') enableSkeletonDebug(child)
       }
     }
-    enableSkeletonDebug(this.worldRenderer!.entities.entities['id'])
+    enableSkeletonDebug(this.worldRenderer.entities.entities['id'])
     setTimeout(() => {
       this.render()
     }, TWEEN_DURATION)
-  }
-
-  blockIsomorphicRenderBundle () {
-    const { renderer } = this.worldRenderer!
-
-    const canvas = renderer.domElement
-    const onlyCurrent = !confirm('Ok - render all blocks, Cancel - render only current one')
-    const sizeRaw = prompt('Size', '512')
-    if (!sizeRaw) return
-    const size = parseInt(sizeRaw, 10)
-    // const size = 512
-
-    canvas.width = size
-    canvas.height = size
-    renderer.setSize(size, size)
-
-    // Temporarily replace PerspectiveCamera with OrthographicCamera for block rendering
-    this.worldRenderer!.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10) as any
-    this.worldRenderer!.scene.background = null
-
-    const rad = THREE.MathUtils.degToRad(-120)
-    this.worldRenderer!.directionalLight.position.set(
-      Math.cos(rad),
-      Math.sin(rad),
-      0.2
-    ).normalize()
-    this.worldRenderer!.directionalLight.intensity = 1
-
-    const cameraPos = this.targetPos.offset(2, 2, 2)
-    const pitch = THREE.MathUtils.degToRad(-30)
-    const yaw = THREE.MathUtils.degToRad(45)
-    this.worldRenderer!.camera.rotation.set(pitch, yaw, 0, 'ZYX')
-    // this.worldRenderer!.camera.lookAt(center.x + 0.5, center.y + 0.5, center.z + 0.5)
-    this.worldRenderer!.camera.position.set(cameraPos.x + 1, cameraPos.y + 0.5, cameraPos.z + 1)
-
-    const allBlocks = mcData.blocksArray.map(b => b.name)
-    // const allBlocks = ['stone', 'warped_slab']
-
-    let blockCount = 1
-    let blockName = allBlocks[0]
-
-    const updateBlock = () => {
-      // viewer.setBlockStateId(targetPos, mcData.blocksByName[blockName].minStateId)
-      this.params.block = blockName
-      // todo cleanup (introduce getDefaultState)
-      // TODO
-      // onUpdate.block()
-      // applyChanges(false, true)
-    }
-    void this.worldRenderer!.waitForChunksToRender().then(async () => {
-      // wait for next macro task
-      await new Promise(resolve => {
-        setTimeout(resolve, 0)
-      })
-      if (onlyCurrent) {
-        this.render()
-        onWorldUpdate()
-      } else {
-        // will be called on every render update
-        this.worldRenderer!.renderUpdateEmitter.addListener('update', onWorldUpdate)
-        updateBlock()
-      }
-    })
-
-    const zip = new JSZip()
-    zip.file('description.txt', 'Generated with mcraft.fun/playground')
-
-    const end = async () => {
-      // download zip file
-
-      const a = document.createElement('a')
-      const blob = await zip.generateAsync({ type: 'blob' })
-      const dataUrlZip = URL.createObjectURL(blob)
-      a.href = dataUrlZip
-      a.download = 'blocks_render.zip'
-      a.click()
-      URL.revokeObjectURL(dataUrlZip)
-      console.log('end')
-
-      this.worldRenderer!.renderUpdateEmitter.removeListener('update', onWorldUpdate)
-    }
-
-    async function onWorldUpdate () {
-      // await new Promise(resolve => {
-      //   setTimeout(resolve, 50)
-      // })
-      const dataUrl = canvas.toDataURL('image/png')
-
-      zip.file(`${blockName}.png`, dataUrl.split(',')[1], { base64: true })
-
-      if (onlyCurrent) {
-        end()
-      } else {
-        nextBlock()
-      }
-    }
-    const nextBlock = async () => {
-      blockName = allBlocks[blockCount++]
-      console.log(allBlocks.length, '/', blockCount, blockName)
-      if (blockCount % 5 === 0) {
-        await new Promise(resolve => {
-          setTimeout(resolve, 100)
-        })
-      }
-      if (blockName) {
-        updateBlock()
-      } else {
-        end()
-      }
-    }
   }
 
   getBlock () {
@@ -309,6 +199,116 @@ class MainScene extends BasePlaygroundScene {
     }
     this.onParamsUpdate('', {})
     this.gui.openAnimated()
+  }
+
+  blockIsomorphicRenderBundle () {
+    const { renderer } = this.worldRenderer
+
+    const canvas = renderer.domElement
+    const onlyCurrent = !confirm('Ok - render all blocks, Cancel - render only current one')
+    const sizeRaw = prompt('Size', '512')
+    if (!sizeRaw) return
+    const size = parseInt(sizeRaw, 10)
+    // const size = 512
+
+    canvas.width = size
+    canvas.height = size
+    renderer.setSize(size, size)
+
+    // Temporarily replace PerspectiveCamera with OrthographicCamera for block rendering
+    this.worldRenderer.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10) as any
+    this.worldRenderer.scene.background = null
+
+    const rad = THREE.MathUtils.degToRad(-120)
+    this.worldRenderer.directionalLight.position.set(
+      Math.cos(rad),
+      Math.sin(rad),
+      0.2
+    ).normalize()
+    this.worldRenderer.directionalLight.intensity = 1
+
+    const cameraPos = this.targetPos.offset(2, 2, 2)
+    const pitch = THREE.MathUtils.degToRad(-30)
+    const yaw = THREE.MathUtils.degToRad(45)
+    this.worldRenderer.camera.rotation.set(pitch, yaw, 0, 'ZYX')
+    // this.worldRenderer!.camera.lookAt(center.x + 0.5, center.y + 0.5, center.z + 0.5)
+    this.worldRenderer.camera.position.set(cameraPos.x + 1, cameraPos.y + 0.5, cameraPos.z + 1)
+
+    const allBlocks = mcData.blocksArray.map(b => b.name)
+    // const allBlocks = ['stone', 'warped_slab']
+
+    let blockCount = 1
+    let blockName = allBlocks[0]
+
+    const updateBlock = () => {
+      // viewer.setBlockStateId(targetPos, mcData.blocksByName[blockName].minStateId)
+      this.params.block = blockName
+      // todo cleanup (introduce getDefaultState)
+      // TODO
+      // onUpdate.block()
+      // applyChanges(false, true)
+    }
+    void this.worldRenderer.waitForChunksToRender().then(async () => {
+      // wait for next macro task
+      await new Promise(resolve => {
+        setTimeout(resolve, 0)
+      })
+      if (onlyCurrent) {
+        this.render()
+        onWorldUpdate()
+      } else {
+        // will be called on every render update
+        this.worldRenderer.renderUpdateEmitter.addListener('update', onWorldUpdate)
+        updateBlock()
+      }
+    })
+
+    const zip = new JSZip()
+    zip.file('description.txt', 'Generated with mcraft.fun/playground')
+
+    const end = async () => {
+      // download zip file
+
+      const a = document.createElement('a')
+      const blob = await zip.generateAsync({ type: 'blob' })
+      const dataUrlZip = URL.createObjectURL(blob)
+      a.href = dataUrlZip
+      a.download = 'blocks_render.zip'
+      a.click()
+      URL.revokeObjectURL(dataUrlZip)
+      console.log('end')
+
+      this.worldRenderer.renderUpdateEmitter.removeListener('update', onWorldUpdate)
+    }
+
+    async function onWorldUpdate () {
+      // await new Promise(resolve => {
+      //   setTimeout(resolve, 50)
+      // })
+      const dataUrl = canvas.toDataURL('image/png')
+
+      zip.file(`${blockName}.png`, dataUrl.split(',')[1], { base64: true })
+
+      if (onlyCurrent) {
+        end()
+      } else {
+        nextBlock()
+      }
+    }
+    const nextBlock = async () => {
+      blockName = allBlocks[blockCount++]
+      console.log(allBlocks.length, '/', blockCount, blockName)
+      if (blockCount % 5 === 0) {
+        await new Promise(resolve => {
+          setTimeout(resolve, 100)
+        })
+      }
+      if (blockName) {
+        updateBlock()
+      } else {
+        end()
+      }
+    }
   }
 }
 

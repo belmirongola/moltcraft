@@ -12,6 +12,7 @@ import { showOptionsModal } from './SelectOption'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import { reconnectReload } from './AppStatusProvider'
 import { showAllSettingsEditor } from './AllSettingsEditor'
+import { withInjectableUi } from './extendableSystem'
 
 type GeneralItem<T extends string | number | boolean> = {
   id?: string
@@ -231,7 +232,7 @@ interface Props {
   backButtonAction?: () => void
 }
 
-export default ({ items, title, backButtonAction }: Props) => {
+const OptionsItemsBase = ({ items, title, backButtonAction }: Props) => {
 
   return <Screen
     title={title}
@@ -251,3 +252,5 @@ export default ({ items, title, backButtonAction }: Props) => {
     {backButtonAction && <Button onClick={() => backButtonAction()}>Back</Button>}
   </Screen>
 }
+
+export default withInjectableUi(OptionsItemsBase, 'optionsItems')

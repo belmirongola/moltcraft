@@ -7,6 +7,7 @@ import { isIos, reactKeyForMessage } from './utils'
 import Button from './Button'
 import { pixelartIcons } from './PixelartIcon'
 import { useScrollBehavior } from './hooks/useScrollBehavior'
+import { withInjectableUi } from './extendableSystem'
 
 export type Message = {
   parts: MessageFormatPart[],
@@ -91,7 +92,7 @@ export const chatInputValueGlobal = proxy({
   value: ''
 })
 
-export default ({
+const ChatBase = ({
   messages,
   opacity = 1,
   fetchCompletionItems,
@@ -599,3 +600,5 @@ export default ({
     </>
   )
 }
+
+export default withInjectableUi(ChatBase, 'chat')

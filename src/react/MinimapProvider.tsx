@@ -567,7 +567,7 @@ export default ({ adapter, displayMode }: { adapter: DrawerAdapterImpl, displayM
   const fullMapOpened = useIsModalActive('full-map')
 
   const toggleFullMap = () => {
-    void contro.emit('trigger', { command: 'ui.toggleMap', schema: null as any })
+    void contro.emit('trigger', { command: 'ui.toggleMap' })
   }
 
   if (
