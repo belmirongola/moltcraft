@@ -65,8 +65,8 @@ export const withInjectableUi = <P extends object>(
   place: InjectUiPlace
 ) => {
   const placeUppercaseFirst = place.charAt(0).toUpperCase() + place.slice(1)
-  window.builtinComponents ??= {}
-  window.builtinComponents[placeUppercaseFirst] = Component
+  window.builtinOriginalComponents ??= {}
+  window.builtinOriginalComponents[placeUppercaseFirst] = Component
   const WrappedComponent = (props: P) => {
     const components = Object.values((window.mcraft?.ui as ClientModUiApi)?.registeredReactWrappers?.[place] || {})
 
@@ -85,6 +85,9 @@ export const withInjectableUi = <P extends object>(
   }
 
   WrappedComponent.displayName = `withInjectableUi(${Component.displayName || Component.name || 'Component'}, ${place})`
+
+  window.builtinComponents ??= {}
+  window.builtinComponents[placeUppercaseFirst] = WrappedComponent
 
   return WrappedComponent
 }
