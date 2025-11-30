@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import { openDB } from 'idb'
 import * as React from 'react'
+import * as ReactJsxRuntime from 'react/jsx-runtime'
 import * as ReactDOM from 'react-dom'
 import * as valtio from 'valtio'
 import * as valtioUtils from 'valtio/utils'
@@ -251,6 +252,7 @@ window.mcraft = {
     },
   },
   React,
+  ReactJsxRuntime,
   ReactDOM,
   framerMotion,
   fileSize,
