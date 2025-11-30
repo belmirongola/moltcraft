@@ -406,7 +406,7 @@ const loadParentFrameModsIfRequested = async (): Promise<Set<string>> => {
 
 export const appStartup = async () => {
   void checkModsUpdates()
-  const oldRegisteredReactWrappers = Object.entries(window.mcraft?.ui?.registeredReactWrappers).reduce((acc, [place, components]) => acc + components.length, 0)
+  const oldRegisteredReactWrappers = Object.entries(window.mcraft?.ui?.registeredReactWrappers).reduce((acc, [place, components]) => acc + Object.keys(components).length, 0)
   const parentFrameActivatedMods = await loadParentFrameModsIfRequested()
 
   const mods = await getAllMods()
@@ -421,7 +421,7 @@ export const appStartup = async () => {
       console.error(`Error activating mod on startup ${mod.name}:`, e)
     })
   }
-  const newCount = Object.entries(window.mcraft?.ui?.registeredReactWrappers).reduce((acc, [place, components]) => acc + components.length, 0)
+  const newCount = Object.entries(window.mcraft?.ui?.registeredReactWrappers).reduce((acc, [place, components]) => acc + Object.keys(components).length, 0)
   hadReactUiRegistered.state = newCount !== oldRegisteredReactWrappers
   hadModsActivated.state = true
 }
