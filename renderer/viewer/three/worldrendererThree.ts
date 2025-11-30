@@ -418,7 +418,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     const mesh = new THREE.Mesh(geometry, this.material)
     mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
     mesh.name = 'mesh'
-
     object = new THREE.Group()
     object.add(mesh)
     // mesh with static dimensions: 16x16x16

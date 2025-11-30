@@ -52,9 +52,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@arwes/react": "1.0.0-next.25020502",
-    "@arwes/react-bgs": "1.0.0-next.25020502",
-    "@arwes/react-frames": "1.0.0-next.25020502",
     "@dimaka/interface": "0.0.3-alpha.0",
     "@floating-ui/react": "^0.26.1",
     "@monaco-editor/react": "^4.7.0",
@@ -70,7 +67,6 @@
     "@zardoy/react-util": "^0.2.4",
     "@zardoy/utils": "^0.0.11",
     "adm-zip": "^0.5.12",
-    "arwes": "1.0.0-alpha.5",
     "browserfs": "github:zardoy/browserfs#build",
     "change-case": "^5.1.2",
     "classnames": "^2.5.1",
