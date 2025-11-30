@@ -4,6 +4,9 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import * as valtio from 'valtio'
 import * as valtioUtils from 'valtio/utils'
+import * as framerMotion from 'framer-motion'
+import * as fileSize from 'filesize'
+import classNames from 'classnames'
 import { gt } from 'semver'
 import { proxy } from 'valtio'
 import { options } from './optionsStorage'
@@ -249,6 +252,9 @@ window.mcraft = {
   },
   React,
   ReactDOM,
+  framerMotion,
+  fileSize,
+  classNames,
   valtio: {
     ...valtio,
     ...valtioUtils,
