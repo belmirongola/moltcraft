@@ -386,7 +386,7 @@ const loadParentFrameModsIfRequested = async (): Promise<Set<string>> => {
     for (const rawMod of modsFromParent) {
       try {
         const normalizedMod = normalizeParentMod(rawMod)
-        await saveClientModData(normalizedMod)
+        // Don't save parent frame mods - only activate for current session
         const activated = await activateMod(normalizedMod, 'parent-frame')
         if (activated) {
           activatedModNames.add(normalizedMod.name)
