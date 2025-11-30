@@ -60,11 +60,7 @@ export const loadOrPlaySound = async (url, soundVolume = 1, loadTimeout = option
   return playSound(url, soundVolume, loop, isMusic)
 }
 
-export async function playSound (url, soundVolume = 1, loop = false, isMusic = false) {
-  if (playSound !== window.playSound) {
-    return window.playSound(url, soundVolume, loop, isMusic)
-  }
-
+async function playSound (url, soundVolume = 1, loop = false, isMusic = false) {
   const volume = soundVolume * (options.volume / 100) * (isMusic ? options.musicVolume / 100 : 1)
 
   if (!volume) return
