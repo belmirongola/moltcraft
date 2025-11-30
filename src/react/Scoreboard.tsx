@@ -13,9 +13,9 @@ type ScoreboardProps = {
   style?: React.CSSProperties
 }
 
-const ScoreboardBase = function Scoreboard ({ title, items, open, style }: ScoreboardProps) {
-
+const ScoreboardBase = ({ title, items, open, style }: ScoreboardProps) => {
   if (!open) return null
+
   return (
     <div className='scoreboard-container' style={style}>
       <div className='scoreboard-title'>
