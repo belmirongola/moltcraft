@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { appQueryParams } from '../appParams'
+import { lastConnectOptions } from '../appStatus'
 import styles from './appStatus.module.css'
 import Button from './Button'
 import Screen from './Screen'
 import LoadingChunks from './LoadingChunks'
 import LoadingTimer from './LoadingTimer'
-import { lastConnectOptions } from './AppStatusProvider'
 import { withInjectableUi } from './extendableSystem'
 
 const AppStatusBase = ({

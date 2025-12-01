@@ -51,7 +51,7 @@ export const defaultOptions = {
   displayRecordButton: true,
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
   serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
-  customChannels: false,
+  customChannels: 'websocket' as boolean | 'websocket',
   remoteContentNotSameOrigin: false as boolean | string[],
   packetsRecordingAutoStart: false,
   language: 'auto',

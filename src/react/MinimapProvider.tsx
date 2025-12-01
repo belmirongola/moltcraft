@@ -18,10 +18,10 @@ import preflatMap from '../preflatMap.json'
 import { contro } from '../controls'
 import { gameAdditionalState, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
+import { lastConnectOptions } from '../appStatus'
 import Minimap, { DisplayMode } from './Minimap'
 import { ChunkInfo, DrawerAdapter, MapUpdates, MinimapDrawer } from './MinimapDrawer'
 import { useIsModalActive } from './utilsApp'
-import { lastConnectOptions } from './AppStatusProvider'
 
 const findHeightMap = (obj: PCChunk): number[] | undefined => {
   function search (obj: any): any | undefined {
