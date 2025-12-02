@@ -159,6 +159,7 @@ const registerWaypointChannels = () => {
 
     getThreeJsRendererMethods()?.addWaypoint(data.id, data.x, data.y, data.z, {
       minDistance: data.minDistance,
+      maxDistance: metadata.maxDistance,
       label: data.label || undefined,
       color: data.color || undefined,
       metadata

@@ -8,6 +8,7 @@ interface Waypoint {
   y: number
   z: number
   minDistance: number
+  maxDistance: number
   color: number
   label?: string
   sprite: WaypointSprite
@@ -17,6 +18,7 @@ interface WaypointOptions {
   color?: number
   label?: string
   minDistance?: number
+  maxDistance?: number
   metadata?: any
 }
 
@@ -54,7 +56,8 @@ export class WaypointsRenderer {
     for (const waypoint of this.waypoints.values()) {
       const waypointPos = new THREE.Vector3(waypoint.x, waypoint.y, waypoint.z)
       const distance = playerPos.distanceTo(waypointPos)
-      const visible = !waypoint.minDistance || distance >= waypoint.minDistance
+      const visible = (!waypoint.minDistance || distance >= waypoint.minDistance) &&
+                     (waypoint.maxDistance === Infinity || distance <= waypoint.maxDistance)
 
       waypoint.sprite.setVisible(visible)
 
@@ -92,6 +95,7 @@ export class WaypointsRenderer {
     const color = options.color ?? 0xFF_00_00
     const { label, metadata } = options
     const minDistance = options.minDistance ?? 0
+    const maxDistance = options.maxDistance ?? Infinity
 
     const sprite = createWaypointSprite({
       position: new THREE.Vector3(x, y, z),
@@ -105,7 +109,7 @@ export class WaypointsRenderer {
     this.waypointScene.add(sprite.group)
 
     this.waypoints.set(id, {
-      id, x: x + 0.5, y: y + 0.5, z: z + 0.5, minDistance,
+      id, x: x + 0.5, y: y + 0.5, z: z + 0.5, minDistance, maxDistance,
       color, label,
       sprite,
     })
