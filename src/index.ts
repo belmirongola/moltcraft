@@ -54,7 +54,7 @@ import {
 } from './globalState'
 
 import { parseServerAddress } from './parseServerAddress'
-import { setLoadingScreenStatus } from './appStatus'
+import { setLoadingScreenStatus, lastConnectOptions } from './appStatus'
 import { isCypress } from './standaloneUtils'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
@@ -64,7 +64,7 @@ import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
 import CustomChannelClient from './customClient'
 import { registerServiceWorker } from './serviceWorker'
-import { appStatusState, lastConnectOptions, quickDevReconnect } from './react/AppStatusProvider'
+import { appStatusState, quickDevReconnect } from './react/AppStatusProvider'
 
 import { fsState } from './loadSave'
 import { watchFov } from './rendererUtils'

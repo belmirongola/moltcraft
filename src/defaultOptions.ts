@@ -51,7 +51,7 @@ export const defaultOptions = {
   displayRecordButton: true,
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
   serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
-  customChannels: false,
+  customChannels: 'websocket' as boolean | 'websocket',
   remoteContentNotSameOrigin: false as boolean | string[],
   packetsRecordingAutoStart: false,
   language: 'auto',
@@ -165,6 +165,7 @@ function getTouchControlsSize () {
  * Settings like modsSupport, customChannels, or security-related options are excluded.
  */
 export const serverSafeSettings: Partial<Record<keyof typeof defaultOptions, true>> = {
+  remoteContentNotSameOrigin: true, // allow server to change remote content not same origin policy
   renderEars: true,
   viewBobbing: true,
   mouseRawInput: true,

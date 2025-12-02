@@ -7,6 +7,7 @@ import { downloadPacketsReplay, packetsRecordingState, replayLogger } from '../p
 import { getProxyDetails } from '../microsoftAuthflow'
 import { downloadAutoCapturedPackets, getLastAutoCapturedPackets } from '../mineflayer/plugins/packetsRecording'
 import { appQueryParams } from '../appParams'
+import { lastConnectOptions } from '../appStatus'
 import AppStatus from './AppStatus'
 import DiveTransition from './DiveTransition'
 import { useDidUpdateEffect } from './utils'
@@ -35,12 +36,6 @@ export const appStatusState = proxy(initialState)
 export const resetAppStatusState = () => {
   Object.assign(appStatusState, initialState)
 }
-
-export const lastConnectOptions = {
-  value: null as ConnectOptions | null,
-  hadWorldLoaded: false
-}
-globalThis.lastConnectOptions = lastConnectOptions
 
 const saveReconnectOptions = (options: ConnectOptions) => {
   sessionStorage.setItem('reconnectOptions', JSON.stringify({

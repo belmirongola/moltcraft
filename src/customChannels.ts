@@ -1,14 +1,25 @@
 import PItem from 'prismarine-item'
 import * as THREE from 'three'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
-import { options } from './optionsStorage'
+import { options, serverChangedSettings } from './optionsStorage'
 import { jeiCustomCategories } from './inventoryWindows'
 import { registerIdeChannels } from './core/ideChannels'
 import { serverSafeSettings } from './defaultOptions'
+import { lastConnectOptions } from './appStatus'
+
+const isWebSocketServer = (server: string | undefined) => {
+  if (!server) return false
+  return server.startsWith('ws://') || server.startsWith('wss://')
+}
+
+const getIsCustomChannelsEnabled = () => {
+  if (options.customChannels === 'websocket') return isWebSocketServer(lastConnectOptions.value?.server)
+  return options.customChannels
+}
 
 export default () => {
   customEvents.on('mineflayerBotCreated', async () => {
-    if (!options.customChannels) return
+    if (!getIsCustomChannelsEnabled()) return
     bot.once('login', () => {
       registerBlockModelsChannel()
       registerMediaChannels()
@@ -148,6 +159,7 @@ const registerWaypointChannels = () => {
 
     getThreeJsRendererMethods()?.addWaypoint(data.id, data.x, data.y, data.z, {
       minDistance: data.minDistance,
+      maxDistance: metadata.maxDistance,
       label: data.label || undefined,
       color: data.color || undefined,
       metadata
@@ -566,17 +578,8 @@ const registerServerSettingsChannel = () => {
           continue
         }
 
-        // Validate type matches
-        const currentValue = options[key]
-
-        // For union types, check if value is valid
-        if (Array.isArray(currentValue) && !Array.isArray(value)) {
-          console.warn(`Type mismatch for setting ${key}: expected array`)
-          skippedCount++
-          continue
-        }
-
-        // Apply the setting
+        // todo remove it later, let user take control back and make clear to user
+        serverChangedSettings.value.add(key)
         options[key] = value
         appliedCount++
       }

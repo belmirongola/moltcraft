@@ -5,11 +5,11 @@ import { getBuiltinCommandsList, tryHandleBuiltinCommand } from '../builtinComma
 import { gameAdditionalState, hideCurrentModal, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import { viewerVersionState } from '../viewerConnector'
+import { lastConnectOptions } from '../appStatus'
 import Chat, { Message } from './Chat'
 import { useIsModalActive } from './utilsApp'
 import { hideNotification, notificationProxy, showNotification } from './NotificationProvider'
 import { getServerIndex, updateLoadedServerData } from './serversStorage'
-import { lastConnectOptions } from './AppStatusProvider'
 import { showOptionsModal } from './SelectOption'
 import { withInjectableUi } from './extendableSystem'
 
