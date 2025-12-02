@@ -92,7 +92,7 @@ export const contro = new ControMax({
       toggleMicrophone: ['KeyM'],
     },
     advanced: {
-      lockUrl: ['KeyY'],
+      lockUrl: [null],
     },
     custom: {} as Record<string, SchemaCommandInput & { type: string, input: any[] }>,
     // waila: {

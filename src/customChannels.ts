@@ -21,6 +21,7 @@ export default () => {
   customEvents.on('mineflayerBotCreated', async () => {
     if (!getIsCustomChannelsEnabled()) return
     bot.once('login', () => {
+      registerConnectMetadataChannel()
       registerBlockModelsChannel()
       registerMediaChannels()
       registerSectionAnimationChannels()
@@ -46,6 +47,25 @@ const registerChannel = (channelName: string, packetStructure: any[], handler: (
   })
 
   console.debug(`registered custom channel ${channelName} channel`)
+}
+
+const registerConnectMetadataChannel = () => {
+  const CHANNEL_NAME = 'minecraft-web-client:connect-metadata'
+  const packetStructure = [
+    'container',
+    [
+      { name: 'metadata', type: ['pstring', { countType: 'i16' }] }
+    ]
+  ]
+
+  bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
+  bot._client.writeChannel(CHANNEL_NAME, {
+    metadata: JSON.stringify({
+      version: process.env.RELEASE_TAG,
+      build: process.env.BUILD_VERSION,
+      ...window.serverMetadataConnect,
+    })
+  })
 }
 
 const registerBlockInteractionsCustomizationChannel = () => {
