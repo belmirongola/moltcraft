@@ -538,7 +538,9 @@ export class Entities {
       return
     }
 
-    this.currentSkinUrls[String(entityId)] = skinUrl
+    if (skinUrl !== stevePngUrl) {
+      this.currentSkinUrls[String(entityId)] = skinUrl
+    }
     const renderEars = this.worldRenderer.worldRendererConfig.renderEars || username === 'deadmau5'
     void this.loadAndApplySkin(entityId, skinUrl, renderEars).then(async () => {
       if (capeUrl) {
@@ -597,6 +599,7 @@ export class Entities {
       skinTexture.needsUpdate = true
       playerObject.skin.map = skinTexture as any
       playerObject.skin.modelType = inferModelType(skinCanvas)
+      playerObject.skin['isCustom'] = skinUrl !== stevePngUrl
 
       let earsCanvas: HTMLCanvasElement | undefined
       if (!playerCustomSkinImage) {
