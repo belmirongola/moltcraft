@@ -57,7 +57,7 @@ export class WaypointsRenderer {
       const waypointPos = new THREE.Vector3(waypoint.x, waypoint.y, waypoint.z)
       const distance = playerPos.distanceTo(waypointPos)
       const visible = (!waypoint.minDistance || distance >= waypoint.minDistance) &&
-                     (waypoint.maxDistance === Infinity || distance <= waypoint.maxDistance)
+        (waypoint.maxDistance === Infinity || distance <= waypoint.maxDistance)
 
       waypoint.sprite.setVisible(visible)
 
