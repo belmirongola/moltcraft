@@ -165,6 +165,7 @@ function getTouchControlsSize () {
  * Settings like modsSupport, customChannels, or security-related options are excluded.
  */
 export const serverSafeSettings: Partial<Record<keyof typeof defaultOptions, true>> = {
+  remoteContentNotSameOrigin: true, // allow server to change remote content not same origin policy
   renderEars: true,
   viewBobbing: true,
   mouseRawInput: true,
