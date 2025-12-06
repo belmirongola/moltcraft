@@ -101,6 +101,7 @@ import { getCurrentProxy, getCurrentUsername } from './react/ServersList'
 import { versionToNumber } from 'mc-assets/dist/utils'
 import { isPlayground } from './playgroundIntegration'
 import { appLoadBackend } from './appViewerLoad'
+import { FORBIDDEN_VERSION_THRESHOLD } from './supportedVersions.mjs'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -399,11 +400,10 @@ export async function connect (connectOptions: ConnectOptions) {
     // Check for forbidden versions (>= 1.21.7) due to critical world display issues
     const checkForbiddenVersion = (version: string | undefined) => {
       if (!version) return
-      const FORBIDDEN_VERSION_THRESHOLD = '1.21.7'
       const versionNum = versionToNumber(version)
       const thresholdNum = versionToNumber(FORBIDDEN_VERSION_THRESHOLD)
       if (versionNum >= thresholdNum) {
-        throw new UserError(`Version ${version} is not supported due to critical world display issues. Please use version 1.21.6 or earlier.`)
+        throw new UserError(`Version ${version} is not supported due to critical world display issues. Please use version ${FORBIDDEN_VERSION_THRESHOLD} or earlier.`)
       }
     }
 
