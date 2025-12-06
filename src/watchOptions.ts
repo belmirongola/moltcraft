@@ -1,9 +1,9 @@
 // not all options are watched here
 
 import { subscribeKey } from 'valtio/utils'
-import { isMobile } from 'renderer/viewer/lib/simpleUtils'
-import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
-import { setSkinsConfig } from 'renderer/viewer/lib/utils/skins'
+import { isMobile } from 'minecraft-renderer/src/lib/simpleUtils'
+import { WorldView } from 'minecraft-renderer/src/worldView/worldView'
+import { setSkinsConfig } from 'minecraft-renderer/src/lib/utils/skins'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
@@ -128,7 +128,7 @@ export const watchOptionsAfterViewerInit = () => {
   })
 }
 
-export const watchOptionsAfterWorldViewInit = (worldView: WorldDataEmitter) => {
+export const watchOptionsAfterWorldViewInit = (worldView: WorldView) => {
   watchValue(options, o => {
     if (!worldView) return
     worldView.keepChunksDistance = o.keepChunksDistance

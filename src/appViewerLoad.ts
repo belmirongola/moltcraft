@@ -1,7 +1,7 @@
 import { subscribeKey } from 'valtio/utils'
-import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
+import createGraphicsBackend from 'minecraft-renderer/src/three/graphicsBackend'
 import { options } from './optionsStorage'
-import { appViewer } from './appViewer'
+import { appViewer, modalStackUpdateChecks } from './appViewer'
 import { miscUiState } from './globalState'
 import { watchOptionsAfterViewerInit } from './watchOptions'
 import { showNotification } from './react/NotificationProvider'
@@ -16,6 +16,7 @@ const loadBackend = async () => {
     backend = appGraphicBackends[0]
   }
   await appViewer.loadBackend(backend)
+  modalStackUpdateChecks()
 }
 window.loadBackend = loadBackend
 
@@ -41,7 +42,8 @@ export const appLoadBackend = async () => {
     if (appViewer.currentDisplay === 'world' && bot) {
       appViewer.resetBackend(true)
       await loadBackend()
-      void appViewer.startWithBot()
+      const renderDistance = miscUiState.singleplayer ? options.renderDistance : options.multiplayerRenderDistance
+      void appViewer.startWithBot(bot, renderDistance)
     }
   })
 }

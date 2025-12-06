@@ -1,8 +1,9 @@
 import mojangson from 'mojangson'
 import nbt from 'prismarine-nbt'
 import { fromFormattedString } from '@xmcl/text-component'
-import { getItemSelector, ItemSpecificContextProperties, PlayerStateRenderer } from 'renderer/viewer/lib/basePlayerState'
+import { getItemSelector, PlayerStateRenderer } from 'minecraft-renderer/src/playerState/playerState'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
+import { ItemSpecificContextProperties } from 'minecraft-renderer/src/playerState/types'
 import { MessageFormatPart } from '../chatUtils'
 import { ResourcesManager, ResourcesManagerCommon, ResourcesManagerTransferred } from '../resourcesManager'
 

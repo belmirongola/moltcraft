@@ -111,7 +111,7 @@ if (!isPlayground) {
   void appLoadBackend()
 }
 if (isPlayground) {
-  void import('renderer/playground/playground')
+  void import('minecraft-renderer/src/playground/playground')
 }
 
 void registerServiceWorker().then(() => {

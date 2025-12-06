@@ -1,5 +1,5 @@
 import { Vec3 } from 'vec3'
-import { WorldRendererCommon } from 'renderer/viewer/lib/worldrendererCommon'
+import { WorldRendererCommon } from 'minecraft-renderer/src/lib/worldrendererCommon'
 import prettyBytes from 'pretty-bytes'
 import { subscribe } from 'valtio'
 import { downloadAndOpenMapFromUrl } from './downloadAndOpenFile'

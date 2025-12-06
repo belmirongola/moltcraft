@@ -10,8 +10,8 @@ export const appAndRendererSharedConfig = () => defineConfig({
         writeToDisk: true,
         watchFiles: {
             paths: [
-                path.join(__dirname, './dist/webgpuRendererWorker.js'),
-                path.join(__dirname, './dist/mesher.js'),
+                // path.join(__dirname, './dist/webgpuRendererWorker.js'),
+                // path.join(__dirname, './dist/mesher.js'),
             ]
         },
     },
@@ -23,18 +23,18 @@ export const appAndRendererSharedConfig = () => defineConfig({
     },
     source: {
         alias: {
-            fs: path.join(__dirname, `../src/shims/fs.js`),
+            fs: path.join(__dirname, `./src/shims/fs.js`),
             http: 'http-browserify',
             stream: 'stream-browserify',
             net: 'net-browserify',
             'minecraft-protocol$': 'minecraft-protocol/src/index.js',
             'buffer$': 'buffer',
             // avoid bundling, not used on client side
-            'prismarine-auth': path.join(__dirname, `../src/shims/prismarineAuthReplacement.ts`),
-            perf_hooks: path.join(__dirname, `../src/shims/perf_hooks_replacement.js`),
-            crypto: path.join(__dirname, `../src/shims/crypto.js`),
-            dns: path.join(__dirname, `../src/shims/dns.js`),
-            yggdrasil: path.join(__dirname, `../src/shims/yggdrasilReplacement.ts`),
+            'prismarine-auth': path.join(__dirname, `./src/shims/prismarineAuthReplacement.ts`),
+            perf_hooks: path.join(__dirname, `./src/shims/perf_hooks_replacement.js`),
+            crypto: path.join(__dirname, `./src/shims/crypto.js`),
+            dns: path.join(__dirname, `./src/shims/dns.js`),
+            yggdrasil: path.join(__dirname, `./src/shims/yggdrasilReplacement.ts`),
             'three$': 'three/src/Three.js',
             'stats.js$': 'stats.js/src/Stats.js',
         },
@@ -42,7 +42,7 @@ export const appAndRendererSharedConfig = () => defineConfig({
             'process.platform': '"browser"',
         },
         decorators: {
-            version: 'legacy', // default is a lie
+            version: 'legacy',
         },
     },
     server: {
@@ -61,7 +61,7 @@ export const appAndRendererSharedConfig = () => defineConfig({
     ],
     tools: {
         rspack (config, helpers) {
-            const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'))
+            const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, './package.json'), 'utf8'))
             const hasFileProtocol = Object.values(packageJson.pnpm.overrides).some((dep) => (dep as string).startsWith('file:'))
             if (hasFileProtocol) {
                 // enable node_modules watching
@@ -83,13 +83,13 @@ export const rspackViewerConfig = (config, { appendPlugins, addRules, rspack }: 
             // throw new Error(`${resource.request} was requested by ${resource.contextInfo.issuer}`)
         }
         if (absolute.endsWith('/minecraft-data/data.js')) {
-            resource.request = path.join(__dirname, `../src/shims/minecraftData.ts`)
+            resource.request = path.join(__dirname, `./src/shims/minecraftData.ts`)
         }
         if (absolute.endsWith('/minecraft-data/data/bedrock/common/legacy.json')) {
-            resource.request = path.join(__dirname, `../src/shims/empty.ts`)
+            resource.request = path.join(__dirname, `./src/shims/empty.ts`)
         }
         if (absolute.endsWith('/minecraft-data/data/pc/common/legacy.json')) {
-            resource.request = path.join(__dirname, `../src/preflatMap.json`)
+            resource.request = path.join(__dirname, `./src/preflatMap.json`)
         }
     }))
     addRules([

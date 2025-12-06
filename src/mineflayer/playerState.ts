@@ -1,7 +1,7 @@
-import { HandItemBlock } from 'renderer/viewer/three/holdingBlock'
-import { getInitialPlayerState, getPlayerStateUtils, PlayerStateReactive, PlayerStateRenderer, PlayerStateUtils } from 'renderer/viewer/lib/basePlayerState'
+import { getInitialPlayerState, getPlayerStateUtils, PlayerStateReactive, PlayerStateRenderer, PlayerStateUtils } from 'minecraft-renderer/src/playerState/playerState'
 import { subscribe } from 'valtio'
 import { subscribeKey } from 'valtio/utils'
+import { HandItemBlock } from 'minecraft-renderer/src/playerState/types'
 import { gameAdditionalState } from '../globalState'
 import { options } from '../optionsStorage'
 
@@ -102,7 +102,7 @@ export class PlayerStateControllerMain {
     this.reactive.gameMode = bot.game?.gameMode
 
     customEvents.on('gameLoaded', () => {
-      this.reactive.team = bot.teamMap[bot.username]
+      this.reactive.team = bot.teamMap[bot.username] as any
     })
 
     this.watchReactive()

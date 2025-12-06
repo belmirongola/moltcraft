@@ -12,7 +12,7 @@ import { AtlasParser, ItemsAtlasesOutputJson } from 'mc-assets/dist/atlasParser'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { getLoadedItemDefinitionsStore } from 'mc-assets'
-import { generateGuiAtlas } from 'renderer/viewer/lib/guiRenderer'
+import { generateGuiAtlas } from 'minecraft-renderer/src/lib/guiRenderer'
 import { importLargeData } from '../generated/large-data-aliases'
 
 type ResourceManagerEvents = {

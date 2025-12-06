@@ -11,7 +11,7 @@ import fsExtra from 'fs-extra'
 import { promisify } from 'util'
 import { generateSW } from 'workbox-build'
 import { getSwAdditionalEntries } from './scripts/build'
-import { appAndRendererSharedConfig } from './renderer/rsbuildSharedConfig'
+import { appAndRendererSharedConfig } from './rsbuildSharedConfig'
 import { genLargeDataAliases } from './scripts/genLargeDataAliases'
 import sharp from 'sharp'
 import supportedVersions from './src/supportedVersions.mjs'
@@ -62,7 +62,7 @@ const faviconPath = 'favicon.png'
 
 const enableMetrics = process.env.ENABLE_METRICS === 'true'
 
-// base options are in ./renderer/rsbuildSharedConfig.ts
+// base options are in ./rsbuildSharedConfig.ts
 const appConfig = defineConfig({
     html: {
         template: './index.html',
@@ -219,12 +219,11 @@ const appConfig = defineConfig({
                     // childProcess.execSync('./scripts/prepareSounds.mjs', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })
-                    if (fs.existsSync('./renderer/dist/mesher.js') && dev) {
+                    // copy mesher worker
+                    if (fs.existsSync('./node_modules/minecraft-renderer/dist/mesher.js') && dev) {
                         // copy mesher
-                        fs.copyFileSync('./renderer/dist/mesher.js', './dist/mesher.js')
-                        fs.copyFileSync('./renderer/dist/mesher.js.map', './dist/mesher.js.map')
-                    } else if (!dev) {
-                        await execAsync('pnpm run build-mesher')
+                        fs.copyFileSync('./node_modules/minecraft-renderer/dist/mesher.js', './dist/mesher.js')
+                        fs.copyFileSync('./node_modules/minecraft-renderer/dist/mesher.js.map', './dist/mesher.js.map')
                     }
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
 
