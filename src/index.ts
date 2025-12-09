@@ -825,7 +825,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
       console.log('bot spawned - starting viewer')
       await appViewer.startWorld(bot.world, renderDistance)
-      appViewer.worldView!.listenToBot(bot)
       if (appViewer.backend) {
         void appViewer.worldView!.init(bot.entity.position)
       }

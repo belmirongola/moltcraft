@@ -1,11 +1,16 @@
 import { Vec3 } from 'vec3'
 import { subscribe } from 'valtio'
 import { AppViewer, getInitialPlayerState } from 'minecraft-renderer/src'
+import { BotEvents } from 'mineflayer'
 import { activeModalStack, miscUiState } from './globalState'
 
 // do not import this. Use global appViewer instead (without window prefix).
 export const appViewer = new AppViewer()
 window.appViewer = appViewer
+
+appViewer.onWorldStart = () => {
+  connectAppWorldViewToBot()
+}
 
 const initialMenuStart = async () => {
   if (appViewer.currentDisplay === 'world') {
@@ -58,3 +63,118 @@ export const modalStackUpdateChecks = () => {
   appViewer.inWorldRenderingConfig.foreground = activeModalStack.length === 0
 }
 subscribe(activeModalStack, modalStackUpdateChecks)
+
+
+const connectAppWorldViewToBot = () => {
+  const entitiesObjectData = new Map<string, number>()
+  bot._client.prependListener('spawn_entity', (data) => {
+    if (data.objectData && data.entityId !== undefined) {
+      entitiesObjectData.set(data.entityId, data.objectData)
+    }
+  })
+
+  const emitEntity = (e, name = 'entity') => {
+    if (!e) return
+    if (e === bot.entity) {
+      if (name === 'entity') {
+        appViewer.worldView?.emit('playerEntity', e)
+      }
+      return
+    }
+    if (!e.name) return // mineflayer received update for not spawned entity
+    e.objectData = entitiesObjectData.get(e.id)
+    appViewer.worldView?.emit(name as any, {
+      ...e,
+      pos: e.position,
+      username: e.username,
+      team: bot.teamMap[e.username] || bot.teamMap[e.uuid],
+      // set debugTree (obj) {
+      //   e.debugTree = obj
+      // }
+    })
+  }
+
+  const eventListeners = {
+    // 'move': botPosition,
+    entitySpawn (e: any) {
+      if (e.name === 'item_frame' || e.name === 'glow_item_frame') {
+        // Item frames use block positions in the protocol, not their center. Fix that.
+        e.position.translate(0.5, 0.5, 0.5)
+      }
+      emitEntity(e)
+    },
+    entityUpdate (e: any) {
+      emitEntity(e)
+    },
+    entityEquip (e: any) {
+      emitEntity(e)
+    },
+    entityMoved (e: any) {
+      emitEntity(e, 'entityMoved')
+    },
+    entityGone (e: any) {
+      appViewer.worldView?.emit('entity', { id: e.id, delete: true })
+    },
+    chunkColumnLoad (pos: Vec3) {
+      const now = performance.now()
+      if (appViewer.worldView?.lastChunkReceiveTime) {
+        appViewer.worldView?.chunkReceiveTimes.push(now - appViewer.worldView?.lastChunkReceiveTime)
+      }
+      appViewer.worldView.lastChunkReceiveTime = now
+
+      if (appViewer.worldView?.waitingSpiralChunksLoad[`${pos.x},${pos.z}`]) {
+        appViewer.worldView?.waitingSpiralChunksLoad[`${pos.x},${pos.z}`](true)
+        delete appViewer.worldView?.waitingSpiralChunksLoad[`${pos.x},${pos.z}`]
+      } else if (appViewer.worldView?.loadedChunks[`${pos.x},${pos.z}`]) {
+        void appViewer.worldView?.loadChunk(pos, false, 'Received another chunkColumnLoad event while already loaded')
+      }
+      appViewer.worldView?.chunkProgress()
+    },
+    chunkColumnUnload (pos: Vec3) {
+      appViewer.worldView?.unloadChunk(pos)
+    },
+    blockUpdate (oldBlock: any, newBlock: any) {
+      const stateId = newBlock.stateId ?? ((newBlock.type << 4) | newBlock.metadata)
+      appViewer.worldView?.emit('blockUpdate', { pos: oldBlock.position, stateId })
+    },
+    time () {
+      appViewer.worldView?.emit('time', bot.time.timeOfDay)
+    },
+    end () {
+      appViewer.worldView?.emit('end')
+    },
+    // when dimension might change
+    login () {
+      void appViewer.worldView?.updatePosition(bot.entity.position, true)
+      appViewer.worldView?.emit('playerEntity', bot.entity)
+    },
+    respawn () {
+      void appViewer.worldView?.updatePosition(bot.entity.position, true)
+      appViewer.worldView?.emit('playerEntity', bot.entity)
+      appViewer.worldView?.emit('onWorldSwitch')
+    },
+  } satisfies Partial<BotEvents>
+
+
+  bot._client.on('update_light', ({ chunkX, chunkZ }) => {
+    const chunkPos = new Vec3(chunkX * 16, 0, chunkZ * 16)
+    if (!appViewer.worldView?.waitingSpiralChunksLoad[`${chunkX},${chunkZ}`] && appViewer.worldView?.loadedChunks[`${chunkX},${chunkZ}`]) {
+      void appViewer.worldView?.loadChunk(chunkPos, true, 'update_light')
+    }
+  })
+
+  for (const [evt, listener] of Object.entries(eventListeners)) {
+    bot.on(evt as any, listener)
+  }
+
+  // eslint-disable-next-line guard-for-in
+  for (const id in bot.entities) {
+    const e = bot.entities[id]
+    try {
+      emitEntity(e)
+    } catch (err) {
+      // reportError?.(err)
+      console.error('error processing entity', err)
+    }
+  }
+}

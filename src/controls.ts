@@ -8,6 +8,7 @@ import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { GameMode } from 'mineflayer'
 import { getThreeJsRendererMethods } from 'minecraft-renderer/src/three/threeJsMethods'
+import { getPlayerStateUtils } from 'minecraft-renderer/src'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
@@ -143,7 +144,7 @@ const setSprinting = (state: boolean) => {
 }
 
 const isSpectatingEntity = () => {
-  return appViewer.playerState.utils.isSpectatingEntity()
+  return getPlayerStateUtils(playerState.reactive).isSpectatingEntity()
 }
 
 contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
