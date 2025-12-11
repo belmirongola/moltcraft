@@ -8,7 +8,7 @@
     "start": "run-p dev-proxy dev-rsbuild",
     "start2": "run-p dev-rsbuild",
     "start-metrics": "ENABLE_METRICS=true rsbuild dev",
-    "build": "pnpm build-other-workers && rsbuild build",
+    "build": "rsbuild build",
     "build-analyze": "BUNDLE_ANALYZE=true rsbuild build && pnpm build-other-workers",
     "build-single-file": "SINGLE_FILE_BUILD=true rsbuild build",
     "prepare-project": "tsx scripts/genShims.ts && tsx scripts/makeOptimizedMcData.mjs && tsx scripts/genLargeDataAliases.ts",
