@@ -121,7 +121,7 @@ export const defaultOptions = {
   disabledUiParts: [] as string[],
   neighborChunkUpdates: true,
   highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
-  activeRenderer: 'threejs',
+  activeRenderer: 'auto' as 'auto' | string | null,
   rendererSharedOptions: {
     _experimentalSmoothChunkLoading: true,
     _renderByChunks: false

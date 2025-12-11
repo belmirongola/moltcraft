@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { noCase } from 'change-case'
 import { versionToNumber } from 'mc-assets/dist/utils'
 import { openURL } from 'minecraft-renderer/src/lib/simpleUtils'
+import Logo from 'minecraft-renderer/logo.webp'
 import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
 import { AppOptions, getChangedSettings, options, resetOptions } from './optionsStorage'
 import Button from './react/Button'
@@ -21,11 +22,58 @@ import { createNotificationProgressReporter } from './core/progressReporter'
 import { customKeymaps } from './controls'
 import { appStorage } from './react/appStorageProvider'
 import { exportData, importData } from './core/importExport'
+import { appGraphicBackends, getCurrentGraphicsBackend } from './appViewerLoad'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
 } = {
   render: [
+    {
+      custom () {
+        const { activeRenderer } = useSnapshot(options)
+        const { name, id } = useMemo(() => getCurrentGraphicsBackend(), [activeRenderer])
+
+        return <Button
+          label={`Backend: ${name}`}
+          inScreen
+          onClick={async () => {
+            const newBackendName = await showOptionsModal(
+              'Change Renderer (Builtin Graphics Backends)',
+              [...appGraphicBackends.map(backend => backend.displayName ?? backend.id), 'Disable Graphics Rendering'],
+              {
+                descriptions: appGraphicBackends.map(backend => backend.description || backend.displayName || ''),
+                hoveredOptionIndex: appGraphicBackends.findIndex(backend => backend.id === id)
+              }
+            )
+            if (!newBackendName) return
+            const newBackend = appGraphicBackends.find(backend => (backend.displayName ?? backend.id) === newBackendName)!.id
+            options.activeRenderer = newBackend
+          }}
+        />
+      },
+    },
+    {
+      custom () {
+        return (
+          <div style={{
+            // span 2
+            gridColumn: 'span 2',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <img
+              src={Logo}
+              alt="Renderer logo"
+              style={{
+                width: 150,
+                objectFit: 'contain',
+              }}
+            />
+          </div>
+        )
+      },
+    },
     {
       custom () {
         const frameLimitValue = useSnapshot(options).frameLimit
@@ -69,12 +117,6 @@ export const guiOptionsScheme: {
           ['full', 'NO'],
           ['5fps', '5 FPS'],
           ['20fps', '20 FPS'],
-        ],
-      },
-      activeRenderer: {
-        text: 'Renderer',
-        values: [
-          ['threejs', 'Three.js (stable)'],
         ],
       },
     },

@@ -220,10 +220,11 @@ const appConfig = defineConfig({
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })
                     // copy mesher worker
-                    if (fs.existsSync('./node_modules/minecraft-renderer/dist/mesher.js') && dev) {
+                    if (fs.existsSync('./node_modules/minecraft-renderer/dist/mesher.js')) {
                         // copy mesher
                         fs.copyFileSync('./node_modules/minecraft-renderer/dist/mesher.js', './dist/mesher.js')
                         fs.copyFileSync('./node_modules/minecraft-renderer/dist/mesher.js.map', './dist/mesher.js.map')
+                        fs.copyFileSync('./node_modules/minecraft-renderer/dist/threeWorker.js', './dist/threeWorker.js')
                     }
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
 
