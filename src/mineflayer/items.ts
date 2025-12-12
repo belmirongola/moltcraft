@@ -4,8 +4,8 @@ import { fromFormattedString } from '@xmcl/text-component'
 import { getItemSelector, PlayerStateRenderer } from 'minecraft-renderer/src/playerState/playerState'
 import { getItemDefinition } from 'mc-assets/dist/itemDefinitions'
 import { ItemSpecificContextProperties } from 'minecraft-renderer/src/playerState/types'
+import { ResourcesManagerCommon } from 'minecraft-renderer/src/resourcesManager'
 import { MessageFormatPart } from '../chatUtils'
-import { ResourcesManager, ResourcesManagerCommon, ResourcesManagerTransferred } from '../resourcesManager'
 
 type RenderSlotComponent = {
   type: string,
@@ -130,7 +130,7 @@ export const getItemModelName = (item: GeneralInputItem, specificProps: ItemSpec
   const itemSelector = getItemSelector(playerState, {
     ...specificProps
   })
-  const modelFromDef = getItemDefinition(appViewer.resourcesManager.itemsDefinitionsStore, {
+  const modelFromDef = getItemDefinition(appViewer.resourcesManager.currentResources!.itemsDefinitionsStore, {
     name: itemModelName,
     version: appViewer.resourcesManager.currentResources!.version,
     properties: itemSelector

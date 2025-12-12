@@ -118,9 +118,9 @@ const connectAppWorldViewToBot = () => {
     chunkColumnLoad (pos: Vec3) {
       const now = performance.now()
       if (appViewer.worldView?.lastChunkReceiveTime) {
-        appViewer.worldView?.chunkReceiveTimes.push(now - appViewer.worldView?.lastChunkReceiveTime)
+        appViewer.worldView.chunkReceiveTimes.push(now - appViewer.worldView.lastChunkReceiveTime)
       }
-      appViewer.worldView.lastChunkReceiveTime = now
+      appViewer.worldView!.lastChunkReceiveTime = now
 
       if (appViewer.worldView?.waitingSpiralChunksLoad[`${pos.x},${pos.z}`]) {
         appViewer.worldView?.waitingSpiralChunksLoad[`${pos.x},${pos.z}`](true)
