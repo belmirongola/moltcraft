@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { disabledSettings, options, qsOptions } from '../optionsStorage'
 import { hideAllModals, miscUiState } from '../globalState'
 import { reloadChunksAction } from '../controls'
+import { optionsMeta } from '../defaultOptions'
 import Button from './Button'
 import Slider from './Slider'
 import Screen from './Screen'
@@ -24,7 +25,6 @@ type GeneralItem<T extends string | number | boolean> = {
   enableWarning?: string
   requiresRestart?: boolean
   requiresChunksReload?: boolean
-  values?: Array<T | [T, string]>
   disableIf?: [option: keyof typeof options, value: any]
 }
 
@@ -63,6 +63,23 @@ const useCommonComponentsProps = (item: OptionMeta) => {
 
 const ignoreReloadWarningsCache = new Set<string>()
 
+// Helper functions for option value extraction
+const getOptionValue = (arrItem: string | [string, string]) => {
+  if (typeof arrItem === 'string') {
+    return arrItem
+  } else {
+    return arrItem[0]
+  }
+}
+
+const getOptionLabel = (arrItem: string | [string, string]) => {
+  if (typeof arrItem === 'string') {
+    return titleCase(noCase(arrItem))
+  } else {
+    return arrItem[1]
+  }
+}
+
 export const OptionButton = ({ item, onClick, valueText, cacheKey }: {
   item: Extract<OptionMeta, { type: 'toggle' }>,
   onClick?: () => void,
@@ -73,8 +90,12 @@ export const OptionButton = ({ item, onClick, valueText, cacheKey }: {
 
   const optionValue = useSnapshot(options)[item.id!]
 
+  // Get values from optionsMeta if available
+  const meta = item.id ? optionsMeta[item.id as keyof typeof optionsMeta] : undefined
+  const possibleValues = meta?.possibleValues
+
   const valuesTitlesMap = useMemo(() => {
-    if (!item.values) {
+    if (!possibleValues) {
       return {
         // true: <span style={{ color: 'lime' }}>ON</span>,
         // false: <span style={{ color: 'red' }}>OFF</span>,
@@ -82,14 +103,14 @@ export const OptionButton = ({ item, onClick, valueText, cacheKey }: {
         false: 'OFF',
       }
     }
-    return Object.fromEntries(item.values.map((value) => {
+    return Object.fromEntries(possibleValues.map((value) => {
       if (typeof value === 'string') {
         return [value, titleCase(noCase(value))]
       } else {
         return [value[0], value[1]]
       }
     }))
-  }, [item.values])
+  }, [possibleValues])
 
   let { disabledReason } = item
   if (disabledBecauseOfSetting) disabledReason = `Disabled because ${item.disableIf![0]} is ${item.disableIf![1]}`
@@ -108,27 +129,35 @@ export const OptionButton = ({ item, onClick, valueText, cacheKey }: {
       }
       onClick?.()
       if (item.id) {
-        const { values } = item
-        if (values) {
-          const getOptionValue = (arrItem) => {
-            if (typeof arrItem === 'string') {
-              return arrItem
-            } else {
-              return arrItem[0]
+        // Use showOptionsModal only if there are 4 or more options
+        if (possibleValues && possibleValues.length >= 4) {
+          const optionLabels = possibleValues.map(getOptionLabel)
+          const result = await showOptionsModal(
+            `${translate(item.text || item.id)}: ${translate('Select value')}`,
+            optionLabels
+          )
+          if (result) {
+            const selectedIndex = optionLabels.indexOf(result)
+            if (selectedIndex !== -1) {
+              options[item.id] = getOptionValue(possibleValues[selectedIndex])
             }
           }
-          const currentIndex = values.findIndex((value) => {
-            return getOptionValue(value) === optionValue
+        } else if (possibleValues && possibleValues.length > 1) {
+          // For 2-3 options, use old click/shift+click cycling logic
+          const currentIndex = possibleValues.findIndex((value) => {
+            const val = getOptionValue(value)
+            return String(val) === String(optionValue)
           })
           if (currentIndex === -1) {
-            options[item.id] = getOptionValue(values[0])
+            options[item.id] = getOptionValue(possibleValues[0])
           } else {
             const nextIndex = event.shiftKey
-              ? (currentIndex - 1 + values.length) % values.length
-              : (currentIndex + 1) % values.length
-            options[item.id] = getOptionValue(values[nextIndex])
+              ? (currentIndex - 1 + possibleValues.length) % possibleValues.length
+              : (currentIndex + 1) % possibleValues.length
+            options[item.id] = getOptionValue(possibleValues[nextIndex])
           }
         } else {
+          // Boolean toggle or single value
           options[item.id] = !options[item.id]
         }
       }
@@ -204,13 +233,18 @@ const OptionElement = ({ item }: { item: Extract<OptionMeta, { type: 'element' }
   return item.render()
 }
 
-const RenderOption = ({ item }: { item: OptionMeta }) => {
+const RenderOption = ({ item }: { item: OptionMeta & { custom?: () => React.ReactNode } }) => {
   const { gameLoaded } = useSnapshot(miscUiState)
   if (item.id) {
     item.text ??= titleCase(noCase(item.id))
   }
   if (item.disabledDuringGame && gameLoaded) {
     item.disabledReason = 'Cannot be changed during game'
+  }
+
+  // Handle custom render function (from optionsGuiScheme)
+  if ('custom' in item && typeof item.custom === 'function') {
+    return item.custom()
   }
 
   let baseElement = null as React.ReactNode | null

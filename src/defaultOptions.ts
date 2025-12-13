@@ -202,3 +202,89 @@ export const serverSafeSettings: Partial<Record<keyof typeof defaultOptions, tru
   newVersionsLighting: true,
   showCursorBlockInSpectator: true,
 }
+export type OptionValueType = string | number | boolean | string[] | Record<string, any> | null
+
+export type OptionPossibleValues =
+  | string[]
+  | Array<[string, string]> // [value, label] tuples
+
+export type OptionMeta = {
+  possibleValues?: OptionPossibleValues
+  isCustomInput?: boolean // If true, use showInputsModal for string input
+  min?: number
+  max?: number
+  unit?: string
+  text?: string
+  tooltip?: string
+}
+
+export const optionsMeta: Partial<Record<keyof typeof defaultOptions, OptionMeta>> = {
+  gpuPreference: {
+    possibleValues: [['default', 'Auto'], ['high-performance', 'Dedicated'], ['low-power', 'Low Power']]
+  },
+  backgroundRendering: {
+    possibleValues: [
+      ['full', 'NO'],
+      ['5fps', '5 FPS'],
+      ['20fps', '20 FPS'],
+    ]
+  },
+  activeRenderer: {
+    possibleValues: [
+      ['threejs', 'Three.js (stable)'],
+    ]
+  },
+  renderDebug: {
+    possibleValues: ['advanced', 'basic', 'none']
+  },
+  serverResourcePacks: {
+    possibleValues: ['prompt', 'always', 'never']
+  },
+  showMinimap: {
+    possibleValues: ['always', 'singleplayer', 'never']
+  },
+  highlightBlockColor: {
+    possibleValues: [
+      ['auto', 'Auto'],
+      ['blue', 'Blue'],
+      ['classic', 'Classic']
+    ]
+  },
+  wysiwygSignEditor: {
+    possibleValues: ['auto', 'always', 'never']
+  },
+  touchMovementType: {
+    possibleValues: [['modern', 'Modern'], ['classic', 'Classic']]
+  },
+  touchInteractionType: {
+    possibleValues: [['classic', 'Classic'], ['buttons', 'Buttons']]
+  },
+  autoJump: {
+    possibleValues: ['always', 'auto', 'never']
+  },
+  saveLoginPassword: {
+    possibleValues: ['prompt', 'always', 'never']
+  },
+  packetsLoggerPreset: {
+    possibleValues: [
+      ['all', 'All'],
+      ['no-buffers', 'No Buffers']
+    ]
+  },
+  // Custom string inputs (will use showInputsModal)
+  localUsername: {
+    isCustomInput: true
+  },
+  guestUsername: {
+    isCustomInput: true
+  },
+  language: {
+    isCustomInput: true
+  },
+  enabledResourcepack: {
+    isCustomInput: true
+  },
+  useVersionsTextures: {
+    isCustomInput: true
+  }
+}

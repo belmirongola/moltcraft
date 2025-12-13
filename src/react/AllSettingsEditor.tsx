@@ -3,13 +3,15 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { titleCase } from 'title-case'
 import { noCase } from 'change-case'
 import { isMobile } from 'renderer/viewer/lib/simpleUtils'
-import { options, disabledSettings } from '../optionsStorage'
+import { options, disabledSettings, getChangedSettings } from '../optionsStorage'
 import { hideCurrentModal, showModal } from '../globalState'
+import { defaultOptions, optionsMeta } from '../defaultOptions'
 import Screen from './Screen'
 import Button from './Button'
 import Input from './Input'
 import { useIsModalActive } from './utilsApp'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
+import { showInputsModal, showOptionsModal } from './SelectOption'
 
 export const showAllSettingsEditor = () => {
   showModal({ reactType: 'all-settings-editor' })
@@ -57,11 +59,143 @@ export default () => {
     }
   }, [editingKey])
 
+  const handleCopySettingsUrl = async () => {
+    const changedSettings = getChangedSettings()
+    const changedKeys = Object.keys(changedSettings)
+
+    if (changedKeys.length === 0) {
+      alert('No changed settings found.')
+      return
+    }
+
+    // Create checkboxes for each changed setting (all checked by default)
+    const checkboxInputs = Object.fromEntries(
+      changedKeys.map(key => [key, {
+        type: 'checkbox' as const,
+        label: titleCase(noCase(key)),
+        defaultValue: true,
+      }])
+    )
+
+    const selectedSettings = await showInputsModal(
+      'Select Changed Settings to Include in URL',
+      checkboxInputs,
+      { cancel: true, showConfirm: true }
+    )
+
+    if (!selectedSettings) return
+
+    // Build URL with selected settings
+    const selectedKeys = changedKeys.filter(key => selectedSettings[key])
+    if (selectedKeys.length === 0) {
+      alert('No settings selected.')
+      return
+    }
+
+    const urlParams = selectedKeys.map(key => {
+      const value = changedSettings[key]
+      // JSON encode the value as mentioned in the requirement
+      const jsonValue = JSON.stringify(value)
+      return `setting=${encodeURIComponent(key)}:${encodeURIComponent(jsonValue)}`
+    }).join('&')
+
+    const url = `${window.location.origin}${window.location.pathname}?${urlParams}`
+
+    // Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(url)
+      alert(`URL copied to clipboard!\n\n${url}`)
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        alert(`URL copied to clipboard!\n\n${url}`)
+      } catch (fallbackErr) {
+        alert(`Failed to copy. URL:\n\n${url}`)
+      }
+      textArea.remove()
+    }
+  }
+
   if (!isModalActive) return null
 
-  const handleValueClick = (key: string, value: any, event: React.MouseEvent) => {
+  const handleValueClick = async (key: string, value: any, event: React.MouseEvent) => {
     if (disabledSettingsSnapshot.value.has(key)) return
     event.stopPropagation()
+
+    const meta = optionsMeta[key as keyof typeof optionsMeta]
+
+    // Handle enum values with showOptionsModal
+    if (meta?.possibleValues && meta.possibleValues.length > 0) {
+      const getOptionValue = (arrItem: string | [string, string]) => {
+        if (typeof arrItem === 'string') {
+          return arrItem
+        } else {
+          return arrItem[0]
+        }
+      }
+      const getOptionLabel = (arrItem: string | [string, string]) => {
+        if (typeof arrItem === 'string') {
+          return titleCase(noCase(arrItem))
+        } else {
+          return arrItem[1]
+        }
+      }
+      const optionLabels = meta.possibleValues.map(getOptionLabel)
+      const result = await showOptionsModal(
+        `Select ${titleCase(noCase(key))}`,
+        optionLabels
+      )
+      if (result) {
+        const selectedIndex = optionLabels.indexOf(result)
+        if (selectedIndex !== -1) {
+          handleValueChange(key, getOptionValue(meta.possibleValues[selectedIndex]))
+        }
+      }
+      return
+    }
+
+    // Handle custom string input
+    if (meta?.isCustomInput || typeof value === 'string') {
+      const hadOptionChanged = value !== defaultOptions[key as keyof typeof defaultOptions]
+      const result = await showInputsModal(
+        `Edit ${titleCase(noCase(key))}`,
+        {
+          value: {
+            type: 'text',
+            label: titleCase(noCase(key)),
+            defaultValue: value,
+            placeholder: `Enter ${titleCase(noCase(key))}`
+          },
+          ...hadOptionChanged ? {
+            reset: {
+              type: 'button',
+            }
+          } : {}
+        },
+        { cancel: true, showConfirm: true }
+      )
+      if (result.reset) {
+        handleValueChange(key, defaultOptions[key])
+      } else if (result.value) {
+        handleValueChange(key, result.value)
+      }
+      return
+    }
+
+    // Handle boolean - toggle directly
+    if (typeof value === 'boolean') {
+      handleValueChange(key, !value)
+      return
+    }
+
+    // Otherwise, show edit mode
     setEditingKey(key)
     setEditingValue(String(value))
   }
@@ -91,6 +225,9 @@ export default () => {
     const isBoolean = typeof value === 'boolean'
     const isNumber = typeof value === 'number'
     const isString = typeof value === 'string'
+    const meta = optionsMeta[optionKey as keyof typeof optionsMeta]
+    const possibleValues = meta?.possibleValues
+    const isCustomInput = meta?.isCustomInput && isString
 
     const renderValueEditor = () => {
       if (!isEditing) return null
@@ -103,6 +240,8 @@ export default () => {
         padding: '4px',
         zIndex: 10_000,
         minWidth: '120px',
+        maxHeight: '300px',
+        overflowY: 'auto',
         boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
       }
 
@@ -254,7 +393,7 @@ export default () => {
             minWidth: '60px',
             textAlign: 'center',
           }}
-          onClick={(e) => handleValueClick(optionKey, value, e)}
+          onClick={(e) => { void handleValueClick(optionKey, value, e) }}
           onTouchStart={(e) => {
             // Prevent double-tap zoom on mobile
             if (e.touches.length > 1) {
@@ -262,9 +401,25 @@ export default () => {
             }
           }}
         >
-          {typeof value === 'boolean' ? String(value)
-            : typeof value === 'object' ? JSON.stringify(value).slice(0, 30) + (JSON.stringify(value).length > 30 ? '...' : '')
-              : String(value)}
+          {(() => {
+            if (typeof value === 'boolean') {
+              return String(value)
+            }
+            if (typeof value === 'object' && value !== null) {
+              return JSON.stringify(value).slice(0, 30) + (JSON.stringify(value).length > 30 ? '...' : '')
+            }
+            // Try to find label for enum value
+            if (possibleValues) {
+              const found = possibleValues.find(opt => {
+                const optValue = Array.isArray(opt) ? opt[0] : opt
+                return String(optValue) === String(value)
+              })
+              if (found) {
+                return Array.isArray(found) ? found[1] : found
+              }
+            }
+            return String(value)
+          })()}
         </div>
         {renderValueEditor()}
       </div>
@@ -290,6 +445,12 @@ export default () => {
           padding: '8px 0',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Button
+              icon={pixelartIcons['link']}
+              onClick={handleCopySettingsUrl}
+              style={{ flexShrink: 0 }}
+              title="Copy URL with changed settings"
+            />
             <PixelartIcon iconName={pixelartIcons['search']} styles={{ width: '16px', height: '16px', flexShrink: 0 }} />
             <Input
               ref={searchInputRef}
