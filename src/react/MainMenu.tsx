@@ -215,6 +215,7 @@ const MainMenuBase = ({
           <div className={styles['product-link']}>
             {linksParsed?.map(([name, link], i, arr) => {
               if (!link.startsWith('http')) link = `https://${link}`
+              const finalLink = link
               return <div style={{
                 color: 'lightgray',
                 fontSize: 8,
@@ -223,7 +224,12 @@ const MainMenuBase = ({
                   key={name}
                   style={{
                     whiteSpace: 'nowrap',
-                  }} href={link}
+                    cursor: 'pointer',
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    openURL(finalLink, false)
+                  }}
                 >{name}
                 </a>
                 {i < arr.length - 1 && <span style={{ marginLeft: 2 }}>·</span>}
