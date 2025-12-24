@@ -225,10 +225,10 @@ Only during development:
 
 ### Notable Things that Power this Project
 
-- [Mineflayer](https://github.com/PrismarineJS/mineflayer) - Handles all client-side communications with the server (including the built-in one)
+- [Mineflayer](https://github.com/GenerelSchwerz/mineflayer) - Handles all client-side communications with the server (including the built-in one)
 - [Forked Flying Squid (Space Squid)](https://github.com/zardoy/space-squid) - The built-in offline server that makes singleplayer & P2P possible!
 - [Prismarine Provider Anvil](https://github.com/PrismarineJS/prismarine-provider-anvil) - Handles world loading (region format)
-- [Prismarine Physics](https://github.com/PrismarineJS/prismarine-physics) - Does all the physics calculations
+- [Prismarine Physics](https://github.com/nxg-org/mineflayer-physics-utils/tree/master/src/physics/engines/botcraft.ts) - Does all the physics calculations
 - [Minecraft Protocol](https://github.com/PrismarineJS/node-minecraft-protocol) - Makes connections to servers possible
 - [Peer.js](https://peerjs.com/) - P2P networking (when you open to wan)
 - [Three.js](https://threejs.org/) - Helping in 3D rendering
