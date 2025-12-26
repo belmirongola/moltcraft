@@ -42,9 +42,13 @@ export class PlayerStateControllerMain {
 
   private botCreated () {
     console.log('bot created & plugins injected')
-    this.reactive = getInitialPlayerState()
-    this.reactive.perspective = options.defaultPerspective
+
+    this.reactive = appViewer.playerState.reactive
     this.utils = getPlayerStateUtils(this.reactive)
+
+    const fresh = getInitialPlayerState()
+    Object.assign(this.reactive, fresh)
+    this.reactive.perspective = options.defaultPerspective
     this.onBotCreatedOrGameJoined()
 
     const handleDimensionData = (data) => {
