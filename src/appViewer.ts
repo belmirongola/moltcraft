@@ -3,6 +3,7 @@ import { subscribe } from 'valtio'
 import { AppViewer, getInitialPlayerState } from 'minecraft-renderer/src'
 import { BotEvents } from 'mineflayer'
 import { activeModalStack, miscUiState } from './globalState'
+import { watchOptionsAfterWorldViewInit } from './watchOptions'
 
 // do not import this. Use global appViewer instead (without window prefix).
 export const appViewer = new AppViewer()
@@ -10,6 +11,10 @@ window.appViewer = appViewer
 
 appViewer.onWorldStart = () => {
   connectAppWorldViewToBot()
+
+  if (appViewer.worldView) {
+    watchOptionsAfterWorldViewInit(appViewer.worldView)
+  }
 }
 
 const initialMenuStart = async () => {
@@ -39,6 +44,7 @@ const initialMenuStart = async () => {
   appViewer.playerState.reactive = getInitialPlayerState()
   await appViewer.resourcesManager.updateAssetsData({})
   await appViewer.startWorld(world, 3)
+  if (appViewer.worldView) watchOptionsAfterWorldViewInit(appViewer.worldView)
   appViewer.backend!.updateCamera(new Vec3(0, 65.7, 0), 0, -Math.PI / 2) // Y+1 and pitch = PI/2 to look down
   void appViewer.worldView!.init(new Vec3(0, 64, 0))
 }
