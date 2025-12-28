@@ -1,6 +1,5 @@
 import { Vec3 } from 'vec3'
-import { versionToNumber } from 'minecraft-renderer/src/lib/utils'
-import { loadScript } from 'minecraft-renderer/src/lib/utils'
+import { versionToNumber, loadScript } from 'minecraft-renderer/src/lib/utils'
 import type { Block } from 'prismarine-block'
 import { subscribeKey } from 'valtio/utils'
 import { miscUiState } from '../globalState'
