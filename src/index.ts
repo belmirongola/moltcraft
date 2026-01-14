@@ -127,9 +127,9 @@ customChannels()
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
 function hideCurrentScreens () {
-  const appStatus = activeModalStack.find(x => x.reactType === 'app-status')!
+  const appStatus = activeModalStack.find(x => x.reactType === 'app-status')
   activeModalStacks['main-menu'] = activeModalStack.filter(x => x !== appStatus)
-  insertActiveModalStack('', [appStatus])
+  insertActiveModalStack('', appStatus ? [appStatus] : [])
 }
 
 const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}, connectOptions?: Partial<ConnectOptions>) => {
@@ -904,8 +904,8 @@ export async function connect (connectOptions: ConnectOptions) {
       }
 
       progress.end()
-      hideCurrentScreens()
       setLoadingScreenStatus(undefined)
+      hideCurrentScreens()
     } catch (err) {
       handleError(err)
     }
