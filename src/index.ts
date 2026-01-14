@@ -127,8 +127,9 @@ customChannels()
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
 function hideCurrentScreens () {
-  activeModalStacks['main-menu'] = [...activeModalStack]
-  insertActiveModalStack('', [])
+  const appStatus = activeModalStack.find(x => x.reactType === 'app-status')!
+  activeModalStacks['main-menu'] = activeModalStack.filter(x => x !== appStatus)
+  insertActiveModalStack('', [appStatus])
 }
 
 const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}, connectOptions?: Partial<ConnectOptions>) => {
@@ -219,7 +220,6 @@ export async function connect (connectOptions: ConnectOptions) {
   }
   console.log('using player username', username)
 
-  hideCurrentScreens()
   const progress = createFullScreenProgressReporter()
   const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
   progress.beginStage('connect', loggingInMsg)
@@ -289,8 +289,9 @@ export async function connect (connectOptions: ConnectOptions) {
     if (isCypress()) throw err
     miscUiState.hasErrors = true
     if (miscUiState.gameLoaded) return
-    // close all modals
-    for (const modal of activeModalStack) {
+    // close all modals after loading status (eg auth)
+    const appStatusIndex = activeModalStack.findIndex(x => x.reactType === 'app-status')
+    for (const modal of activeModalStack.slice(appStatusIndex)) {
       hideModal(modal)
     }
 
@@ -903,6 +904,7 @@ export async function connect (connectOptions: ConnectOptions) {
       }
 
       progress.end()
+      hideCurrentScreens()
       setLoadingScreenStatus(undefined)
     } catch (err) {
       handleError(err)
