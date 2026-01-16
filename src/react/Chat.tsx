@@ -44,19 +44,6 @@ const MessageLine = ({ message, currentPlayerName, chatOpened }: { message: Mess
     'chat-message-faded': !chatOpened && fadeState === 'faded'
   }
 
-  useEffect(() => {
-    if (!chatOpened) {
-      try {
-        bot._client.writeChannel('minecraft-web-client:typing-indicator', {
-          username: bot.username,
-          isTyping: false
-        })
-      } catch (error) {
-        // Channel might not be registered, ignore error
-      }
-    }
-  }, [chatOpened])
-
   return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')} data-time={message.timestamp ? new Date(message.timestamp).toLocaleString('en-US', { hour12: false }) : undefined}>
     {message.parts.map((msg, i) => {
       // Check if this is a text part that might contain a mention
