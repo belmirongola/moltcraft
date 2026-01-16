@@ -6,6 +6,7 @@ import { jeiCustomCategories } from './inventoryWindows'
 import { registerIdeChannels } from './core/ideChannels'
 import { serverSafeSettings } from './defaultOptions'
 import { lastConnectOptions } from './appStatus'
+import { gameAdditionalState } from './globalState'
 
 const isWebSocketServer = (server: string | undefined) => {
   if (!server) return false
@@ -31,6 +32,7 @@ export default () => {
       registerFireworksChannels()
       registerIdeChannels()
       registerServerSettingsChannel()
+      registerTypingIndicatorChannel()
     })
   })
 }
@@ -609,6 +611,41 @@ const registerServerSettingsChannel = () => {
       console.error('Failed to parse or apply server settings:', error)
     }
   }, false) // Don't wait for world, settings can be applied before world loads
+}
+
+const registerTypingIndicatorChannel = () => {
+  const CHANNEL_NAME = 'minecraft-web-client:typing-indicator'
+  const packetStructure = [
+    'container',
+    [
+      {
+        name: 'username',
+        type: ['pstring', { countType: 'i16' }]
+      },
+      {
+        name: 'isTyping',
+        type: 'bool'
+      }
+    ]
+  ]
+
+  registerChannel(CHANNEL_NAME, packetStructure, (data) => {
+    const { username, isTyping } = data
+
+    if (isTyping) {
+      // Add user to typing list if not already there
+      const existingIndex = gameAdditionalState.typingUsers.findIndex(user => user.username === username)
+      if (existingIndex === -1) {
+        gameAdditionalState.typingUsers.push({ username, timestamp: Date.now() })
+      } else {
+        // Update timestamp for existing user
+        gameAdditionalState.typingUsers[existingIndex].timestamp = Date.now()
+      }
+    } else {
+      // Remove user from typing list
+      gameAdditionalState.typingUsers = gameAdditionalState.typingUsers.filter(user => user.username !== username)
+    }
+  })
 }
 
 function getCurrentTopDomain (): string {

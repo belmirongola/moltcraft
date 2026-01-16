@@ -1,6 +1,7 @@
-import { proxy, subscribe } from 'valtio'
+import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { isStringAllowed, MessageFormatPart } from '../chatUtils'
+import { gameAdditionalState } from '../globalState'
 import { MessagePart } from './MessageFormatted'
 import './Chat.css'
 import { isIos, reactKeyForMessage } from './utils'
@@ -42,6 +43,19 @@ const MessageLine = ({ message, currentPlayerName, chatOpened }: { message: Mess
     'chat-message-fading': !chatOpened && fadeState === 'fading',
     'chat-message-faded': !chatOpened && fadeState === 'faded'
   }
+
+  useEffect(() => {
+    if (!chatOpened) {
+      try {
+        bot._client.writeChannel('minecraft-web-client:typing-indicator', {
+          username: bot.username,
+          isTyping: false
+        })
+      } catch (error) {
+        // Channel might not be registered, ignore error
+      }
+    }
+  }, [chatOpened])
 
   return <li className={Object.entries(classes).filter(([, val]) => val).map(([name]) => name).join(' ')} data-time={message.timestamp ? new Date(message.timestamp).toLocaleString('en-US', { hour12: false }) : undefined}>
     {message.parts.map((msg, i) => {
@@ -135,6 +149,28 @@ const ChatBase = ({
 
   const { scrollToBottom, isAtBottom, wasAtBottom, currentlyAtBottom } = useScrollBehavior(chatMessages, { messages, opened })
   const [rightNowAtBottom, setRightNowAtBottom] = useState(false)
+
+  // Typing indicator state
+  const { typingUsers } = useSnapshot(gameAdditionalState)
+  const typingIndicatorText = useMemo(() => {
+    const activeTypingUsers = typingUsers.filter(user => Date.now() - user.timestamp < 2000)
+    if (activeTypingUsers.length === 0) return ''
+    if (activeTypingUsers.length === 1) return `${activeTypingUsers[0]?.username || 'Someone'} is typing...`
+    if (activeTypingUsers.length === 2) return `${activeTypingUsers[0]?.username || 'Someone'} and ${activeTypingUsers[1]?.username || 'Someone'} are typing...`
+    const usernames = activeTypingUsers.slice(0, -1).map(user => user?.username || 'Someone').join(', ')
+    const lastUser = activeTypingUsers.at(-1)?.username || 'Someone'
+    return `${usernames} and ${lastUser} are typing...`
+  }, [typingUsers])
+
+  // Clean up old typing users every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now()
+      gameAdditionalState.typingUsers = gameAdditionalState.typingUsers.filter(user => now - user.timestamp < 2000)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     if (!debugChatScroll) return
@@ -260,12 +296,28 @@ const ChatBase = ({
     }
   }, [opened])
 
+  const typingTimeoutRef = useRef<NodeJS.Timeout>()
+
   useMemo(() => {
     if (opened) {
       completeRequestValue.current = ''
       resetCompletionItems()
     } else {
       setPreservedInputValue('')
+      // Send stopped typing when chat closes
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+      if (bot?._client && bot._client.writeChannel) {
+        try {
+          bot._client.writeChannel('minecraft-web-client:typing-indicator', {
+            username: bot.username,
+            isTyping: false
+          })
+        } catch (error) {
+          // Channel might not be registered, ignore error
+        }
+      }
     }
   }, [opened])
 
@@ -296,12 +348,13 @@ const ChatBase = ({
     completeRequestValue.current = completeValue
   }
 
-  const fetchCompletions = async (implicit: boolean, inputValue = chatInput.current.value) => {
+  const fetchCompletions = async (implicit: boolean, inputValue = chatInput.current.value, showList = true) => {
     const completeValue = getCompleteValue(inputValue)
     completeRequestValue.current = completeValue
     resetCompletionItems()
     const newItems = await fetchCompletionItems?.(implicit ? 'implicit' : 'explicit', completeValue, inputValue) ?? []
-    if (completeValue !== completeRequestValue.current) return
+    // if (completeValue !== completeRequestValue.current) return
+    if (!showList) return
     setCompletionItemsSource(newItems)
     updateFilteredCompleteItems(newItems)
   }
@@ -383,6 +436,21 @@ const ChatBase = ({
           userSelect: opened && allowSelection ? 'text' : undefined,
         }}
       >
+        {/* Close button for desktop when chat is opened */}
+        {!usingTouch && opened && (
+          <div style={{
+            position: 'absolute',
+            top: '-19px',
+            left: '5px',
+            pointerEvents: 'auto',
+          }}>
+            <Button
+              icon={pixelartIcons['close']}
+              onClick={() => onClose?.()}
+              style={{ color: '#ff5d5d' }}
+            />
+          </div>
+        )}
         {opacity && <div ref={chatMessages} className={`chat ${opened ? 'opened' : ''}`} id="chat-messages" style={{ opacity }}>
           {debugChatScroll && (
             <div
@@ -506,6 +574,22 @@ const ChatBase = ({
               </div>
             </div>
           ) : null}
+          {/* Typing indicator */}
+          {typingIndicatorText && (
+            <div style={{
+              fontSize: '9px',
+              color: 'white',
+              textShadow: '1px 1px 0px #3f3f3f',
+              fontFamily: 'mojangles, minecraft, monospace',
+              marginBottom: usingTouch ? '4px' : '2px',
+              padding: '2px 4px',
+              borderRadius: '2px',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              {typingIndicatorText}
+            </div>
+          )}
           <form onSubmit={async (e) => {
             e.preventDefault()
             const message = chatInput.current.value
@@ -575,10 +659,10 @@ const ChatBase = ({
                 }
                 if (e.code === 'Space') {
                   resetCompletionItems()
-                  if (chatInput.current.value.startsWith('/')) {
-                    // alternative we could just simply use keyup, but only with keydown we can display suggestions popup as soon as possible
-                    void fetchCompletions(true, getCompleteValue(getDefaultCompleteValue() + ' '))
-                  }
+                  const showList = chatInput.current.value.startsWith('/')
+                  // alternative we could just simply use keyup, but only with keydown we can display suggestions popup as soon as possible
+                  void fetchCompletions(true, getCompleteValue(getDefaultCompleteValue() + ' '), showList)
+
                 }
               }}
             />
