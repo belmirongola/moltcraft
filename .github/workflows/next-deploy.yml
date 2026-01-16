@@ -63,7 +63,7 @@ jobs:
           path: cypress/screenshots/
       - name: Set deployment aliases
         run: |
-          for alias in $(echo ${{ env.TEST_PREVIEW_DOMAIN }} | tr "," "\n"); do
+          for alias in $(echo ${{ vars.TEST_PREVIEW_DOMAIN }} | tr "," "\n"); do
             vercel alias set ${{ steps.deploy.outputs.stdout }} $alias --token=${{ secrets.VERCEL_TOKEN }} --scope=zaro
           done
 
