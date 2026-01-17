@@ -1,10 +1,14 @@
 div.chat-wrapper {
+  z-index: -2;
   /* increase specificity */
   position: fixed;
   /* z-index: 10; */
   padding-left: calc(env(safe-area-inset-left) / 2);
   padding-right: calc(env(safe-area-inset-right, 4px) / 2);
   box-sizing: content-box;
+}
+div.chat-wrapper.chat-opened {
+  z-index: 2;
 }
 
 /* Only apply overflow hidden when not in mobile mode */

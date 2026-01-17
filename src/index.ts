@@ -101,6 +101,7 @@ import { getCurrentProxy, getCurrentUsername } from './react/ServersList'
 import { versionToNumber } from 'mc-assets/dist/utils'
 import { isPlayground } from './playgroundIntegration'
 import { appLoadBackend } from './appViewerLoad'
+import { FORBIDDEN_VERSION_THRESHOLD } from './supportedVersions.mjs'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -126,8 +127,9 @@ customChannels()
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
 function hideCurrentScreens () {
-  activeModalStacks['main-menu'] = [...activeModalStack]
-  insertActiveModalStack('', [])
+  const appStatus = activeModalStack.find(x => x.reactType === 'app-status')
+  activeModalStacks['main-menu'] = activeModalStack.filter(x => x !== appStatus)
+  insertActiveModalStack('', appStatus ? [appStatus] : [])
 }
 
 const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}, connectOptions?: Partial<ConnectOptions>) => {
@@ -218,7 +220,6 @@ export async function connect (connectOptions: ConnectOptions) {
   }
   console.log('using player username', username)
 
-  hideCurrentScreens()
   const progress = createFullScreenProgressReporter()
   const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
   progress.beginStage('connect', loggingInMsg)
@@ -288,8 +289,9 @@ export async function connect (connectOptions: ConnectOptions) {
     if (isCypress()) throw err
     miscUiState.hasErrors = true
     if (miscUiState.gameLoaded) return
-    // close all modals
-    for (const modal of activeModalStack) {
+    // close all modals after loading status (eg auth)
+    const appStatusIndex = activeModalStack.findIndex(x => x.reactType === 'app-status')
+    for (const modal of activeModalStack.slice(appStatusIndex)) {
       hideModal(modal)
     }
 
@@ -399,11 +401,10 @@ export async function connect (connectOptions: ConnectOptions) {
     // Check for forbidden versions (>= 1.21.7) due to critical world display issues
     const checkForbiddenVersion = (version: string | undefined) => {
       if (!version) return
-      const FORBIDDEN_VERSION_THRESHOLD = '1.21.7'
       const versionNum = versionToNumber(version)
       const thresholdNum = versionToNumber(FORBIDDEN_VERSION_THRESHOLD)
       if (versionNum >= thresholdNum) {
-        throw new UserError(`Version ${version} is not supported due to critical world display issues. Please use version 1.21.6 or earlier.`)
+        throw new UserError(`Version ${version} is not supported due to critical world display issues. Please use version ${FORBIDDEN_VERSION_THRESHOLD} or earlier.`)
       }
     }
 
@@ -904,6 +905,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
       progress.end()
       setLoadingScreenStatus(undefined)
+      hideCurrentScreens()
     } catch (err) {
       handleError(err)
     }
