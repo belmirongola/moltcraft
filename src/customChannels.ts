@@ -4,6 +4,7 @@ import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
 import { options, serverChangedSettings } from './optionsStorage'
 import { jeiCustomCategories } from './inventoryWindows'
 import { registerIdeChannels } from './core/ideChannels'
+import { registerIframeChannels } from './core/iframeChannels'
 import { serverSafeSettings } from './defaultOptions'
 import { lastConnectOptions } from './appStatus'
 import { gameAdditionalState } from './globalState'
@@ -31,6 +32,7 @@ export default () => {
       registerWaypointChannels()
       registerFireworksChannels()
       registerIdeChannels()
+      registerIframeChannels()
       registerServerSettingsChannel()
       registerTypingIndicatorChannel()
     })
