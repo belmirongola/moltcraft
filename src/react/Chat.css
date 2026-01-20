@@ -1,5 +1,5 @@
 div.chat-wrapper {
-  z-index: -2;
+  z-index: -1;
   /* increase specificity */
   position: fixed;
   /* z-index: 10; */
