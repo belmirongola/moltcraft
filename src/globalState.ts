@@ -172,6 +172,7 @@ export const gameAdditionalState = proxy({
   viewerConnection: false,
 
   usingServerResourcePack: false,
+  typingUsers: [] as Array<{ username: string; timestamp: number }>,
 })
 
 window.gameAdditionalState = gameAdditionalState

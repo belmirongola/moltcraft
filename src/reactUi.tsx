@@ -68,6 +68,7 @@ import FullscreenTime from './react/FullscreenTime'
 import StorageConflictModal from './react/StorageConflictModal'
 import FireRenderer from './react/FireRenderer'
 import MonacoEditor from './react/MonacoEditor'
+import IframeModal from './react/IframeModal'
 import OverlayModelViewer from './react/OverlayModelViewer'
 import CornerIndicatorStats from './react/CornerIndicatorStats'
 import AllSettingsEditor from './react/AllSettingsEditor'
@@ -270,6 +271,7 @@ const AppBase = () => {
             <DebugEdges />
             <OverlayModelViewer />
             <MonacoEditor />
+            <IframeModal />
             <DebugResponseTimeIndicator />
             <CornerIndicatorStats />
           </RobustPortal>
