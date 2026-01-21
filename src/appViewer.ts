@@ -1,12 +1,16 @@
 import { Vec3 } from 'vec3'
 import { subscribe } from 'valtio'
 import { AppViewer, getInitialPlayerState } from 'minecraft-renderer/src'
+import { generateGuiAtlas } from 'minecraft-renderer/src/lib/guiRenderer'
 import { BotEvents } from 'mineflayer'
 import { activeModalStack, miscUiState } from './globalState'
 import { watchOptionsAfterWorldViewInit } from './watchOptions'
 
 // do not import this. Use global appViewer instead (without window prefix).
 export const appViewer = new AppViewer()
+appViewer.resourcesManager.generateGuiTextures = async () => {
+  await generateGuiAtlas(appViewer)
+}
 window.appViewer = appViewer
 
 appViewer.onWorldStart = () => {
