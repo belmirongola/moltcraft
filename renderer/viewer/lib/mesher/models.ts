@@ -757,7 +757,7 @@ function arrayNeedsUint32 (array) {
 
 }
 
-export const setBlockStatesData = (blockstatesModels, blocksAtlas: any, _needTiles = false, useUnknownBlockModel = true, version = 'latest') => {
+export const setBlockStatesData = (blockstatesModels, blocksAtlas: any, _needTiles = false, useUnknownBlockModel = true, version = 'latest', mcData = (globalThis as any).mcData) => {
   blockProvider = worldBlockProvider(blockstatesModels, blocksAtlas, version)
   globalThis.blockProvider = blockProvider
   if (useUnknownBlockModel) {
