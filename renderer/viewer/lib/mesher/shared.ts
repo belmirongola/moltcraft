@@ -37,6 +37,7 @@ export type MesherGeometryOutput = {
 
   indices: Uint32Array | Uint16Array | number[],
   indicesCount: number,
+  transparentIndicesStart: number, // Index where transparent geometry starts
   using32Array: boolean,
   tiles: Record<string, BlockType>,
   heads: Record<string, any>,

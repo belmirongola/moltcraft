@@ -538,6 +538,7 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
     t_uvs: [],
     indices: [],
     indicesCount: 0, // Track current index position
+    transparentIndicesStart: 0, // Will be set after opaque geometry
     using32Array: true,
     tiles: {},
     // todo this can be removed here
@@ -682,6 +683,10 @@ export function getSectionGeometry (sx: number, sy: number, sz: number, world: W
       }
     }
   }
+
+  // Track where transparent indices start (for separate material rendering)
+  // This must be set BEFORE delayedRender executes, as those are semi-transparent blocks
+  attr.transparentIndicesStart = attr.indicesCount
 
   for (const render of delayedRender) {
     render()
