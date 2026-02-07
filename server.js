@@ -62,6 +62,10 @@ if (isProd) {
   app.use((req, res, next) => {
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp')
+    // wasm-pack/instantiateStreaming requires the correct mime type
+    if (req.path.endsWith('.wasm')) {
+      res.setHeader('Content-Type', 'application/wasm')
+    }
     next()
   })
 
