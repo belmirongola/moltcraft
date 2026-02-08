@@ -222,7 +222,8 @@
     "patchedDependencies": {
       "pixelarticons@1.8.1": "patches/pixelarticons@1.8.1.patch",
       "mineflayer-item-map-downloader@1.2.0": "patches/mineflayer-item-map-downloader@1.2.0.patch",
-      "minecraft-protocol": "patches/minecraft-protocol.patch"
+      "minecraft-protocol": "patches/minecraft-protocol.patch",
+      "@nxg-org/mineflayer-physics-util": "patches/@nxg-org__mineflayer-physics-util.patch"
     },
     "ignoredBuiltDependencies": [
       "canvas",

@@ -22,6 +22,9 @@ overrides:
   prismarine-item: latest
 
 patchedDependencies:
+  '@nxg-org/mineflayer-physics-util':
+    hash: acd5093ed2c5231144085c339884b35d11de3cc933d262f1a35da771bfd19313
+    path: patches/@nxg-org__mineflayer-physics-util.patch
   minecraft-protocol:
     hash: 4ebdae314c68d01ce7879445c0b8bde5f90373abba8b66ed00d42e7a5f542f8b
     path: patches/minecraft-protocol.patch
@@ -11342,16 +11345,16 @@ snapshots:
 
   '@nxg-org/mineflayer-auto-jump@0.7.18':
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.8.10
+      '@nxg-org/mineflayer-physics-util': 1.8.10(patch_hash=acd5093ed2c5231144085c339884b35d11de3cc933d262f1a35da771bfd19313)
       strict-event-emitter-types: 2.0.0
 
-  '@nxg-org/mineflayer-physics-util@1.8.10':
+  '@nxg-org/mineflayer-physics-util@1.8.10(patch_hash=acd5093ed2c5231144085c339884b35d11de3cc933d262f1a35da771bfd19313)':
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.4
 
   '@nxg-org/mineflayer-tracker@1.3.0(encoding@0.1.13)':
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.8.10
+      '@nxg-org/mineflayer-physics-util': 1.8.10(patch_hash=acd5093ed2c5231144085c339884b35d11de3cc933d262f1a35da771bfd19313)
       '@nxg-org/mineflayer-trajectories': 1.2.0(encoding@0.1.13)
       '@nxg-org/mineflayer-util-plugin': 1.8.4
     transitivePeerDependencies:
@@ -14780,7 +14783,7 @@ snapshots:
       accepts: 1.3.8
       base64id: 2.0.0
       cookie: 0.7.2
-      cors: 2.8.5
+      cors: 2.8.6
       debug: 4.3.7
       engine.io-parser: 5.2.3
       ws: 8.17.1
@@ -17416,7 +17419,7 @@ snapshots:
 
   mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/817d25dd6544495543ee48a5206c6b98c2b8fcfb(encoding@0.1.13):
     dependencies:
-      '@nxg-org/mineflayer-physics-util': 1.8.10
+      '@nxg-org/mineflayer-physics-util': 1.8.10(patch_hash=acd5093ed2c5231144085c339884b35d11de3cc933d262f1a35da771bfd19313)
       minecraft-data: 3.103.0
       minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/6ea7ae3ad748e039f223f8d3158a196ebf663465(patch_hash=4ebdae314c68d01ce7879445c0b8bde5f90373abba8b66ed00d42e7a5f542f8b)(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.103.0)(prismarine-registry@1.11.0)

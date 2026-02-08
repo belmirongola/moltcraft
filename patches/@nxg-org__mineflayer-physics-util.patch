@@ -1,0 +1,13 @@
+diff --git a/dist/physics/states/playerState.js b/dist/physics/states/playerState.js
+index df1bdc854473599014f398993b7ccfb9123c38c4..eaf20b44c26a469ac3306d572d35628e56ad0fa5 100644
+--- a/dist/physics/states/playerState.js
++++ b/dist/physics/states/playerState.js
+@@ -288,7 +288,7 @@ class PlayerState {
+                 break;
+             case "survival":
+             case "adventure":
+-                this.flySpeed = 0;
++                this.flySpeed = 0.05;
+                 this.mayFly = bot.entity.canFly;
+                 break;
+             default:
