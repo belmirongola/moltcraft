@@ -40,6 +40,7 @@ export const defaultOptions = {
   dayCycleAndLighting: true,
   loadPlayerSkins: true,
   renderEars: true,
+  wasmExperimentalMesher: false,
   lowMemoryMode: false,
   starfieldRendering: true,
   defaultSkybox: true,

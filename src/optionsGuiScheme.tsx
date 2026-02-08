@@ -125,6 +125,9 @@ export const guiOptionsScheme: {
       newVersionsLighting: {
         text: 'Lighting in Newer Versions',
       },
+      wasmExperimentalMesher: {
+        text: 'WASM Mesher (Experimental)',
+      },
       lowMemoryMode: {
         text: 'Low Memory Mode',
         enableWarning: 'Enabling it will make chunks load ~4x slower. When in the game, app needs to be reloaded to apply this setting.',

@@ -81,7 +81,7 @@
     "mcraft-fun-mineflayer": "^0.1.23",
     "minecraft-data": "3.98.0",
     "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
-    "minecraft-renderer": "^0.1.18",
+    "minecraft-renderer": "^0.1.21",
     "mineflayer-item-map-downloader": "github:zardoy/mineflayer-item-map-downloader",
     "mojangson": "^2.0.4",
     "net-browserify": "github:zardoy/prismarinejs-net-browserify",
@@ -189,7 +189,7 @@
   },
   "pnpm": {
     "overrides": {
-      "mineflayer": "github:zardoy/mineflayer#gen-the-master",
+      "mineflayer": "github:zardoy/mineflayer#dd3b1ff38506d6f72d90e8444186e4e75fe82659",
       "@nxg-org/mineflayer-physics-util": "1.8.10",
       "buffer": "^6.0.3",
       "vec3": "0.1.10",
