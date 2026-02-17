@@ -63,7 +63,7 @@ const registerConnectMetadataChannel = () => {
   ]
 
   bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
-  
+
   // Send client metadata to server
   bot._client.writeChannel(CHANNEL_NAME, {
     metadata: JSON.stringify({
@@ -72,7 +72,7 @@ const registerConnectMetadataChannel = () => {
       ...window.serverMetadataConnect,
     })
   })
-  
+
   // Listen for server metadata
   bot._client.on(CHANNEL_NAME as any, (data) => {
     try {

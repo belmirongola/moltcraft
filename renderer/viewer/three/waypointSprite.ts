@@ -21,6 +21,8 @@ export const WAYPOINT_CONFIG = {
   },
   // Default visual scale factor (can be overridden globally or per-waypoint)
   DEFAULT_VISUAL_SCALE: 1.0,
+  // Default opacity (can be overridden globally or per-waypoint)
+  DEFAULT_OPACITY: 1.0,
 }
 
 export type WaypointSprite = {
@@ -54,21 +56,30 @@ export function createWaypointSprite (options: {
   labelYOffset?: number,
   metadata?: any,
   visualScale?: number,
+  opacity?: number,
 }): WaypointSprite {
   const color = options.color ?? 0xFF_00_00
   const depthTest = options.depthTest ?? false
   const labelYOffset = options.labelYOffset ?? 1.5
-  
+
   // Get visual scale from options, metadata, server metadata, or default
   // Priority: options.visualScale > metadata.visualScale > window.serverMetadata?.waypointVisualScale > DEFAULT
-  const visualScale = options.visualScale 
-    ?? options.metadata?.visualScale 
+  const visualScale = options.visualScale
+    ?? options.metadata?.visualScale
     ?? (typeof window !== 'undefined' ? (window as any).serverMetadata?.waypointVisualScale : undefined)
     ?? WAYPOINT_CONFIG.DEFAULT_VISUAL_SCALE
+
+  // Get opacity from options, metadata, server metadata, or default
+  // Priority: options.opacity > metadata.opacity > window.serverMetadata?.waypointOpacity > DEFAULT
+  const opacity = options.opacity
+    ?? options.metadata?.opacity
+    ?? (typeof window !== 'undefined' ? (window as any).serverMetadata?.waypointOpacity : undefined)
+    ?? WAYPOINT_CONFIG.DEFAULT_OPACITY
 
   // Build combined sprite
   const sprite = createCombinedSprite(color, options.label ?? '', '0m', depthTest, visualScale)
   sprite.renderOrder = 10
+  sprite.material.opacity = opacity
   let currentLabel = options.label ?? ''
 
   // Performance optimization: cache distance text to avoid unnecessary updates
@@ -169,7 +180,7 @@ export function createWaypointSprite (options: {
     ctx.fill()
 
     const texture = new THREE.CanvasTexture(canvas)
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false })
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, opacity })
     arrowSprite = new THREE.Sprite(material)
     arrowSprite.renderOrder = 12
     arrowSprite.visible = false
