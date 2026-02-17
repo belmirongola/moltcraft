@@ -20,9 +20,9 @@ export const WAYPOINT_CONFIG = {
     paddingPx: 50,
   },
   // Default visual scale factor (can be overridden globally or per-waypoint)
-  DEFAULT_VISUAL_SCALE: 1.0,
+  DEFAULT_VISUAL_SCALE: 1,
   // Default opacity (can be overridden globally or per-waypoint)
-  DEFAULT_OPACITY: 1.0,
+  DEFAULT_OPACITY: 1,
 }
 
 export type WaypointSprite = {
@@ -66,14 +66,14 @@ export function createWaypointSprite (options: {
   // Priority: options.visualScale > metadata.visualScale > window.serverMetadata?.waypointVisualScale > DEFAULT
   const visualScale = options.visualScale
     ?? options.metadata?.visualScale
-    ?? (typeof window !== 'undefined' ? (window as any).serverMetadata?.waypointVisualScale : undefined)
+    ?? (typeof window === 'undefined' ? undefined : (window as any).serverMetadata?.waypointVisualScale)
     ?? WAYPOINT_CONFIG.DEFAULT_VISUAL_SCALE
 
   // Get opacity from options, metadata, server metadata, or default
   // Priority: options.opacity > metadata.opacity > window.serverMetadata?.waypointOpacity > DEFAULT
   const opacity = options.opacity
     ?? options.metadata?.opacity
-    ?? (typeof window !== 'undefined' ? (window as any).serverMetadata?.waypointOpacity : undefined)
+    ?? (typeof window === 'undefined' ? undefined : (window as any).serverMetadata?.waypointOpacity)
     ?? WAYPOINT_CONFIG.DEFAULT_OPACITY
 
   // Build combined sprite
@@ -364,7 +364,7 @@ export function createWaypointSprite (options: {
 }
 
 // Internal helpers
-function drawCombinedCanvas (color: number, id: string, distance: string, visualScale: number = 1.0): HTMLCanvasElement {
+function drawCombinedCanvas (color: number, id: string, distance: string, visualScale = 1): HTMLCanvasElement {
   const scale = WAYPOINT_CONFIG.CANVAS_SCALE * (globalThis.devicePixelRatio || 1)
   const size = WAYPOINT_CONFIG.CANVAS_SIZE * scale
   const canvas = document.createElement('canvas')
@@ -422,7 +422,7 @@ function drawCombinedCanvas (color: number, id: string, distance: string, visual
   return canvas
 }
 
-function createCombinedSprite (color: number, id: string, distance: string, depthTest: boolean, visualScale: number = 1.0): THREE.Sprite {
+function createCombinedSprite (color: number, id: string, distance: string, depthTest: boolean, visualScale = 1): THREE.Sprite {
   const canvas = drawCombinedCanvas(color, id, distance, visualScale)
   const texture = new THREE.CanvasTexture(canvas)
   texture.anisotropy = 1
