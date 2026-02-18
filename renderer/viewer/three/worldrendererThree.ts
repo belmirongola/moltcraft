@@ -47,6 +47,8 @@ export class WorldRendererThree extends WorldRendererCommon {
   entities = new Entities(this)
   cameraGroupVr?: THREE.Object3D
   material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1 })
+  // Separate material for semi-transparent blocks (like stained glass) - disables depth write for correct alpha blending
+  transparentMaterial = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, alphaTest: 0.1, depthWrite: false })
   itemsTexture: THREE.Texture
   cursorBlock: CursorBlock
   onRender: Array<() => void> = []
@@ -241,6 +243,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     texture.needsUpdate = true
     texture.flipY = false
     this.material.map = texture
+    this.transparentMaterial.map = texture
 
     const itemsTexture = loadThreeJsTextureFromBitmap(resources.itemsAtlasImage)
     itemsTexture.needsUpdate = true
@@ -415,7 +418,24 @@ export class WorldRendererThree extends WorldRendererCommon {
     geometry.setAttribute('uv', new THREE.BufferAttribute(data.geometry.uvs, 2))
     geometry.index = new THREE.BufferAttribute(data.geometry.indices as Uint32Array | Uint16Array, 1)
 
-    const mesh = new THREE.Mesh(geometry, this.material)
+    // Use draw groups to separate opaque and transparent geometry for proper alpha blending
+    const { transparentIndicesStart } = data.geometry
+    const totalIndices = data.geometry.indices.length
+    const hasTransparent = transparentIndicesStart < totalIndices
+
+    let mesh: THREE.Mesh
+    if (hasTransparent && transparentIndicesStart > 0) {
+      // Both opaque and transparent geometry - use multi-material with groups
+      geometry.addGroup(0, transparentIndicesStart, 0) // Opaque group
+      geometry.addGroup(transparentIndicesStart, totalIndices - transparentIndicesStart, 1) // Transparent group
+      mesh = new THREE.Mesh(geometry, [this.material, this.transparentMaterial])
+    } else if (hasTransparent) {
+      // Only transparent geometry
+      mesh = new THREE.Mesh(geometry, this.transparentMaterial)
+    } else {
+      // Only opaque geometry
+      mesh = new THREE.Mesh(geometry, this.material)
+    }
     mesh.position.set(data.geometry.sx, data.geometry.sy, data.geometry.sz)
     mesh.name = 'mesh'
     object = new THREE.Group()

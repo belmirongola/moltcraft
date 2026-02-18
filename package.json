@@ -87,7 +87,7 @@
     "jszip": "^3.10.1",
     "lodash-es": "^4.17.21",
     "mcraft-fun-mineflayer": "^0.1.23",
-    "minecraft-data": "3.98.0",
+    "minecraft-data": "3.103.0",
     "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
     "mineflayer-item-map-downloader": "github:zardoy/mineflayer-item-map-downloader",
     "mojangson": "^2.0.4",
@@ -157,7 +157,7 @@
     "mc-assets": "^0.2.72",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:zardoy/mineflayer#gen-the-master",
-    "mineflayer-mouse": "^0.1.24",
+    "mineflayer-mouse": "^0.1.25",
     "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
@@ -205,7 +205,7 @@
       "diamond-square": "github:zardoy/diamond-square",
       "prismarine-block": "github:zardoy/prismarine-block#next-era",
       "prismarine-world": "github:zardoy/prismarine-world#next-era",
-      "minecraft-data": "3.98.0",
+      "minecraft-data": "3.103.0",
       "prismarine-provider-anvil": "github:zardoy/prismarine-provider-anvil#everything",
       "prismarine-physics": "github:zardoy/prismarine-physics",
       "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
@@ -222,7 +222,8 @@
     "patchedDependencies": {
       "pixelarticons@1.8.1": "patches/pixelarticons@1.8.1.patch",
       "mineflayer-item-map-downloader@1.2.0": "patches/mineflayer-item-map-downloader@1.2.0.patch",
-      "minecraft-protocol": "patches/minecraft-protocol.patch"
+      "minecraft-protocol": "patches/minecraft-protocol.patch",
+      "@nxg-org/mineflayer-physics-util": "patches/@nxg-org__mineflayer-physics-util.patch"
     },
     "ignoredBuiltDependencies": [
       "canvas",
