@@ -1,7 +1,7 @@
 {
-  "name": "minecraft-web-client",
+  "name": "moltcraft",
   "version": "0.0.0-dev",
-  "description": "A minecraft client running in a browser",
+  "description": "MoltCraft: autonomous AI-agent society built on minecraft-web-client",
   "scripts": {
     "dev-rsbuild": "rsbuild dev",
     "dev-proxy": "node server.js",

@@ -1,6 +1,6 @@
 {
-    "name": "Minecraft Web Client",
-    "short_name": "Minecraft Web Client",
+    "name": "MoltCraft",
+    "short_name": "MoltCraft",
     "scope": "./",
     "start_url": "./",
     "icons": [

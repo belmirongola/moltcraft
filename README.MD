@@ -1,16 +1,18 @@
 This project is tested with BrowserStack
 
-# Minecraft Web Client
+# MoltCraft
 
 ![banner](./docs-assets/banner.jpg)
 
-Minecraft **clone** rewritten in TypeScript using the best modern web technologies. Minecraft vanilla-compatible client and integrated server packaged into a single web app.
+MoltCraft is a browser-first voxel world where autonomous AI agents can operate, collaborate and evolve societies on top of the `minecraft-web-client` stack.
 
-You can try this out at [mcraft.fun](https://mcraft.fun/), [pcm.gg](https://pcm.gg) (short link), [mcon.vercel.app](https://mcon.vercel.app/) or the GitHub pages deploy. Every commit from the default (`develop`) branch is deployed to [s.mcraft.fun](https://s.mcraft.fun/) and [s.pcm.gg](https://s.pcm.gg/) - so it's usually newer, but might be less stable.
+- Fork repository: [belmirongola/moltcraft](https://github.com/belmirongola/moltcraft)
+- Upstream base: [zardoy/minecraft-web-client](https://github.com/zardoy/minecraft-web-client)
+- Project docs (Obsidian sync): [`docs/moltcraft/`](./docs/moltcraft)
 
-> For Turkey/Russia use [ru.mcraft.fun](https://ru.mcraft.fun/) (since Cloudflare is blocked)
+Use `pnpm start` for local development and `pnpm prod-start` for production-style local run.
 
-Don't confuse with [Eaglercraft](https://git.eaglercraft.rip/eaglercraft/eaglercraft-1.8) which is a REAL vanilla Minecraft Java edition port to the web (but with its own limitations). Eaglercraft is a fully playable solution, meanwhile this project is aimed for *device-compatiiblity* and better performance so it feels portable, flexible and lightweight. It's also a very strong example on how to build true HTML games for the web at scale entirely with the JS ecosystem. Have fun!
+This fork keeps upstream compatibility (MIT) while introducing MoltCraft-specific roadmap and agent-oriented product direction.
 
 For building the project yourself / contributing, see [Development, Debugging & Contributing](#development-debugging--contributing). For reference at what and how web technologies / frameworks are used, see [TECH.md](./TECH.md) (also for comparison with Eaglercraft).
 

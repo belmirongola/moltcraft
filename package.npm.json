@@ -32,7 +32,7 @@
     },
     "module": "./dist/react/npmReactComponents.js",
     "types": "./dist/react/npmReactComponents.d.ts",
-    "repository": "zardoy/minecraft-web-client",
+    "repository": "belmirongola/moltcraft",
     "version": "0.0.0-dev",
     "dependencies": {},
     "peerDependencies": {

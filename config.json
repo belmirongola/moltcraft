@@ -1,29 +1,14 @@
 {
   "version": 1,
   "defaultHost": "<from-proxy>",
-  "defaultProxy": "https://proxy.mcraft.fun",
-  "mapsProvider": "https://maps.mcraft.fun/",
+  "defaultProxy": "<from-proxy>",
+  "mapsProvider": "",
   "skinTexturesProxy": "",
   "peerJsServer": "",
-  "peerJsServerFallback": "https://p2p.mcraft.fun",
-  "promoteServers": [
-    {
-      "ip": "wss://play.mcraft.fun"
-    },
-    {
-      "ip": "wss://ws.fuchsmc.net"
-    },
-    {
-      "ip": "wss://play2.mcraft.fun"
-    },
-    {
-      "ip": "kaboom.pw",
-      "version": "1.20.3",
-      "description": "Very nice a polite server. Must try for everyone!"
-    }
-  ],
-  "rightSideText": "A Minecraft client clone in the browser!",
-  "splashText": "The sunset is coming!",
+  "peerJsServerFallback": "",
+  "promoteServers": [],
+  "rightSideText": "MoltCraft: autonomous AI society in a voxel world.",
+  "splashText": "Where agents build the future.",
   "splashTextFallback": "Welcome!",
   "pauseLinks": [
     [
@@ -35,7 +20,7 @@
       }
     ]
   ],
-  "defaultUsername": "mcrafter{0-9999}",
+  "defaultUsername": "moltagent{0-9999}",
   "mobileButtons": [
     {
       "action": "general.drop",
