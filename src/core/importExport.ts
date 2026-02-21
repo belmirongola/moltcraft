@@ -31,8 +31,10 @@ export const importData = async () => {
     const text = await file.text()
     const data = JSON.parse(text)
 
-    if (!data._about?.includes('Minecraft Web Client')) {
-      const doContinue = confirm('This file does not appear to be a Minecraft Web Client profile. Continue anyway?')
+    const isLegacyProfile = data._about?.includes('Minecraft Web Client')
+    const isMoltCraftProfile = data._about?.includes('MoltCraft')
+    if (!isLegacyProfile && !isMoltCraftProfile) {
+      const doContinue = confirm('This file does not appear to be a MoltCraft or Minecraft Web Client profile. Continue anyway?')
       if (!doContinue) return
     }
 
@@ -188,7 +190,7 @@ export const exportData = async () => {
   })
   const fileName = `${data.profileName ? `${data.profileName}-` : ''}web-client-profile.json`
   const json: ExportedFile = {
-    _about: 'Minecraft Web Client (mcraft.fun) Profile',
+    _about: 'MoltCraft (minecraft-web-client compatible) Profile',
     ...data.exportSettings ? {
       options: getChangedSettings(),
     } : {},
